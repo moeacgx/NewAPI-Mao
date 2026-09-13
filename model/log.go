@@ -98,10 +98,7 @@ func applyLogGroupNames(logs []*Log, groupNames map[string]string) {
 		if group == "" {
 			continue
 		}
-		log.GroupName = group
-		if name := strings.TrimSpace(groupNames[group]); name != "" {
-			log.GroupName = name
-		}
+		log.GroupName = FormatGroupDisplayNames(group, groupNames)
 	}
 }
 

@@ -337,23 +337,41 @@ func GetGroupDisplayNameMap() (map[string]string, error) {
 	return result, nil
 }
 
+// FormatGroupDisplayNames 将一个或多个分组标识转换为当前展示名称。
+// 分组标识以逗号分隔时保留原顺序并逐项转换；未知标识回退为原值，空输入返回空字符串。
+func FormatGroupDisplayNames(identifier string, names map[string]string) string {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return ""
+	}
+	parts := strings.Split(identifier, ",")
+	mapped := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		mapped = append(mapped, groupDisplayNameFromMap(part, names))
+	}
+	return strings.Join(mapped, ", ")
+}
+
 // GetGroupDisplayNameForError 将错误文本中的一个或多个分组标识转换为显示名称。
 // 分组标识内部使用逗号分隔时，保留原顺序并逐项转换；查询失败则回退原标识。
 func GetGroupDisplayNameForError(identifier string) string {
 	identifier = strings.TrimSpace(identifier)
-	if identifier == "" || DB == nil {
-		return identifier
+	if identifier == "" {
+		return ""
+	}
+	if DB == nil {
+		return FormatGroupDisplayNames(identifier, nil)
 	}
 
 	names, err := GetGroupDisplayNameMap()
 	if err != nil {
-		return identifier
+		return FormatGroupDisplayNames(identifier, nil)
 	}
-	parts := strings.Split(identifier, ",")
-	for index, part := range parts {
-		parts[index] = groupDisplayNameFromMap(strings.TrimSpace(part), names)
-	}
-	return strings.Join(parts, ", ")
+	return FormatGroupDisplayNames(identifier, names)
 }
 
 func groupDisplayNameFromMap(identifier string, names map[string]string) string {

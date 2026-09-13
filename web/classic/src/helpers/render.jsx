@@ -830,7 +830,11 @@ export function renderGroup(group, labels = {}) {
     premium: 'red',
   }
 
-  const groups = group.split(',').sort()
+  const groups = group
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .sort()
 
   return (
     <span key={group}>

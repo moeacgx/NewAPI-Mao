@@ -87,14 +87,7 @@ func loadTaskGroupDisplayNameMap(tasks []*model.Task) map[string]string {
 }
 
 func taskGroupDisplayName(group string, groupNames map[string]string) string {
-	group = strings.TrimSpace(group)
-	if group == "" {
-		return ""
-	}
-	if name := strings.TrimSpace(groupNames[group]); name != "" {
-		return name
-	}
-	return group
+	return model.FormatGroupDisplayNames(group, groupNames)
 }
 
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
