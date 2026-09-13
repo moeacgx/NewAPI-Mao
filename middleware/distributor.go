@@ -89,41 +89,20 @@ func applyPlaygroundRequestedGroup(c *gin.Context, inheritedGroup, requestedGrou
 	return requestedGroup, nil
 }
 
-func displayDistributorGroupIdentifier(group string, groupNames map[string]string) string {
-	group = strings.TrimSpace(group)
-	if group == "" {
-		return ""
+func distributorGroupIdentifier(usingGroup, selectGroup string) string {
+	using := strings.TrimSpace(usingGroup)
+	selected := strings.TrimSpace(selectGroup)
+	if using == "auto" && selected != "" && selected != "auto" {
+		return selected
 	}
-	if name := strings.TrimSpace(groupNames[group]); name != "" {
-		return name
+	if strings.Contains(using, ",") && selected != "" && selected != using && !strings.Contains(selected, ",") {
+		return selected
 	}
-	return group
-}
-
-func displayDistributorGroupList(groups string, groupNames map[string]string) string {
-	parts := strings.Split(groups, ",")
-	for index, group := range parts {
-		parts[index] = displayDistributorGroupIdentifier(group, groupNames)
-	}
-	return strings.Join(parts, ",")
+	return using
 }
 
 func formatDistributorGroupForMessage(usingGroup, selectGroup string, groupNames map[string]string) string {
-	using := strings.TrimSpace(usingGroup)
-	selected := strings.TrimSpace(selectGroup)
-	if using == "auto" {
-		if selected == "" || selected == "auto" {
-			return using
-		}
-		return fmt.Sprintf("auto(%s)", displayDistributorGroupList(selected, groupNames))
-	}
-	if strings.Contains(using, ",") {
-		if selected == "" || selected == using || strings.Contains(selected, ",") {
-			selected = using
-		}
-		return fmt.Sprintf("multi(%s)", displayDistributorGroupList(selected, groupNames))
-	}
-	return displayDistributorGroupIdentifier(using, groupNames)
+	return model.FormatGroupDisplayNames(distributorGroupIdentifier(usingGroup, selectGroup), groupNames)
 }
 
 func distributorGroupForMessage(usingGroup, selectGroup string) string {

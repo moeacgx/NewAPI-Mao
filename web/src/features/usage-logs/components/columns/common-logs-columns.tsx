@@ -564,6 +564,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       const displayName = sensitiveVisible ? tokenName : '••••'
       let group = log.group
       if (!group) group = other?.group || ''
+      const groupLabel = log.group_name || group
       const groupRatio = getGroupRatio(other)
 
       return (
@@ -592,7 +593,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               {group ? (
                 <GroupBadge
                   group={group}
-                  label={sensitiveVisible ? undefined : '••••'}
+                  label={sensitiveVisible ? groupLabel : '••••'}
                   type='text'
                   size='sm'
                   className='inline align-baseline text-xs leading-none [&>span]:leading-none'
