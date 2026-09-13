@@ -47,7 +47,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API, timestamp2string } from '../../helpers';
-import { normalizeNotificationFilterConfig } from './filter-config';
+import {
+  applyInsufficientBalanceDedupPreset,
+  normalizeNotificationFilterConfig,
+} from './filter-config';
 
 const { Text, Title } = Typography;
 
@@ -815,7 +818,34 @@ const NotificationCenter = () => {
           </div>
           {taskForm.event_type === CHANNEL_DISABLED_EVENT && (
             <div className='rounded border p-3'>
-              <Text strong>{t('筛选')}</Text>
+              <div className='flex flex-wrap items-start justify-between gap-2'>
+                <div>
+                  <Text strong>{t('筛选')}</Text>
+                  <div className='mt-1'>
+                    <Text type='tertiary' size='small'>
+                      {t(
+                        'Fills insufficient-balance keywords and a 5-minute prefix window.',
+                      )}
+                    </Text>
+                  </div>
+                </div>
+                <Button
+                  type='tertiary'
+                  onClick={() =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      name:
+                        String(current.name || '').trim() ||
+                        t('Insufficient-balance dedup notification'),
+                      filter_config: applyInsufficientBalanceDedupPreset(
+                        current.filter_config,
+                      ),
+                    }))
+                  }
+                >
+                  {t('Apply insufficient-balance dedup preset')}
+                </Button>
+              </div>
               <div className='mt-3'>
                 <Text>{t('Status code filter')}</Text>
                 <Input
@@ -860,6 +890,40 @@ const NotificationCenter = () => {
                 <div className='mt-1'>
                   <Text type='tertiary' size='small'>
                     {t('Matches any keyword in the upstream error message.')}
+                  </Text>
+                </div>
+              </div>
+              <div className='mt-3'>
+                <Text>{t('Channel name prefix dedup window (seconds)')}</Text>
+                <Input
+                  className='mt-2'
+                  type='number'
+                  min={0}
+                  max={86400}
+                  value={
+                    Number(taskForm.filter_config?.prefix_dedup_seconds) > 0
+                      ? taskForm.filter_config.prefix_dedup_seconds
+                      : ''
+                  }
+                  placeholder='300'
+                  onChange={(value) =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      filter_config: {
+                        ...current.filter_config,
+                        prefix_dedup_seconds:
+                          String(value || '').trim() === ''
+                            ? undefined
+                            : Number(value),
+                      },
+                    }))
+                  }
+                />
+                <div className='mt-1'>
+                  <Text type='tertiary' size='small'>
+                    {t(
+                      'Same provider prefix only notifies once within this window. Parsed as the text before the first / in the channel name. Leave empty to disable.',
+                    )}
                   </Text>
                 </div>
               </div>

@@ -35,9 +35,11 @@
 
 ## 渠道禁用筛选与 Classic 编辑
 
-`filter_config` 只对 `channel_disabled` 任务生效；其他事件类型的任务请求不得携带该字段。配置为空时不写入筛选 JSON。`status_codes` 是由服务端校验的 HTTP 状态码或范围字符串；`error_keywords` 会去除首尾空白并忽略空值，最多 64 项、每项最多 256 个 Unicode 字符。
+`filter_config` 只对 `channel_disabled` 任务生效；其他事件类型的任务请求不得携带该字段。配置为空时不写入筛选 JSON。`status_codes` 是由服务端校验的 HTTP 状态码或范围字符串；`error_keywords` 会去除首尾空白并忽略空值，最多 64 项、每项最多 256 个 Unicode 字符。`prefix_dedup_seconds` 是可选的短时去重窗口，取值 1 到 86400；未设置或为 0 时不去重。
 
 关键词匹配 `error_message` 或 `reason` 字段，多个关键词之间是 OR 关系；状态码和关键词同时填写时是 AND 关系。服务端匹配使用不区分大小写的 `strings.ToLower` 语义。
+
+`prefix_dedup_seconds` 在入队阶段按任务生效：渠道名按第一个 `/` 分段并去掉首尾空白，取前缀（例如 `DragAPI / Codex-Plus / 0.15x` 的前缀是 `DragAPI`）。同一任务、同一前缀在窗口内只创建第一次投递，后续事件直接跳过；没有该筛选的其他任务不受影响。窗口到期后下一次匹配会重新通知。Default 与 Classic 编辑器提供「余额不足去重」预设，会填入 `预扣费额度失败`、`余额不足` 两个关键词和 300 秒前缀窗口。
 
 Classic 通知任务编辑器使用 TextArea，每行一个报错关键词；打开已有任务时将 `error_keywords` 数组按换行回显，输入使用 `split(/\r?\n/)` 处理 LF 和 CRLF。保存时由 `normalizeNotificationFilterConfig` 去空行、trim 并按非 locale 的小写身份去重，保留首次出现的原始拼写。任务 Modal 的 class 挂在 Portal 外层，窄屏宽度规则直接约束其内层 `.semi-modal`，并对 `.semi-modal-content`、`.semi-modal-body-wrapper`、`.semi-modal-body` 和任务 body 设置盒模型收缩边界；目标卡片和输入宽度规则也均限定在该 class 下，footer 保持可达。
 

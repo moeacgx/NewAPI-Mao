@@ -835,3 +835,76 @@ func TestNotificationTaskFilterConfigFiltersDeliveriesAtEnqueue(t *testing.T) {
 	assert.Equal(t, tasks[0].Id, deliveries[0].TaskId)
 	assert.Equal(t, tasks[1].Id, deliveries[1].TaskId)
 }
+
+func TestNotificationChannelNamePrefixUsesFirstSlashSegment(t *testing.T) {
+	assert.Equal(t, "DragAPI", NotificationChannelNamePrefix("DragAPI / Codex-Plus / 0.15x"))
+	assert.Equal(t, "天才程序员", NotificationChannelNamePrefix("  天才程序员 / Codex-Pro / 0.12x "))
+	assert.Equal(t, "tokunexAPI", NotificationChannelNamePrefix("tokunexAPI / Codex-Pro / 0.18x"))
+	assert.Equal(t, "plain-channel", NotificationChannelNamePrefix("plain-channel"))
+	assert.Equal(t, "", NotificationChannelNamePrefix("   "))
+}
+
+func TestNotificationTaskPrefixDedupFiltersSameChannelNamePrefixWithinWindow(t *testing.T) {
+	setupNotificationTestDB(t)
+	bot := &NotificationBot{Name: "prefix bot", Token: "secret", Enabled: true}
+	require.NoError(t, CreateNotificationBot(bot))
+	dedupTask := &NotificationTask{
+		Name: "balance prefix", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true,
+		FilterConfig: `{"error_keywords":["预扣费额度失败","余额不足"],"prefix_dedup_seconds":300}`,
+	}
+	passthroughTask := &NotificationTask{
+		Name: "all disables", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true,
+	}
+	require.NoError(t, CreateNotificationTask(dedupTask))
+	require.NoError(t, CreateNotificationTask(passthroughTask))
+	require.NoError(t, CreateNotificationTarget(&NotificationTarget{TaskId: dedupTask.Id, ChatId: "dedup-chat", Enabled: true}))
+	require.NoError(t, CreateNotificationTarget(&NotificationTarget{TaskId: passthroughTask.Id, ChatId: "all-chat", Enabled: true}))
+
+	enqueue := func(eventKey, channelName string) {
+		t.Helper()
+		require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+			return EnqueueNotificationEventTx(tx, NotificationEventTypeChannelDisabled, eventKey, map[string]any{
+				"channel_id":    1,
+				"channel_name":  channelName,
+				"status_code":   403,
+				"error_message": "预扣费额度失败, 用户剩余额度: ¥0.004580, 需要预扣费额度: ¥0.020082",
+			})
+		}))
+	}
+
+	enqueue("channel:prefix:1", "DragAPI / Codex-Plus / 0.15x")
+	enqueue("channel:prefix:2", "DragAPI / CC-MAX-U / 1.1x")
+	enqueue("channel:prefix:3", "tokunexAPI / Codex-Pro / 0.18x")
+
+	var deliveries []NotificationDelivery
+	require.NoError(t, DB.Order("id asc").Find(&deliveries).Error)
+	require.Len(t, deliveries, 5)
+
+	dedupCount := 0
+	passthroughCount := 0
+	for _, delivery := range deliveries {
+		switch delivery.TaskId {
+		case dedupTask.Id:
+			dedupCount++
+		case passthroughTask.Id:
+			passthroughCount++
+		}
+	}
+	assert.Equal(t, 2, dedupCount)
+	assert.Equal(t, 3, passthroughCount)
+
+	var prefixReceipt NotificationEventReceipt
+	require.NoError(t, DB.Where("dedupe_key = ?", notificationPrefixDedupKey(dedupTask.Id, "DragAPI")).Take(&prefixReceipt).Error)
+	prefixReceipt.CreatedAt = nowUnix() - 301
+	require.NoError(t, DB.Save(&prefixReceipt).Error)
+	enqueue("channel:prefix:4", "DragAPI / Codex-Plus / 0.2x")
+
+	require.NoError(t, DB.Order("id asc").Find(&deliveries).Error)
+	dedupCount = 0
+	for _, delivery := range deliveries {
+		if delivery.TaskId == dedupTask.Id {
+			dedupCount++
+		}
+	}
+	assert.Equal(t, 3, dedupCount)
+}

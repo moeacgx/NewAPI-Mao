@@ -42,11 +42,12 @@ const (
 	NotificationEnqueueDuplicate                 = "duplicate"
 	NotificationEnqueueAcceptedWithoutSubscriber = "accepted_without_subscriber"
 
-	NotificationEventReceiptTTLSeconds = 90 * 24 * 60 * 60
-	notificationReceiptCleanupLimit    = 100
-	notificationClaimRetryDelaySeconds = 10
-	notificationSequenceLockKey        = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	notificationTokenCipherPrefix      = "enc:v1:"
+	NotificationEventReceiptTTLSeconds       = 90 * 24 * 60 * 60
+	NotificationChannelPrefixDedupMaxSeconds = 24 * 60 * 60
+	notificationReceiptCleanupLimit          = 100
+	notificationClaimRetryDelaySeconds       = 10
+	notificationSequenceLockKey              = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	notificationTokenCipherPrefix            = "enc:v1:"
 )
 
 // NotificationTaskDefaultTemplate 是发票待开票通知的默认内容。
@@ -102,8 +103,9 @@ type NotificationBotView struct {
 }
 
 type NotificationTaskFilterConfig struct {
-	StatusCodes   string   `json:"status_codes,omitempty"`
-	ErrorKeywords []string `json:"error_keywords,omitempty"`
+	StatusCodes        string   `json:"status_codes,omitempty"`
+	ErrorKeywords      []string `json:"error_keywords,omitempty"`
+	PrefixDedupSeconds int      `json:"prefix_dedup_seconds,omitempty"`
 }
 
 type NotificationTask struct {
@@ -171,7 +173,22 @@ type NotificationDeliveryWork struct {
 func nowUnix() int64 { return time.Now().Unix() }
 
 func (config NotificationTaskFilterConfig) IsEmpty() bool {
-	return strings.TrimSpace(config.StatusCodes) == "" && len(config.ErrorKeywords) == 0
+	return strings.TrimSpace(config.StatusCodes) == "" && len(config.ErrorKeywords) == 0 && config.PrefixDedupSeconds <= 0
+}
+
+// NotificationChannelNamePrefix 取渠道显示名第一个 `/` 之前的供应商前缀。
+// 运营侧常把同一上游拆成「供应商 / 分组 / 倍率」多条渠道，余额不足时会连续失败。
+func NotificationChannelNamePrefix(channelName string) string {
+	name := strings.TrimSpace(channelName)
+	if name == "" {
+		return ""
+	}
+	prefix, _, found := strings.Cut(name, "/")
+	prefix = strings.TrimSpace(prefix)
+	if !found || prefix == "" {
+		return name
+	}
+	return prefix
 }
 
 func (config NotificationTaskFilterConfig) Matches(payload map[string]any) bool {
@@ -241,6 +258,57 @@ func notificationTaskFilterMatches(raw string, payload map[string]any) bool {
 		return false
 	}
 	return config.Matches(payload)
+}
+
+func parseNotificationTaskFilterConfig(raw string) (NotificationTaskFilterConfig, bool) {
+	if strings.TrimSpace(raw) == "" {
+		return NotificationTaskFilterConfig{}, true
+	}
+	var config NotificationTaskFilterConfig
+	if err := common.UnmarshalJsonStr(raw, &config); err != nil {
+		return NotificationTaskFilterConfig{}, false
+	}
+	return config, true
+}
+
+func notificationPrefixDedupKey(taskID int, prefix string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("channel_name_prefix_dedup\x00%d\x00%s", taskID, strings.ToLower(prefix))))
+	return hex.EncodeToString(sum[:])
+}
+
+func notificationTaskPrefixDeduped(tx *gorm.DB, taskID int, rawFilter string, payload map[string]any, now int64) (bool, error) {
+	config, ok := parseNotificationTaskFilterConfig(rawFilter)
+	if !ok || config.PrefixDedupSeconds <= 0 || taskID <= 0 {
+		return false, nil
+	}
+	channelName, _ := payload["channel_name"].(string)
+	prefix := NotificationChannelNamePrefix(channelName)
+	if prefix == "" {
+		return false, nil
+	}
+	key := notificationPrefixDedupKey(taskID, prefix)
+	var stored NotificationEventReceipt
+	err := tx.Where("dedupe_key = ?", key).Take(&stored).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		receipt := NotificationEventReceipt{DedupeKey: key, ClaimToken: common.GetUUID(), CreatedAt: now}
+		if createErr := tx.Create(&receipt).Error; createErr != nil {
+			return false, createErr
+		}
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if now-stored.CreatedAt < int64(config.PrefixDedupSeconds) {
+		return true, nil
+	}
+	if err := tx.Model(&NotificationEventReceipt{}).Where("id = ?", stored.Id).Updates(map[string]any{
+		"created_at":  now,
+		"claim_token": common.GetUUID(),
+	}).Error; err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // LockNotificationSequenceTx 串行化订阅激活和事件入队。
@@ -900,9 +968,17 @@ func enqueueNotificationEventTx(tx *gorm.DB, eventType, eventKey string, payload
 	}
 	filtered := subscribers[:0]
 	for _, subscriber := range subscribers {
-		if notificationTaskFilterMatches(subscriber.FilterConfig, payload) {
-			filtered = append(filtered, subscriber)
+		if !notificationTaskFilterMatches(subscriber.FilterConfig, payload) {
+			continue
 		}
+		skipped, dedupErr := notificationTaskPrefixDeduped(tx, subscriber.TaskId, subscriber.FilterConfig, payload, now)
+		if dedupErr != nil {
+			return NotificationEnqueueResult{}, dedupErr
+		}
+		if skipped {
+			continue
+		}
+		filtered = append(filtered, subscriber)
 	}
 	if len(filtered) == 0 {
 		// 没有启用的接收目标或没有匹配筛选条件时不积累事件 payload。

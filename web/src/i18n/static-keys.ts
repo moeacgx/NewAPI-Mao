@@ -604,6 +604,11 @@ export const STATIC_I18N_KEYS = [
   'Channel enabled',
   'Triggered after a channel is automatically disabled.',
   'Triggered after an automatically disabled channel recovers.',
+  'Apply insufficient-balance dedup preset',
+  'Channel name prefix dedup window (seconds)',
+  'Fills insufficient-balance keywords and a 5-minute prefix window.',
+  'Insufficient-balance dedup notification',
+  'Same provider prefix only notifies once within this window. Parsed as the text before the first / in the channel name. Leave empty to disable.',
   // Notification template variables
   'A value from the event payload',
   'Channel display name',

@@ -20,7 +20,10 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { normalizeNotificationFilterConfig } from '../filter-config.js';
+import {
+  applyInsufficientBalanceDedupPreset,
+  normalizeNotificationFilterConfig,
+} from '../filter-config.js';
 
 const notificationSource = fs.readFileSync(
   new URL('../index.jsx', import.meta.url),
@@ -55,6 +58,33 @@ test('空筛选不会写入无效配置', () => {
       error_keywords: [' ', ''],
     }),
     undefined,
+  );
+});
+
+test('保留渠道名前缀去重窗口', () => {
+  assert.deepEqual(
+    normalizeNotificationFilterConfig({
+      error_keywords: ['预扣费额度失败'],
+      prefix_dedup_seconds: '300',
+    }),
+    {
+      error_keywords: ['预扣费额度失败'],
+      prefix_dedup_seconds: 300,
+    },
+  );
+});
+
+test('余额不足预设填入关键词和前缀去重窗口', () => {
+  assert.deepEqual(
+    applyInsufficientBalanceDedupPreset({
+      status_codes: '403',
+      error_keywords: ['quota'],
+    }),
+    {
+      status_codes: '403',
+      error_keywords: ['预扣费额度失败', '余额不足', 'quota'],
+      prefix_dedup_seconds: 300,
+    },
   );
 });
 

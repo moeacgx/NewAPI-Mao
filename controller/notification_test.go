@@ -155,6 +155,31 @@ func TestNotificationTaskControllerAcceptsChannelFilters(t *testing.T) {
 	require.Equal(t, []string{"balance", "quota"}, response.Data[0].FilterConfig.ErrorKeywords)
 }
 
+func TestNotificationTaskControllerAcceptsPrefixDedupFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupNotificationControllerTestDB(t)
+	bot := &model.NotificationBot{Name: "channel bot", Token: "secret", Enabled: true}
+	require.NoError(t, model.CreateNotificationBot(bot))
+	body := fmt.Sprintf(`{"name":"balance dedup","event_type":"%s","bot_id":%d,"template":"{{channel_name}} {{error_message}}","filter_config":{"error_keywords":["预扣费额度失败","余额不足"],"prefix_dedup_seconds":300},"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`, model.NotificationEventTypeChannelDisabled, bot.Id)
+	create := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", body, 0)
+	require.Contains(t, create.Body.String(), `"success":true`)
+
+	list := invokeNotificationHandler(ListNotificationTasks, common.RoleRootUser, http.MethodGet, "/api/notification/tasks", "", 0)
+	var response struct {
+		Data []notificationTaskResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(list.Body.Bytes(), &response))
+	require.Len(t, response.Data, 1)
+	require.NotNil(t, response.Data[0].FilterConfig)
+	require.Equal(t, []string{"预扣费额度失败", "余额不足"}, response.Data[0].FilterConfig.ErrorKeywords)
+	require.Equal(t, 300, response.Data[0].FilterConfig.PrefixDedupSeconds)
+
+	invalid := fmt.Sprintf(`{"name":"too long","event_type":"%s","bot_id":%d,"template":"{{channel_name}}","filter_config":{"prefix_dedup_seconds":90000},"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`, model.NotificationEventTypeChannelDisabled, bot.Id)
+	rejected := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", invalid, 0)
+	require.Contains(t, rejected.Body.String(), `"success":false`)
+	require.Contains(t, rejected.Body.String(), "前缀去重窗口")
+}
+
 func TestNotificationTaskControllerMigratesLegacyTemplateAndRejectsCustomUnknownVariable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	setupNotificationControllerTestDB(t)

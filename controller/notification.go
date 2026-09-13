@@ -116,6 +116,9 @@ func validateNotificationTaskFilterConfig(eventType string, config *model.Notifi
 		return errors.New("通知报错关键词最多允许 64 个")
 	}
 	config.ErrorKeywords = keywords
+	if config.PrefixDedupSeconds < 0 || config.PrefixDedupSeconds > model.NotificationChannelPrefixDedupMaxSeconds {
+		return fmt.Errorf("渠道名前缀去重窗口必须在 0 到 %d 秒之间", model.NotificationChannelPrefixDedupMaxSeconds)
+	}
 	if config.IsEmpty() {
 		return nil
 	}

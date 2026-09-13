@@ -30,6 +30,7 @@ export interface NotificationTarget {
 export interface NotificationTaskFilterConfig {
   status_codes?: string
   error_keywords?: string[]
+  prefix_dedup_seconds?: number
 }
 
 export interface NotificationTask {
