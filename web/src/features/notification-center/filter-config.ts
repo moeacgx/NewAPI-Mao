@@ -11,10 +11,10 @@ import type { NotificationTaskFilterConfig } from './types'
 
 export const CHANNEL_DISABLED_EVENT = 'channel_disabled'
 
-export const INSUFFICIENT_BALANCE_KEYWORDS = [
+export const INSUFFICIENT_BALANCE_KEYWORDS: string[] = [
   '预扣费额度失败',
   '余额不足',
-] as const
+]
 
 export const INSUFFICIENT_BALANCE_PREFIX_DEDUP_SECONDS = 300
 
@@ -50,7 +50,7 @@ export function normalizeTaskFilterConfig(
 export function applyInsufficientBalanceDedupPreset(
   config: NotificationTaskFilterConfig | undefined
 ): NotificationTaskFilterConfig {
-  const keywords = [...INSUFFICIENT_BALANCE_KEYWORDS]
+  const keywords: string[] = [...INSUFFICIENT_BALANCE_KEYWORDS]
   const existing = (config?.error_keywords ?? [])
     .map((keyword) => keyword.trim())
     .filter(Boolean)
