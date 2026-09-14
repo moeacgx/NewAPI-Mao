@@ -5840,6 +5840,12 @@
     "特殊计费表达式": "Expression de facturation spéciale",
     "无法解析结构化价格": "Impossible d’analyser le tarif structuré",
     "该表达式不是标准分档计费表达式，无法展开分组价格。": "Les prix par groupe ne peuvent pas être détaillés car cette expression n’est pas une expression tarifaire par paliers standard.",
-    "原始表达式": "Expression brute"
+    "原始表达式": "Expression brute",
+    "时间范围": "Plage horaire",
+    "额度详情": "Détails du quota",
+    "导出兑换码": "Exporter les codes",
+    "文件格式": "Format du fichier",
+    "包含名称": "Inclure le nom",
+    "包含额度": "Inclure le quota"
   }
 }

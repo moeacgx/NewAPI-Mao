@@ -27,6 +27,7 @@ import {
   timestamp2string,
   verifyJSON,
 } from '../../../../helpers';
+import { useUserPermissions } from '../../../../hooks/common/useUserPermissions';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import { CHANNEL_OPTIONS, MODEL_FETCHABLE_CHANNEL_TYPES } from '../../../../constants';
 import {
@@ -174,6 +175,8 @@ const EditChannelModal = (props) => {
   const { t } = useTranslation();
   const channelId = props.editingChannel.id;
   const isEdit = channelId !== undefined;
+  const { permissions } = useUserPermissions();
+  const canWriteSensitive = permissions?.admin_permissions?.channel?.sensitive_write === true;
   const [loading, setLoading] = useState(isEdit);
   const isMobile = useIsMobile();
   const handleCancel = () => {
@@ -2166,6 +2169,8 @@ const EditChannelModal = (props) => {
           convertToMultiKey,
           keyMode,
           multiKeyMode,
+          canWriteSensitive,
+          hasNewKey: Boolean(localInputs.key?.trim()),
         }),
       });
     } else {
@@ -3772,6 +3777,7 @@ const EditChannelModal = (props) => {
                     {isEdit && editingMultiKey && (
                       <Form.Select
                         field='key_mode'
+                        disabled={!canWriteSensitive}
                         initValue={keyMode}
                         label={t('密钥更新模式')}
                         placeholder={t('请选择密钥更新模式')}
@@ -3795,6 +3801,7 @@ const EditChannelModal = (props) => {
                       <>
                         <Form.Select
                           field='multi_key_mode'
+                          disabled={isEdit && !canWriteSensitive}
                           label={t('密钥聚合模式')}
                           placeholder={t('请选择多密钥使用策略')}
                           optionList={[

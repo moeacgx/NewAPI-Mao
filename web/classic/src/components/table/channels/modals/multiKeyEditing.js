@@ -41,11 +41,13 @@ export function buildChannelKeyUpdateFields({
   convertToMultiKey = false,
   keyMode = 'append',
   multiKeyMode = 'random',
+  canWriteSensitive = true,
+  hasNewKey = true,
 }) {
-  const enabled = isMultiKeyChannel || convertToMultiKey;
+  const enabled = canWriteSensitive && (isMultiKeyChannel || convertToMultiKey);
   return {
-    convert_to_multi_key: convertToMultiKey || undefined,
-    key_mode: enabled ? keyMode : undefined,
+    convert_to_multi_key: (canWriteSensitive && convertToMultiKey) || undefined,
+    key_mode: enabled && hasNewKey ? keyMode : undefined,
     multi_key_mode: enabled ? multiKeyMode : undefined,
   };
 }

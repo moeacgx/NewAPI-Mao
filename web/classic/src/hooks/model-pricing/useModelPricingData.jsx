@@ -86,7 +86,7 @@ export const useModelPricingData = () => {
     [statusState],
   );
 
-  // 默认货币与站点展示类型同步；TOKENS 由视图层走倍率展示
+  // 默认货币与站点展示类型同步；TOKENS 额度模式默认使用美元价格
   const siteDisplayType = useMemo(
     () => statusState?.status?.quota_display_type || 'USD',
     [statusState],
@@ -103,7 +103,6 @@ export const useModelPricingData = () => {
 
   useEffect(() => {
     if (siteDisplayType === 'TOKENS') {
-      setShowWithRecharge(false);
       setCurrency('USD');
     }
   }, [siteDisplayType]);

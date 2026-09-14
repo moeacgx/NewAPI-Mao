@@ -736,7 +736,6 @@ export const calculateModelPrice = ({
   // 3. 根据计费类型计算价格
   if (record.quota_type === 0) {
     // 按量计费
-    const isTokensDisplay = quotaDisplayType === 'TOKENS';
     const inputRatioPriceUSD = record.model_ratio * 2 * usedGroupRatio;
     const originalInputRatioPriceUSD = record.model_ratio * 2;
     const unitDivisor = tokenUnit === 'K' ? 1000 : 1;
@@ -746,25 +745,6 @@ export const calculateModelPrice = ({
       value !== null &&
       value !== '' &&
       Number.isFinite(Number(value));
-
-    const formatRatio = (value) =>
-      hasRatioValue(value) ? Number(Number(value).toFixed(6)) : null;
-
-    if (isTokensDisplay) {
-      return {
-        inputRatio: formatRatio(record.model_ratio),
-        completionRatio: formatRatio(record.completion_ratio),
-        cacheRatio: formatRatio(record.cache_ratio),
-        createCacheRatio: formatRatio(record.create_cache_ratio),
-        imageRatio: formatRatio(record.image_ratio),
-        audioInputRatio: formatRatio(record.audio_ratio),
-        audioOutputRatio: formatRatio(record.audio_completion_ratio),
-        isPerToken: true,
-        isTokensDisplay: true,
-        usedGroup,
-        usedGroupRatio,
-      };
-    }
 
     let symbol = '$';
     if (currency === 'CNY') {
@@ -948,56 +928,6 @@ export const getModelPriceItems = (
   }
 
   if (priceData.isPerToken) {
-    if (quotaDisplayType === 'TOKENS' || priceData.isTokensDisplay) {
-      return [
-        {
-          key: 'input-ratio',
-          label: t('输入倍率'),
-          value: priceData.inputRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'completion-ratio',
-          label: t('补全倍率'),
-          value: priceData.completionRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'cache-ratio',
-          label: t('缓存读取倍率'),
-          value: priceData.cacheRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'create-cache-ratio',
-          label: t('缓存创建倍率'),
-          value: priceData.createCacheRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'image-ratio',
-          label: t('图片输入倍率'),
-          value: priceData.imageRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'audio-input-ratio',
-          label: t('音频输入倍率'),
-          value: priceData.audioInputRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'audio-output-ratio',
-          label: t('音频补全倍率'),
-          value: priceData.audioOutputRatio,
-          suffix: 'x',
-        },
-      ].filter(
-        (item) =>
-          item.value !== null && item.value !== undefined && item.value !== '',
-      );
-    }
-
     const unitSuffix = ` / 1${priceData.unitLabel} Tokens`;
     return [
       {
@@ -1139,7 +1069,7 @@ export const formatDynamicPriceSummary = (billingExpr, t, groupRatio = 1) => {
     }
   } catch (e) {}
 
-  const gr = groupRatio || 1;
+  const gr = groupRatio ?? 1;
   const exprBody = billingExpr.replace(/^v\d+:/, '');
   const tierMatches = exprBody.match(/tier\(/g) || [];
   const tierCount = tierMatches.length;

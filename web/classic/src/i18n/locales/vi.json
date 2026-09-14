@@ -6325,6 +6325,12 @@
     "特殊计费表达式": "Biểu thức tính phí đặc biệt",
     "无法解析结构化价格": "Không thể phân tích giá có cấu trúc",
     "该表达式不是标准分档计费表达式，无法展开分组价格。": "Không thể mở rộng giá theo nhóm vì biểu thức này không phải là biểu thức giá theo bậc tiêu chuẩn.",
-    "原始表达式": "Biểu thức gốc"
+    "原始表达式": "Biểu thức gốc",
+    "时间范围": "Khoảng thời gian",
+    "额度详情": "Chi tiết hạn mức",
+    "导出兑换码": "Xuất mã đổi thưởng",
+    "文件格式": "Định dạng tệp",
+    "包含名称": "Bao gồm tên",
+    "包含额度": "Bao gồm hạn mức"
   }
 }

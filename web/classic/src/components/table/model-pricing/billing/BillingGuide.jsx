@@ -224,7 +224,7 @@ const BillingGuide = ({
     [groups, selectedGroupName],
   );
 
-  const effectiveCurrency = siteDisplayType === 'TOKENS' ? 'USD' : currency;
+  const effectiveCurrency = currency;
   const factors = useMemo(
     () =>
       getBillingFactors({

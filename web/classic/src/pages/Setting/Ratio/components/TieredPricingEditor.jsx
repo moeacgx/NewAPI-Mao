@@ -1374,9 +1374,9 @@ function LlmPromptHelper({ t, model }) {
 export default function TieredPricingEditor({ model, onExprChange, requestRuleExpr, onRequestRuleExprChange, t }) {
   const currentExpr = model?.billingExpr || '';
 
-  const [editorMode, setEditorMode] = useState('visual');
-  const [visualConfig, setVisualConfig] = useState(null);
-  const [rawExpr, setRawExpr] = useState('');
+  const [editorMode, setEditorMode] = useState(() => currentExpr && !tryParseVisualConfig(currentExpr) ? 'raw' : 'visual');
+  const [visualConfig, setVisualConfig] = useState(() => tryParseVisualConfig(currentExpr) || createDefaultVisualConfig());
+  const [rawExpr, setRawExpr] = useState(() => combineBillingExpr(currentExpr, requestRuleExpr));
   const [promptTokens, setPromptTokens] = useState(200000);
   const [completionTokens, setCompletionTokens] = useState(10000);
   const [cacheReadTokens, setCacheReadTokens] = useState(0);
@@ -1413,10 +1413,10 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
     if (parsed) {
       setEditorMode('visual');
       setVisualConfig(parsed);
-      setRawExpr(currentExpr);
+      setRawExpr(combineBillingExpr(currentExpr, currentRequestRuleExpr));
     } else if (currentExpr) {
       setEditorMode('raw');
-      setRawExpr(currentExpr);
+      setRawExpr(combineBillingExpr(currentExpr, currentRequestRuleExpr));
       setVisualConfig(null);
     } else {
       setEditorMode('visual');
@@ -1433,44 +1433,44 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
     return billingExpr;
   }, [editorMode, visualConfig, rawExpr]);
 
-  useEffect(() => {
-    if (effectiveExpr !== currentExpr) {
-      onExprChange(effectiveExpr);
-    }
-  }, [effectiveExpr]);
-
   const handleVisualChange = useCallback((newConfig) => {
     setVisualConfig(newConfig);
-  }, []);
+    onExprChange(generateExprFromVisualConfig(newConfig));
+  }, [onExprChange]);
 
   const handleRawChange = useCallback((val) => {
     setRawExpr(val);
-    const { requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(val);
+    const { billingExpr, requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(val);
+    onExprChange(billingExpr);
     onRequestRuleExprChange(ruleStr);
-  }, [onRequestRuleExprChange]);
+  }, [onExprChange, onRequestRuleExprChange]);
 
   const handleModeSwitch = useCallback(
     (e) => {
       const newMode = e.target.value;
       if (newMode === 'visual') {
-        const { billingExpr, requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(rawExpr);
+        const unchanged = rawExpr === combineBillingExpr(currentExpr, currentRequestRuleExpr);
+        const { billingExpr, requestRuleExpr: ruleStr } = unchanged
+          ? { billingExpr: currentExpr, requestRuleExpr: currentRequestRuleExpr }
+          : splitBillingExprAndRequestRules(rawExpr);
         const parsed = tryParseVisualConfig(billingExpr);
         if (parsed) {
           setVisualConfig(parsed);
         } else {
-          setVisualConfig(createDefaultVisualConfig());
+          // 未识别的公式保持原文，不能用默认价格替换。
+          return;
         }
         const parsedGroups = tryParseRequestRuleExpr(ruleStr);
         setRequestRuleGroups(parsedGroups || []);
         onRequestRuleExprChange(ruleStr);
       } else {
-        const expr = generateExprFromVisualConfig(visualConfig);
-        const ruleExpr = buildRequestRuleExpr(requestRuleGroups);
+        const expr = currentExpr || generateExprFromVisualConfig(visualConfig);
+        const ruleExpr = currentRequestRuleExpr;
         setRawExpr(combineBillingExpr(expr, ruleExpr) || expr);
       }
       setEditorMode(newMode);
     },
-    [rawExpr, visualConfig, requestRuleGroups, onRequestRuleExprChange],
+    [rawExpr, visualConfig, currentExpr, currentRequestRuleExpr, onRequestRuleExprChange],
   );
 
   const applyPreset = useCallback(
@@ -1487,9 +1487,10 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
         setVisualConfig(null);
       }
       setRequestRuleGroups(presetGroups);
+      onExprChange(preset.expr);
       onRequestRuleExprChange(ruleExpr);
     },
-    [onRequestRuleExprChange],
+    [onExprChange, onRequestRuleExprChange],
   );
 
   const extraTokenValues = {

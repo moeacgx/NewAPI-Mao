@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { Modal, Tag, Typography, Avatar } from '@douyinfe/semi-ui'
+import { MODEL_PROVIDER_RULES, resolveModelProvider } from './modelProvider';
+import wanIcon from '../assets/wan.png';
 import * as LobeIcons from '@lobehub/icons'
 import {
   OpenAI,
@@ -199,154 +201,19 @@ export const getModelCategories = (() => {
       return categoriesCache
     }
 
-    categoriesCache = {
-      all: {
-        label: t('全部模型'),
-        icon: null,
-        filter: () => true,
-      },
-      openai: {
-        label: 'OpenAI',
-        icon: <OpenAI />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('gpt') ||
-          model.model_name.toLowerCase().includes('dall-e') ||
-          model.model_name.toLowerCase().includes('whisper') ||
-          model.model_name.toLowerCase().includes('tts-1') ||
-          model.model_name.toLowerCase().includes('text-embedding-3') ||
-          model.model_name.toLowerCase().includes('text-moderation') ||
-          model.model_name.toLowerCase().includes('babbage') ||
-          model.model_name.toLowerCase().includes('davinci') ||
-          model.model_name.toLowerCase().includes('curie') ||
-          model.model_name.toLowerCase().includes('ada') ||
-          model.model_name.toLowerCase().includes('o1') ||
-          model.model_name.toLowerCase().includes('o3') ||
-          model.model_name.toLowerCase().includes('o4'),
-      },
-      anthropic: {
-        label: 'Anthropic',
-        icon: <Claude.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('claude'),
-      },
-      gemini: {
-        label: 'Gemini',
-        icon: <Gemini.Color />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('gemini') ||
-          model.model_name.toLowerCase().includes('gemma') ||
-          model.model_name.toLowerCase().includes('learnlm') ||
-          model.model_name.toLowerCase().startsWith('embedding-') ||
-          model.model_name.toLowerCase().includes('text-embedding-004') ||
-          model.model_name.toLowerCase().includes('imagen-4') ||
-          model.model_name.toLowerCase().includes('veo-') ||
-          model.model_name.toLowerCase().includes('aqa'),
-      },
-      moonshot: {
-        label: 'Moonshot',
-        icon: <Moonshot />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('moonshot') ||
-          model.model_name.toLowerCase().includes('kimi'),
-      },
-      zhipu: {
-        label: t('智谱'),
-        icon: <Zhipu.Color />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('chatglm') ||
-          model.model_name.toLowerCase().includes('glm-') ||
-          model.model_name.toLowerCase().includes('cogview') ||
-          model.model_name.toLowerCase().includes('cogvideo'),
-      },
-      qwen: {
-        label: t('通义千问'),
-        icon: <Qwen.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('qwen'),
-      },
-      deepseek: {
-        label: 'DeepSeek',
-        icon: <DeepSeek.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('deepseek'),
-      },
-      minimax: {
-        label: 'MiniMax',
-        icon: <Minimax.Color />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('abab') ||
-          model.model_name.toLowerCase().includes('minimax'),
-      },
-      baidu: {
-        label: t('文心一言'),
-        icon: <Wenxin.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('ernie'),
-      },
-      xunfei: {
-        label: t('讯飞星火'),
-        icon: <Spark.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('spark'),
-      },
-      midjourney: {
-        label: 'Midjourney',
-        icon: <Midjourney />,
-        filter: (model) => model.model_name.toLowerCase().includes('mj_'),
-      },
-      tencent: {
-        label: t('腾讯混元'),
-        icon: <Hunyuan.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('hunyuan'),
-      },
-      cohere: {
-        label: 'Cohere',
-        icon: <Cohere.Color />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('command') ||
-          model.model_name.toLowerCase().includes('c4ai-') ||
-          model.model_name.toLowerCase().includes('embed-'),
-      },
-      cloudflare: {
-        label: 'Cloudflare',
-        icon: <Cloudflare.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('@cf/'),
-      },
-      ai360: {
-        label: t('360智脑'),
-        icon: <Ai360.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('360'),
-      },
-      jina: {
-        label: 'Jina',
-        icon: <Jina />,
-        filter: (model) => model.model_name.toLowerCase().includes('jina'),
-      },
-      mistral: {
-        label: 'Mistral AI',
-        icon: <Mistral.Color />,
-        filter: (model) =>
-          model.model_name.toLowerCase().includes('mistral') ||
-          model.model_name.toLowerCase().includes('codestral') ||
-          model.model_name.toLowerCase().includes('pixtral') ||
-          model.model_name.toLowerCase().includes('voxtral') ||
-          model.model_name.toLowerCase().includes('magistral'),
-      },
-      xai: {
-        label: 'xAI',
-        icon: <XAI />,
-        filter: (model) => model.model_name.toLowerCase().includes('grok'),
-      },
-      llama: {
-        label: 'Llama',
-        icon: <Ollama />,
-        filter: (model) => model.model_name.toLowerCase().includes('llama'),
-      },
-      doubao: {
-        label: t('豆包'),
-        icon: <Doubao.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('doubao'),
-      },
-      yi: {
-        label: t('零一万物'),
-        icon: <Yi.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('yi'),
-      },
+    // 分类和日志标签共用同一推断，避免宽泛模型别名抢先匹配供应商。
+    const legacyKeys = { '360 AI': 'ai360', 'iFlytek': 'xunfei', 'Meta': 'llama' };
+    const legacyLabels = { '360 AI': t('360智脑'), Qwen: t('通义千问'), Zhipu: t('智谱'), Baidu: t('文心一言'), iFlytek: t('讯飞星火'), Tencent: t('腾讯混元'), Doubao: t('豆包'), Yi: t('零一万物') };
+    categoriesCache = { all: { label: t('全部模型'), icon: null, filter: () => true } };
+    for (const provider of MODEL_PROVIDER_RULES) {
+      const key = legacyKeys[provider.name] || provider.name.toLowerCase();
+      categoriesCache[key] = {
+        label: legacyLabels[provider.name] || provider.name,
+        icon: provider.name === 'Wan'
+          ? <img src={wanIcon} alt='' width={14} height={14} />
+          : getLobeHubIcon(provider.icon),
+        filter: (model) => resolveModelProvider(model.model_name)?.name === provider.name,
+      };
     }
 
     lastLocale = currentLocale
