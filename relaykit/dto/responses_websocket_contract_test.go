@@ -94,3 +94,64 @@ func TestResponsesOutputDetailsDistinguishesAbsentFromExplicitZero(t *testing.T)
 		})
 	}
 }
+
+func TestOpenAIBillingUsageOutputDetailsIsolation(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		construct func(*Usage) *BillingUsage
+	}{
+		{name: "Responses", construct: NewOpenAIResponsesBillingUsage},
+		{name: "Chat", construct: NewOpenAIChatBillingUsage},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := &Usage{OutputTokens: 10, OutputTokensDetails: &OutputTokenDetails{ReasoningTokens: 5, AudioTokens: 2, ImageTokens: 3}}
+			snapshot := tc.construct(source)
+			require.NotNil(t, snapshot)
+			require.NotNil(t, snapshot.OpenAIUsage)
+			cloned := CloneBillingUsage(snapshot)
+			require.NotNil(t, cloned)
+			require.NotNil(t, cloned.OpenAIUsage)
+			require.NotNil(t, snapshot.OpenAIUsage.OutputTokensDetails)
+			require.NotNil(t, cloned.OpenAIUsage.OutputTokensDetails)
+
+			source.OutputTokensDetails.ReasoningTokens = 99
+			assert.Equal(t, 5, snapshot.OpenAIUsage.OutputTokensDetails.ReasoningTokens)
+			assert.Equal(t, 5, cloned.OpenAIUsage.OutputTokensDetails.ReasoningTokens)
+			snapshot.OpenAIUsage.OutputTokensDetails.AudioTokens = 8
+			assert.Equal(t, 2, source.OutputTokensDetails.AudioTokens)
+			assert.Equal(t, 2, cloned.OpenAIUsage.OutputTokensDetails.AudioTokens)
+			cloned.OpenAIUsage.OutputTokensDetails.ImageTokens = 9
+			assert.Equal(t, 3, source.OutputTokensDetails.ImageTokens)
+			assert.Equal(t, 3, snapshot.OpenAIUsage.OutputTokensDetails.ImageTokens)
+		})
+	}
+}
+
+func TestResponsesBillingSnapshotPreservesOptionalOutputDetails(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		body    string
+		present bool
+	}{
+		{name: "缺省", body: `{"output_tokens":1}`},
+		{name: "空值", body: `{"output_tokens":1,"output_tokens_details":null}`},
+		{name: "显式零对象", body: `{"output_tokens":1,"output_tokens_details":{"reasoning_tokens":0}}`, present: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var source Usage
+			require.NoError(t, kitutil.Unmarshal([]byte(tc.body), &source))
+			snapshot := NewOpenAIResponsesBillingUsage(&source)
+			require.NotNil(t, snapshot)
+			cloned := CloneBillingUsage(snapshot)
+			require.NotNil(t, cloned)
+			for _, usage := range []*Usage{snapshot.OpenAIUsage, cloned.OpenAIUsage} {
+				require.NotNil(t, usage)
+				assert.Equal(t, tc.present, usage.OutputTokensDetails != nil)
+				if tc.present {
+					require.NotNil(t, usage.OutputTokensDetails)
+					assert.Zero(t, usage.OutputTokensDetails.ReasoningTokens)
+				}
+			}
+		})
+	}
+}

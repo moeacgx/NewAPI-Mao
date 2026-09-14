@@ -219,6 +219,17 @@ go test ./service -run '^TestAuditResponses' -count=1 -timeout=60s
 
 ## 验证记录
 
+### PR #211 快照隔离复审
+
+复审确认新增 OutputTokensDetails 指针经 cloneOpenAIUsage 的浅拷贝发生共享。
+修改源对象可污染 NewOpenAIResponsesBillingUsage/CloneBillingUsage 的输出详情快照。
+本次仅在同一深复制入口复制非 nil 的 OutputTokensDetails，不注册路由，也不改变计费字段值。
+覆盖 Chat/Responses 两种构造、再次克隆及源/两份快照的双向修改隔离；缺失/null 保持 nil，
+显式零对象保持存在。Relay 运行时补丁保留在独立分支，本修复不混入该分支。
+红灯已复现：修改源 ReasoningTokens 为 99 后两份快照同步变成 99，反向修改音频/图片字段
+也相互污染。修复后双向隔离与缺省/null/零对象用例通过；windows/amd64 的独立
+`GOWORK=off go build ./...` 和 `go test ./dto ./relayconvert/... -count=1 -timeout=60s` 通过。
+
 2026-09-15 同步到 `45ab82100` 后重新验证：windows/amd64 下独立 relaykit build、
 `./dto ./relayconvert/...` 测试均通过；根模块 controller、middleware、relay、
 relay/channel/openai、service 聚焦测试通过，新增包含管理错误日志展示和 HTTP 输入清理。
