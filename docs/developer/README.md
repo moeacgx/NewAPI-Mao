@@ -1,5 +1,7 @@
 # 开发文档
 
+- [Responses WebSocket 专项集成审查](responses-websocket-integration.md)：`9fe0457ee` 的协议、计费与本地扩展契约审查；仅 DTO 准备，默认关闭，运行时禁止直接合入。
+
 - [maolaoapi 渠道余额不足前缀去重与 .322 发布](../workflows/2026-09/13_maolaoapi_channel_prefix_dedup_322_release.md)：发布 `v1.0.0-rc.10.1.10.322` 的 GitHub/GHCR 产物，不合入线上容器。
 - [zhishiapi 三节点负载均衡与 .321 发布](../workflows/2026-09/12_zhishiapi_cluster_321_release.md)：将 `zhishiapi.com` 扩成三应用容器并切 Nginx 分流，应用镜像更新到 `v1.0.0-rc.10.1.10.321`。
 - [maolaoapi 直登会话寿命与 .321 发布](../workflows/2026-09/12_maolaoapi_direct_login_321_release.md)：发布 `v1.0.0-rc.10.1.10.321`，将直登会话票 30 天寿命与 Authorization 回落修复滚动更新到 maolaoapi 三应用。
