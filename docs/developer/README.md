@@ -1,5 +1,11 @@
 # 开发文档
 
+- [Default 前端上游集成评估与实现](../workflows/2026-09/15_default_upstream_integration.md)：逐域移植兼容修复，保留本地渠道、日志、分组、定价与通知契约，并列出尚需后端协同的冲突。
+- [Default 渠道多 Key 策略编辑](../workflows/2026-09/15_default_channels_upstream.md)：敏感权限控制下修改策略，保留现有密钥与追加、替换行为。
+- [Default 价格时间规则与日志筛选修复](../workflows/2026-09/15_default_pricing_upstream.md)：同日和跨午夜条件、价格货币单位及避免密码自动填充。
+- [Default 价格编辑器历史规则保留](../workflows/2026-09/15_default_pricing_editor_preservation.md)：模式切换保留原始计费规则，增删行保留编辑草稿与焦点。
+- [Default Passkey 与兑换码导出](../workflows/2026-09/15_default_security_upstream.md)：外置认证器能力检测和可选 TXT、Markdown 文件导出。
+
 - [maolaoapi 渠道余额不足前缀去重与 .322 发布](../workflows/2026-09/13_maolaoapi_channel_prefix_dedup_322_release.md)：发布 `v1.0.0-rc.10.1.10.322` 的 GitHub/GHCR 产物，不合入线上容器。
 - [zhishiapi 三节点负载均衡与 .321 发布](../workflows/2026-09/12_zhishiapi_cluster_321_release.md)：将 `zhishiapi.com` 扩成三应用容器并切 Nginx 分流，应用镜像更新到 `v1.0.0-rc.10.1.10.321`。
 - [maolaoapi 直登会话寿命与 .321 发布](../workflows/2026-09/12_maolaoapi_direct_login_321_release.md)：发布 `v1.0.0-rc.10.1.10.321`，将直登会话票 30 天寿命与 Authorization 回落修复滚动更新到 maolaoapi 三应用。
