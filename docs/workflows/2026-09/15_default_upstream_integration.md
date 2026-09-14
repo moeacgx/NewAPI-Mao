@@ -5,7 +5,7 @@
 - 原任务分支：`agent/upstream-default-frontend`，起点 `353352428`。
 - 本地主线：`origin/custom-main` 的 `45ab82100`，已通过合并保留主线增量。
 - 评估上游：`upstream/main` 的 `9fe0457ee`，共同祖先 `e2c7aa7b`。
-- 仅处理 Default：`web/rsbuild.config.ts` 的入口为 `src/main.tsx`；Classic 不在此次需求范围。
+- 本 PR 仅处理 Default：`web/rsbuild.config.ts` 的入口为 `src/main.tsx`。整体任务已要求 Classic 实现，其等价功能由既有 Classic Agent 在独立工作树交付，不混入本 PR。
 - 不整文件覆盖现有实现，按功能域移植兼容片段。
 
 ## 实现计划与契约
@@ -60,3 +60,32 @@
 目标审查基线为 `origin/custom-main@45ab82100`。分支仅提供可审查实现，由协调者决定后端能力与其余前端域的集成顺序；不自动合并主线。
 
 跨项目影响：没有新增请求/响应协议、模型 ID、认证或计费数据交换字段；多 Key 策略继续使用既有 `multi_key_mode`。供应商推断只用于展示，日志实际响应模型继续按既有管理员权限隔离。未向兄弟仓库发送通知。
+
+## PR 续办与 lint 基线复核
+
+2026-09-15 重新执行 `git fetch origin --no-tags`，目标仍为 `45ab82100`，`behind=0`。上游分析点固定为 `9fe0457ee`，rc.37 参考点为 `385d2dfd1`，未随上游更新。
+
+原有三个分支独有合并提交为 `353352428`、`99db8805c`、`5fb6a75ca`。同步后提交 `35e61b999` 与 `45ab82100` 的树均为 `87d1c9fd3443b2e506281b312a340f6495a016d9`；`git diff --exit-code origin/custom-main 35e61b999` 返回 0。这证明它们没有给本 PR 带入无关文件差异，无需重写已推送历史。原分支完整历史已通过本地 `git bundle create` 保存并验证，备份位于本工作树依赖缓存。
+
+新增工具 [compare-lint-baseline.mjs](../../../web/scripts/compare-lint-baseline.mjs) 只在当前工作树的 `.local-tests/` 内解包已提交的基线和目标 `web/` 快照，复用当前 `web/node_modules`；不切分支、不改源码、不安装依赖。不能把快照放进 `node_modules`，否则 oxlint 的循环导入解析会漏报四条错误。
+
+在仓库根目录执行以下命令（临时 Bun 路径失效时替换为本机 Bun 绝对路径）：
+
+```powershell
+$taskBun = 'C:/Users/Administrator/AppData/Local/npm-cache/_npx/b22965130bfded9d/node_modules/bun/bin/bun.exe'
+git fetch origin --no-tags
+node web/scripts/compare-lint-baseline.mjs origin/custom-main HEAD $taskBun
+```
+
+脚本为两个快照分别执行 `bun run lint --format json` 和 `bun run lint --ignore-pattern classic --format json`。按文件、规则和诊断文案比较多重集合，忽略增删行引起的位置变化，同时单独统计变更文件里的错误。输出目录包含原始 JSON、stderr、差异和版本摘要。脚本退出 0 仅表示没有新增错误及变更文件错误，**不代表完整 lint 通过**。
+
+本轮实际工具版本为 Bun **1.3.13**、oxlint **1.74.0**；临时工具缓存已变化，上轮记载的 Bun 1.4.2 不作为当前版本依据。
+
+| 扫描范围                | 基线错误 | 本补丁错误 | 新增 | 消除 | 变更文件错误 |
+| ----------------------- | -------: | ---------: | ---: | ---: | -----------: |
+| 完整 web（含 Classic）  |     1470 |       1454 |    0 |   16 |            0 |
+| Default（排除 Classic） |      309 |        293 |    0 |   16 |            0 |
+
+两边完整 lint 均退出 1。消除的 16 条为价格编辑器 11 条与 Passkey 5 条；剩余 293 条全部位于相对基线未修改的文件，不要求用户相信仅定向 lint 的结论。
+
+已向既有 Classic Agent `5bc35f88-9053-406b-8de2-155326defffe` 发送九个等价功能域、相关回归测试、Bun 实际路径与版本提醒。Classic 需单独提交实现和验证；本 PR 不声称完成双模板或完整上游集成，也不启用尚缺后端支持的页面。
