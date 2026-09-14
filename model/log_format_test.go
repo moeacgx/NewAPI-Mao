@@ -33,3 +33,35 @@ func TestFormatUserLogsStripsQuotaSaturation(t *testing.T) {
 	// Non-admin billing fields remain visible.
 	require.Contains(t, parsed, "model_price")
 }
+
+func TestFormatUserLogsStripsUpstreamResponseModelName(t *testing.T) {
+	other := common.MapToJsonStr(map[string]interface{}{
+		"upstream_response_model_name": "provider-actual",
+		"model_price":                  0.004,
+	})
+	logs := []*Log{{Other: other}}
+
+	formatUserLogs(logs, 0)
+
+	parsed, err := common.StrToMap(logs[0].Other)
+	require.NoError(t, err)
+	_, hasUpstreamResponseModel := parsed["upstream_response_model_name"]
+	require.False(t, hasUpstreamResponseModel)
+	require.Contains(t, parsed, "model_price")
+}
+
+func TestFormatUserLogsStripsUpstreamError(t *testing.T) {
+	other := common.MapToJsonStr(map[string]interface{}{
+		"upstream_error": "status_code=403, 用户额度不足",
+		"model_price":    0.004,
+	})
+	logs := []*Log{{Other: other}}
+
+	formatUserLogs(logs, 0)
+
+	parsed, err := common.StrToMap(logs[0].Other)
+	require.NoError(t, err)
+	_, hasUpstreamError := parsed["upstream_error"]
+	require.False(t, hasUpstreamError)
+	require.Contains(t, parsed, "model_price")
+}

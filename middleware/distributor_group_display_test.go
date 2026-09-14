@@ -1,6 +1,9 @@
 package middleware
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestFormatDistributorGroupForMessage(t *testing.T) {
 	groupNames := map[string]string{
@@ -20,20 +23,24 @@ func TestFormatDistributorGroupForMessage(t *testing.T) {
 		{"普通分组别名", "legacy_image", "legacy_image", groupNames, "图片分组"},
 		{"普通分组缺少映射", "missing", "missing", groupNames, "missing"},
 		{"普通分组空白名称", "blank_name", "blank_name", groupNames, "blank_name"},
-		{"自动分组选中代码", "auto", "group_2", groupNames, "auto(图片分组)"},
-		{"自动分组选中别名", "auto", "legacy_image", groupNames, "auto(图片分组)"},
+		{"自动分组选中代码", "auto", "group_2", groupNames, "图片分组"},
+		{"自动分组选中别名", "auto", "legacy_image", groupNames, "图片分组"},
 		{"自动分组未选中具体分组", "auto", "auto", groupNames, "auto"},
-		{"多分组选中代码", "group_1,group_2", "group_2", groupNames, "multi(图片分组)"},
-		{"多分组选中别名", "group_1,legacy_image", "legacy_image", groupNames, "multi(图片分组)"},
-		{"多分组无可用渠道", "group_1,group_2", "group_1,group_2", groupNames, "multi(普通分组,图片分组)"},
+		{"多分组选中代码", "group_1,group_2", "group_2", groupNames, "图片分组"},
+		{"多分组选中别名", "group_1,legacy_image", "legacy_image", groupNames, "图片分组"},
+		{"多分组无可用渠道", "group_1,group_2", "group_1,group_2", groupNames, "普通分组, 图片分组"},
 		{"映射失败时普通分组回退", "group_2", "group_2", nil, "group_2"},
-		{"映射失败时自动分组回退", "auto", "group_2", nil, "auto(group_2)"},
-		{"映射失败时多分组回退", "group_1,group_2", "group_1,group_2", nil, "multi(group_1,group_2)"},
+		{"映射失败时自动分组回退", "auto", "group_2", nil, "group_2"},
+		{"映射失败时多分组回退", "group_1,group_2", "group_1,group_2", nil, "group_1, group_2"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := formatDistributorGroupForMessage(test.usingGroup, test.selectGroup, test.groupNames); got != test.want {
+			got := formatDistributorGroupForMessage(test.usingGroup, test.selectGroup, test.groupNames)
+			if got != test.want {
 				t.Fatalf("formatDistributorGroupForMessage() = %q, want %q", got, test.want)
+			}
+			if strings.Contains(got, "multi(") || strings.HasPrefix(got, "auto(") {
+				t.Fatalf("formatDistributorGroupForMessage() leaked a group code wrapper: %q", got)
 			}
 		})
 	}

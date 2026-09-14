@@ -56,6 +56,7 @@ func SetApiRouter(router *gin.Engine) {
 		conversationArchiveRoute.GET("/groups", controller.GetConversationArchiveGroups)
 		conversationArchiveRoute.GET("/conversations", controller.ListConversationArchives)
 		conversationArchiveRoute.GET("/conversations/:id", controller.GetConversationArchive)
+		conversationArchiveRoute.POST("/conversations/clear", middleware.CriticalRateLimit(), controller.ClearConversationArchives)
 	}
 
 	apiRouter.Use(middleware.GlobalAPIRateLimitWithChannelAdminBypass())
@@ -275,6 +276,7 @@ func SetApiRouter(router *gin.Engine) {
 			affiliateRoute.GET("/payout-account", controller.GetAffiliatePayoutAccount)
 			affiliateRoute.PUT("/payout-account", controller.UpdateAffiliatePayoutAccount)
 			affiliateRoute.POST("/withdraw", controller.CreateAffiliateWithdrawal)
+			affiliateRoute.POST("/withdraw/preview", controller.PreviewAffiliateWithdrawal)
 			affiliateRoute.POST("/transfer-to-balance", controller.TransferAffiliateToBalance)
 			affiliateRoute.POST("/upload-qr", middleware.UploadRateLimit(), controller.UploadAffiliateQr)
 			affiliateRoute.DELETE("/qr", controller.DeleteAffiliateQr)

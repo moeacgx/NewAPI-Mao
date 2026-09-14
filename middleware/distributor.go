@@ -89,41 +89,20 @@ func applyPlaygroundRequestedGroup(c *gin.Context, inheritedGroup, requestedGrou
 	return requestedGroup, nil
 }
 
-func displayDistributorGroupIdentifier(group string, groupNames map[string]string) string {
-	group = strings.TrimSpace(group)
-	if group == "" {
-		return ""
+func distributorGroupIdentifier(usingGroup, selectGroup string) string {
+	using := strings.TrimSpace(usingGroup)
+	selected := strings.TrimSpace(selectGroup)
+	if using == "auto" && selected != "" && selected != "auto" {
+		return selected
 	}
-	if name := strings.TrimSpace(groupNames[group]); name != "" {
-		return name
+	if strings.Contains(using, ",") && selected != "" && selected != using && !strings.Contains(selected, ",") {
+		return selected
 	}
-	return group
-}
-
-func displayDistributorGroupList(groups string, groupNames map[string]string) string {
-	parts := strings.Split(groups, ",")
-	for index, group := range parts {
-		parts[index] = displayDistributorGroupIdentifier(group, groupNames)
-	}
-	return strings.Join(parts, ",")
+	return using
 }
 
 func formatDistributorGroupForMessage(usingGroup, selectGroup string, groupNames map[string]string) string {
-	using := strings.TrimSpace(usingGroup)
-	selected := strings.TrimSpace(selectGroup)
-	if using == "auto" {
-		if selected == "" || selected == "auto" {
-			return using
-		}
-		return fmt.Sprintf("auto(%s)", displayDistributorGroupList(selected, groupNames))
-	}
-	if strings.Contains(using, ",") {
-		if selected == "" || selected == using || strings.Contains(selected, ",") {
-			selected = using
-		}
-		return fmt.Sprintf("multi(%s)", displayDistributorGroupList(selected, groupNames))
-	}
-	return displayDistributorGroupIdentifier(using, groupNames)
+	return model.FormatGroupDisplayNames(distributorGroupIdentifier(usingGroup, selectGroup), groupNames)
 }
 
 func distributorGroupForMessage(usingGroup, selectGroup string) string {
@@ -136,6 +115,30 @@ func distributorGroupForMessage(usingGroup, selectGroup string) string {
 	return formatDistributorGroupForMessage(usingGroup, selectGroup, groupNames)
 }
 
+func abortDistributorError(c *gin.Context, statusCode int, message, modelName, group string, code types.ErrorCode) {
+	abortWithOpenAiMessage(c, statusCode, message, code)
+	if c == nil || !constant.ErrorLogEnabled || c.GetInt("id") <= 0 || model.LOG_DB == nil {
+		return
+	}
+	other := map[string]interface{}{
+		"error_stage": "distribution",
+		"request_path": func() string {
+			if c.Request == nil || c.Request.URL == nil {
+				return ""
+			}
+			return c.Request.URL.Path
+		}(),
+		"status_code": statusCode,
+		"error_code":  string(code),
+		"error_type":  string(types.ErrorTypeNewAPIError),
+	}
+	useTimeSeconds := 0
+	if startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime); !startTime.IsZero() {
+		useTimeSeconds = max(0, int(time.Since(startTime).Seconds()))
+	}
+	model.RecordErrorLog(c, c.GetInt("id"), 0, modelName, c.GetString("token_name"), message,
+		c.GetInt("token_id"), useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), group, other)
+}
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
@@ -154,7 +157,7 @@ func Distribute() func(c *gin.Context) {
 				usingGroup, err = applyRequestedGroup(c, usingGroup, modelRequest.Group)
 			}
 			if err != nil {
-				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
+				abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 				return
 			}
 		}
@@ -170,7 +173,7 @@ func Distribute() func(c *gin.Context) {
 				return
 			}
 			if channel.Status != common.ChannelStatusEnabled {
-				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
+				abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 				return
 			}
 		} else {
@@ -181,7 +184,7 @@ func Distribute() func(c *gin.Context) {
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
 				if !ok {
 					// token model limit is empty, all models are not allowed
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess))
+					abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 					return
 				}
 				var tokenModelLimit map[string]bool
@@ -191,7 +194,7 @@ func Distribute() func(c *gin.Context) {
 				}
 				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
 				if _, ok := tokenModelLimit[matchName]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
+					abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 					return
 				}
 			}
@@ -260,11 +263,11 @@ func Distribute() func(c *gin.Context) {
 						if errors.Is(err, model.ErrChannelConcurrencyLimitReached) {
 							errorCode = types.ErrorCodeChannelConcurrencyLimit
 						}
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, errorCode)
+						abortDistributorError(c, http.StatusServiceUnavailable, message, modelRequest.Model, usingGroup, errorCode)
 						return
 					}
 					if channel == nil {
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": distributorGroupForMessage(usingGroup, selectGroup), "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
+						abortDistributorError(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": distributorGroupForMessage(usingGroup, selectGroup), "Model": modelRequest.Model}), modelRequest.Model, usingGroup, types.ErrorCodeModelNotFound)
 						return
 					}
 				}
@@ -316,7 +319,7 @@ func Distribute() func(c *gin.Context) {
 				httpStatus = http.StatusTooManyRequests
 				statusCode = types.ErrorCodeChannelConcurrencyLimit
 			}
-			abortWithOpenAiMessage(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), statusCode)
+			abortDistributorError(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), modelRequest.Model, usingGroup, statusCode)
 			return
 		}
 		service.RecordSystemInstanceRequestStart()

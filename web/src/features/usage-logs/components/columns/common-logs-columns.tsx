@@ -45,6 +45,7 @@ import type { UsageLog } from '../../data/schema'
 import {
   formatLogUseTime,
   formatModelName,
+  getUpstreamResponseModelName,
   getLogUseTimeSeconds,
   getTieredBillingSummary,
   hasAnyCacheTokens,
@@ -64,8 +65,8 @@ import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
-import { WebSocketBadge } from '../websocket-badge'
 import { useUsageLogsContext } from '../usage-logs-provider'
+import { WebSocketBadge } from '../websocket-badge'
 import { buildChannelAffinityUsageCacheTarget } from './channel-affinity-target'
 
 interface DetailSegment {
@@ -563,6 +564,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       const displayName = sensitiveVisible ? tokenName : '••••'
       let group = log.group
       if (!group) group = other?.group || ''
+      const groupLabel = log.group_name || group
       const groupRatio = getGroupRatio(other)
 
       return (
@@ -591,7 +593,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               {group ? (
                 <GroupBadge
                   group={group}
-                  label={sensitiveVisible ? undefined : '••••'}
+                  label={sensitiveVisible ? groupLabel : '••••'}
                   type='text'
                   size='sm'
                   className='inline align-baseline text-xs leading-none [&>span]:leading-none'
@@ -624,13 +626,41 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           <div className='flex w-fit flex-col gap-0.5'>
             <ModelBadge
               modelName={modelInfo.name}
-              actualModel={modelInfo.actualModel}
+              actualModel={isAdmin ? modelInfo.actualModel : undefined}
             />
           </div>
         )
       },
       meta: { mobileTitle: true },
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'upstream_response_model_name',
+            header: t('Upstream Response Model'),
+            accessorFn: (row: UsageLog) =>
+              getUpstreamResponseModelName(parseLogOther(row.other)) ?? '',
+            cell: function UpstreamResponseModelCell({ row }) {
+              const log = row.original
+              if (!isDisplayableLogType(log.type)) return null
+
+              const modelName = getUpstreamResponseModelName(
+                parseLogOther(log.other)
+              )
+              return modelName ? (
+                <ModelBadge
+                  modelName={modelName}
+                  className='border-cyan-300/80 bg-cyan-50/80 dark:border-cyan-700/70 dark:bg-cyan-950/35'
+                />
+              ) : (
+                <span className='text-muted-foreground/60 text-xs'>-</span>
+              )
+            },
+            meta: { label: t('Upstream Response Model') },
+            size: 180,
+          } satisfies ColumnDef<UsageLog>,
+        ]
+      : []),
     {
       accessorKey: 'is_stream',
       header: t('Stream'),

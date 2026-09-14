@@ -145,6 +145,7 @@ func handleLastResponse(lastStreamData string, responseId *string, createAt *int
 	*createAt = lastStreamResponse.Created
 	*systemFingerprint = lastStreamResponse.GetSystemFingerprint()
 	*model = lastStreamResponse.Model
+	info.SetUpstreamResponseModelName(lastStreamResponse.Model)
 
 	if service.ValidUsage(lastStreamResponse.Usage) {
 		*containStreamUsage = true
@@ -264,6 +265,10 @@ func sendCommittedResponsesStreamAPIError(c *gin.Context, relayErr *types.NewAPI
 		return nil
 	}
 	clientError := relayErr.ToOpenAIError()
+	if types.IsUpstreamReturnedError(relayErr) {
+		message, _, _ := common.ReplaceClientErrorCandidates(relayErr.StatusCode, relayErr.Error(), clientError.Message)
+		clientError.Message = message
+	}
 	event := struct {
 		Type           string `json:"type"`
 		SequenceNumber int64  `json:"sequence_number"`

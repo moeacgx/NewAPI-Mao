@@ -1,5 +1,29 @@
 # 开发文档
 
+- [maolaoapi 渠道余额不足前缀去重与 .322 发布](../workflows/2026-09/13_maolaoapi_channel_prefix_dedup_322_release.md)：发布 `v1.0.0-rc.10.1.10.322` 的 GitHub/GHCR 产物，不合入线上容器。
+- [zhishiapi 三节点负载均衡与 .321 发布](../workflows/2026-09/12_zhishiapi_cluster_321_release.md)：将 `zhishiapi.com` 扩成三应用容器并切 Nginx 分流，应用镜像更新到 `v1.0.0-rc.10.1.10.321`。
+- [maolaoapi 直登会话寿命与 .321 发布](../workflows/2026-09/12_maolaoapi_direct_login_321_release.md)：发布 `v1.0.0-rc.10.1.10.321`，将直登会话票 30 天寿命与 Authorization 回落修复滚动更新到 maolaoapi 三应用。
+- [maolaoapi Gemini OpenAI 协议与 .320 发布](../workflows/2026-09/11_maolaoapi_gemini_openai_320_release.md)：发布 `v1.0.0-rc.10.1.10.320`，将 Gemini Images/Chat 转换修复滚动更新到 maolaoapi 三应用。
+- [TokensPro overview 渠道并发对齐](tokenspro-overview-concurrency.md)：渠道可轮询 TokensPro overview，把并发上限写成 `concurrency.allowed`。
+- [TokensPro overview 渠道并发对齐实现](../workflows/2026-09/11_tokenspro_overview_concurrency.md)：Issue #195 的开关、调度、`allowed=0` 自动禁用和双模板编辑入口。
+
+- [zzapi 密钥聚合编辑与定价标签发布](../workflows/2026-09/11_zzapi_multikey_319_release.md)：合入测试中的定价样式修复，发布 `.319` 并滚动更新 zzapi。
+
+- [Classic 编辑渠道启用密钥聚合](../workflows/2026-09/09_classic_channel_multikey_conversion.md)：允许已有单密钥渠道原位转换，保留旧密钥并支持追加、覆盖和随机/轮询策略。
+
+- [Classic 模型详情动态计费分组价格与对比度](../workflows/2026-09/08_classic_pricing_detail_dynamic_group_prices.md)：Classic 模型详情按分组倍率展开动态计费单价，并提高定价卡片对比度。
+- [maolaoapi Classic 模型详情动态计费发布记录](../workflows/2026-09/08_maolaoapi_classic_pricing_release.md)：将 `v1.0.0-rc.10.1.10.318` 按三应用节点滚动更新到 maolaoapi 生产。
+- [xAI 分组权限、操练场 400 与错误日志修复](../workflows/2026-09/07_xai_group_access_and_playground_errors.md)：修复多实例配置同步死锁、提前鉴权错误落库，并支持通过显式策略为 OpenAI 协议接入的 Grok 操练场请求启用 Chat→Responses 兼容转换。
+
+- [管理端错误日志显示客户端替换结果](../workflows/2026-09/05_admin_error_log_client_replacement.md)：错误日志正文记录客户端最终文案，管理员可对照脱敏的上游原始错误。
+
+- [Responses 工具输出 call_id 兼容](../workflows/2026-09/05_responses_function_call_output_id.md)：HTTP Responses 输入中的非法 `*_call_output` 会在转发前补齐或降级，避免 Codex 上游 400。
+
+- [HTTP Responses 清理 previous_response_id](../workflows/2026-09/04_responses_http_previous_response_id.md)：HTTP/SSE 转发不再向上游发送仅 Responses WebSocket v2 支持的续传字段。
+- [使用日志与渠道测试显示上游响应模型](../workflows/2026-09/04_upstream_response_model_usage_logs.md)：记录上游响应模型采集、管理员可见与普通用户脱敏契约。
+
+- [未保存渠道模型获取尾部斜杠兼容](../workflows/2026-09/03_channel_unsaved_model_fetch_trailing_slash.md)：Classic 新建渠道可直接用临时令牌探测模型，API 地址末尾 `/` 不再生成错误的双斜杠模型路径。
+
 - [Default 渠道供应商选择与保存恢复](../workflows/2026-09/03_channel_vendor_selection_restore.md)：恢复渠道抽屉供应商选择、`vendor_id` 保存和按供应商筛选的 Default 前端回归。
 
 - [无限画布默认分组](../workflows/2026-09/03_canvas_default_group.md)：管理员预设无限画布首次打开时的默认分组，用户仍可手动切换并按权限安全回退。
@@ -14,6 +38,7 @@
 - [充值账单用户名显示修复](../workflows/2026-09/01_topup_username_display.md)：管理员充值账单从用户表补充当前用户名，并支持按用户名和用户 ID 搜索。
 - [Classic 时效额度券绑定分组选择器](../workflows/2026-09/01_classic_benefit_group_selector.md)：活动表单复用分组名称选择体验并保持 `group_id` 后端契约。
 - [Classic 安全审计与对话归档运行时加载修复](../workflows/2026-09/03_security_audit_archive_runtime_load.md)：原生扩展请求跟随会话刷新，并将安全审计和对话归档的非核心加载隔离，避免页面主体被分组或运行状态接口阻塞。
+- [对话归档容量控制与本地化](../workflows/2026-09/03_conversation_archive_retention_controls.md)：对话归档按最新会话数自动覆盖旧数据，Root 可确认清空，并补齐 Default 与 Classic 原生页本地化。
 - [福利活动金额元单位与 quota 自动换算](../workflows/2026-09/01_benefit_amount_yuan_contract.md)：金额统一按人民币元输入并限制两位小数，服务端自动换算内部 quota。
 - [福利活动个人券有效期改用小时](../workflows/2026-09/01_benefit_validity_hours.md)：管理接口和 Default/Classic 表单统一使用小时，数据库秒字段保持兼容。
 - [福利活动表单字段收敛](../workflows/2026-09/01_benefit_form_simplification.md)：固定/随机面额分开显示必要字段，自动计算固定总预算并简化分组选项展示。
@@ -58,6 +83,7 @@
 - [登录签发次数恢复 v243 兼容默认](../workflows/2026-08/31_auth_session_v243_issuance_compat.md)：默认关闭签发窗口限流，保留正数配置的可选防护和当前服务端 Session 安全机制。
 - [密码重置会话撤销缓存故障修复](../workflows/2026-08/29_auth_session_revoke_cache_failure.md)：Redis deny fence 写入失败时仍完成数据库会话撤销，返回可审计错误并保持批量累计进度。
 - [登录会话上限原子准入](../workflows/2026-08/29_auth_session_atomic_admission.md)：将活动会话与签发窗口检查和新会话写入置于用户级事务锁内，防止并发登录突破硬上限。
+- [Classic 计费说明折扣优先展示](../workflows/2026-09/04_billing_guide_recharge_formula.md)：首屏直接解释“充值优惠 × 分组倍率 = 综合折扣”，完整汇率换算收进详情，实际 token 花费改为次级入口。
 - [Classic 渠道关闭通知筛选恢复](../workflows/2026-08/29_classic_channel_notification_filter_restore.md)：为 Classic 通知任务补回状态码筛选和多个报错关键词白名单编辑，并与既有后端 OR 匹配契约对齐。
 - [渠道同步审计日志过滤](../workflows/2026-08/29_channel_update_audit_log_filter.md)：ApiPanelWatch 的周期性渠道同步不再写入 `channel.update` 管理审计，模型消费 RPM/TPM 统计口径保持不变。
 - [渠道亲和性上游缓存命中弹窗空态修复](../workflows/2026-08/28_channel_affinity_cache_dialog_empty_state.md)：恢复正常亲和性命中日志的 `key_fp`/`key_hint` 索引字段，修复 Classic/Default 弹窗详情映射、usage 字段 presence 与短 key 脱敏，并保留真实空态。
@@ -92,6 +118,8 @@
 - [充值成功日志余额快照审计恢复](../workflows/2026-08/29_topup_balance_audit.md)：在同一充值事务内恢复余额前后、到账额度、订单号和实付金额审计，并覆盖重复回调与管理员补单幂等语义。
 - [返佣记录冲突目标一致性修复](../workflows/2026-08/29_affiliate_record_conflict_target.md)：统一返佣记录四字段幂等键，修复 PostgreSQL `ON CONFLICT` 与历史唯一索引不一致导致的充值事务回滚。
 - [返佣异常检测排除支付 IP](../workflows/2026-08/30_affiliate_fraud_payment_ip_filter.md)：异常检测只使用登录和注册 IP，过滤历史 `payment`、`topup` 等支付动作，并在重新扫描时刷新仍处于检测状态的警报。
+- [返佣提现实际打款与收款信息展示](../workflows/2026-09/04_affiliate_withdrawal_payout_display.md)：提现提交时锁定人民币/USDT 实际打款金额和汇率，用户与管理员端结构化展示收款信息并支持复制 USDT 地址。
+- [管理员调整余额的目标用户日志可见性](../workflows/2026-09/04_target_user_quota_audit_visibility.md)：余额增减与覆盖日志重新归属目标用户，同时保留后台审计信息并剥离用户响应中的管理员 IP。
 - [Classic 模型广场新版模板布局迁移](../workflows/2026-08/22_classic_model_plaza_template_migration.md)：将新版模型广场的布局和筛选交互移植到 Classic，同时保留旧版计费、性能、折扣和批量操作能力。
 - [Classic 操练场图片附件与分组模型筛选](../workflows/2026-08/21_playground_image_upload_group_model.md)：移除图片地址配置，支持输入框粘贴/上传图片，并按当前分组加载模型。
 - [zzapi 自更新检查路由与跳转修复](../workflows/2026-08/21_zzapi_self_update_routes.md)：恢复后台检查更新与一键更新接口，默认 Release 仓库指向 `moeacgx/maolaonewapi`，Classic 详情跳转使用后端 Release URL。

@@ -37,8 +37,9 @@ import {
   renderTieredModelPriceSimple,
 } from '../../../helpers';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
-import { CircleAlert, Route, Sparkles } from 'lucide-react';
+import { ArrowUpRight, CircleAlert, Route, Sparkles } from 'lucide-react';
 import { getLoginLogSummary, LOG_TYPE_LOGIN } from './login-log-presenter';
+import { getManageLogSummary } from './manage-log-presenter';
 
 const colors = [
   'amber',
@@ -531,6 +532,11 @@ function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
       : null;
   }
 
+  const manageSummary = getManageLogSummary(record, other, t);
+  if (manageSummary) {
+    return { segments: [{ text: manageSummary, tone: 'primary' }] };
+  }
+
   if (record.type === 6) {
     return {
       segments: [{ text: t('异步任务退款'), tone: 'primary' }],
@@ -813,6 +819,29 @@ export const getLogsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.UPSTREAM_RESPONSE_MODEL,
+      title: t('上游模型'),
+      dataIndex: 'other',
+      render: (text, record) => {
+        if (!isAdminUser) return <></>;
+        const other = getLogOther(record.other);
+        const modelName = other?.upstream_response_model_name?.trim() || '';
+        return modelName ? (
+          <Tooltip content={modelName} position='top'>
+            <span style={{ display: 'inline-flex', maxWidth: '220px' }}>
+              {renderModelTag(modelName, {
+                color: 'cyan',
+                size: 'small',
+                suffixIcon: <ArrowUpRight size={13} aria-hidden='true' />,
+              })}
+            </span>
+          </Tooltip>
+        ) : (
+          <Typography.Text type='tertiary'>-</Typography.Text>
+        );
+      },
+    },
+    {
       key: COLUMN_KEYS.USE_TIME,
       title: t('用时/首字'),
       dataIndex: 'use_time',
@@ -937,12 +966,14 @@ export const getLogsColumns = ({
       title: t('花费'),
       dataIndex: 'quota',
       render: (text, record, index) => {
-        if (!(
-          record.type === 0 ||
-          record.type === 2 ||
-          record.type === 5 ||
-          record.type === 6
-        )) {
+        if (
+          !(
+            record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6
+          )
+        ) {
           return <></>;
         }
         const other = getLogOther(record.other);

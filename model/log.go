@@ -98,10 +98,7 @@ func applyLogGroupNames(logs []*Log, groupNames map[string]string) {
 		if group == "" {
 			continue
 		}
-		log.GroupName = group
-		if name := strings.TrimSpace(groupNames[group]); name != "" {
-			log.GroupName = name
-		}
+		log.GroupName = FormatGroupDisplayNames(group, groupNames)
 	}
 }
 
@@ -188,6 +185,9 @@ func formatUserLogs(logs []*Log, startIdx int) {
 	hydrateLogGroupNames(logs)
 	for i := range logs {
 		logs[i].ChannelName = ""
+		if logs[i].Type == LogTypeManage {
+			logs[i].Ip = ""
+		}
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
@@ -197,6 +197,8 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			delete(otherMap, "audit_info")
 			delete(otherMap, "is_model_mapped")
 			delete(otherMap, "upstream_model_name")
+			delete(otherMap, "upstream_response_model_name")
+			delete(otherMap, "upstream_error")
 			// delete(otherMap, "reject_reason")
 			// delete(otherMap, "stream_status")
 		}

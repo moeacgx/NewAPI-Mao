@@ -67,6 +67,29 @@ func TestGeminiChatHandlerCompletionTokensExcludeToolUsePromptTokens(t *testing.
 	require.Equal(t, 1120, usage.CompletionTokenDetails.ReasoningTokens)
 }
 
+func TestGeminiChatHandlerStoresUpstreamResponseModelVersion(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	info := &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatGemini,
+		OriginModelName: "gemini-requested",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-mapped",
+		},
+	}
+	body := []byte(`{"modelVersion":"gemini-provider-actual","candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]}}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}`)
+
+	_, newAPIError := GeminiChatHandler(c, info, &http.Response{
+		Body: io.NopCloser(bytes.NewReader(body)),
+	})
+
+	require.Nil(t, newAPIError)
+	require.Equal(t, "gemini-provider-actual", info.UpstreamResponseModelName)
+}
+
 func TestGeminiStreamHandlerCompletionTokensExcludeToolUsePromptTokens(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -124,6 +147,35 @@ func TestGeminiStreamHandlerCompletionTokensExcludeToolUsePromptTokens(t *testin
 	require.Equal(t, 1120, usage.CompletionTokenDetails.ReasoningTokens)
 }
 
+func TestGeminiStreamHandlerStoresUpstreamResponseModelVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	oldStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() {
+		constant.StreamingTimeout = oldStreamingTimeout
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-requested",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-mapped",
+		},
+	}
+	streamBody := []byte("data: {\"modelVersion\":\"gemini-provider-actual\",\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"ok\"}]}}],\"usageMetadata\":{\"promptTokenCount\":1,\"candidatesTokenCount\":1,\"totalTokenCount\":2}}\n" + "data: [DONE]\n")
+
+	_, newAPIError := geminiStreamHandler(c, info, &http.Response{
+		Body: io.NopCloser(bytes.NewReader(streamBody)),
+	}, func(_ string, _ *dto.GeminiChatResponse) bool {
+		return true
+	})
+
+	require.Nil(t, newAPIError)
+	require.Equal(t, "gemini-provider-actual", info.UpstreamResponseModelName)
+}
+
 func TestGeminiTextGenerationHandlerPromptTokensIncludeToolUsePromptTokens(t *testing.T) {
 	t.Parallel()
 
@@ -172,6 +224,28 @@ func TestGeminiTextGenerationHandlerPromptTokensIncludeToolUsePromptTokens(t *te
 	require.Equal(t, 2209, usage.CompletionTokens)
 	require.Equal(t, 20689, usage.TotalTokens)
 	require.Equal(t, 1120, usage.CompletionTokenDetails.ReasoningTokens)
+}
+
+func TestGeminiTextGenerationHandlerStoresUpstreamResponseModelVersion(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-mapped:generateContent", nil)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-requested",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-mapped",
+		},
+	}
+	body := []byte(`{"modelVersion":"gemini-provider-actual","candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]}}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}`)
+
+	_, newAPIError := GeminiTextGenerationHandler(c, info, &http.Response{
+		Body: io.NopCloser(bytes.NewReader(body)),
+	})
+
+	require.Nil(t, newAPIError)
+	require.Equal(t, "gemini-provider-actual", info.UpstreamResponseModelName)
 }
 
 func TestGeminiChatHandlerUsesEstimatedPromptTokensWhenUsagePromptMissing(t *testing.T) {
@@ -513,6 +587,37 @@ func TestGeminiStreamHandlerEmptyUsageMetadataBuildsEstimatedBillingUsage(t *tes
 	require.Equal(t, usage.PromptTokens, usage.BillingUsage.GeminiUsageMetadata.PromptTokenCount)
 	require.Equal(t, usage.CompletionTokens, usage.BillingUsage.GeminiUsageMetadata.CandidatesTokenCount)
 	require.True(t, common.GetContextKeyBool(c, constant.ContextKeyLocalCountTokens))
+}
+
+func TestGeminiStreamHandlerPromptBlockReturnsUpstreamError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	info := &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatOpenAI,
+		OriginModelName: "gemini-3-flash-preview",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3-flash-preview",
+		},
+	}
+	resp := &http.Response{
+		Body: io.NopCloser(bytes.NewBufferString("data: {\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}\n")),
+	}
+
+	callbackCalled := false
+	usage, newAPIError := geminiStreamHandler(c, info, resp, func(_ string, _ *dto.GeminiChatResponse) bool {
+		callbackCalled = true
+		return true
+	})
+
+	require.NotNil(t, usage)
+	require.NotNil(t, newAPIError)
+	require.Equal(t, types.ErrorCodePromptBlocked, newAPIError.GetErrorCode())
+	require.Equal(t, http.StatusBadRequest, newAPIError.StatusCode)
+	require.False(t, callbackCalled)
+	require.Empty(t, recorder.Body.String())
 }
 
 func TestGeminiChatHandlerPromptOnlyUsageMetadataBillsInlineImageOutput(t *testing.T) {

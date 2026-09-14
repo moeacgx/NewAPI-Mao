@@ -226,6 +226,10 @@ export const STATIC_I18N_KEYS = [
   'Prefix',
   'Contains',
   'Suffix',
+  '包含',
+  '精确匹配',
+  '正则表达式',
+  'Match mode behavior: Contains replaces the entire client error when any match value is found. Exact matching replaces every matching literal text occurrence. Regular expressions replace every regex match and support capture groups such as $1.',
   'Match model name exactly',
   'Match models starting with this name',
   'Match models containing this name',
@@ -600,6 +604,11 @@ export const STATIC_I18N_KEYS = [
   'Channel enabled',
   'Triggered after a channel is automatically disabled.',
   'Triggered after an automatically disabled channel recovers.',
+  'Apply insufficient-balance dedup preset',
+  'Channel name prefix dedup window (seconds)',
+  'Fills insufficient-balance keywords and a 5-minute prefix window.',
+  'Insufficient-balance dedup notification',
+  'Same provider prefix only notifies once within this window. Parsed as the text before the first / in the channel name. Leave empty to disable.',
   // Notification template variables
   'A value from the event payload',
   'Channel display name',
@@ -751,6 +760,7 @@ export const STATIC_I18N_KEYS = [
   'Before upstream request',
   'Upstream connection',
   'Upstream response',
+  'Upstream Response Model',
   'Local processing',
   'Violence',
   'Non-violent illegal acts',
@@ -878,6 +888,7 @@ export const STATIC_I18N_KEYS = [
   'Expires',
 
   'Infinite Canvas Default Group',
+  'Automatic selection',
   'Use system fallback',
   'This group is selected when users first open Infinite Canvas. Users can still switch groups.',
 

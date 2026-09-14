@@ -75,6 +75,11 @@ import {
   updateNotificationBot,
   updateNotificationTask,
 } from './api'
+import {
+  applyInsufficientBalanceDedupPreset,
+  CHANNEL_DISABLED_EVENT,
+  normalizeTaskFilterConfig,
+} from './filter-config'
 import { shouldReplaceNotificationTemplate } from './template'
 import type {
   NotificationBot,
@@ -83,7 +88,6 @@ import type {
   NotificationEventType,
   NotificationTarget,
   NotificationTask,
-  NotificationTaskFilterConfig,
   NotificationTaskInput,
 } from './types'
 
@@ -425,23 +429,6 @@ function TargetEditor(props: {
   )
 }
 
-const CHANNEL_DISABLED_EVENT = 'channel_disabled'
-
-function normalizeTaskFilterConfig(
-  config: NotificationTaskFilterConfig | undefined
-): NotificationTaskFilterConfig | undefined {
-  if (!config) return undefined
-  const statusCodes = config.status_codes?.trim() || ''
-  const errorKeywords = (config.error_keywords ?? [])
-    .map((keyword) => keyword.trim())
-    .filter(Boolean)
-  if (!statusCodes && errorKeywords.length === 0) return undefined
-  return {
-    ...(statusCodes ? { status_codes: statusCodes } : {}),
-    ...(errorKeywords.length > 0 ? { error_keywords: errorKeywords } : {}),
-  }
-}
-
 function TaskSheet(props: {
   open: boolean
   task: NotificationTask | null
@@ -665,6 +652,34 @@ function TaskSheet(props: {
           </div>
           {form.event_type === CHANNEL_DISABLED_EVENT && (
             <div className='bg-muted/20 mt-3 space-y-3 rounded-md border p-3'>
+              <div className='flex flex-wrap items-start justify-between gap-2'>
+                <div className='grid gap-1'>
+                  <span className='text-sm font-medium'>{t('Filters')}</span>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Fills insufficient-balance keywords and a 5-minute prefix window.'
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      name:
+                        current.name.trim() ||
+                        t('Insufficient-balance dedup notification'),
+                      filter_config: applyInsufficientBalanceDedupPreset(
+                        current.filter_config
+                      ),
+                    }))
+                  }
+                >
+                  {t('Apply insufficient-balance dedup preset')}
+                </Button>
+              </div>
               <div className='grid gap-2'>
                 <Label htmlFor='notification-status-codes'>
                   {t('Status code filter')}
@@ -708,6 +723,41 @@ function TaskSheet(props: {
                 />
                 <p className='text-muted-foreground text-xs'>
                   {t('Matches any keyword in the upstream error message.')}
+                </p>
+              </div>
+              <div className='grid gap-2'>
+                <Label htmlFor='notification-prefix-dedup-seconds'>
+                  {t('Channel name prefix dedup window (seconds)')}
+                </Label>
+                <Input
+                  id='notification-prefix-dedup-seconds'
+                  type='number'
+                  min={0}
+                  max={86400}
+                  value={
+                    Number.isFinite(form.filter_config?.prefix_dedup_seconds) &&
+                    (form.filter_config?.prefix_dedup_seconds ?? 0) > 0
+                      ? form.filter_config?.prefix_dedup_seconds
+                      : ''
+                  }
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      filter_config: {
+                        ...current.filter_config,
+                        prefix_dedup_seconds:
+                          event.target.value.trim() === ''
+                            ? undefined
+                            : Number(event.target.value),
+                      },
+                    }))
+                  }
+                  placeholder='300'
+                />
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Same provider prefix only notifies once within this window. Parsed as the text before the first / in the channel name. Leave empty to disable.'
+                  )}
                 </p>
               </div>
             </div>

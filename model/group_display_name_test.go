@@ -37,3 +37,39 @@ func TestGetGroupDisplayNameForErrorFallsBackWithoutDatabase(t *testing.T) {
 	require.Equal(t, "unknown-code", GetGroupDisplayNameForError(" unknown-code "))
 	require.Equal(t, "", GetGroupDisplayNameForError("  "))
 }
+
+func TestFormatGroupDisplayNamesMapsEachIdentifier(t *testing.T) {
+	names := map[string]string{
+		"Codex-Plus":   "Codex-Basic | 高性价比",
+		"codex-pro特价":  "Codex-Value | 价格与性能综合",
+		"legacy-basic": "Codex-Basic | 高性价比",
+		"blank":        "  ",
+	}
+
+	require.Equal(t, "Codex-Basic | 高性价比", FormatGroupDisplayNames("Codex-Plus", names))
+	require.Equal(t, "Codex-Basic | 高性价比, Codex-Value | 价格与性能综合", FormatGroupDisplayNames("Codex-Plus,codex-pro特价", names))
+	require.Equal(t, "Codex-Basic | 高性价比, Codex-Value | 价格与性能综合", FormatGroupDisplayNames(" legacy-basic , codex-pro特价 ", names))
+	require.Equal(t, "blank", FormatGroupDisplayNames("blank", names))
+	require.Equal(t, "missing", FormatGroupDisplayNames("missing", names))
+	require.Equal(t, "", FormatGroupDisplayNames("  ", names))
+}
+
+func TestApplyLogGroupNamesMapsCommaSeparatedCodes(t *testing.T) {
+	names := map[string]string{
+		"Codex-Plus":  "Codex-Basic | 高性价比",
+		"codex-pro特价": "Codex-Value | 价格与性能综合",
+	}
+	logs := []*Log{
+		{Group: "Codex-Plus,codex-pro特价"},
+		{Group: "Codex-Plus"},
+		{Group: "", Other: `{"group":"codex-pro特价,Codex-Plus"}`},
+		{Group: "missing-code"},
+	}
+
+	applyLogGroupNames(logs, names)
+
+	require.Equal(t, "Codex-Basic | 高性价比, Codex-Value | 价格与性能综合", logs[0].GroupName)
+	require.Equal(t, "Codex-Basic | 高性价比", logs[1].GroupName)
+	require.Equal(t, "Codex-Value | 价格与性能综合, Codex-Basic | 高性价比", logs[2].GroupName)
+	require.Equal(t, "missing-code", logs[3].GroupName)
+}
