@@ -40,6 +40,7 @@ import type { TaskPluginListItem } from '../types'
 export function PluginsTable(props: {
   canManage?: boolean
   onDetails: (plugin: TaskPluginListItem) => void
+  onUpload?: (key: string) => void
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -124,8 +125,13 @@ export function PluginsTable(props: {
                 >
                   {t('Details')}
                 </Button>
-                <Button variant='ghost' size='sm' disabled>
-                  {t('Delete')}
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={!props.canManage || !props.onUpload}
+                  onClick={() => props.onUpload?.(plugin.meta.key)}
+                >
+                  {t('Upload new version')}
                 </Button>
               </TableCell>
             </TableRow>

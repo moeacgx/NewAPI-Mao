@@ -50,6 +50,7 @@ import { resolveLocalizedText } from '@/lib/localized-text'
 
 import {
   activateTaskPlugin,
+  deleteTaskPluginVersion,
   getTaskPlugin,
   getTaskPluginVersions,
 } from '../api'
@@ -115,6 +116,15 @@ function PluginDetailContent(props: {
       queryClient.invalidateQueries({ queryKey: ['task-plugin', key] })
       queryClient.invalidateQueries({ queryKey: ['task-plugin-versions', key] })
       queryClient.invalidateQueries({ queryKey: ['task-plugin-options'] })
+    },
+    onError: (error) => handleServerError(error),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: (version: string) => deleteTaskPluginVersion(key, version),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-plugins'] })
+      queryClient.invalidateQueries({ queryKey: ['task-plugin', key] })
+      queryClient.invalidateQueries({ queryKey: ['task-plugin-versions', key] })
     },
     onError: (error) => handleServerError(error),
   })
@@ -318,6 +328,18 @@ function PluginDetailContent(props: {
                       >
                         <RotateCcw />
                         {t('Activate / Roll back')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        disabled={
+                          !props.canManage ||
+                          version.active ||
+                          deleteMutation.isPending
+                        }
+                        onClick={() => deleteMutation.mutate(version.version)}
+                      >
+                        {t('Delete')}
                       </Button>
                     </TableCell>
                   </TableRow>

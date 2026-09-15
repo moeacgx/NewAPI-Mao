@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -252,7 +252,9 @@ test('disabled archived entry preserves counts and does not expose unsupported m
   expect(screen.getByText('Not activated')).toBeVisible()
   expect(screen.getByText('2 channels, 3 in-flight tasks')).toBeVisible()
   expect(screen.getByRole('switch')).toHaveAttribute('aria-disabled', 'true')
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Upload new version' })
+  ).toBeDisabled()
 })
 
 test('list failure exits loading and retry can recover', async () => {

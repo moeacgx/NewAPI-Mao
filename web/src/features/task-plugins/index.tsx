@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getTaskPluginEnabledOption, setTaskPluginEnabledOption } from './api'
 import { PluginDetailSheet } from './components/plugin-detail-sheet'
 import { PluginsTable } from './components/plugins-table'
+import { UploadDialog } from './components/upload-dialog'
 import type { TaskPluginListItem } from './types'
 
 export function TaskPlugins() {
@@ -42,6 +43,7 @@ export function TaskPlugins() {
     (state) => (state.auth.user?.role ?? 0) >= ROLE.SUPER_ADMIN
   )
   const [detail, setDetail] = useState<TaskPluginListItem | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const runtime = useQuery({
     queryKey: ['task-plugin-enabled'],
     queryFn: getTaskPluginEnabledOption,
@@ -71,7 +73,9 @@ export function TaskPlugins() {
             {t('Enable task plugins')}
           </Label>
           <Button disabled>{t('Marketplace')}</Button>
-          <Button disabled>{t('Upload plugin')}</Button>
+          <Button disabled={!canManage} onClick={() => setUploadOpen(true)}>
+            {t('Upload plugin')}
+          </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='bg-card flex min-h-0 flex-1 flex-col gap-3 rounded-xl border p-4'>
@@ -91,7 +95,11 @@ export function TaskPlugins() {
                 onRetry={() => void runtime.refetch()}
               />
             )}
-            <PluginsTable onDetails={setDetail} canManage={canManage} />
+            <PluginsTable
+              onDetails={setDetail}
+              canManage={canManage}
+              onUpload={() => setUploadOpen(true)}
+            />
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
@@ -102,6 +110,7 @@ export function TaskPlugins() {
           if (!open) setDetail(null)
         }}
       />
+      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
     </>
   )
 }

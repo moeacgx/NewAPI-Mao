@@ -97,6 +97,7 @@ export type TaskPluginRecord = {
 export type TaskPluginListItem = {
   meta: TaskPluginMeta
   source: 'factory' | 'override' | 'override_over_factory'
+  source_kind?: 'builtin' | 'custom'
   enabled: boolean
   active: boolean
   source_hash: string
@@ -123,6 +124,7 @@ export type TaskPluginDetail = {
   plugin?: TaskPluginRecord
   meta: TaskPluginMeta
   source?: string
+  source_kind?: 'builtin' | 'custom'
   layer: 'factory' | 'override'
   has_icon?: boolean
 }

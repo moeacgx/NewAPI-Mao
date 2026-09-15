@@ -42,7 +42,11 @@ export async function listTaskPlugins() {
     await api.get<ApiResponse<TaskPluginListItem[]>>('/api/plugin/task')
   return requireSuccess(response.data).map((plugin) => ({
     ...plugin,
-    source: 'factory' as const,
+    source:
+      plugin.source_kind === 'custom'
+        ? ('override' as const)
+        : ('factory' as const),
+    source_kind: plugin.source_kind,
     has_icon: false,
   }))
 }
@@ -54,9 +58,13 @@ export async function getTaskPlugin(key: string, version?: string) {
   )
   return {
     ...requireSuccess(response.data),
-    layer: 'factory' as const,
+    layer: pluginLayer(requireSuccess(response.data)),
     has_icon: false,
   }
+}
+
+function pluginLayer(detail: TaskPluginDetail): 'factory' | 'override' {
+  return detail.source_kind === 'custom' ? 'override' : 'factory'
 }
 
 export async function getTaskPluginVersions(key: string) {
@@ -64,6 +72,23 @@ export async function getTaskPluginVersions(key: string) {
     `/api/plugin/task/${encodeURIComponent(key)}/versions`
   )
   return requireSuccess(response.data)
+}
+
+export async function uploadTaskPlugin(source: string, remark: string) {
+  const response = await api.post<ApiResponse<TaskPluginDetail>>(
+    '/api/plugin/task',
+    { source, remark },
+    mutationConfig
+  )
+  return requireSuccess(response.data)
+}
+
+export async function deleteTaskPluginVersion(key: string, version: string) {
+  const response = await api.delete<ApiResponse<null>>(
+    `/api/plugin/task/${encodeURIComponent(key)}/versions/${encodeURIComponent(version)}`,
+    mutationConfig
+  )
+  requireSuccess(response.data)
 }
 
 export async function activateTaskPlugin(key: string, version: string) {
