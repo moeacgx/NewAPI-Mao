@@ -1,5 +1,7 @@
 # 开发文档
 
+- [zzapi 官方任务插件阶段 .324 发布](../workflows/2026-09/15_zzapi_official_task_plugin_324_release.md)：默认关闭的内置插件阶段版本、三节点滚动更新、回滚与验收记录。
+
 - [Default 官方任务插件管理](../workflows/2026-09/15_official_task_plugin_default.md)：内置管理、Admin 只读与 Root 操作、渠道绑定和真实语言资源验证。
 - [官方 Task Plugin 接入计划](../workflows/2026-09/15_official_task_plugin_integration_plan.md)：在保留二开扩展和原生任务的前提下接入官方 JS 插件、Default/Classic 管理入口、并存契约与上线门禁。
 - [zzapi 上游兼容第一阶段 .323 发布](../workflows/2026-09/15_zzapi_upstream_phase_one_323_release.md)：发布第一阶段七项兼容补丁，备份并滚动更新 zzapi 三应用，核验 PostgreSQL 预填分组索引迁移。
