@@ -206,10 +206,8 @@ test.each([
     const user = userEvent.setup()
     renderChannel()
     await screen.findByDisplayValue('Existing channel')
-    await user.type(
-      screen.getByRole('textbox', { name: 'API Key *' }),
-      'new-test-key'
-    )
+    await user.click(screen.getByRole('textbox', { name: 'API Key *' }))
+    await user.paste('new-test-key')
     await user.click(screen.getByRole('combobox', { name: 'Key Update Mode' }))
     await user.click(screen.getByRole('option', { name: label }))
     await user.click(
