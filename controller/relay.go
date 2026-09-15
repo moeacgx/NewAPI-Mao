@@ -480,6 +480,14 @@ func RelayTask(c *gin.Context) {
 
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
+		if result.PluginResponse != nil {
+			if err := persistOfficialPluginTask(c, relayInfo, result); err != nil {
+				taskErr = service.TaskErrorWrapperLocal(err, "plugin_task_persist_failed", http.StatusInternalServerError)
+				taskErr.NoRetry = true
+				respondTaskError(c, taskErr)
+				return
+			}
+		}
 		settleErr := service.SettleBilling(c, relayInfo, result.Quota)
 		service.AttachChannelMetricUsageAfterSettlement(c, service.ChannelMetricUsage{}, result.Quota, settleErr)
 		service.FinishChannelMetricAttempt(c, relayInfo, nil, false, "")
@@ -487,6 +495,10 @@ func RelayTask(c *gin.Context) {
 			common.SysError("settle task billing error: " + settleErr.Error())
 		}
 		service.LogTaskConsumption(c, relayInfo)
+		if result.PluginResponse != nil {
+			common.ApiSuccess(c, gin.H{"task_id": relayInfo.PublicTaskID, "platform": result.Platform, "status": model.TaskStatusSubmitted})
+			return
+		}
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
@@ -1046,6 +1058,9 @@ func respondTaskError(c *gin.Context, taskErr *taskdto.TaskError) {
 }
 
 func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *taskdto.TaskError, retryTimes int) bool {
+	if taskErr != nil && taskErr.NoRetry {
+		return false
+	}
 	if taskErr == nil || c == nil || c.Request == nil || c.Request.Context().Err() != nil {
 		return false
 	}

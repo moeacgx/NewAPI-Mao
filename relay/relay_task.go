@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -13,16 +14,20 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel"
+	pluginadaptor "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/gin-gonic/gin"
 )
 
 type TaskSubmitResult struct {
+	PluginResponse *channel.TaskSubmitResponse
 	UpstreamTaskID string
 	TaskData       []byte
 	Platform       constant.TaskPlatform
@@ -202,7 +207,15 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 // 估算计费(EstimateBilling) → 计算价格 → 预扣费（仅首次）→
 // 构建/发送/解析上游请求 → 提交后计费调整(AdjustBillingOnSubmit)。
 // 控制器负责 defer Refund 和成功后 Settle。
-func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
+func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult *TaskSubmitResult, returnedErr *dto.TaskError) {
+	defer func() {
+		if _, ok := c.Get("official_task_plugin"); ok && returnedErr != nil {
+			returnedErr.Message = "官方任务插件请求失败（" + returnedErr.Code + "）"
+			returnedErr.Data = nil
+			returnedErr.Error = errors.New(returnedErr.Message)
+			returnedErr.NoRetry = true
+		}
+	}()
 	info.InitChannelMeta(c)
 
 	// 1. 确定 platform → 创建适配器 → 验证请求
@@ -211,12 +224,24 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		platform = GetTaskPlatform(c)
 	}
 	adaptor := GetTaskAdaptor(platform)
+	pluginValue, isPlugin := c.Get("official_task_plugin")
+	var loaded *pluginruntime.LoadedPlugin
+	if isPlugin {
+		var ok bool
+		loaded, ok = pluginValue.(*pluginruntime.LoadedPlugin)
+		if !ok || info.ChannelType != constant.ChannelTypeTaskPlugin || info.ChannelSetting.TaskPluginKey != loaded.Meta.Key {
+			return nil, service.TaskErrorWrapperLocal(errors.New("必须选择绑定目标插件的独立渠道"), "plugin_channel_mismatch", http.StatusBadRequest)
+		}
+		adaptor = pluginadaptor.NewLegacy(loaded, nil)
+	}
 	if adaptor == nil {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("invalid api platform: %s", platform), "invalid_api_platform", http.StatusBadRequest)
 	}
 	adaptor.Init(info)
-	if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
-		return nil, taskErr
+	if !isPlugin {
+		if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+			return nil, taskErr
+		}
 	}
 
 	// 2. 确定模型名称
@@ -231,6 +256,36 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
 		return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 	}
+	if isPlugin {
+		if !slices.Contains(loaded.Meta.Models, info.UpstreamModelName) {
+			return nil, service.TaskErrorWrapperLocal(errors.New("插件不支持渠道映射后的模型"), "plugin_model_unsupported", http.StatusBadRequest)
+		}
+		var body map[string]any
+		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
+			return nil, service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
+		}
+		// 宿主拥有源任务身份，插件只收到通过授权的依赖对象。
+		for _, field := range []string{"originTaskId", "origin_task_id", "task_id", "video_id"} {
+			if _, exists := body[field]; exists {
+				return nil, service.TaskErrorWrapperLocal(errors.New("源任务必须使用 originTaskIds"), "plugin_origin_invalid", http.StatusBadRequest)
+			}
+		}
+		c.Set("task_request", body)
+		action, _ := body["action"].(string)
+		if action == "" {
+			action = "text_to_video"
+		}
+		info.Action = constant.NormalizeTaskAction(action)
+		if info.Action == "remix" && len(info.OriginTasks) != 1 {
+			return nil, service.TaskErrorWrapperLocal(errors.New("remix 需要一个已授权源任务"), "plugin_origin_invalid", http.StatusBadRequest)
+		}
+		if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+			return nil, taskErr
+		}
+		if info.OriginModelName != modelName {
+			return nil, service.TaskErrorWrapperLocal(errors.New("插件不能更改已授权模型"), "plugin_model_mismatch", http.StatusBadRequest)
+		}
+	}
 
 	// 3. 预生成公开 task ID（仅首次）
 	if info.PublicTaskID == "" {
@@ -244,6 +299,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 	}
 	info.PriceData = priceData
+	if isPlugin && (!priceData.UsePrice || billing_setting.GetBillingMode(modelName) == billing_setting.BillingModeTieredExpr) {
+		return nil, service.TaskErrorWrapperLocal(errors.New("本阶段插件仅支持显式按次价格"), "plugin_billing_unsupported", http.StatusBadRequest)
+	}
 	// 价格重建会清空倍率；仅从源任务快照恢复，不能沿用上次尝试的价格。
 	for key, ratio := range info.OriginTaskOtherRatios {
 		info.PriceData.AddOtherRatio(key, ratio)
@@ -252,7 +310,17 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
 	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。
 	//    ResolveOriginTask 可能已在 remix 路径中预设了 OtherRatios，此处合并。
-	if estimatedRatios := adaptor.EstimateBilling(c, info); len(estimatedRatios) > 0 {
+	var estimatedRatios map[string]float64
+	if isPlugin {
+		// 即使按次收费也验证用量边界；暂不把 usage facts 当作本地倍率。
+		_, usageErr := adaptor.(channel.TaskValidatedBillingProvider).EstimateBillingValidated(c, info)
+		if usageErr != nil {
+			return nil, service.TaskErrorWrapperLocal(usageErr, "plugin_usage_invalid", http.StatusBadRequest)
+		}
+	} else {
+		estimatedRatios = adaptor.EstimateBilling(c, info)
+	}
+	if len(estimatedRatios) > 0 {
 		for k, v := range estimatedRatios {
 			info.PriceData.AddOtherRatio(k, v)
 		}
@@ -273,6 +341,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 			return nil, service.TaskErrorFromAPIError(apiErr)
 		}
 	}
+	if isPlugin && info.Billing != nil && info.BillingSource != service.BillingSourceWallet && info.BillingSource != service.BillingSourceSubscription {
+		return nil, service.TaskErrorWrapperLocal(errors.New("插件暂不支持组合资金来源"), "plugin_funding_unsupported", http.StatusBadRequest)
+	}
 
 	// 8. 构建请求体
 	requestBody, err := adaptor.BuildRequestBody(c, info)
@@ -285,7 +356,8 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
-	if resp != nil && resp.StatusCode != http.StatusOK {
+	if resp != nil && ((!isPlugin && resp.StatusCode != http.StatusOK) || (isPlugin && (resp.StatusCode < 200 || resp.StatusCode >= 300))) {
+		defer resp.Body.Close()
 		responseBody, _ := io.ReadAll(resp.Body)
 		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
 	}
@@ -299,14 +371,34 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	c.Header("X-New-Api-Other-Ratios", string(ratiosJSON))
 
 	// 11. 解析响应
-	upstreamTaskID, taskData, taskErr := adaptor.DoResponse(c, resp, info)
+	var upstreamTaskID string
+	var taskData []byte
+	var taskErr *dto.TaskError
+	var pluginResponse *channel.TaskSubmitResponse
+	if isPlugin {
+		defer resp.Body.Close()
+		pluginResponse, taskErr = adaptor.(channel.PluginTaskParser).ParseResponse(c, resp, info)
+		if taskErr == nil {
+			upstreamTaskID = pluginResponse.UpstreamTaskID
+			taskData = pluginResponse.TaskData
+		}
+		if taskErr != nil {
+			taskErr.NoRetry = true
+		}
+	} else {
+		upstreamTaskID, taskData, taskErr = adaptor.DoResponse(c, resp, info)
+	}
 	if taskErr != nil {
 		return nil, taskErr
 	}
 
 	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
 	finalQuota := info.PriceData.Quota
-	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 {
+	var adjustedRatios map[string]float64
+	if !isPlugin {
+		adjustedRatios = adaptor.AdjustBillingOnSubmit(info, taskData)
+	}
+	if len(adjustedRatios) > 0 {
 		if adjustedQuota, ok := recalcQuotaFromRatios(info, adjustedRatios); ok {
 			// 基于调整后的 ratios 重新计算 quota
 			finalQuota = adjustedQuota
@@ -316,6 +408,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	return &TaskSubmitResult{
+		PluginResponse: pluginResponse,
 		UpstreamTaskID: upstreamTaskID,
 		TaskData:       taskData,
 		Platform:       platform,

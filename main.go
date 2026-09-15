@@ -172,6 +172,7 @@ func main() {
 		}
 		return a
 	}
+	service.GetPinnedTaskAdaptorFunc = func(task *model.Task) (service.TaskPollingAdaptor, error) { return relay.GetPinnedTaskAdaptor(task) }
 
 	// Register the periodic channel test, upstream model update, and async task
 	// polling (Midjourney / Suno / video) jobs as scheduled system tasks
@@ -359,6 +360,9 @@ func InitResources() error {
 		}
 	}
 	model.InitOptionMap()
+	if err := service.InitTaskPlugins(); err != nil {
+		return fmt.Errorf("initialize task plugins: %w", err)
+	}
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()
