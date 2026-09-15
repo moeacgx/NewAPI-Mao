@@ -28,6 +28,15 @@ func GetAllLogs(c *gin.Context) {
 		return
 	}
 	pageInfo.SetTotal(int(total))
+	if c.GetInt("role") < common.RoleRootUser {
+		for _, entry := range logs {
+			var other map[string]interface{}
+			if common.UnmarshalJsonStr(entry.Other, &other) == nil {
+				delete(other, "root_info")
+				entry.Other = common.MapToJsonStr(other)
+			}
+		}
+	}
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return

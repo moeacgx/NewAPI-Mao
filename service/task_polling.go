@@ -38,6 +38,9 @@ type TaskPollingAdaptor interface {
 // 打破 service -> relay -> relay/channel -> service 的循环依赖。
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
 
+// GetPinnedTaskAdaptorFunc 逐任务获取历史插件版本，独立于新提交总开关。
+var GetPinnedTaskAdaptorFunc func(task *model.Task) (TaskPollingAdaptor, error)
+
 const (
 	refundReconciliationLimit       = 100
 	refundReconciliationGracePeriod = 30 * time.Second
@@ -463,7 +466,7 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		return fmt.Errorf("CacheGetChannel failed: %w", err)
 	}
 	adaptor := GetTaskAdaptorFunc(platform)
-	if adaptor == nil {
+	if adaptor == nil && GetPinnedTaskAdaptorFunc == nil {
 		return fmt.Errorf("video adaptor not found")
 	}
 	info := &relaycommon.RelayInfo{}
@@ -471,14 +474,20 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		ChannelBaseUrl: cacheGetChannel.GetBaseURL(),
 	}
 	info.ApiKey = cacheGetChannel.Key
-	adaptor.Init(info)
+	if adaptor != nil {
+		adaptor.Init(info)
+	}
 	disablePollingSleep := cacheGetChannel.GetOtherSettings().DisableTaskPollingSleep
 	for i, taskId := range taskIds {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		if err := updateVideoSingleTask(ctx, adaptor, cacheGetChannel, taskId, taskM); err != nil {
-			logger.LogError(ctx, fmt.Sprintf("Failed to update video task %s: %s", taskId, err.Error()))
+			logTaskID := taskId
+			if task := taskM[taskId]; task != nil && task.PrivateData.Execution != nil && task.PrivateData.Execution.TaskPlugin != nil {
+				logTaskID = task.TaskID
+			}
+			logger.LogError(ctx, fmt.Sprintf("Failed to update video task %s: %s", logTaskID, err.Error()))
 		}
 		if disablePollingSleep || i == len(taskIds)-1 {
 			continue
@@ -494,7 +503,16 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 	return nil
 }
 
-func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *model.Channel, taskId string, taskM map[string]*model.Task) error {
+func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *model.Channel, taskId string, taskM map[string]*model.Task) (returnedErr error) {
+	stage := "prepare"
+	status := 0
+	defer func() {
+		task := taskM[taskId]
+		if returnedErr != nil && task != nil && task.PrivateData.Execution != nil && task.PrivateData.Execution.TaskPlugin != nil {
+			pin := task.PrivateData.Execution.TaskPlugin
+			returnedErr = fmt.Errorf("task_plugin_poll task=%q plugin=%q version=%q stage=%s http_status=%d", task.TaskID, pin.Key, pin.Version, stage, status)
+		}
+	}()
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -509,12 +527,28 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		logger.LogError(ctx, fmt.Sprintf("Task %s not found in taskM", taskId))
 		return fmt.Errorf("task %s not found", taskId)
 	}
+	isPlugin := task.PrivateData.Execution != nil && task.PrivateData.Execution.TaskPlugin != nil
+	if isPlugin {
+		if GetPinnedTaskAdaptorFunc == nil {
+			return fmt.Errorf("历史插件适配器未配置")
+		}
+		var err error
+		adaptor, err = GetPinnedTaskAdaptorFunc(task)
+		if err != nil {
+			return err
+		}
+		adaptor.Init(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: baseURL, ApiKey: task.PrivateData.Key, ChannelSetting: ch.GetSetting()}})
+	}
+	if adaptor == nil {
+		return fmt.Errorf("任务适配器不可用")
+	}
 	key := ch.Key
 
 	privateData := task.PrivateData
 	if privateData.Key != "" {
 		key = privateData.Key
 	}
+	stage = "fetch_failed"
 	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
 		"task_id": task.GetUpstreamTaskID(),
 		"action":  task.Action,
@@ -522,20 +556,35 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	if err != nil {
 		return fmt.Errorf("fetchTask failed for task %s: %w", taskId, err)
 	}
+	if resp == nil {
+		return fmt.Errorf("empty poll response")
+	}
+	status = resp.StatusCode
+	stage = "read_failed"
 	defer resp.Body.Close()
-	responseBody, err := io.ReadAll(resp.Body)
+	var reader io.Reader = resp.Body
+	if isPlugin {
+		reader = io.LimitReader(resp.Body, (1<<20)+1)
+	}
+	responseBody, err := io.ReadAll(reader)
 	if err != nil {
 		return fmt.Errorf("readAll failed for task %s: %w", taskId, err)
 	}
+	if isPlugin && len(responseBody) > 1<<20 {
+		return fmt.Errorf("插件轮询响应超过 1 MiB")
+	}
 
-	logger.LogDebug(ctx, "updateVideoSingleTask response: %s", responseBody)
+	if !isPlugin {
+		logger.LogDebug(ctx, "updateVideoSingleTask response: %s", responseBody)
+	}
 
 	snap := task.Snapshot()
 
 	taskResult := &relaycommon.TaskInfo{}
+	stage = "parse_failed"
 	// try parse as New API response format
 	var responseItems taskdto.TaskResponse[model.Task]
-	if err = common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
+	if err = common.Unmarshal(responseBody, &responseItems); !isPlugin && err == nil && responseItems.IsSuccess() {
 		logger.LogDebug(ctx, "updateVideoSingleTask parsed as new api response format: %+v", responseItems)
 		t := responseItems.Data
 		taskResult.TaskID = t.TaskID
@@ -548,12 +597,35 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 
-	task.Data = redactVideoResponseBody(responseBody)
+	if isPlugin {
+		if task.PrivateData.PluginImmediate == nil {
+			task.PrivateData.PluginData = responseBody
+		}
+		if taskResult.PluginState != nil {
+			task.PrivateData.PluginState = taskResult.PluginState
+		}
+		if taskResult.Status == string(model.TaskStatusFailure) {
+			taskResult.Reason = "上游插件任务失败"
+		}
+		if taskResult.Status == string(model.TaskStatusSuccess) {
+			if strings.HasPrefix(taskResult.Url, "data:") {
+				task.PrivateData.PluginResultURL = taskResult.Url
+			}
+			taskResult.Url = "/v1/task/plugins/" + string(task.Platform) + "/" + task.TaskID + "/artifacts/result"
+		}
+	} else {
+		task.Data = redactVideoResponseBody(responseBody)
+	}
 
-	logger.LogDebug(ctx, "updateVideoSingleTask taskResult: %+v", taskResult)
+	if !isPlugin {
+		logger.LogDebug(ctx, "updateVideoSingleTask taskResult: %+v", taskResult)
+	}
 
 	now := time.Now().Unix()
 	if taskResult.Status == "" {
+		if isPlugin {
+			return fmt.Errorf("插件返回空任务状态")
+		}
 		//taskResult = relaycommon.FailTaskInfo("upstream returned empty status")
 		errorResult := &dto.GeneralErrorResponse{}
 		if err = common.Unmarshal(responseBody, &errorResult); err == nil {
@@ -576,6 +648,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 
 	shouldRefund := false
+	stage = "unknown_status"
 	shouldSettle := false
 	quota := task.Quota
 
