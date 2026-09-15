@@ -1,5 +1,10 @@
 # 开发文档
 
+- [Default 前端上游集成评估与实现](../workflows/2026-09/15_default_upstream_integration.md)：逐域移植兼容修复，保留本地渠道、日志、分组、定价与通知契约，并列出尚需后端协同的冲突。
+- [Default 渠道多 Key 策略编辑](../workflows/2026-09/15_default_channels_upstream.md)：敏感权限控制下修改策略，保留现有密钥与追加、替换行为。
+- [Default 价格时间规则与日志筛选修复](../workflows/2026-09/15_default_pricing_upstream.md)：同日和跨午夜条件、价格货币单位及避免密码自动填充。
+- [Default 价格编辑器历史规则保留](../workflows/2026-09/15_default_pricing_editor_preservation.md)：模式切换保留原始计费规则，增删行保留编辑草稿与焦点。
+- [Default Passkey 与兑换码导出](../workflows/2026-09/15_default_security_upstream.md)：外置认证器能力检测和可选 TXT、Markdown 文件导出。
 - [Responses WebSocket 专项集成审查](responses-websocket-integration.md)：`9fe0457ee` 的协议、计费与本地扩展契约审查；仅 DTO 准备，默认关闭，运行时禁止直接合入。
 
 - [上游认证差异与安全兼容补丁](../workflows/2026-09/15_auth_upstream_compatibility.md)：Telegram OAuth 迁移门槛、登录快照版本、Passkey 会话绑定、Argon2id 双格式读取、PAT 撤销及前后端兼容矩阵。

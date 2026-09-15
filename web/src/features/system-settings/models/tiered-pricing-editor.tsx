@@ -21,6 +21,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -102,6 +103,34 @@ import {
 import { cn } from '@/lib/utils'
 
 const PRICE_SUFFIX = '$/1M tokens'
+
+// 编辑标识只属于当前草稿，不写入计费表达式；删除时同步移除标识，保留其余行的焦点和输入状态。
+function useDraftRowKeys(count: number): [string[], (index: number) => void] {
+  const prefix = useId()
+  const [state, setState] = useState(() => ({
+    keys: Array.from({ length: count }, (_, index) => `${prefix}-${index}`),
+    next: count,
+  }))
+  let keys = state.keys
+  if (keys.length !== count) {
+    const added = Math.max(0, count - keys.length)
+    keys = [
+      ...keys.slice(0, count),
+      ...Array.from(
+        { length: added },
+        (_, offset) => `${prefix}-${state.next + offset}`
+      ),
+    ]
+    setState({ keys, next: state.next + added })
+  }
+  const removeKey = (index: number) => {
+    setState((current) => ({
+      ...current,
+      keys: current.keys.filter((_, position) => position !== index),
+    }))
+  }
+  return [keys, removeKey]
+}
 const CACHE_PRICE_VARS = BILLING_EXTRA_VARS.filter(
   (variable) => variable.group === 'cache'
 )
@@ -332,8 +361,9 @@ function formatTokenHint(n: number | string | null | undefined): string {
 
 function formatNumberDraft(value: number | string): string {
   if (value === '') return ''
-  if (typeof value === 'number')
+  if (typeof value === 'number') {
     return Number.isFinite(value) ? String(value) : '0'
+  }
   return value
 }
 
@@ -436,12 +466,10 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
   return (
     <div className='flex items-center gap-2'>
       <Select
-        items={[
-          ...CONDITION_INPUT_OPTIONS.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          })),
-        ]}
+        items={CONDITION_INPUT_OPTIONS.map((option) => ({
+          value: option.value,
+          label: t(option.labelKey),
+        }))}
         value={condition.var}
         onValueChange={(value) =>
           onChange({ ...condition, var: value as TierConditionInput['var'] })
@@ -556,6 +584,9 @@ function VisualTierCard({
   onAddCondition,
 }: VisualTierCardProps) {
   const { t } = useTranslation()
+  const [conditionKeys, removeConditionKey] = useDraftRowKeys(
+    tier.conditions.length
+  )
   const cacheMode = getTierCacheMode(tier)
 
   const handleConditionChange = (
@@ -568,6 +599,7 @@ function VisualTierCard({
   }
 
   const handleConditionRemove = (conditionIndex: number) => {
+    removeConditionKey(conditionIndex)
     onChange({
       ...tier,
       conditions: tier.conditions.filter((_, i) => i !== conditionIndex),
@@ -667,7 +699,7 @@ function VisualTierCard({
         ) : (
           tier.conditions.map((condition, conditionIndex) => (
             <ConditionRow
-              key={conditionIndex}
+              key={conditionKeys[conditionIndex]}
               condition={condition}
               onChange={(next) => handleConditionChange(conditionIndex, next)}
               onRemove={() => handleConditionRemove(conditionIndex)}
@@ -781,6 +813,8 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
     [visualConfig]
   )
 
+  const [tierKeys, removeTierKey] = useDraftRowKeys(config.tiers.length)
+
   const handleTierChange = (index: number, next: VisualTier) => {
     const tiers = [...config.tiers]
     tiers[index] = normalizeVisualTier(next)
@@ -811,6 +845,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
   }
 
   const handleRemoveTier = (index: number) => {
+    if (config.tiers.length > 1) removeTierKey(index)
     const tiers = config.tiers.filter((_, i) => i !== index)
     onChange({ ...config, tiers: tiers.length > 0 ? tiers : config.tiers })
   }
@@ -849,7 +884,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
       </p>
       {config.tiers.map((tier, index) => (
         <VisualTierCard
-          key={index}
+          key={tierKeys[index]}
           tier={tier}
           index={index}
           total={config.tiers.length}
@@ -946,7 +981,7 @@ function RuleConditionRow({
       case MATCH_LTE:
         return t('Less than or equal')
       case MATCH_RANGE:
-        return t('Overnight range')
+        return t('Time range')
       default:
         return mode
     }
@@ -967,12 +1002,9 @@ function RuleConditionRow({
         return timeFunc
     }
   }
-  const sourceLabel =
-    condition.source === SOURCE_PARAM
-      ? t('Body param')
-      : condition.source === SOURCE_HEADER
-        ? t('Header')
-        : t('Time')
+  let sourceLabel = t('Time')
+  if (condition.source === SOURCE_PARAM) sourceLabel = t('Body param')
+  else if (condition.source === SOURCE_HEADER) sourceLabel = t('Header')
 
   const handleSourceChange = (source: string) => {
     if (source === SOURCE_TIME) {
@@ -992,12 +1024,10 @@ function RuleConditionRow({
   const renderTimeCondition = (timeCond: TimeCondition) => (
     <>
       <Select
-        items={[
-          ...TIME_FUNCS.map((fn) => ({
-            value: fn,
-            label: getTimeFuncLabel(fn),
-          })),
-        ]}
+        items={TIME_FUNCS.map((fn) => ({
+          value: fn,
+          label: getTimeFuncLabel(fn),
+        }))}
         value={timeCond.timeFunc}
         onValueChange={(value) =>
           onChange({ ...timeCond, timeFunc: value as TimeFunc })
@@ -1017,12 +1047,10 @@ function RuleConditionRow({
         </SelectContent>
       </Select>
       <Select
-        items={[
-          ...COMMON_TIMEZONES.map((tz) => ({
-            value: tz.value,
-            label: tz.label,
-          })),
-        ]}
+        items={COMMON_TIMEZONES.map((tz) => ({
+          value: tz.value,
+          label: tz.label,
+        }))}
         value={timeCond.timezone}
         onValueChange={(value) =>
           value !== null && onChange({ ...timeCond, timezone: value })
@@ -1045,12 +1073,10 @@ function RuleConditionRow({
         </SelectContent>
       </Select>
       <Select
-        items={[
-          ...matchOptions.map((option) => ({
-            value: option.value,
-            label: getMatchLabel(option.value),
-          })),
-        ]}
+        items={matchOptions.map((option) => ({
+          value: option.value,
+          label: getMatchLabel(option.value),
+        }))}
         value={timeCond.mode}
         onValueChange={(v) => v !== null && handleModeChange(v)}
       >
@@ -1111,12 +1137,10 @@ function RuleConditionRow({
         className='w-44'
       />
       <Select
-        items={[
-          ...matchOptions.map((option) => ({
-            value: option.value,
-            label: getMatchLabel(option.value),
-          })),
-        ]}
+        items={matchOptions.map((option) => ({
+          value: option.value,
+          label: getMatchLabel(option.value),
+        }))}
         value={phCond.mode}
         onValueChange={(v) => v !== null && handleModeChange(v)}
       >
@@ -1180,6 +1204,11 @@ function RuleConditionRow({
       >
         <Trash2 className='text-destructive h-4 w-4' />
       </Button>
+      {condition.source === SOURCE_TIME && condition.mode === MATCH_RANGE && (
+        <p className='text-muted-foreground w-full text-xs'>
+          {t('Start ≤ end: within the day; start > end: across midnight')}
+        </p>
+      )}
     </div>
   )
 }
@@ -1202,6 +1231,9 @@ function RuleGroupCard({
   onRemove,
 }: RuleGroupCardProps) {
   const { t } = useTranslation()
+  const [conditionKeys, removeConditionKey] = useDraftRowKeys(
+    group.conditions.length
+  )
 
   const handleConditionChange = (
     conditionIndex: number,
@@ -1241,17 +1273,18 @@ function RuleGroupCard({
       <div className='space-y-2'>
         {group.conditions.map((condition, conditionIndex) => (
           <RuleConditionRow
-            key={conditionIndex}
+            key={conditionKeys[conditionIndex]}
             condition={condition}
             onChange={(next) => handleConditionChange(conditionIndex, next)}
-            onRemove={() =>
+            onRemove={() => {
+              removeConditionKey(conditionIndex)
               onChange({
                 ...group,
                 conditions: group.conditions.filter(
                   (_, i) => i !== conditionIndex
                 ),
               })
-            }
+            }}
           />
         ))}
         <div className='flex flex-wrap gap-2'>
@@ -1562,7 +1595,7 @@ function LlmPromptHelper({ modelName }: LlmPromptHelperProps) {
 
   const prompt = useMemo(() => {
     if (modelName) {
-      return LLM_PROMPT_TEMPLATE + `\n\nCurrent model: ${modelName}`
+      return `${LLM_PROMPT_TEMPLATE}\n\nCurrent model: ${modelName}`
     }
     return LLM_PROMPT_TEMPLATE
   }, [modelName])
@@ -1649,11 +1682,16 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   const [requestRuleGroups, setRequestRuleGroups] = useState<
     RequestRuleGroup[]
   >(() => tryParseRequestRuleExpr(currentRequestRuleExpr) || [])
-  const initRef = useRef(false)
+  const [ruleGroupKeys, removeRuleGroupKey] = useDraftRowKeys(
+    requestRuleGroups.length
+  )
+  const initRef = useRef<{ modelName: string | undefined } | null>(null)
 
   useEffect(() => {
-    if (initRef.current) return
-    initRef.current = true
+    if (initRef.current?.modelName === modelName && initRef.current !== null) {
+      return
+    }
+    initRef.current = { modelName }
     const parsedConfig = tryParseVisualConfig(currentExpr)
     if (parsedConfig) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1669,24 +1707,33 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
       combineBillingExpr(currentExpr || '', currentRequestRuleExpr || '')
     )
     setRequestRuleGroups(tryParseRequestRuleExpr(currentRequestRuleExpr) || [])
-  }, [currentExpr, currentRequestRuleExpr])
-
-  useEffect(() => {
-    initRef.current = false
-  }, [modelName])
+  }, [currentExpr, currentRequestRuleExpr, modelName])
 
   const canUseVisualRules = useMemo(() => {
     if (!currentRequestRuleExpr) return true
     return tryParseRequestRuleExpr(currentRequestRuleExpr) !== null
   }, [currentRequestRuleExpr])
 
+  const rawParts = useMemo(() => {
+    // 未编辑的历史规则即使无法可视化，也按原字段保留，避免切换模式后重复乘入计费主体。
+    if (
+      !canUseVisualRules &&
+      rawExpr === combineBillingExpr(currentExpr, currentRequestRuleExpr)
+    ) {
+      return {
+        billingExpr: currentExpr,
+        requestRuleExpr: currentRequestRuleExpr,
+      }
+    }
+    return splitBillingExprAndRequestRules(rawExpr)
+  }, [rawExpr, currentExpr, currentRequestRuleExpr, canUseVisualRules])
+
   const effectiveExpr = useMemo(() => {
     if (editorMode === 'visual') {
       return generateExprFromVisualConfig(visualConfig)
     }
-    const { billingExpr } = splitBillingExprAndRequestRules(rawExpr)
-    return billingExpr
-  }, [editorMode, visualConfig, rawExpr])
+    return rawParts.billingExpr
+  }, [editorMode, visualConfig, rawParts])
 
   useEffect(() => {
     if (effectiveExpr !== currentExpr) {
@@ -1695,13 +1742,14 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   }, [effectiveExpr, currentExpr, onBillingExprChange])
 
   useEffect(() => {
-    if (editorMode !== 'visual') return
+    if (editorMode !== 'visual' || !canUseVisualRules) return
     const ruleExpr = buildRequestRuleExpr(requestRuleGroups)
     if (ruleExpr !== currentRequestRuleExpr) {
       onRequestRuleExprChange(ruleExpr)
     }
   }, [
     editorMode,
+    canUseVisualRules,
     requestRuleGroups,
     currentRequestRuleExpr,
     onRequestRuleExprChange,
@@ -1724,8 +1772,7 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   const handleModeChange = useCallback(
     (next: EditorMode) => {
       if (next === 'visual') {
-        const { billingExpr, requestRuleExpr: ruleStr } =
-          splitBillingExprAndRequestRules(rawExpr)
+        const { billingExpr, requestRuleExpr: ruleStr } = rawParts
         const parsed = tryParseVisualConfig(billingExpr)
         if (parsed) {
           setVisualConfig(parsed)
@@ -1737,12 +1784,21 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
         onRequestRuleExprChange(ruleStr)
       } else {
         const expr = generateExprFromVisualConfig(visualConfig)
-        const ruleExpr = buildRequestRuleExpr(requestRuleGroups)
+        const ruleExpr = canUseVisualRules
+          ? buildRequestRuleExpr(requestRuleGroups)
+          : currentRequestRuleExpr
         setRawExpr(combineBillingExpr(expr, ruleExpr) || expr)
       }
       setEditorMode(next)
     },
-    [rawExpr, visualConfig, requestRuleGroups, onRequestRuleExprChange]
+    [
+      rawParts,
+      visualConfig,
+      requestRuleGroups,
+      canUseVisualRules,
+      currentRequestRuleExpr,
+      onRequestRuleExprChange,
+    ]
   )
 
   const applyPreset = useCallback(
@@ -1782,7 +1838,11 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
             value={editorMode}
             onValueChange={(value) => handleModeChange(value as EditorMode)}
           >
-            <SelectTrigger className='w-full sm:w-56' size='sm'>
+            <SelectTrigger
+              aria-label={t('Editor mode')}
+              className='w-full sm:w-56'
+              size='sm'
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
@@ -1837,7 +1897,7 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
               <>
                 {requestRuleGroups.map((group, groupIndex) => (
                   <RuleGroupCard
-                    key={groupIndex}
+                    key={ruleGroupKeys[groupIndex]}
                     group={group}
                     index={groupIndex}
                     onChange={(next) => {
@@ -1845,11 +1905,12 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
                       updated[groupIndex] = next
                       handleRuleGroupsChange(updated)
                     }}
-                    onRemove={() =>
+                    onRemove={() => {
+                      removeRuleGroupKey(groupIndex)
                       handleRuleGroupsChange(
                         requestRuleGroups.filter((_, i) => i !== groupIndex)
                       )
-                    }
+                    }}
                   />
                 ))}
                 <Button

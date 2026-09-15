@@ -9,6 +9,14 @@
 本页登记可复用的二次开发能力及其稳定性边界。长期专题文档负责接口和行为契约，
 `docs/workflows/` 负责单次问题的根因、变更和验证记录。
 
+## Default 上游兼容增强
+
+- 文档：[Default 上游集成](../workflows/2026-09/15_default_upstream_integration.md)。
+- 稳定性：按功能片段复用现有接口，新增渠道多 Key 策略编辑、统一供应商识别、用户额度详情和兑换码可选导出；修复时间规则、价格单位和 Passkey 能力检测。
+- 权限和生命周期：多 Key 策略要求敏感写权限；兑换码导出只使用本次创建响应，在浏览器内生成文件，默认不下载，关闭后清空导出状态。
+- 兼容边界：保留 ApiPanelWatch、通知、实际响应模型、稳定分组标识和本地定价展示。Classic 不在范围内；新任务插件、供应商版本化管理和安全中心需后端协同。
+- 已知限制：不迁移既有计费表达式；真实 Passkey 硬件和生产页面交互未验证。
+
 ## TokensPro overview 渠道并发对齐
 
 - 文档：[TokensPro overview 渠道并发对齐](tokenspro-overview-concurrency.md)
