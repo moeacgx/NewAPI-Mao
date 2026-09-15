@@ -250,3 +250,7 @@
 - [任务日志图片预览性能优化记录](../workflows/2026-07/31_task_log_image_preview_performance.md)
 
 文档中的 API 路径以当前源码为准；部署或升级前请先确认分支版本。
+
+## 官方 JS Task Plugin 后端
+
+见 [官方任务插件后端](official-task-plugins.md)：内置插件与原生任务并存，默认关闭；生产资源签名和 S3 尚未验收。

@@ -5,6 +5,7 @@ import (
 )
 
 type TaskError struct {
+	NoRetry    bool   `json:"-"`
 	Code       string `json:"code"`
 	Message    string `json:"message"`
 	Data       any    `json:"data"`

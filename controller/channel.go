@@ -552,6 +552,20 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 	if err := channel.ValidateSettings(); err != nil {
 		return fmt.Errorf("渠道额外设置[channel setting] 格式错误：%s", err.Error())
 	}
+	pluginKey := channel.GetSetting().TaskPluginKey
+	if channel.Type == constant.ChannelTypeTaskPlugin {
+		if pluginKey == "" {
+			return fmt.Errorf("官方插件渠道必须选择 task_plugin_key")
+		}
+		if _, err := model.GetTaskPluginVersion(pluginKey, ""); err != nil {
+			return fmt.Errorf("插件 key 不存在")
+		}
+		if strings.TrimSpace(channel.GetBaseURL()) == "" {
+			return fmt.Errorf("插件渠道必须配置 base_url")
+		}
+	} else if pluginKey != "" {
+		return fmt.Errorf("只有官方插件渠道允许 task_plugin_key")
+	}
 
 	if channel.Type == constant.ChannelTypeNewAPI && strings.TrimSpace(channel.GetBaseURL()) == "" {
 		return fmt.Errorf("New API channel base URL cannot be empty")
