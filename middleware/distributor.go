@@ -355,10 +355,12 @@ func setAffinityOrderedGroupRetryState(c *gin.Context, groupIndex int) {
 }
 
 // channelSupportsRequestPath reports whether a channel can serve the request path.
-// Only Advanced Custom (type 58) channels are path-checked; all other channel types
-// always pass. A type-58 channel is usable only when one of its routes matches.
+// 官方插件必须匹配独立入口和 key；高级自定义渠道继续检查其配置路径。
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
 	if channel == nil {
+		return false
+	}
+	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
 		return false
 	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {
@@ -626,6 +628,13 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	c.Set("original_model", modelName)
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	requestPath := ""
+	if c.Request != nil && c.Request.URL != nil {
+		requestPath = c.Request.URL.Path
+	}
+	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
+		return types.NewError(errors.New("渠道与官方插件入口不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if !tryAcquireChannelConcurrencyForContext(c, channel) {
 		return types.NewError(model.ErrChannelConcurrencyLimitReached, types.ErrorCodeChannelConcurrencyLimit, types.ErrOptionWithSkipRetry())

@@ -114,9 +114,14 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
-	Key            string `json:"key,omitempty"`
-	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
-	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
+	Execution       *TaskExecutionSnapshot `json:"execution,omitempty"`
+	PluginState     json.RawMessage        `json:"plugin_state,omitempty"`
+	PluginData      json.RawMessage        `json:"plugin_data,omitempty"`
+	PluginImmediate *commonRelay.TaskInfo  `json:"plugin_immediate,omitempty"`
+	PluginResultURL string                 `json:"plugin_result_url,omitempty"`
+	Key             string                 `json:"key,omitempty"`
+	UpstreamTaskID  string                 `json:"upstream_task_id,omitempty"` // 上游真实 task ID
+	ResultURL       string                 `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
 	BillingSource        string                    `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId       int                       `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
@@ -201,10 +206,14 @@ func (p *TaskPrivateData) Scan(val interface{}) error {
 }
 
 func (p TaskPrivateData) Value() (driver.Value, error) {
-	if (p == TaskPrivateData{}) {
+	data, err := common.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	if string(data) == "{}" {
 		return nil, nil
 	}
-	return common.Marshal(p)
+	return data, nil
 }
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
@@ -602,13 +611,15 @@ func (Task *Task) Insert() error {
 }
 
 type taskSnapshot struct {
-	Status     TaskStatus
-	Progress   string
-	StartTime  int64
-	FinishTime int64
-	FailReason string
-	ResultURL  string
-	Data       json.RawMessage
+	PluginState json.RawMessage
+	PluginData  json.RawMessage
+	Status      TaskStatus
+	Progress    string
+	StartTime   int64
+	FinishTime  int64
+	FailReason  string
+	ResultURL   string
+	Data        json.RawMessage
 }
 
 func (s taskSnapshot) Equal(other taskSnapshot) bool {
@@ -618,18 +629,21 @@ func (s taskSnapshot) Equal(other taskSnapshot) bool {
 		s.FinishTime == other.FinishTime &&
 		s.FailReason == other.FailReason &&
 		s.ResultURL == other.ResultURL &&
-		bytes.Equal(s.Data, other.Data)
+		bytes.Equal(s.Data, other.Data) &&
+		bytes.Equal(s.PluginState, other.PluginState) && bytes.Equal(s.PluginData, other.PluginData)
 }
 
 func (t *Task) Snapshot() taskSnapshot {
 	return taskSnapshot{
-		Status:     t.Status,
-		Progress:   t.Progress,
-		StartTime:  t.StartTime,
-		FinishTime: t.FinishTime,
-		FailReason: t.FailReason,
-		ResultURL:  t.PrivateData.ResultURL,
-		Data:       t.Data,
+		PluginState: t.PrivateData.PluginState,
+		PluginData:  t.PrivateData.PluginData,
+		Status:      t.Status,
+		Progress:    t.Progress,
+		StartTime:   t.StartTime,
+		FinishTime:  t.FinishTime,
+		FailReason:  t.FailReason,
+		ResultURL:   t.PrivateData.ResultURL,
+		Data:        t.Data,
 	}
 }
 

@@ -33,3 +33,20 @@ var SunoModel2Action = map[string]string{
 	"suno_music":  SunoActionMusic,
 	"suno_lyrics": SunoActionLyrics,
 }
+
+// NormalizeTaskAction 仅供官方插件边界使用，不改写原生历史 action。
+func NormalizeTaskAction(action string) string {
+	switch action {
+	case "generate":
+		return "image_to_video"
+	case "textGenerate":
+		return "text_to_video"
+	case "firstTailGenerate":
+		return "first_tail_to_video"
+	case "referenceGenerate":
+		return "reference_to_video"
+	case "remixGenerate":
+		return "remix"
+	}
+	return action
+}

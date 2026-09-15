@@ -147,3 +147,7 @@ Default 使用 `web/src/features/invoices`，Classic 使用
 `web/classic/src/components/invoice`。两套模板分别读取相同的后端配置契约，修改一套
 不会自动改变另一套。Classic `/console/invoice` 使用全宽透明玻璃业务卡片，表格按容器宽度
 铺开，右侧操作列固定在边缘。
+
+## 官方 JS Task Plugin 后端
+
+见 [官方任务插件后端](official-task-plugins.md)：内置插件与原生任务并存，默认关闭；生产资源签名和 S3 尚未验收。
