@@ -1,5 +1,11 @@
 # 本项目二次开发能力
 
+## 认证上游兼容阶段
+
+- 文档：[认证差异与兼容矩阵](../workflows/2026-09/15_auth_upstream_compatibility.md)。
+- 已实现：Telegram/Passkey 在途流程固定会话版本、登录签发固定认证快照版本、Argon2id 有界读取、PAT POST 生成与 DELETE 撤销及指纹审计。
+- 稳定性：后端兼容增量；保留本地 JWT、Session、刷新轮换和撤销栅栏。尚未切换 Telegram OAuth、统一多因子登录、操作上下文单次 proof 或独立审计存储；不能当作上游安全功能全部移植。
+
 本页登记可复用的二次开发能力及其稳定性边界。长期专题文档负责接口和行为契约，
 `docs/workflows/` 负责单次问题的根因、变更和验证记录。
 
@@ -26,6 +32,14 @@
 - 权限与默认值：要求渠道敏感写权限；默认保留旧密钥并追加，支持显式覆盖及随机/轮询。
 - 边界：本期只提供 Classic 编辑入口；Codex、Vertex 与 io.net 托管渠道不提供转换。
   不支持反向转换；并发编辑沿用现有渠道更新语义，应避免同时编辑同一渠道。
+
+## Responses WebSocket 集成准备
+
+- 文档：[Responses WebSocket 专项集成审查](responses-websocket-integration.md)。
+- 稳定性：仅 relaykit DTO 兼容准备，运行时未接入，不是可用功能或发布候选。
+- 开关：渠道 `setting.responses_websocket_enabled` 缺失为 false；本分支设为 true 仍不启用入口。
+- 限制：上游审计、计费错误传播、失败指标和错误替换尚未满足本地契约，禁止直接摘取整个提交。
+- 范围：本阶段交付 DTO 与协议夹具，不增加界面；完整运行时启用前必须分别实现 Default 与 Classic 的开关、保存恢复和权限验收。无数据库迁移，无部署。
 
 ## 福利营销时效额度券
 

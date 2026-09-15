@@ -16,11 +16,11 @@
 
 多节点部署必须共用同一主数据库。登录 Session、账户级活跃 Session 上限，以及配置为正数时启用的签发窗口计数都以数据库为权威，因此这些限制在应用节点间全局生效。Redis 中的 Session Hash（包含 `revoking`/`revoked` tombstone）只是缓存，其 TTL 为 Session 剩余寿命与有效 `SYNC_FREQUENCY` 中的较小值；`SYNC_FREQUENCY` 默认及非法值回退均为 `60` 秒。读取缓存不会续期，过期后会按 SID 回源数据库。延迟完成的 active 缓存回写只能使用其数据库观察窗口尚未消耗的 TTL，不能在撤销 tombstone 到期后重新启动一个完整缓存周期。
 
-| Redis 部署方式 | Session 状态传播 | 限流语义 |
-| --- | --- | --- |
-| 所有节点共享 Redis | 正常撤销和版本发布通过同一缓存即时传播 | Redis 限流额度在所有节点间共享 |
+| Redis 部署方式         | Session 状态传播                                                                                                                         | 限流语义                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 所有节点共享 Redis     | 正常撤销和版本发布通过同一缓存即时传播                                                                                                   | Redis 限流额度在所有节点间共享                           |
 | 每个节点使用独立 Redis | 最迟在该节点 Session 缓存 TTL 到期后回源收敛，即不超过有效 `SYNC_FREQUENCY`；版本轮换期间，新 Token 在持有旧缓存的节点上可能短暂返回 401 | 每个节点独立计数，集群总额度最坏约为单节点阈值乘以节点数 |
-| 不使用 Redis | 每次 Session 校验直接读取数据库 | 使用各节点的内存限流器，额度同样按节点独立 |
+| 不使用 Redis           | 每次 Session 校验直接读取数据库                                                                                                          | 使用各节点的内存限流器，额度同样按节点独立               |
 
 `SYNC_FREQUENCY` 越大，独立 Redis 部署的陈旧窗口越长；值越小，每个活跃 SID 在每个节点上回源数据库的频率越高。默认配置下，持续活跃的 Session 每个节点最多约每 60 秒增加一次数据库主键点查。共享 Redis 时，撤销 tombstone 和版本发布仍保持即时传播。
 
@@ -54,13 +54,13 @@
 
 会话相关接口：
 
-| 接口 | 鉴权 | 用途 |
-| --- | --- | --- |
-| `POST /api/user/auth/refresh` | Refresh Cookie；Secure 模式附加 Origin 校验 | 轮换 Refresh Token 并签发新的 Access Token |
-| `POST /api/user/auth/logout` | Refresh Cookie；Secure 模式附加 Origin 校验，可同时携带 Bearer | 撤销当前登录会话并清除 Cookie |
-| `GET /api/user/sessions` | Bearer | 查看当前鉴权版本的有效登录会话，当前会话优先，最多 100 条 |
-| `DELETE /api/user/sessions/:sid` | Bearer | 撤销指定登录会话，包括当前会话 |
-| `POST /api/user/sessions/revoke-others` | Bearer | 保留当前会话并撤销其他会话 |
+| 接口                                    | 鉴权                                                           | 用途                                                      |
+| --------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| `POST /api/user/auth/refresh`           | Refresh Cookie；Secure 模式附加 Origin 校验                    | 轮换 Refresh Token 并签发新的 Access Token                |
+| `POST /api/user/auth/logout`            | Refresh Cookie；Secure 模式附加 Origin 校验，可同时携带 Bearer | 撤销当前登录会话并清除 Cookie                             |
+| `GET /api/user/sessions`                | Bearer                                                         | 查看当前鉴权版本的有效登录会话，当前会话优先，最多 100 条 |
+| `DELETE /api/user/sessions/:sid`        | Bearer                                                         | 撤销指定登录会话，包括当前会话                            |
+| `POST /api/user/sessions/revoke-others` | Bearer                                                         | 保留当前会话并撤销其他会话                                |
 
 客户端内存中已有会话时，应在 refresh/logout 请求中发送 `X-Auth-Session: <sid>`。Refresh Cookie 与该 SID 不一致时，两个端点都返回 `409 AUTH_SESSION_MISMATCH`，且不会轮换、撤销或清除任何会话；客户端先通过 refresh 清除本标签页的旧 SID、恢复 Cookie 当前对应的会话，再重试 logout。冷启动尚无内存会话时可以省略该请求头。
 
@@ -164,6 +164,15 @@ Proof 同时绑定用户、登录会话、用户鉴权版本、会话版本和 s
 启用了 2FA 的用户注册 Passkey 时，register begin 与 finish 都必须携带有效的 `passkey.register` Proof；finish 会在消费一次性 AuthFlow 之前重新验证 Proof。未启用 2FA 的首次 Passkey 注册不要求该请求头。
 
 ## 升级注意事项
+
+2026-09-15 兼容补丁不改变现有 Session/Refresh/PAT 的有效期或密钥，详细差异、配置迁移、回滚与两套前端矩阵见[上游认证兼容记录](workflows/2026-09/15_auth_upstream_compatibility.md)。该补丁：
+
+- 登录签发必须匹配主凭证认证时的 AuthVersion；密码重置后不能用旧认证快照获取新版本会话。
+- Telegram 绑定及 Passkey 注册/step-up 固定发起时的完整会话身份；升级前的在途流程需重新发起。Passkey 最终注册事务也检查会话撤销与版本。
+- PAT 保留 `GET /api/user/token`，新增同响应的 `POST /api/user/token` 和幂等 `DELETE /api/user/token`；生成/撤销写指纹审计，不影响浏览器 Session。尚未提供上游 token/status 或独立审计接口。
+- 密码校验支持上游固定参数 Argon2id 与原 bcrypt；账户和备份码仍写 bcrypt，本轮不启用账户密码算法配置或长度策略变更。
+
+下列条目描述原会话架构迁移，不表示安装本次兼容补丁会再次执行整套迁移或注销已有会话。
 
 - 旧 `session` Cookie 不再使用；升级后现有面板登录会失效，用户需要重新登录。
 - 数据库迁移会新增 `user_sessions`、`auth_flows`、`external_identity_claims` 和 `users.auth_version`，并为已有用户初始化鉴权版本、回填 Telegram 账号唯一归属；若历史数据中同一 Telegram ID 已绑定多个用户，迁移会拒绝继续启动，需先消除歧义。

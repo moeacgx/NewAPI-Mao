@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -36,12 +37,7 @@ var (
 
 // AuthIdentity is the server-validated identity attached to dashboard requests.
 // Role, status and group are deliberately loaded from the user cache instead of JWT claims.
-type AuthIdentity struct {
-	UserID          int
-	SessionID       string
-	UserAuthVersion int64
-	SessionVersion  int64
-}
+type AuthIdentity = model.AuthSessionIdentity
 
 type authClaims struct {
 	TokenUse        string   `json:"token_use"`
