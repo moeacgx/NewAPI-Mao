@@ -72,6 +72,37 @@ type AuthFlowMatch struct {
 	SessionId string
 }
 
+// AuthSessionIdentity 固定敏感流程发起时的身份，不能从回调时的会话重建版本。
+type AuthSessionIdentity struct {
+	UserID          int    `json:"user_id"`
+	SessionID       string `json:"session_id"`
+	UserAuthVersion int64  `json:"user_auth_version"`
+	SessionVersion  int64  `json:"session_version"`
+}
+
+// ValidateAuthSessionWithTx 在调用方事务内锁定用户和会话，保证检查与敏感写入
+// 之间不会穿插安全版本推进。SQLite 由写事务串行化，其他数据库使用行锁。
+func ValidateAuthSessionWithTx(tx *gorm.DB, identity AuthSessionIdentity) error {
+	if tx == nil || identity.UserID <= 0 || identity.SessionID == "" || identity.UserAuthVersion <= 0 || identity.SessionVersion <= 0 {
+		return ErrAuthFlowInvalid
+	}
+	var user User
+	if err := lockForUpdate(tx).First(&user, identity.UserID).Error; err != nil {
+		return err
+	}
+	if user.Status != common.UserStatusEnabled || user.AuthVersion != identity.UserAuthVersion {
+		return ErrUserSessionInactive
+	}
+	var session UserSession
+	if err := lockForUpdate(tx).Where("sid = ? AND user_id = ?", identity.SessionID, identity.UserID).First(&session).Error; err != nil {
+		return err
+	}
+	if session.Status != UserSessionStatusActive || session.RevokedAt != 0 || session.ExpiresAt <= time.Now().Unix() || session.UserAuthVersion != identity.UserAuthVersion || session.Version != identity.SessionVersion {
+		return ErrUserSessionInactive
+	}
+	return nil
+}
+
 func applyAuthFlowMatch(query *gorm.DB, token string, match AuthFlowMatch) *gorm.DB {
 	query = query.Where("token_hash = ? AND purpose = ?", authFlowTokenHash(token), match.Purpose)
 	if match.Provider != "" {
