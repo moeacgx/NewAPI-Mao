@@ -1,5 +1,7 @@
 # 开发文档
 
+- [zzapi 上游兼容第一阶段 .323 发布](../workflows/2026-09/15_zzapi_upstream_phase_one_323_release.md)：发布第一阶段七项兼容补丁，备份并滚动更新 zzapi 三应用，核验 PostgreSQL 预填分组索引迁移。
+
 - [NewAPI 官方上游更新集成计划](../workflows/2026-09/14_newapi_upstream_update_plan.md)：官方差异、Paseo 分发、阶段 PR、合并验证及未完成迁移清单。
 
 - [Classic 第一阶段上游兼容](../workflows/2026-09/15_classic_upstream_compatibility.md)：多 Key、供应商、时间价格规则、日志、额度、兑换码导出及 Passkey 的独立适配与验证。
