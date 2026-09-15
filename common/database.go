@@ -41,4 +41,6 @@ func UsingLogDatabase(databaseType DatabaseType) bool {
 	return logDatabaseType == databaseType
 }
 
-var SQLitePath = "one-api.db?_busy_timeout=30000"
+// 默认使用 WAL 让读者与写者并行；纯 Go SQLite 驱动仅识别 _pragma 形式的
+// busy_timeout。立即事务先取得写锁，防止读后写遇到无法等待的 BUSY_SNAPSHOT。
+var SQLitePath = "one-api.db?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate"

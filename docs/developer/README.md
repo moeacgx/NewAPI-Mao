@@ -1,5 +1,7 @@
 # 开发文档
 
+- [数据库上游兼容阶段](../workflows/2026-09/15_database_upstream_compatibility.md)：SQLite WAL/忙等待/立即事务、PostgreSQL 预填分组旧唯一约束迁移及三库验收边界。
+
 - [Default 前端上游集成评估与实现](../workflows/2026-09/15_default_upstream_integration.md)：逐域移植兼容修复，保留本地渠道、日志、分组、定价与通知契约，并列出尚需后端协同的冲突。
 - [Default 渠道多 Key 策略编辑](../workflows/2026-09/15_default_channels_upstream.md)：敏感权限控制下修改策略，保留现有密钥与追加、替换行为。
 - [Default 价格时间规则与日志筛选修复](../workflows/2026-09/15_default_pricing_upstream.md)：同日和跨午夜条件、价格货币单位及避免密码自动填充。
