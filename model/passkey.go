@@ -198,21 +198,24 @@ func upsertPasskeyCredentialWithTx(tx *gorm.DB, credential *PasskeyCredential) e
 	return nil
 }
 
-// UpsertPasskeyCredentialWithAuthVersion is reserved for enrollment changes;
-// assertion sign-count updates must use UpdatePasskeyAssertionState.
-func UpsertPasskeyCredentialWithAuthVersion(credential *PasskeyCredential) error {
-	if credential == nil || credential.UserID <= 0 {
-		return fmt.Errorf("Passkey 保存失败，请重试")
+// RegisterPasskeyForSession 将最终会话检查与凭据替换、用户版本推进放入同一事务。
+// WebAuthn 验证耗时期间发生的会话撤销不能被已消费的 challenge 绕过。
+func RegisterPasskeyForSession(identity AuthSessionIdentity, credential *PasskeyCredential) error {
+	if credential == nil || identity.UserID != credential.UserID {
+		return ErrAuthFlowInvalid
 	}
 	if err := DB.Transaction(func(tx *gorm.DB) error {
-		if _, err := IncrementUserAuthVersionWithTx(tx, credential.UserID); err != nil {
+		if err := ValidateAuthSessionWithTx(tx, identity); err != nil {
+			return err
+		}
+		if _, err := IncrementUserAuthVersionWithTx(tx, identity.UserID); err != nil {
 			return err
 		}
 		return upsertPasskeyCredentialWithTx(tx, credential)
 	}); err != nil {
 		return err
 	}
-	return PublishUserAuthCache(credential.UserID)
+	return PublishUserAuthCache(identity.UserID)
 }
 
 func DeletePasskeyByUserIDWithAuthVersion(userID int) error {

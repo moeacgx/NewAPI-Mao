@@ -374,23 +374,22 @@ function parseExprLiteral(raw: string): string | null {
 
 function tryParseTimeCondition(expr: string): RequestCondition | null {
   let m = expr.match(
-    /^(hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)$/
+    /^(hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) (&&|\|\|) \1\("\2"\) < ([\d.eE+-]+)$/
   )
-  if (m) {
-    return {
-      source: 'time',
-      timeFunc: m[1] as TimeFunc,
-      timezone: m[2],
-      mode: MATCH_RANGE,
-      value: '',
-      rangeStart: m[3],
-      rangeEnd: m[4],
-    }
+  if (!m) {
+    m = expr.match(
+      /^\((hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) (&&|\|\|) \1\("\2"\) < ([\d.eE+-]+)\)$/
+    )
   }
-  m = expr.match(
-    /^\((hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)\)$/
-  )
   if (m) {
+    // 仅折叠与范围方向一致的运算符，避免编辑时改变历史表达式含义。
+    if (
+      !NUMERIC_LITERAL_REGEX.test(m[3]) ||
+      !NUMERIC_LITERAL_REGEX.test(m[5]) ||
+      (Number(m[3]) > Number(m[5]) ? '||' : '&&') !== m[4]
+    ) {
+      return null
+    }
     return {
       source: 'time',
       timeFunc: m[1] as TimeFunc,
@@ -398,7 +397,7 @@ function tryParseTimeCondition(expr: string): RequestCondition | null {
       mode: MATCH_RANGE,
       value: '',
       rangeStart: m[3],
-      rangeEnd: m[4],
+      rangeEnd: m[5],
     }
   }
   m = expr.match(
@@ -483,13 +482,49 @@ function tryParseRequestCondition(expr: string): RequestCondition | null {
   return null
 }
 
+function tryParseTimeRangePair(
+  lower: string,
+  upper: string
+): RequestCondition | null {
+  const a = tryParseTimeCondition(lower)
+  const b = tryParseTimeCondition(upper)
+  if (!a || !b || a.source !== 'time' || b.source !== 'time') return null
+  const ta = a as TimeCondition
+  const tb = b as TimeCondition
+  if (ta.timeFunc !== tb.timeFunc || ta.timezone !== tb.timezone) return null
+  if (ta.mode !== MATCH_GTE || tb.mode !== MATCH_LT) return null
+  if (Number(ta.value) > Number(tb.value)) return null
+  return {
+    source: 'time',
+    timeFunc: ta.timeFunc,
+    timezone: ta.timezone,
+    mode: MATCH_RANGE,
+    value: '',
+    rangeStart: ta.value,
+    rangeEnd: tb.value,
+  }
+}
+
 function tryParseRequestConditions(
   conditionStr: string
 ): RequestCondition[] | null {
+  // 同日范围须保留为一行时间范围，不能拆成两个独立条件。
+  const wholeTimeCond = tryParseTimeCondition(conditionStr.trim())
+  if (wholeTimeCond) return [wholeTimeCond]
+
   const andParts = splitTopLevelAnd(conditionStr)
   const conditions: RequestCondition[] = []
-  for (const part of andParts) {
-    const condition = tryParseRequestCondition(part.trim())
+  for (let i = 0; i < andParts.length; i += 1) {
+    const part = andParts[i].trim()
+    // 合并相邻的同函数、同时区边界，使混合请求规则仍能往返编辑。
+    const next = i + 1 < andParts.length ? andParts[i + 1].trim() : ''
+    const merged = next ? tryParseTimeRangePair(part, next) : null
+    if (merged) {
+      conditions.push(merged)
+      i += 1
+      continue
+    }
+    const condition = tryParseRequestCondition(part)
     if (!condition) return null
     conditions.push(condition)
   }
@@ -732,10 +767,17 @@ function buildTimeConditionExpr(cond: TimeCondition): string {
   if (mode === MATCH_RANGE) {
     const s = normalized.rangeStart.trim()
     const e = normalized.rangeEnd.trim()
+    // 比较边界不等于函数返回值域，例如 hour < 24 是合法的排他上界。
     if (!NUMERIC_LITERAL_REGEX.test(s) || !NUMERIC_LITERAL_REGEX.test(e)) {
       return ''
     }
-    return `${fn} >= ${s} || ${fn} < ${e}`
+    // 跨午夜范围使用或；同日范围使用且，防止倍率变成全天生效。
+    const sNum = Number(s)
+    const eNum = Number(e)
+    if (sNum > eNum) {
+      return `${fn} >= ${s} || ${fn} < ${e}`
+    }
+    return `${fn} >= ${s} && ${fn} < ${e}`
   }
   const v = normalized.value.trim()
   if (!NUMERIC_LITERAL_REGEX.test(v)) return ''

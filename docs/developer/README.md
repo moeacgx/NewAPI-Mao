@@ -1,7 +1,16 @@
 # 开发文档
 
 - [Responses HTTP/SSE 计费详情归一化](../workflows/2026-09/15_responses_http_usage_details.md)：保留原生 usage 的图片、音频和缓存详情，区分原生归一与协议转换计费快照。
+- [数据库上游兼容阶段](../workflows/2026-09/15_database_upstream_compatibility.md)：SQLite WAL/忙等待/立即事务、PostgreSQL 预填分组旧唯一约束迁移及三库验收边界。
 
+- [Default 前端上游集成评估与实现](../workflows/2026-09/15_default_upstream_integration.md)：逐域移植兼容修复，保留本地渠道、日志、分组、定价与通知契约，并列出尚需后端协同的冲突。
+- [Default 渠道多 Key 策略编辑](../workflows/2026-09/15_default_channels_upstream.md)：敏感权限控制下修改策略，保留现有密钥与追加、替换行为。
+- [Default 价格时间规则与日志筛选修复](../workflows/2026-09/15_default_pricing_upstream.md)：同日和跨午夜条件、价格货币单位及避免密码自动填充。
+- [Default 价格编辑器历史规则保留](../workflows/2026-09/15_default_pricing_editor_preservation.md)：模式切换保留原始计费规则，增删行保留编辑草稿与焦点。
+- [Default Passkey 与兑换码导出](../workflows/2026-09/15_default_security_upstream.md)：外置认证器能力检测和可选 TXT、Markdown 文件导出。
+- [Responses WebSocket 专项集成审查](responses-websocket-integration.md)：`9fe0457ee` 的协议、计费与本地扩展契约审查；仅 DTO 准备，默认关闭，运行时禁止直接合入。
+
+- [上游认证差异与安全兼容补丁](../workflows/2026-09/15_auth_upstream_compatibility.md)：Telegram OAuth 迁移门槛、登录快照版本、Passkey 会话绑定、Argon2id 双格式读取、PAT 撤销及前后端兼容矩阵。
 - [maolaoapi 渠道余额不足前缀去重与 .322 发布](../workflows/2026-09/13_maolaoapi_channel_prefix_dedup_322_release.md)：发布 `v1.0.0-rc.10.1.10.322` 的 GitHub/GHCR 产物，不合入线上容器。
 - [zhishiapi 三节点负载均衡与 .321 发布](../workflows/2026-09/12_zhishiapi_cluster_321_release.md)：将 `zhishiapi.com` 扩成三应用容器并切 Nginx 分流，应用镜像更新到 `v1.0.0-rc.10.1.10.321`。
 - [maolaoapi 直登会话寿命与 .321 发布](../workflows/2026-09/12_maolaoapi_direct_login_321_release.md)：发布 `v1.0.0-rc.10.1.10.321`，将直登会话票 30 天寿命与 Authorization 回落修复滚动更新到 maolaoapi 三应用。
@@ -25,6 +34,8 @@
 - [使用日志与渠道测试显示上游响应模型](../workflows/2026-09/04_upstream_response_model_usage_logs.md)：记录上游响应模型采集、管理员可见与普通用户脱敏契约。
 
 - [未保存渠道模型获取尾部斜杠兼容](../workflows/2026-09/03_channel_unsaved_model_fetch_trailing_slash.md)：Classic 新建渠道可直接用临时令牌探测模型，API 地址末尾 `/` 不再生成错误的双斜杠模型路径。
+- [任务插件迁移](task-plugin-migration.md)：上游 JS 系统与原生任务适配器映射、AtlasCloud 保留、源任务授权及上线阻断。
+- [任务插件迁移实施记录](../workflows/2026-09/15_task_plugin_migration.md)：最新基线同步、Remix 倍率恢复、AtlasCloud 时长预扣校验与阶段交付边界。
 
 - [Default 渠道供应商选择与保存恢复](../workflows/2026-09/03_channel_vendor_selection_restore.md)：恢复渠道抽屉供应商选择、`vendor_id` 保存和按供应商筛选的 Default 前端回归。
 

@@ -16,6 +16,8 @@ import (
 // action 的 params 填充。本地化展示文案在前端 i18n 模板中维护，本表是语言中立的
 // 英文基线——调用方因此无需在每个埋点处手写句子（避免与 params 重复书写同一份值）。
 var auditContentTemplates = map[string]string{
+	"access_token.generate": "Generated a personal access token",
+	"access_token.revoke":   "Revoked a personal access token",
 	"user.create":           "Created user ${username} (role ${role})",
 	"user.update":           "Updated user ${username} (ID: ${id})",
 	"user.delete":           "Deleted user ${username} (ID: ${id})",
