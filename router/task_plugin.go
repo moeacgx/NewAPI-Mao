@@ -16,9 +16,9 @@ func registerTaskPluginManagement(api *gin.RouterGroup) {
 	root.PUT("/runtime/status", controller.SetTaskPluginRuntime)
 	root.POST("/:key/status", controller.SetTaskPluginStatus)
 	root.POST("/:key/activate", controller.ActivateTaskPlugin)
-	root.POST("", controller.UnsupportedTaskPluginOperation)
-	root.PUT("", controller.UnsupportedTaskPluginOperation)
-	root.DELETE("/:key/versions/:version", controller.UnsupportedTaskPluginOperation)
+	root.POST("", controller.UploadTaskPlugin)
+	root.PUT("", controller.UploadTaskPlugin)
+	root.DELETE("/:key/versions/:version", controller.DeleteTaskPluginVersion)
 	root.POST("/:key/dryrun", controller.UnsupportedTaskPluginOperation)
 	api.GET("/task_plugin_options", middleware.AdminAuth(), controller.GetTaskPluginOptions)
 }

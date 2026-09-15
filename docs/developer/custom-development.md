@@ -150,4 +150,5 @@ Default 使用 `web/src/features/invoices`，Classic 使用
 
 ## 官方 JS Task Plugin 后端
 
-见 [官方任务插件后端](official-task-plugins.md)：内置插件与原生任务并存，默认关闭；生产资源签名和 S3 尚未验收。
+见 [官方任务插件后端](official-task-plugins.md)：内置与 Root 上传的自定义插件并存，默认关闭；
+生产资源签名和 S3 尚未验收。

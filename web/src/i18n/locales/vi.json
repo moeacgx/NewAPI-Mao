@@ -7134,6 +7134,19 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Plugin uploaded": "Đã tải plugin",
+    "Upload custom task plugin": "Tải plugin tác vụ tùy chỉnh",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Chỉ người dùng Root mới được tải lên. Mã nguồn được kiểm tra rồi lưu ở trạng thái tắt, chưa kích hoạt.",
+    "Paste JavaScript plugin source": "Dán mã nguồn plugin JavaScript",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Kích thước tối đa 1 MiB. Khóa và phiên bản lấy từ metadata.",
+    "Uploading": "Đang tải lên",
+    "Plugin upload failed": "Tải plugin thất bại",
+    "A plugin with this key and version already exists with different source.": "Plugin cùng khóa và phiên bản nhưng khác mã nguồn đã tồn tại.",
+    "Plugin source must be 1 MiB or smaller.": "Mã nguồn plugin phải nhỏ hơn hoặc bằng 1 MiB.",
+    "Delete plugin version": "Xóa phiên bản plugin",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Xóa phiên bản plugin tùy chỉnh này? Không thể xóa tác vụ lịch sử tham chiếu phiên bản này.",
+    "Plugin version deleted": "Đã xóa phiên bản plugin",
+    "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.": "Hỗ trợ plugin tích hợp sẵn và plugin tùy chỉnh do Root tải lên. Chợ plugin, tài nguyên từ xa và sandbox chưa khả dụng trong phiên bản này."
   }
 }

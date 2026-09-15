@@ -17,11 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Card,
   Empty,
+  Input,
   Modal,
   Space,
   Spin,
@@ -29,10 +29,13 @@ import {
   Tag,
   Typography,
 } from '@douyinfe/semi-ui';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { isAdmin, isRoot } from '../../helpers/utils';
 import { taskPluginRequest, taskPluginPath, pluginError } from './api';
 import PluginDetails from './PluginDetails';
+
 import './style.css';
 
 export default function TaskPlugins() {
@@ -46,6 +49,9 @@ export default function TaskPlugins() {
   const [selected, setSelected] = useState(null);
   const [revision, setRevision] = useState(0);
   const [pending, setPending] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadSource, setUploadSource] = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
   const sequence = useRef(0);
@@ -132,6 +138,23 @@ export default function TaskPlugins() {
       label: t('Activate version {{version}} for {{key}}?', { key, version }),
     });
 
+  const upload = async () => {
+    if (!canManage || !uploadSource.trim() || busy) return;
+    setBusy(true);
+    setUploadError('');
+    try {
+      await taskPluginRequest('post', '', { source: uploadSource });
+      setUploadSource('');
+      setUploadOpen(false);
+      await load();
+      setRevision((value) => value + 1);
+    } catch (err) {
+      setUploadError(pluginError(err, t('Plugin upload failed')));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!admin)
     return (
       <div className='task-plugin-page'>
@@ -147,6 +170,14 @@ export default function TaskPlugins() {
         <Button disabled={busy || loading} onClick={load}>
           {t('Refresh')}
         </Button>
+        {canManage && (
+          <Button
+            disabled={busy || loading}
+            onClick={() => setUploadOpen(true)}
+          >
+            {t('Upload custom task plugin')}
+          </Button>
+        )}
       </div>
       <Card title={t('New task submissions')}>
         <div className='task-plugin-stack'>
@@ -189,7 +220,9 @@ export default function TaskPlugins() {
             </Space>
           )}
           <Typography.Text type='tertiary'>
-            {t('Upload, marketplace, deletion and dry-run are not available.')}
+            {t(
+              'Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.',
+            )}
           </Typography.Text>
         </div>
       </Card>
@@ -309,6 +342,10 @@ export default function TaskPlugins() {
           canManage={canManage}
           busy={busy}
           onActivate={activate}
+          onChanged={() => {
+            setRevision((value) => value + 1);
+            void load();
+          }}
           onClose={() => setSelected(null)}
         />
       )}
@@ -330,6 +367,42 @@ export default function TaskPlugins() {
         {t(
           'Disabling blocks new submissions only. Existing tasks continue with their pinned versions.',
         )}
+      </Modal>
+      <Modal
+        visible={uploadOpen}
+        title={t('Upload custom task plugin')}
+        okText={t('Upload')}
+        cancelText={t('Cancel')}
+        confirmLoading={busy}
+        onOk={upload}
+        onCancel={() => {
+          if (!busy) setUploadOpen(false);
+        }}
+        okButtonProps={{
+          disabled: !uploadSource.trim() || uploadSource.length > 1024 * 1024,
+        }}
+        cancelButtonProps={{ disabled: busy }}
+      >
+        <Typography.Paragraph type='tertiary'>
+          {t(
+            'Only Root users can upload. The source is compiled and stored disabled and inactive.',
+          )}
+        </Typography.Paragraph>
+        <Typography.Text>{t('Plugin source')}</Typography.Text>
+        <Input.TextArea
+          value={uploadSource}
+          onChange={setUploadSource}
+          rows={14}
+          maxLength={1024 * 1024}
+          placeholder={t('Paste JavaScript plugin source')}
+          style={{ fontFamily: 'monospace', marginTop: 8 }}
+        />
+        <Typography.Text type='tertiary'>
+          {t(
+            'Maximum source size: 1 MiB. The plugin key and version come from its metadata.',
+          )}
+        </Typography.Text>
+        {uploadError && <div role='alert'>{uploadError}</div>}
       </Modal>
     </div>
   );

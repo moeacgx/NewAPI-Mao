@@ -92,6 +92,7 @@ export type TaskPluginRecord = {
   active: boolean
   created_at: number
   remark: string
+  source_kind?: 'builtin' | 'custom'
 }
 
 export type TaskPluginListItem = {
@@ -112,6 +113,7 @@ export type TaskPluginListItem = {
   factory_meta?: TaskPluginMeta
   channel_count: number
   in_flight_count: number
+  source_kind?: 'builtin' | 'custom'
 }
 
 export type TaskPluginUsage = {

@@ -7134,6 +7134,19 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Plugin uploaded": "插件已上传",
+    "Upload custom task plugin": "上传自定义任务插件",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "仅 Root 用户可上传。源码会先编译校验，并以禁用、未激活状态保存。",
+    "Paste JavaScript plugin source": "粘贴 JavaScript 插件源码",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "源码大小上限为 1 MiB，插件 key 和版本从元数据读取。",
+    "Uploading": "上传中",
+    "Plugin upload failed": "插件上传失败",
+    "A plugin with this key and version already exists with different source.": "相同 key 和版本已存在不同源码的插件。",
+    "Plugin source must be 1 MiB or smaller.": "插件源码不能超过 1 MiB。",
+    "Delete plugin version": "删除插件版本",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "删除这个自定义插件版本？引用它的历史任务不能删除。",
+    "Plugin version deleted": "插件版本已删除",
+    "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.": "支持内置插件和 Root 上传的自定义插件。市场、远程资源和沙盒功能在此版本中不可用。"
   }
 }

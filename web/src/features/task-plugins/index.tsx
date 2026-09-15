@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getTaskPluginEnabledOption, setTaskPluginEnabledOption } from './api'
 import { PluginDetailSheet } from './components/plugin-detail-sheet'
 import { PluginsTable } from './components/plugins-table'
+import { UploadPluginDialog } from './components/upload-plugin-dialog'
 import type { TaskPluginListItem } from './types'
 
 export function TaskPlugins() {
@@ -42,6 +43,7 @@ export function TaskPlugins() {
     (state) => (state.auth.user?.role ?? 0) >= ROLE.SUPER_ADMIN
   )
   const [detail, setDetail] = useState<TaskPluginListItem | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const runtime = useQuery({
     queryKey: ['task-plugin-enabled'],
     queryFn: getTaskPluginEnabledOption,
@@ -71,13 +73,15 @@ export function TaskPlugins() {
             {t('Enable task plugins')}
           </Label>
           <Button disabled>{t('Marketplace')}</Button>
-          <Button disabled>{t('Upload plugin')}</Button>
+          <Button disabled={!canManage} onClick={() => setUploadOpen(true)}>
+            {t('Upload plugin')}
+          </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='bg-card flex min-h-0 flex-1 flex-col gap-3 rounded-xl border p-4'>
             <p className='text-muted-foreground text-sm'>
               {t(
-                'Built-in plugins only. Marketplace, upload, deletion and sandbox are unavailable in this version.'
+                'Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.'
               )}
             </p>
             <p className='text-muted-foreground text-sm'>
@@ -102,6 +106,7 @@ export function TaskPlugins() {
           if (!open) setDetail(null)
         }}
       />
+      <UploadPluginDialog open={uploadOpen} onOpenChange={setUploadOpen} />
     </>
   )
 }

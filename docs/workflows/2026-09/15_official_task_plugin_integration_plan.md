@@ -87,7 +87,7 @@
   指定版本。新安装为 `active=false,enabled=false`，页面必须提供先激活的流程。
 - Root `POST /api/plugin/task/:key/status`，请求 `{enabled:bool}`：修改已激活插件状态。
 - `GET /api/plugin/task/runtime/status` 返回
-  `{enabled,channel_type:62,builtin_only:true,billing:'per_call',resource_access:'authenticated_inline_only',production_ready:false}`。
+  `{enabled,channel_type:62,builtin_only:false,billing:'per_call',resource_access:'authenticated_inline_only',production_ready:false}`。
   Root `PUT` 同路径携带 `{enabled:bool}` 管理 `TaskPluginEnabled`，默认 `false`。
   前端不通过通用 `/api/option/` 修改此开关。
 - `GET /api/task_plugin_options`：返回 `key/name/version/models/channel_type` 供渠道选择。
@@ -95,9 +95,10 @@
 关闭总开关仅阻止新提交；历史任务按持久化的 key/version/hash 解析，不能依赖当前
 active、enabled 或总开关。前端关闭说明不得沿用“立即停止在途轮询，等待超时清理”。
 
-当前上传、删除版本和 dryrun 返回 501；市场、S3 与匿名签名尚未开放。两套前端不启用
-这些操作，不发送对应请求。它们仍是完整官方插件体验的剩余范围，不能把内置插件管理
-阶段描述为全部完成。真实提交、源任务授权、持久化、轮询、计费和退款仍需组合验收。
+当前已开放 Root 的本地源码上传和非活动版本删除；上传只接受 JSON source，源码经编译校验后
+以 disabled/inactive 保存，历史任务引用会阻止删除。市场、S3、匿名签名和 dryrun 尚未开放，
+两套前端不发送这些请求。自定义插件可以与内置插件并存，但完整供应商、远程媒体、计费和
+故障恢复能力仍需单独验收，不能把本阶段描述为完整官方插件市场。
 
 - **后端运行时 Agent**：只拥有 `pkg/jsplugin/`、`plugins/`、任务模型/控制器/服务/中间件/路由和迁移；必须保留 `/extensions` 与 AtlasCloud。
 - **Default Agent**：只拥有 `web/src/features/task-plugins/` 及其路由/API/i18n，复用后端契约，不改 Classic。

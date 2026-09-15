@@ -5314,7 +5314,7 @@
     "Default value": "Valeur par defaut",
     "default为默认设置，可单独设置每个分类的安全等级": "\"default\" est le paramètre par défaut, et chaque catégorie peut être définie séparément",
     "default为默认设置，可单独设置每个模型的版本": "\"default\" est le paramètre par défaut, et chaque modèle peut être défini séparément",
-    "Delete": "Supprimer",
+    "Delete": "Delete",
     "Delete {{count}} stale instance records? Online instances will not be deleted.": "Supprimer {{count}} instances inactives ? Les instances en ligne ne seront pas supprimees.",
     "Delete all stale": "Supprimer les inactives",
     "Delete failed": "Echec de la suppression",
@@ -5882,7 +5882,7 @@
     "API version": "Version API",
     "Source hash": "Empreinte du code source",
     "Capabilities and usage schema": "Capacités et schéma d’utilisation",
-    "Plugin source": "Source du plugin",
+    "Plugin source": "Plugin source",
     "Plugin versions": "Versions du plugin",
     "No version data": "Aucune version disponible",
     "View version": "Voir la version",
@@ -5892,6 +5892,14 @@
     "Select task plugin": "Sélectionner un plugin",
     "Selecting a plugin fills models only when the model list is empty.": "Les modèles du plugin sont ajoutés uniquement si la liste est vide.",
     "No permission to change task plugin binding": "Modification de l’association non autorisée",
-    "No task plugins available for binding": "Aucun plugin disponible pour l’association"
+    "No task plugins available for binding": "Aucun plugin disponible pour l’association",
+    "Upload custom task plugin": "Upload custom task plugin",
+    "Plugin upload failed": "Plugin upload failed",
+    "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.": "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Only Root users can upload. The source is compiled and stored disabled and inactive.",
+    "Paste JavaScript plugin source": "Paste JavaScript plugin source",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Maximum source size: 1 MiB. The plugin key and version come from its metadata.",
+    "Upload": "Upload",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Delete this custom plugin version? Historical tasks referencing it cannot be deleted."
   }
 }

@@ -5283,7 +5283,7 @@
     "Default value": "預設值",
     "default为默认设置，可单独设置每个分类的安全等级": "default為預設設定，可單獨設定每個分類的安全等級",
     "default为默认设置，可单独设置每个模型的版本": "default為預設設定，可單獨設定每個模型的版本",
-    "Delete": "刪除",
+    "Delete": "Delete",
     "Delete {{count}} stale instance records? Online instances will not be deleted.": "刪除 {{count}} 筆失聯實例記錄？線上實例不會被刪除。",
     "Delete all stale": "刪除全部失聯",
     "Delete failed": "刪除失敗",
@@ -5848,7 +5848,7 @@
     "API version": "API 版本",
     "Source hash": "原始碼雜湊",
     "Capabilities and usage schema": "功能與用量結構",
-    "Plugin source": "外掛原始碼",
+    "Plugin source": "Plugin source",
     "Plugin versions": "外掛版本",
     "No version data": "暫無版本資料",
     "View version": "檢視版本",
@@ -5858,6 +5858,14 @@
     "Select task plugin": "選擇任務外掛",
     "Selecting a plugin fills models only when the model list is empty.": "僅在模型清單為空時填入所選外掛的模型。",
     "No permission to change task plugin binding": "無權修改任務外掛綁定",
-    "No task plugins available for binding": "暫無可綁定的任務外掛"
+    "No task plugins available for binding": "暫無可綁定的任務外掛",
+    "Upload custom task plugin": "Upload custom task plugin",
+    "Plugin upload failed": "Plugin upload failed",
+    "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.": "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Only Root users can upload. The source is compiled and stored disabled and inactive.",
+    "Paste JavaScript plugin source": "Paste JavaScript plugin source",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Maximum source size: 1 MiB. The plugin key and version come from its metadata.",
+    "Upload": "Upload",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Delete this custom plugin version? Historical tasks referencing it cannot be deleted."
   }
 }

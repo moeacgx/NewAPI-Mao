@@ -7134,6 +7134,19 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Plugin uploaded": "Plugin uploaded",
+    "Upload custom task plugin": "Upload custom task plugin",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Only Root users can upload. The source is compiled and stored disabled and inactive.",
+    "Paste JavaScript plugin source": "Paste JavaScript plugin source",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Maximum source size: 1 MiB. The plugin key and version come from its metadata.",
+    "Uploading": "Uploading",
+    "Plugin upload failed": "Plugin upload failed",
+    "A plugin with this key and version already exists with different source.": "A plugin with this key and version already exists with different source.",
+    "Plugin source must be 1 MiB or smaller.": "Plugin source must be 1 MiB or smaller.",
+    "Delete plugin version": "Delete plugin version",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.",
+    "Plugin version deleted": "Plugin version deleted",
+    "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.": "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version."
   }
 }

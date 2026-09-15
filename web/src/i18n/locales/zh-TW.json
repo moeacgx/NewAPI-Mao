@@ -7134,6 +7134,19 @@
     "Zero retention": "零數據保留",
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Plugin uploaded": "外掛程式已上傳",
+    "Upload custom task plugin": "上傳自訂任務外掛程式",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "僅 Root 使用者可上傳。原始碼會先驗證，並以停用、未啟用狀態儲存。",
+    "Paste JavaScript plugin source": "貼上 JavaScript 外掛程式原始碼",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "原始碼大小上限為 1 MiB，金鑰與版本取自中繼資料。",
+    "Uploading": "上傳中",
+    "Plugin upload failed": "外掛程式上傳失敗",
+    "A plugin with this key and version already exists with different source.": "相同金鑰與版本已存在不同原始碼的外掛程式。",
+    "Plugin source must be 1 MiB or smaller.": "外掛程式原始碼不可超過 1 MiB。",
+    "Delete plugin version": "刪除外掛程式版本",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "要刪除此自訂外掛程式版本嗎？引用它的歷史任務無法刪除。",
+    "Plugin version deleted": "外掛程式版本已刪除",
+    "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.": "支援內建外掛程式與 Root 上傳的自訂外掛程式。此版本未開放市集、遠端資源與沙盒。"
   }
 }

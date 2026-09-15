@@ -54,6 +54,7 @@ type TaskPlugin struct {
 	Version    string `json:"version" gorm:"size:64;not null;uniqueIndex:uk_task_plugin_key_version,priority:2"`
 	Source     string `json:"source" gorm:"size:1048576;not null"`
 	SourceHash string `json:"source_hash" gorm:"size:64;not null"`
+	SourceKind string `json:"source_kind" gorm:"size:16;not null;default:'builtin'"`
 	// Icon is the plugin logo shipped as a sidecar icon.svg / icon.png next to
 	// plugin.js, stored as a data URI so one column carries both the media
 	// type and the bytes. It never travels inside list or detail JSON; the UI
@@ -81,16 +82,7 @@ func SaveTaskPlugin(plugin *TaskPlugin) error {
 			if existing.SourceHash != plugin.SourceHash {
 				return errors.New("plugin key and version already exist with different source")
 			}
-			updates := map[string]any{"enabled": plugin.Enabled, "remark": plugin.Remark}
-			if plugin.Icon != "" {
-				updates["icon"] = plugin.Icon
-				existing.Icon = plugin.Icon
-			}
-			if err = tx.Model(&existing).Updates(updates).Error; err != nil {
-				return err
-			}
-			existing.Enabled = plugin.Enabled
-			existing.Remark = plugin.Remark
+			// 相同源码的重复上传是幂等读取，不能意外停用已激活版本。
 			*plugin = existing
 			return nil
 		}
@@ -102,7 +94,7 @@ func SaveTaskPlugin(plugin *TaskPlugin) error {
 		if err = tx.Model(&TaskPlugin{}).Where(&TaskPlugin{Key: plugin.Key, Active: true}).Count(&count).Error; err != nil {
 			return err
 		}
-		plugin.Active = count == 0
+		plugin.Active = count == 0 && plugin.SourceKind != "custom"
 		return tx.Create(plugin).Error
 	})
 }
@@ -234,41 +226,27 @@ type TaskPluginDeleteResult struct {
 func DeleteTaskPluginVersion(key, version string) (TaskPluginDeleteResult, error) {
 	result := TaskPluginDeleteResult{}
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		var references int64
-		if err := tx.Model(&Task{}).Where("platform = ?", key).Count(&references).Error; err != nil {
+		var tasks []Task
+		if err := tx.Select("private_data").Where("platform = ?", key).Find(&tasks).Error; err != nil {
 			return err
-		}
-		if references > 0 {
-			return errors.New("历史任务仍引用该插件，不能删除版本")
 		}
 		var plugin TaskPlugin
 		if err := lockForUpdate(tx).Where(&TaskPlugin{Key: key, Version: version}).First(&plugin).Error; err != nil {
 			return err
 		}
+		for _, task := range tasks {
+			pin := task.PrivateData.Execution
+			if pin != nil && pin.TaskPlugin != nil && pin.TaskPlugin.Key == key && pin.TaskPlugin.Version == version {
+				return errors.New("历史任务仍引用该插件版本，不能删除")
+			}
+		}
 		result.DeletedActive = plugin.Active
+		if plugin.Active {
+			return errors.New("活动插件版本不能删除，请先激活其他版本")
+		}
 		if err := tx.Delete(&plugin).Error; err != nil {
 			return err
 		}
-		if !plugin.Active {
-			return nil
-		}
-
-		var promoted TaskPlugin
-		err := lockForUpdate(tx).
-			Where(&TaskPlugin{Key: key}).
-			Order("created_at DESC, id DESC").
-			First(&promoted).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if err = tx.Model(&promoted).Update("active", true).Error; err != nil {
-			return err
-		}
-		promoted.Active = true
-		result.Promoted = &promoted
 		return nil
 	})
 	return result, err

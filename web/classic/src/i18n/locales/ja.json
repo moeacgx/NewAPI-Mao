@@ -5258,7 +5258,7 @@
     "Default value": "デフォルト値",
     "default为默认设置，可单独设置每个分类的安全等级": "「default」はデフォルト設定で、各分類のセキュリティレベルを個別に設定できます",
     "default为默认设置，可单独设置每个模型的版本": "「default」はデフォルト設定で、各モデルのバージョンを個別に設定できます",
-    "Delete": "削除",
+    "Delete": "Delete",
     "Delete {{count}} stale instance records? Online instances will not be deleted.": "{{count}}件の停止中インスタンス記録を削除しますか？オンラインのインスタンスは削除されません。",
     "Delete all stale": "停止中をすべて削除",
     "Delete failed": "削除に失敗しました",
@@ -5824,7 +5824,7 @@
     "API version": "API バージョン",
     "Source hash": "ソースハッシュ",
     "Capabilities and usage schema": "機能と使用量スキーマ",
-    "Plugin source": "プラグインソース",
+    "Plugin source": "Plugin source",
     "Plugin versions": "プラグインのバージョン",
     "No version data": "バージョン情報がありません",
     "View version": "バージョンを表示",
@@ -5834,6 +5834,14 @@
     "Select task plugin": "タスクプラグインを選択",
     "Selecting a plugin fills models only when the model list is empty.": "モデル一覧が空の場合のみ、選択したプラグインのモデルを入力します。",
     "No permission to change task plugin binding": "プラグインの紐付けを変更する権限がありません",
-    "No task plugins available for binding": "紐付け可能なプラグインがありません"
+    "No task plugins available for binding": "紐付け可能なプラグインがありません",
+    "Upload custom task plugin": "Upload custom task plugin",
+    "Plugin upload failed": "Plugin upload failed",
+    "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.": "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Only Root users can upload. The source is compiled and stored disabled and inactive.",
+    "Paste JavaScript plugin source": "Paste JavaScript plugin source",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Maximum source size: 1 MiB. The plugin key and version come from its metadata.",
+    "Upload": "Upload",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Delete this custom plugin version? Historical tasks referencing it cannot be deleted."
   }
 }

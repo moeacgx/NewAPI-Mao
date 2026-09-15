@@ -6096,6 +6096,14 @@
     "Select task plugin": "Select task plugin",
     "Selecting a plugin fills models only when the model list is empty.": "Selecting a plugin fills models only when the model list is empty.",
     "No permission to change task plugin binding": "No permission to change task plugin binding",
-    "No task plugins available for binding": "No task plugins available for binding"
+    "No task plugins available for binding": "No task plugins available for binding",
+    "Upload custom task plugin": "Upload custom task plugin",
+    "Plugin upload failed": "Plugin upload failed",
+    "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.": "Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Only Root users can upload. The source is compiled and stored disabled and inactive.",
+    "Paste JavaScript plugin source": "Paste JavaScript plugin source",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "Maximum source size: 1 MiB. The plugin key and version come from its metadata.",
+    "Upload": "Upload",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "Delete this custom plugin version? Historical tasks referencing it cannot be deleted."
   }
 }

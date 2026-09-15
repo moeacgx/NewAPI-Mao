@@ -17,8 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
@@ -34,7 +36,11 @@ import {
 } from '@/components/ui/table'
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { listTaskPlugins, setTaskPluginStatus } from '../api'
+import {
+  deleteTaskPluginVersion,
+  listTaskPlugins,
+  setTaskPluginStatus,
+} from '../api'
 import type { TaskPluginListItem } from '../types'
 
 export function PluginsTable(props: {
@@ -43,6 +49,10 @@ export function PluginsTable(props: {
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
+  const [pendingDelete, setPendingDelete] = useState<{
+    key: string
+    version: string
+  } | null>(null)
   const query = useQuery({
     queryKey: ['task-plugins'],
     queryFn: listTaskPlugins,
@@ -55,6 +65,16 @@ export function PluginsTable(props: {
       client.invalidateQueries({ queryKey: ['task-plugin'] })
       client.invalidateQueries({ queryKey: ['task-plugin-versions'] })
       client.invalidateQueries({ queryKey: ['task-plugin-options'] })
+    },
+    onError: handleServerError,
+  })
+  const deletion = useMutation({
+    mutationFn: (request: { key: string; version: string }) =>
+      deleteTaskPluginVersion(request.key, request.version),
+    onSuccess: () => {
+      setPendingDelete(null)
+      void client.invalidateQueries({ queryKey: ['task-plugins'] })
+      void client.invalidateQueries({ queryKey: ['task-plugin-options'] })
     },
     onError: handleServerError,
   })
@@ -71,67 +91,105 @@ export function PluginsTable(props: {
     return <EmptyState title={t('No task plugins found')} />
   }
   return (
-    <div className='overflow-auto rounded-lg border'>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('Name')}</TableHead>
-            <TableHead>{t('Version')}</TableHead>
-            <TableHead>{t('Status')}</TableHead>
-            <TableHead>{t('Enabled')}</TableHead>
-            <TableHead>{t('Usage')}</TableHead>
-            <TableHead>{t('Actions')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {query.data.map((plugin) => (
-            <TableRow key={plugin.meta.key}>
-              <TableCell>
-                <div>{plugin.meta.name}</div>
-                <div className='text-muted-foreground text-xs'>
-                  {plugin.meta.key}
-                </div>
-              </TableCell>
-              <TableCell>{plugin.meta.version}</TableCell>
-              <TableCell>
-                {plugin.active ? t('Active') : t('Not activated')}
-              </TableCell>
-              <TableCell>
-                <Switch
-                  aria-label={t('Enable plugin {{key}}', {
-                    key: plugin.meta.key,
-                  })}
-                  checked={plugin.enabled}
-                  disabled={
-                    !props.canManage || !plugin.active || status.isPending
-                  }
-                  onCheckedChange={(enabled) =>
-                    status.mutate({ key: plugin.meta.key, enabled })
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                {t('{{channels}} channels, {{tasks}} in-flight tasks', {
-                  channels: plugin.channel_count,
-                  tasks: plugin.in_flight_count,
-                })}
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => props.onDetails(plugin)}
-                >
-                  {t('Details')}
-                </Button>
-                <Button variant='ghost' size='sm' disabled>
-                  {t('Delete')}
-                </Button>
-              </TableCell>
+    <>
+      <div className='overflow-auto rounded-lg border'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('Name')}</TableHead>
+              <TableHead>{t('Version')}</TableHead>
+              <TableHead>{t('Status')}</TableHead>
+              <TableHead>{t('Enabled')}</TableHead>
+              <TableHead>{t('Usage')}</TableHead>
+              <TableHead>{t('Actions')}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {query.data.map((plugin) => (
+              <TableRow key={`${plugin.meta.key}:${plugin.meta.version}`}>
+                <TableCell>
+                  <div>{plugin.meta.name}</div>
+                  <div className='text-muted-foreground text-xs'>
+                    {plugin.meta.key}
+                  </div>
+                  <div className='mt-1'>
+                    <span className='rounded border px-1.5 py-0.5 text-xs'>
+                      {plugin.source_kind === 'custom'
+                        ? t('Custom')
+                        : t('Built-in')}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>{plugin.meta.version}</TableCell>
+                <TableCell>
+                  {plugin.active ? t('Active') : t('Not activated')}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    aria-label={t('Enable plugin {{key}}', {
+                      key: plugin.meta.key,
+                    })}
+                    checked={plugin.enabled}
+                    disabled={
+                      !props.canManage || !plugin.active || status.isPending
+                    }
+                    onCheckedChange={(enabled) =>
+                      status.mutate({ key: plugin.meta.key, enabled })
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  {t('{{channels}} channels, {{tasks}} in-flight tasks', {
+                    channels: plugin.channel_count,
+                    tasks: plugin.in_flight_count,
+                  })}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => props.onDetails(plugin)}
+                  >
+                    {t('Details')}
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    disabled={
+                      !props.canManage ||
+                      plugin.source_kind !== 'custom' ||
+                      plugin.active ||
+                      deletion.isPending
+                    }
+                    onClick={() =>
+                      setPendingDelete({
+                        key: plugin.meta.key,
+                        version: plugin.meta.version,
+                      })
+                    }
+                  >
+                    {t('Delete')}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={t('Delete plugin version')}
+        desc={t(
+          'Delete this custom plugin version? Historical tasks referencing it cannot be deleted.'
+        )}
+        destructive
+        isLoading={deletion.isPending}
+        confirmText={t('Delete')}
+        handleConfirm={() => {
+          if (pendingDelete) deletion.mutate(pendingDelete)
+        }}
+      />
+    </>
   )
 }

@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -29,7 +28,9 @@ import {
   Tag,
   Typography,
 } from '@douyinfe/semi-ui';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { taskPluginRequest, taskPluginPath, pluginError } from './api';
 
 export default function PluginDetails(props) {
@@ -198,6 +199,34 @@ export default function PluginDetails(props) {
                             {t('Activate')}
                           </Button>
                         )}
+                        {props.canManage &&
+                          props.plugin.source_kind === 'custom' &&
+                          row.active === false && (
+                            <Button
+                              disabled={props.busy}
+                              onClick={async () => {
+                                if (
+                                  !window.confirm(
+                                    t(
+                                      'Delete this custom plugin version? Historical tasks referencing it cannot be deleted.',
+                                    ),
+                                  )
+                                )
+                                  return;
+                                try {
+                                  await taskPluginRequest(
+                                    'delete',
+                                    `${path}/versions/${encodeURIComponent(row.version)}`,
+                                  );
+                                  props.onChanged?.();
+                                } catch (err) {
+                                  setVersionError(pluginError(err, t));
+                                }
+                              }}
+                            >
+                              {t('Delete')}
+                            </Button>
+                          )}
                       </Space>
                     ),
                   },

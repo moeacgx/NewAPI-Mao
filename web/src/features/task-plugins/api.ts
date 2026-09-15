@@ -42,7 +42,10 @@ export async function listTaskPlugins() {
     await api.get<ApiResponse<TaskPluginListItem[]>>('/api/plugin/task')
   return requireSuccess(response.data).map((plugin) => ({
     ...plugin,
-    source: 'factory' as const,
+    source:
+      plugin.source_kind === 'custom'
+        ? ('override' as const)
+        : ('factory' as const),
     has_icon: false,
   }))
 }
@@ -79,6 +82,23 @@ export async function setTaskPluginStatus(key: string, enabled: boolean) {
   const response = await api.post<ApiResponse<null>>(
     `/api/plugin/task/${encodeURIComponent(key)}/status`,
     { enabled },
+    mutationConfig
+  )
+  requireSuccess(response.data)
+}
+
+export async function uploadTaskPlugin(source: string) {
+  const response = await api.post<ApiResponse<TaskPluginDetail>>(
+    '/api/plugin/task',
+    { source },
+    mutationConfig
+  )
+  return requireSuccess(response.data)
+}
+
+export async function deleteTaskPluginVersion(key: string, version: string) {
+  const response = await api.delete<ApiResponse<null>>(
+    `/api/plugin/task/${encodeURIComponent(key)}/versions/${encodeURIComponent(version)}`,
     mutationConfig
   )
   requireSuccess(response.data)

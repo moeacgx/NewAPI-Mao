@@ -7134,6 +7134,19 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Plugin uploaded": "プラグインをアップロードしました",
+    "Upload custom task plugin": "カスタムタスクプラグインをアップロード",
+    "Only Root users can upload. The source is compiled and stored disabled and inactive.": "Root ユーザーのみアップロードできます。ソースは検証後、無効・未アクティブで保存されます。",
+    "Paste JavaScript plugin source": "JavaScript プラグインのソースを貼り付け",
+    "Maximum source size: 1 MiB. The plugin key and version come from its metadata.": "ソースの最大サイズは 1 MiB です。キーとバージョンはメタデータから取得します。",
+    "Uploading": "アップロード中",
+    "Plugin upload failed": "プラグインのアップロードに失敗しました",
+    "A plugin with this key and version already exists with different source.": "同じキーとバージョンで異なるソースのプラグインが既に存在します。",
+    "Plugin source must be 1 MiB or smaller.": "プラグインのソースは 1 MiB 以下にしてください。",
+    "Delete plugin version": "プラグインバージョンを削除",
+    "Delete this custom plugin version? Historical tasks referencing it cannot be deleted.": "このカスタムプラグインバージョンを削除しますか？参照する履歴タスクは削除できません。",
+    "Plugin version deleted": "プラグインバージョンを削除しました",
+    "Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.": "組み込みプラグインと Root がアップロードしたカスタムプラグインに対応しています。マーケット、リモートリソース、サンドボックスはこのバージョンでは利用できません。"
   }
 }

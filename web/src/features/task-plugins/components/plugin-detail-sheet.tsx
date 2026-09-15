@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CopyButton } from '@/components/copy-button'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
@@ -50,6 +51,7 @@ import { resolveLocalizedText } from '@/lib/localized-text'
 
 import {
   activateTaskPlugin,
+  deleteTaskPluginVersion,
   getTaskPlugin,
   getTaskPluginVersions,
 } from '../api'
@@ -91,6 +93,7 @@ function PluginDetailContent(props: {
   const key = props.plugin?.meta.key ?? ''
   const [activeTab, setActiveTab] = useState('overview')
   const [compareVersion, setCompareVersion] = useState('')
+  const [deleteVersion, setDeleteVersion] = useState<string | null>(null)
   const detailQuery = useQuery({
     queryKey: ['task-plugin', key],
     queryFn: () => getTaskPlugin(key),
@@ -115,6 +118,20 @@ function PluginDetailContent(props: {
       queryClient.invalidateQueries({ queryKey: ['task-plugin', key] })
       queryClient.invalidateQueries({ queryKey: ['task-plugin-versions', key] })
       queryClient.invalidateQueries({ queryKey: ['task-plugin-options'] })
+    },
+    onError: (error) => handleServerError(error),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: (version: string) => deleteTaskPluginVersion(key, version),
+    onSuccess: () => {
+      setDeleteVersion(null)
+      toast.success(t('Plugin version deleted'))
+      void queryClient.invalidateQueries({ queryKey: ['task-plugins'] })
+      void queryClient.invalidateQueries({ queryKey: ['task-plugin', key] })
+      void queryClient.invalidateQueries({
+        queryKey: ['task-plugin-versions', key],
+      })
+      void queryClient.invalidateQueries({ queryKey: ['task-plugin-options'] })
     },
     onError: (error) => handleServerError(error),
   })
@@ -319,6 +336,18 @@ function PluginDetailContent(props: {
                         <RotateCcw />
                         {t('Activate / Roll back')}
                       </Button>
+                      {props.canManage &&
+                        props.plugin.source_kind === 'custom' &&
+                        !version.active && (
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            disabled={deleteMutation.isPending}
+                            onClick={() => setDeleteVersion(version.version)}
+                          >
+                            {t('Delete')}
+                          </Button>
+                        )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -368,6 +397,20 @@ function PluginDetailContent(props: {
           )}
         </TabsContent>
       </Tabs>
+      <ConfirmDialog
+        open={Boolean(deleteVersion)}
+        onOpenChange={(open) => !open && setDeleteVersion(null)}
+        title={t('Delete plugin version')}
+        desc={t(
+          'Delete this custom plugin version? Historical tasks referencing it cannot be deleted.'
+        )}
+        destructive
+        isLoading={deleteMutation.isPending}
+        confirmText={t('Delete')}
+        handleConfirm={() => {
+          if (deleteVersion) deleteMutation.mutate(deleteVersion)
+        }}
+      />
     </SheetContent>
   )
 }
