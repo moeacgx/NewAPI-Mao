@@ -59,6 +59,7 @@ const routerMap = {
   deployment: '/console/deployment',
   game_management: '/console/game-management',
   extension_admin: '/console/extensions',
+  task_plugins: '/console/task-plugins',
   playground: '/console/playground',
   canvas: '/console/canvas',
   personal: '/console/personal',
@@ -321,6 +322,12 @@ const SiderBar = ({
         itemKey: 'notification_center',
         to: '/notification-center',
         className: isRoot() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('Task Plugins'),
+        itemKey: 'task_plugins',
+        to: '/console/task-plugins',
+        className: isAdmin() ? '' : 'tableHiddle',
       },
       {
         text: t('系统设置'),

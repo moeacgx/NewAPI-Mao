@@ -77,6 +77,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     affiliate_admin: true,
     notification_center: true,
     extension_admin: true,
+    task_plugins: true,
     security_audit: true,
     setting: true,
   },

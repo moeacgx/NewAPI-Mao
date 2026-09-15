@@ -147,7 +147,10 @@ Classic 的 `constants/channel.constants.js` 已将 61 映射为 AtlasCloud；
 `TaskLogsColumnDefs.jsx` 继续展示原生 action、组名称和公开任务 ID。
 此次 `quota` 数值修复由既有后端接口返回，不需要新增前端计算或配置。
 
-完整切换时 Classic 必须实现插件列表/上传/启停/版本、渠道绑定、任务附件和用量详情，
-与 Default 共同对接已确定的后端权限、编号和版本合同，不能只移植 Default。
-按协调计划，两套 UI 由各自前端负责人实施，本任务负责提供后端合同；当前阶段未实现
-这些 UI，不可标为 Classic 或全量插件集成完成。完整迁移保持未就绪。
+后续 Classic 管理与渠道接线见
+[Classic 内置任务插件管理](../workflows/2026-09/15_classic_task_plugins.md)：
+`/console/task-plugins` 使用 AdminRoute，Admin 只读、Root 启停/激活及修改 runtime
+总开关；渠道使用 62 与 `setting.task_plugin_key`，AtlasCloud 仍为 61。
+当前不显示上传、市场、删除、dryrun 操作控件且不请求这些接口，保留原生扩展入口。
+该前端工作不代表历史迁移、真实供应商任务、完整附件与用量计费或生产就绪已完成；
+必须与 `official-plugin-backend` 的最新接口与实际执行链组合验收。

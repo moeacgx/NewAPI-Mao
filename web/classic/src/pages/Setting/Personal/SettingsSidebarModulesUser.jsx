@@ -116,6 +116,7 @@ export default function SettingsSidebarModulesUser() {
         invoice_admin: isSidebarModuleAllowed('admin', 'invoice_admin'),
         affiliate_admin: isSidebarModuleAllowed('admin', 'affiliate_admin'),
         extension_admin: isSidebarModuleAllowed('admin', 'extension_admin'),
+        task_plugins: isSidebarModuleAllowed('admin', 'task_plugins'),
         setting: isSidebarModuleAllowed('admin', 'setting'),
       };
     }
@@ -403,6 +404,11 @@ export default function SettingsSidebarModulesUser() {
           key: 'extension_admin',
           title: t('模块管理'),
           description: t('扩展模块管理与启停'),
+        },
+        {
+          key: 'task_plugins',
+          title: t('Task Plugins'),
+          description: t('Task plugin details'),
         },
         {
           key: 'setting',

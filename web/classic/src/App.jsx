@@ -60,6 +60,7 @@ import SetupCheck from './components/layout/SetupCheck';
 import NotificationCenter from './pages/NotificationCenter';
 
 const Home = lazy(() => import('./pages/Home'));
+const TaskPlugins = lazy(() => import('./pages/TaskPlugins'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
@@ -181,6 +182,16 @@ function App() {
             <RootRoute>
               <Extensions />
             </RootRoute>
+          }
+        />
+        <Route
+          path='/console/task-plugins'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <TaskPlugins />
+              </Suspense>
+            </AdminRoute>
           }
         />
         <Route
