@@ -33,6 +33,13 @@
 - 边界：本期只提供 Classic 编辑入口；Codex、Vertex 与 io.net 托管渠道不提供转换。
   不支持反向转换；并发编辑沿用现有渠道更新语义，应避免同时编辑同一渠道。
 
+## 任务插件迁移
+
+- 文档：[任务插件迁移](task-plugin-migration.md)。
+- 稳定性：原生任务计费修复与迁移分析阶段；在线任务继续使用原生适配器，本补丁不引入 JS 运行时或依赖。
+- 契约：AtlasCloud 渠道类型 61、源任务多分组授权与别名/继承、退款认领及补偿状态保留。
+- 限制：完整 JS 路由、插件管理、资源签名和插件用量计费尚未接入，禁止直接全量切换。
+
 ## Responses WebSocket 集成准备
 
 - 文档：[Responses WebSocket 专项集成审查](responses-websocket-integration.md)。

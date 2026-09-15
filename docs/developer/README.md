@@ -31,6 +31,8 @@
 - [使用日志与渠道测试显示上游响应模型](../workflows/2026-09/04_upstream_response_model_usage_logs.md)：记录上游响应模型采集、管理员可见与普通用户脱敏契约。
 
 - [未保存渠道模型获取尾部斜杠兼容](../workflows/2026-09/03_channel_unsaved_model_fetch_trailing_slash.md)：Classic 新建渠道可直接用临时令牌探测模型，API 地址末尾 `/` 不再生成错误的双斜杠模型路径。
+- [任务插件迁移](task-plugin-migration.md)：上游 JS 系统与原生任务适配器映射、AtlasCloud 保留、源任务授权及上线阻断。
+- [任务插件迁移实施记录](../workflows/2026-09/15_task_plugin_migration.md)：最新基线同步、Remix 倍率恢复、AtlasCloud 时长预扣校验与阶段交付边界。
 
 - [Default 渠道供应商选择与保存恢复](../workflows/2026-09/03_channel_vendor_selection_restore.md)：恢复渠道抽屉供应商选择、`vendor_id` 保存和按供应商筛选的 Default 前端回归。
 
