@@ -25,6 +25,14 @@
 - 边界：本期只提供 Classic 编辑入口；Codex、Vertex 与 io.net 托管渠道不提供转换。
   不支持反向转换；并发编辑沿用现有渠道更新语义，应避免同时编辑同一渠道。
 
+## Responses WebSocket 集成准备
+
+- 文档：[Responses WebSocket 专项集成审查](responses-websocket-integration.md)。
+- 稳定性：仅 relaykit DTO 兼容准备，运行时未接入，不是可用功能或发布候选。
+- 开关：渠道 `setting.responses_websocket_enabled` 缺失为 false；本分支设为 true 仍不启用入口。
+- 限制：上游审计、计费错误传播、失败指标和错误替换尚未满足本地契约，禁止直接摘取整个提交。
+- 范围：本阶段交付 DTO 与协议夹具，不增加界面；完整运行时启用前必须分别实现 Default 与 Classic 的开关、保存恢复和权限验收。无数据库迁移，无部署。
+
 ## 福利营销时效额度券
 
 - 文档：[福利营销时效额度券](benefit-vouchers.md)
