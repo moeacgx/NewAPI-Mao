@@ -194,6 +194,11 @@ export const CHANNEL_OPTIONS = [
     color: 'blue',
     label: 'AtlasCloud',
   },
+  {
+    value: 62,
+    color: 'blue',
+    label: 'Task Plugins',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.

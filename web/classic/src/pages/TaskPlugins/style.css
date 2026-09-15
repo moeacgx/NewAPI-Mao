@@ -1,0 +1,46 @@
+.task-plugin-page {
+  padding: 64px 24px 24px;
+}
+.task-plugin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.task-plugin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.task-plugin-page .semi-card,
+.task-plugin-stack .semi-card {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+  background: var(--semi-color-bg-1);
+}
+.task-plugin-table {
+  overflow-x: auto;
+}
+.task-plugin-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+.task-plugin-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-plugin-json {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--semi-color-text-1);
+}
+@media (max-width: 767px) {
+  .task-plugin-page {
+    padding: 64px 8px 16px;
+  }
+}
