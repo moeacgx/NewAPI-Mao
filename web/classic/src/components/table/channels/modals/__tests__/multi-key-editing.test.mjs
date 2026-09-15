@@ -81,3 +81,10 @@ test('已有聚合渠道编辑仍提交追加策略但不请求重新转换', ()
   );
   assert.deepEqual(payload, { key_mode: 'append', multi_key_mode: 'polling' });
 });
+
+test('无敏感权限时不提交多Key策略或更新模式',()=> {
+ assert.deepEqual(JSON.parse(JSON.stringify(buildChannelKeyUpdateFields({isMultiKeyChannel:true,canWriteSensitive:false,multiKeyMode:'polling'}))),{});
+});
+test('仅改策略且新密钥为空时保留旧密钥，不发送key_mode',()=> {
+ assert.deepEqual(JSON.parse(JSON.stringify(buildChannelKeyUpdateFields({isMultiKeyChannel:true,canWriteSensitive:true,hasNewKey:false,multiKeyMode:'polling'}))),{multi_key_mode:'polling'});
+});

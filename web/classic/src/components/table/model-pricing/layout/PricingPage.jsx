@@ -34,10 +34,8 @@ const PricingPage = () => {
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [billingGuideVisible, setBillingGuideVisible] = React.useState(false);
   const billingGuideAvailable = React.useMemo(
-    () =>
-      pricingData.siteDisplayType !== 'TOKENS' &&
-      getBillingGuideModels(pricingData.models).length > 0,
-    [pricingData.models, pricingData.siteDisplayType],
+    () => getBillingGuideModels(pricingData.models).length > 0,
+    [pricingData.models],
   );
 
   const openBillingGuide = React.useCallback(() => {

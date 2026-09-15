@@ -95,7 +95,6 @@ const PricingToolbar = ({
   onOpenBillingGuide,
   t,
 }) => {
-  const supportsCurrencyDisplay = siteDisplayType !== 'TOKENS';
   const activeFilterCount = [
     filterGroup,
     filterQuotaType,
@@ -157,20 +156,18 @@ const PricingToolbar = ({
       </div>
 
       <div className='classic-pricing-toolbar-controls'>
-        {supportsCurrencyDisplay && (
-          <PricingSegmentedControl
-            ariaLabel={t('价格显示模式')}
-            className='classic-pricing-toolbar-price-display'
-            value={showWithRecharge ? 'recharge' : 'standard'}
-            onChange={(value) => setShowWithRecharge?.(value === 'recharge')}
-            options={[
-              { value: 'standard', label: t('标准') },
-              { value: 'recharge', label: t('充值') },
-            ]}
-          />
-        )}
+        <PricingSegmentedControl
+          ariaLabel={t('价格显示模式')}
+          className='classic-pricing-toolbar-price-display'
+          value={showWithRecharge ? 'recharge' : 'standard'}
+          onChange={(value) => setShowWithRecharge?.(value === 'recharge')}
+          options={[
+            { value: 'standard', label: t('标准') },
+            { value: 'recharge', label: t('充值') },
+          ]}
+        />
 
-        {supportsCurrencyDisplay && showWithRecharge && (
+        {showWithRecharge && (
           <Select
             value={currency}
             onChange={setCurrency}
@@ -249,14 +246,14 @@ const PricingToolbar = ({
               >
                 {t('倍率')}
               </Dropdown.Item>
-              {isMobile && supportsCurrencyDisplay && (
+              {isMobile && (
                 <Dropdown.Item
                   onClick={() => setShowWithRecharge?.(!showWithRecharge)}
                 >
                   {showWithRecharge ? t('标准') : t('充值')}
                 </Dropdown.Item>
               )}
-              {isMobile && supportsCurrencyDisplay && showWithRecharge && (
+              {isMobile && showWithRecharge && (
                 <>
                   <Dropdown.Item onClick={() => setCurrency?.('USD')}>
                     USD

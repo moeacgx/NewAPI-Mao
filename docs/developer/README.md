@@ -1,5 +1,8 @@
 # 开发文档
 
+- [NewAPI 官方上游更新集成计划](../workflows/2026-09/14_newapi_upstream_update_plan.md)：官方差异、Paseo 分发、阶段 PR、合并验证及未完成迁移清单。
+
+- [Classic 第一阶段上游兼容](../workflows/2026-09/15_classic_upstream_compatibility.md)：多 Key、供应商、时间价格规则、日志、额度、兑换码导出及 Passkey 的独立适配与验证。
 - [Responses HTTP/SSE 计费详情归一化](../workflows/2026-09/15_responses_http_usage_details.md)：保留原生 usage 的图片、音频和缓存详情，区分原生归一与协议转换计费快照。
 - [数据库上游兼容阶段](../workflows/2026-09/15_database_upstream_compatibility.md)：SQLite WAL/忙等待/立即事务、PostgreSQL 预填分组旧唯一约束迁移及三库验收边界。
 
@@ -8,6 +11,7 @@
 - [Default 价格时间规则与日志筛选修复](../workflows/2026-09/15_default_pricing_upstream.md)：同日和跨午夜条件、价格货币单位及避免密码自动填充。
 - [Default 价格编辑器历史规则保留](../workflows/2026-09/15_default_pricing_editor_preservation.md)：模式切换保留原始计费规则，增删行保留编辑草稿与焦点。
 - [Default Passkey 与兑换码导出](../workflows/2026-09/15_default_security_upstream.md)：外置认证器能力检测和可选 TXT、Markdown 文件导出。
+
 - [Responses WebSocket 专项集成审查](responses-websocket-integration.md)：`9fe0457ee` 的协议、计费与本地扩展契约审查；仅 DTO 准备，默认关闭，运行时禁止直接合入。
 
 - [上游认证差异与安全兼容补丁](../workflows/2026-09/15_auth_upstream_compatibility.md)：Telegram OAuth 迁移门槛、登录快照版本、Passkey 会话绑定、Argon2id 双格式读取、PAT 撤销及前后端兼容矩阵。
