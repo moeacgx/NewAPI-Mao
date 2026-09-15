@@ -65,6 +65,7 @@ import {
   resolveGroupCodes,
 } from '../../../../helpers';
 import ModelSelectModal from './ModelSelectModal';
+import TaskPluginSelect from './TaskPluginSelect';
 import {
   canConvertChannelToMultiKey,
   buildChannelKeyUpdateFields,
@@ -186,6 +187,7 @@ const EditChannelModal = (props) => {
     name: '',
     type: 1,
     vendor_id: 0,
+    task_plugin_key: '',
     key: '',
     openai_organization: '',
     max_input_tokens: 0,
@@ -914,9 +916,11 @@ const EditChannelModal = (props) => {
         data.multi_key_mode = 'random';
       }
       // 解析渠道额外设置并合并到data中
+      data.task_plugin_key = '';
       if (data.setting) {
         try {
           const parsedSettings = JSON.parse(data.setting);
+          data.task_plugin_key = typeof parsedSettings.task_plugin_key === 'string' ? parsedSettings.task_plugin_key : '';
           data.force_format = parsedSettings.force_format || false;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
@@ -1723,6 +1727,7 @@ const EditChannelModal = (props) => {
   const submit = async () => {
     const formValues = formApiRef.current ? formApiRef.current.getValues() : {};
     let localInputs = { ...formValues };
+    localInputs.task_plugin_key = inputs.task_plugin_key;
     localInputs.param_override = inputs.param_override;
 
     if (localInputs.type === 57) {
@@ -1838,6 +1843,10 @@ const EditChannelModal = (props) => {
       showInfo(t('请至少选择一个模型！'));
       return;
     }
+    if (localInputs.type === 62 && !localInputs.task_plugin_key?.trim()) {
+      showError(t('Select task plugin'));
+      return;
+    }
     if (
       localInputs.type === 45 &&
       (!localInputs.base_url || localInputs.base_url.trim() === '')
@@ -1936,6 +1945,10 @@ const EditChannelModal = (props) => {
       http_protocol: localInputs.http_protocol || 'auto',
       http2_connection_shards: localInputs.http2_connection_shards || 1,
     };
+    if (localInputs.type === 62) {
+      channelExtraSettings.task_plugin_key = localInputs.task_plugin_key.trim();
+    }
+    delete localInputs.task_plugin_key;
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
     // 处理 settings 字段（包括企业账户设置和字段透传控制）
@@ -3269,6 +3282,18 @@ const EditChannelModal = (props) => {
                       disabled={isIonetLocked}
                     />
 
+                    {inputs.type === 62 && (
+                      <TaskPluginSelect
+                        value={inputs.task_plugin_key}
+                        disabled={isIonetLocked || (isEdit && !canWriteSensitive)}
+                        onChange={(value, models) => {
+                          handleInputChange('task_plugin_key', value);
+                          if (inputs.models.length === 0 && Array.isArray(models)) {
+                            handleInputChange('models', models);
+                          }
+                        }}
+                      />
+                    )}
                     <Form.Select
                       field='vendor_id'
                       label={t('供应商')}
