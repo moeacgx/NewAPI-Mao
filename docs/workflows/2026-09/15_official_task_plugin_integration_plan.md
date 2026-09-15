@@ -115,12 +115,39 @@ active、enabled 或总开关。前端关闭说明不得沿用“立即停止在
 - 组合：权限矩阵、AtlasCloud 编号回归、禁用插件不回退、在途任务 pin、退款和日志脱敏。
 - 部署：本计划只允许后续明确授权后在 zzapi 体验；不触碰 maolaoapi。
 
-## 当前阻断
+## 当前阶段交付与组合验证
 
-- 上游插件实现约 28,660 行、99 个文件，不能用单次整仓覆盖合入。
-- AtlasCloud 与官方 Task Plugin 共享 61 的潜在持久化冲突，必须先定义独立编号或迁移规则。
-- 官方资源存储、签名撤销、版本 pin 和 UsageFacts 计费尚未与本地契约完成组合验证。
-- Classic 需要新增官方插件管理入口；已有 Classic 第一阶段 PR 不包含该功能。
+已完成内置 JSON 任务、按次计费和认证内联资源阶段，完整官方插件能力仍在后续范围。
+四个 PR 的审查对象如下，合并后按目标分支同步产生的新提交继续核对差异：
+
+- 文档：#219。
+- 后端：#222，`583755592d91cf6bca196b359bf8d41b1eaf7f36`。
+- Classic：#221，`742ffb829a5ab1a7bfe753e82883743831113a02`。
+- Default：#220，`fd03a488325a03a1c656e10e4c42955f0a2bde61`；包含 UTF-8 修复与真实语言包回归。
+
+编号冲突已通过独立的 62 解决。数据库与缓存选渠、亲和性及指定渠道都隔离插件 key，
+原生路径排除 62。历史 pin 轮询、Sora 钱包和 token 一次退款、Hailuo 真实 JS 异常、
+fetch/read/parse/unknown 四类错误脱敏、公开状态及内联资源授权均有定向测试。
+Sora 和资源用例手工注入身份上下文，不等于完整 TokenAuth HTTP 端到端。
+
+2026-09-15 组合工作树 `official-task-plugin-gate` 的实际门禁通过：
+
+1. 以锁文件安装两套前端依赖，分别运行 Rsbuild 和 Vite 构建；Classic 用时 70 秒，
+   保留既有大 chunk 警告。没有使用占位 HTML 或缺失静态资源的替代物。
+2. 两套真实 dist 存在后执行 `go build -mod=readonly -o .local-tests/new-api-official.exe .`
+   成功，Windows 二进制大小 176357888 字节。
+3. `go test -mod=readonly ./controller ./service ./router ./relay -run
+'TestTaskPlugin|TestPluginSourceTaskAuthorizationUsesPersistedGroups' -timeout 60s -count=1`
+   四包通过。实现代码逐路径与上述三个固定提交相同，开发索引和能力登记保留并集。
+4. Default 修复后插件目录 8 文件 67 项通过；真实七语资源及启停/激活后选项更新通过。
+   Classic 独立组件 13 项、作者扩展范围 22 项及原生扩展 11 项分别记录，不累计为一个测试集。
+
+仅管理和本阶段运行闭环通过；未执行 zzapi 或 maolaoapi 部署。下列工作继续单独验收：
+
+- MySQL/PostgreSQL 新表现场迁移、订阅退款和故障恢复、完整 TokenAuth 端到端。
+- 真实供应商视频和远程媒体成功交付；当前仅有限内联资源，远程资源返回 501。
+- S3、匿名签名及撤销、市场、上传、完整 UsageFacts 表达式、Responses 等完整协议外观。
+- 未启用的 `task_plugin_full_protocol` 测试不能算作普通插件离线测试已经覆盖。
 
 ## 回滚
 
