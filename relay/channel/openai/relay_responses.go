@@ -13,11 +13,28 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
+
+// normalizeNativeResponsesUsage 不接受网络响应携带的内部转换计费元数据。
+func normalizeNativeResponsesUsage(source *dto.Usage) *dto.Usage {
+	if source == nil {
+		return &dto.Usage{}
+	}
+	native := *source
+	native.BillingUsage = nil
+	native.UsageSemantic = ""
+	native.UsageSource = ""
+	native.Cost = nil
+	native.ClaudeCacheCreation5mTokens = 0
+	native.ClaudeCacheCreation1hTokens = 0
+	return relayconvert.NormalizeResponsesUsage(&native)
+}
 
 func responsesLocalUsageText(response *dto.OpenAIResponsesResponse) string {
 	if response == nil {
@@ -218,16 +235,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	}
 
 	// compute usage
-	usage := dto.Usage{}
-	if responsesResponse.Usage != nil {
-		usage.PromptTokens = responsesResponse.Usage.InputTokens
-		usage.CompletionTokens = responsesResponse.Usage.OutputTokens
-		usage.TotalTokens = responsesResponse.Usage.TotalTokens
-		if responsesResponse.Usage.InputTokensDetails != nil {
-			usage.PromptTokensDetails.CachedTokens = responsesResponse.Usage.InputTokensDetails.CachedTokens
-		}
-		usage.CopyCacheCreationTokensFrom(responsesResponse.Usage)
-	}
+	usage := *normalizeNativeResponsesUsage(responsesResponse.Usage)
 	if usage.PromptTokens == 0 || usage.CompletionTokens == 0 {
 		if responseText := responsesLocalUsageText(&responsesResponse); strings.TrimSpace(responseText) != "" {
 			modelName := info.GetUpstreamModelName()
@@ -503,13 +511,30 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 					terminalResponseText = completedText
 				}
 				if streamResponse.Response.Usage != nil {
-					usage.PromptTokens = streamResponse.Response.Usage.InputTokens
-					usage.CompletionTokens = streamResponse.Response.Usage.OutputTokens
-					usage.TotalTokens = streamResponse.Response.Usage.TotalTokens
-					if streamResponse.Response.Usage.InputTokensDetails != nil {
-						usage.PromptTokensDetails.CachedTokens = streamResponse.Response.Usage.InputTokensDetails.CachedTokens
+					source := streamResponse.Response.Usage
+					next := normalizeNativeResponsesUsage(source)
+					// 兼容累计终态：缺失不擦除已观测详情，显式缓存零值仍以新帧为准。
+					if source.InputTokensDetails == nil && source.PromptTokensDetails == (dto.InputTokenDetails{}) {
+						next.PromptTokensDetails = usage.PromptTokensDetails
+						next.InputTokensDetails = usage.InputTokensDetails
 					}
-					usage.CopyCacheCreationTokensFrom(streamResponse.Response.Usage)
+					if !next.PromptTokensDetails.HasCachedTokens && next.PromptTokensDetails.CachedTokens == 0 {
+						next.PromptTokensDetails.CachedTokens = usage.PromptTokensDetails.CachedTokens
+						next.PromptTokensDetails.HasCachedTokens = usage.PromptTokensDetails.HasCachedTokens
+						if next.InputTokensDetails != nil {
+							next.InputTokensDetails.CachedTokens = next.PromptTokensDetails.CachedTokens
+							next.InputTokensDetails.HasCachedTokens = next.PromptTokensDetails.HasCachedTokens
+						}
+					}
+					if source.HasAnyCacheCreationTokensField() {
+						next.CopyCacheCreationTokensFrom(source)
+					} else {
+						next.CopyCacheCreationTokensFrom(usage)
+					}
+					if !gjson.Get(data, "response.usage.completion_tokens_details").Exists() {
+						next.CompletionTokenDetails = usage.CompletionTokenDetails
+					}
+					*usage = *next
 				}
 				if !imageCommitted {
 					if relaycommon.IsNonBillableResponsesStatus(streamResponse.Response.Status) {

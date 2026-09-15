@@ -234,13 +234,14 @@ type Usage struct {
 	UsageSource             string        `json:"usage_source,omitempty"`
 	BillingUsage            *BillingUsage `json:"billing_usage,omitempty"`
 
-	PromptTokensDetails    InputTokenDetails  `json:"prompt_tokens_details"`
-	CompletionTokenDetails OutputTokenDetails `json:"completion_tokens_details"`
-	InputTokens            int                `json:"input_tokens"`
-	OutputTokens           int                `json:"output_tokens"`
-	InputTokensDetails     *InputTokenDetails `json:"input_tokens_details"`
-	HasInputTokens         bool               `json:"-"`
-	HasOutputTokens        bool               `json:"-"`
+	PromptTokensDetails    InputTokenDetails   `json:"prompt_tokens_details"`
+	CompletionTokenDetails OutputTokenDetails  `json:"completion_tokens_details"`
+	InputTokens            int                 `json:"input_tokens"`
+	OutputTokens           int                 `json:"output_tokens"`
+	InputTokensDetails     *InputTokenDetails  `json:"input_tokens_details"`
+	OutputTokensDetails    *OutputTokenDetails `json:"output_tokens_details,omitempty"`
+	HasInputTokens         bool                `json:"-"`
+	HasOutputTokens        bool                `json:"-"`
 
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheWriteInputTokens    int `json:"cache_write_input_tokens,omitempty"`

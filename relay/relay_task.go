@@ -191,6 +191,7 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 				info.PriceData.AddOtherRatio("size", 1.666667)
 			}
 		}
+		info.OriginTaskOtherRatios = info.PriceData.OtherRatios()
 	}
 
 	return nil
@@ -243,6 +244,10 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 	}
 	info.PriceData = priceData
+	// 价格重建会清空倍率；仅从源任务快照恢复，不能沿用上次尝试的价格。
+	for key, ratio := range info.OriginTaskOtherRatios {
+		info.PriceData.AddOtherRatio(key, ratio)
+	}
 
 	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
 	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。

@@ -152,7 +152,12 @@ func recordLoginAudit(user *model.User, c *gin.Context) {
 // setupLogin creates a server-controlled login Session and returns the shared
 // authentication bundle used by every login method.
 func setupLogin(user *model.User, c *gin.Context) {
-	setupLoginAtAuthVersion(user, 0, c)
+	if user == nil || user.AuthVersion <= 0 {
+		writeAuthSessionError(c, service.ErrLoginSessionInvalid)
+		return
+	}
+	// 主凭证验证后的快照不能跨越密码重置等安全版本变化。
+	setupLoginAtAuthVersion(user, user.AuthVersion, c)
 }
 
 func setupLoginAtAuthVersion(user *model.User, expectedAuthVersion int64, c *gin.Context) {
@@ -420,6 +425,7 @@ func GenerateAccessToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	recordUserSecurityAudit(c, id, "access_token.generate", map[string]interface{}{"token_ref": model.AccessTokenFingerprint(key)})
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

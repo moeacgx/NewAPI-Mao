@@ -258,6 +258,9 @@ func migrateDB() error {
 	if err := migrateWalletQuotaColumns(); err != nil {
 		return err
 	}
+	if err := migratePrefillGroupUniqueness(DB); err != nil {
+		return err
+	}
 	if err := migrateAffiliateRecordSourceIndex(DB); err != nil {
 		return err
 	}
@@ -397,6 +400,9 @@ func migrateDB() error {
 
 func migrateDBFast() error {
 	if err := migrateWalletQuotaColumns(); err != nil {
+		return err
+	}
+	if err := migratePrefillGroupUniqueness(DB); err != nil {
 		return err
 	}
 	if err := migrateAffiliateRecordSourceIndex(DB); err != nil {
