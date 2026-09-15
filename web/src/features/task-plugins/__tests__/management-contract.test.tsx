@@ -20,8 +20,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
+import { useForm } from 'react-hook-form'
 import { afterEach, expect, test, vi } from 'vitest'
 
+import { Form } from '@/components/ui/form'
+import type { ChannelFormValues } from '@/features/channels/lib/channel-form'
 import { api } from '@/lib/api'
 
 import {
@@ -31,6 +34,7 @@ import {
 } from '../api'
 import { PluginDetailSheet } from '../components/plugin-detail-sheet'
 import { PluginsTable } from '../components/plugins-table'
+import { TaskPluginBindingField } from '../components/task-plugin-binding-field'
 import { TaskPlugins } from '../index'
 import type { TaskPluginListItem } from '../types'
 
@@ -77,6 +81,98 @@ function client() {
   clients.push(value)
   return value
 }
+
+function BindingForm() {
+  const form = useForm<ChannelFormValues>({
+    defaultValues: { task_plugin_key: 'sora' },
+  })
+  return (
+    <Form {...form}>
+      <TaskPluginBindingField form={form} disabled={false} />
+    </Form>
+  )
+}
+
+test.each(['status', 'activate'])(
+  '%s 成功后已打开的渠道绑定显示最新选项',
+  async (action) => {
+    const query = client()
+    query.setQueryData(
+      ['task-plugin-options'],
+      [
+        {
+          key: 'sora',
+          name: 'Sora',
+          version: '1.0.0',
+          models: [],
+          channel_type: 62,
+        },
+      ]
+    )
+    query.setQueryData(['task-plugins'], [{ ...item, active: true }])
+    query.setQueryData(['task-plugin', 'sora'], { meta: item.meta })
+    query.setQueryData(
+      ['task-plugin-versions', 'sora'],
+      [{ id: 1, version: '1.0.0', active: false }]
+    )
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      let data: unknown = [{ ...item, active: true, enabled: true }]
+      if (url === '/api/task_plugin_options') {
+        data = [
+          {
+            key: 'sora',
+            name: 'Sora',
+            version: '2.0.0',
+            models: [],
+            channel_type: 62,
+          },
+        ]
+      } else if (String(url).endsWith('/versions')) {
+        data = [{ id: 1, version: '1.0.0', active: true }]
+      } else if (url === '/api/plugin/task/sora') {
+        data = { meta: item.meta }
+      }
+      return { data: { success: true, data } }
+    })
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ data: { success: true, data: null } })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={query}>
+        <BindingForm />
+        {action === 'status' ? (
+          <PluginsTable canManage onDetails={() => {}} />
+        ) : (
+          <PluginDetailSheet canManage plugin={item} onOpenChange={() => {}} />
+        )}
+      </QueryClientProvider>
+    )
+    expect(
+      screen.getByRole('option', { name: 'Sora (1.0.0)', hidden: true })
+    ).toBeInTheDocument()
+    if (action === 'activate') {
+      await user.click(screen.getByRole('tab', { name: 'Version history' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Activate / Roll back' })
+      )
+    } else {
+      await user.click(
+        screen.getByRole('switch', { name: 'Enable plugin sora' })
+      )
+    }
+    await waitFor(() =>
+      expect(
+        screen.getByRole('option', { name: 'Sora (2.0.0)', hidden: true })
+      ).toBeInTheDocument()
+    )
+    expect(post).toHaveBeenCalledWith(
+      `/api/plugin/task/sora/${action}`,
+      action === 'activate' ? { version: '1.0.0' } : { enabled: true },
+      expect.any(Object)
+    )
+  }
+)
 
 test('runtime reads and writes the supported endpoint with an explicit false', async () => {
   const get = vi.spyOn(api, 'get').mockResolvedValue({

@@ -27,7 +27,7 @@ type DiffLine = { id: string; kind: 'same' | 'added' | 'removed'; text: string }
 function diffLines(before: string, after: string): DiffLine[] {
   const left = before.split('\n')
   const right = after.split('\n')
-  // ?????????????????????????????????
+  // 大文件跳过二维差异表，直接展示删除和新增，限制内存占用。
   if (left.length * right.length > 1_000_000) {
     return [
       ...left.map((text, i) => ({
