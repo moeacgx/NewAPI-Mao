@@ -113,6 +113,7 @@ import {
 } from '@/features/auth/secure-verification'
 import { getVendors } from '@/features/models/api'
 import { vendorsQueryKeys } from '@/features/models/lib'
+import { TaskPluginBindingField } from '@/features/task-plugins/components/task-plugin-binding-field'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useHiddenClickUnlock } from '@/hooks/use-hidden-click-unlock'
 import {
@@ -288,6 +289,7 @@ const SENSITIVE_FORM_FIELDS = [
   'vertex_key_type',
   'aws_key_type',
   'azure_responses_version',
+  'task_plugin_key',
   'force_format',
   'thinking_to_content',
   'proxy',
@@ -2221,6 +2223,12 @@ export function ChannelMutateDrawer({
                               )}
                             />
                           </fieldset>
+                        )}
+                        {currentType === 62 && (
+                          <TaskPluginBindingField
+                            form={form}
+                            disabled={sensitiveLocked}
+                          />
                         )}
                       </ChannelBasicSection>
                     </div>
