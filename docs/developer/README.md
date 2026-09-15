@@ -1,5 +1,7 @@
 # 开发文档
 
+- [官方 Task Plugin 接入计划](../workflows/2026-09/15_official_task_plugin_integration_plan.md)：在保留二开扩展和原生任务的前提下接入官方 JS 插件、Default/Classic 管理入口、并存契约与上线门禁。
+
 - [NewAPI 官方上游更新集成计划](../workflows/2026-09/14_newapi_upstream_update_plan.md)：官方差异、Paseo 分发、阶段 PR、合并验证及未完成迁移清单。
 
 - [Classic 第一阶段上游兼容](../workflows/2026-09/15_classic_upstream_compatibility.md)：多 Key、供应商、时间价格规则、日志、额度、兑换码导出及 Passkey 的独立适配与验证。

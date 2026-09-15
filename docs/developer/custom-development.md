@@ -40,6 +40,15 @@
 - 契约：AtlasCloud 渠道类型 61、源任务多分组授权与别名/继承、退款认领及补偿状态保留。
 - 限制：完整 JS 路由、插件管理、资源签名和插件用量计费尚未接入，禁止直接全量切换。
 
+## 官方 Task Plugin 并存接入
+
+- 文档：[官方 Task Plugin 接入计划](../workflows/2026-09/15_official_task_plugin_integration_plan.md)。
+- 范围：接入官方 JS 插件运行时、内置插件、插件管理和市场；现有 `/extensions` 二开扩展与 Go 原生任务适配器继续保留。
+- 默认值：插件总开关默认关闭；体验阶段只在 zzapi 显式启用，不触碰 maolaoapi。
+- 编号：AtlasCloud 的渠道类型 61 保留，官方插件使用 62，渠道绑定为 `setting.task_plugin_key`。
+- 当前合同：内置插件列表、详情、版本、Root 激活与启停；专用 runtime/status 接口管理总开关。新安装先激活，关闭只阻新提交，历史任务仍须按版本和 hash 轮询。
+- 稳定性：正在实现，尚未完成组合验收。两套前端不启用当前未开放的上传、市场、删除版本和试运行；S3、匿名资源签名、UsageFacts 计费仍属剩余范围。管理页面不能替代真实提交、轮询和退款验收。
+
 ## Responses WebSocket 集成准备
 
 - 文档：[Responses WebSocket 专项集成审查](responses-websocket-integration.md)。
