@@ -1,5 +1,6 @@
 # 开发文档
 
+- [Responses HTTP/SSE 计费详情归一化](../workflows/2026-09/15_responses_http_usage_details.md)：保留原生 usage 的图片、音频和缓存详情，区分原生归一与协议转换计费快照。
 - [数据库上游兼容阶段](../workflows/2026-09/15_database_upstream_compatibility.md)：SQLite WAL/忙等待/立即事务、PostgreSQL 预填分组旧唯一约束迁移及三库验收边界。
 
 - [Default 前端上游集成评估与实现](../workflows/2026-09/15_default_upstream_integration.md)：逐域移植兼容修复，保留本地渠道、日志、分组、定价与通知契约，并列出尚需后端协同的冲突。
