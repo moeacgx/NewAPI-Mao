@@ -52,6 +52,34 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if strings.TrimSpace(req.Prompt) == "" {
 		return service.TaskErrorWrapperLocal(fmt.Errorf("prompt is required"), "invalid_request", http.StatusBadRequest)
 	}
+	// 通用 DTO 兼容解析会丢弃某些非法 duration 类型；这里检查原始值。
+	var durationInput struct {
+		Duration any `json:"duration"`
+	}
+	if err := common.UnmarshalBodyReusable(c, &durationInput); err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+	}
+	// 保留 seconds < duration < metadata.duration 的有效覆盖顺序，
+	// 在预扣之前统一时长，避免 metadata 让实际生成量大于计费量。
+	duration := 0
+	for _, value := range []any{req.Seconds, durationInput.Duration, req.Metadata["duration"]} {
+		if value == nil {
+			continue
+		}
+		raw := strings.TrimSpace(fmt.Sprint(value))
+		if raw == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed < 0 || parsed > int64(relaycommon.MaxTaskDurationSeconds) {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("duration must be an integer between 0 and %d", relaycommon.MaxTaskDurationSeconds), "invalid_duration", http.StatusBadRequest)
+		}
+		if parsed > 0 {
+			duration = int(parsed)
+		}
+	}
+	req.Duration = duration
+	req.Seconds = ""
 	if req.InputReference != "" && len(req.Images) == 0 {
 		req.Images = []string{req.InputReference}
 	}
@@ -142,7 +170,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	for key, value := range req.Metadata {
 		switch key {
-		case "model", "prompt", "image", "images":
+		case "model", "prompt", "image", "images", "duration":
 			continue
 		default:
 			payload[key] = value
