@@ -346,6 +346,12 @@ func SyncOptions(frequency int) {
 
 func validateOptionValue(key string, value string) error {
 	switch key {
+	case setting.TaskPluginMarketplaceSourcesKey:
+		var sources []setting.TaskPluginMarketplaceSource
+		if err := common.UnmarshalJsonStr(value, &sources); err != nil {
+			return err
+		}
+		return setting.ValidateTaskPluginMarketplaceSources(sources)
 	case operation_setting.ToolPriceOptionKey:
 		return operation_setting.ValidateToolPricesJSON(value)
 	case "MaxTokenAutoGroups":

@@ -67,6 +67,8 @@ type TaskPlugin struct {
 	Active    bool   `json:"active" gorm:"not null;index"`
 	CreatedAt int64  `json:"created_at" gorm:"not null"`
 	Remark    string `json:"remark" gorm:"type:text"`
+	// Marketplace stores credential-free provenance JSON for marketplace installs.
+	Marketplace string `json:"marketplace,omitempty" gorm:"type:text"`
 }
 
 // HasIcon reports whether this version ships a logo.
@@ -243,6 +245,9 @@ func DeleteTaskPluginVersion(key, version string) (TaskPluginDeleteResult, error
 		result.DeletedActive = plugin.Active
 		if plugin.Active {
 			return errors.New("活动插件版本不能删除，请先激活其他版本")
+		}
+		if plugin.SourceKind == "builtin" {
+			return errors.New("内置插件版本不能删除")
 		}
 		if err := tx.Delete(&plugin).Error; err != nil {
 			return err

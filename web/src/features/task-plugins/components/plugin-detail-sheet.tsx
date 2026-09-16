@@ -133,7 +133,12 @@ function PluginDetailContent(props: {
       })
       void queryClient.invalidateQueries({ queryKey: ['task-plugin-options'] })
     },
-    onError: (error) => handleServerError(error),
+    onError: () =>
+      toast.error(
+        t(
+          'Plugin version could not be deleted. Active or referenced versions must be retained.'
+        )
+      ),
   })
   const detail = detailQuery.data
   const versions = versionsQuery.data ?? []
@@ -337,7 +342,7 @@ function PluginDetailContent(props: {
                         {t('Activate / Roll back')}
                       </Button>
                       {props.canManage &&
-                        props.plugin.source_kind === 'custom' &&
+                        version.source_kind === 'custom' &&
                         !version.active && (
                           <Button
                             size='sm'

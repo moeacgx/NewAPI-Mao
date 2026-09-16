@@ -39,6 +39,26 @@
   overflow-wrap: anywhere;
   color: var(--semi-color-text-1);
 }
+.task-plugin-source-url {
+  overflow-wrap: anywhere;
+}
+.task-plugin-select {
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  background: var(--semi-color-bg-1);
+  color: var(--semi-color-text-0);
+}
+.task-plugin-source-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  background: var(--semi-color-bg-1);
+}
 @media (max-width: 767px) {
   .task-plugin-page {
     padding: 64px 8px 16px;

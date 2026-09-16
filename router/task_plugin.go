@@ -10,10 +10,13 @@ func registerTaskPluginManagement(api *gin.RouterGroup) {
 	group := api.Group("/plugin/task", middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.AdminAuth())
 	group.GET("", controller.ListTaskPlugins)
 	group.GET("/runtime/status", controller.GetTaskPluginRuntime)
+	// 市场源由 Admin 读取，Root 才能通过 PUT 更新；必须放在 /:key 之前避免被参数路由吞掉。
+	group.GET("/marketplace/sources", controller.GetTaskPluginMarketplaceSources)
 	group.GET("/:key", controller.GetTaskPlugin)
 	group.GET("/:key/versions", controller.GetTaskPluginVersions)
 	root := group.Group("", middleware.RootAuth(), middleware.CriticalRateLimit())
 	root.PUT("/runtime/status", controller.SetTaskPluginRuntime)
+	root.PUT("/marketplace/sources", controller.SetTaskPluginMarketplaceSources)
 	root.POST("/:key/status", controller.SetTaskPluginStatus)
 	root.POST("/:key/activate", controller.ActivateTaskPlugin)
 	root.POST("", controller.UploadTaskPlugin)

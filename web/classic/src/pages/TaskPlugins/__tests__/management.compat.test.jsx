@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { beforeEach, afterEach, expect, test } from 'vitest';
+import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TaskPlugins from '../index';
@@ -63,7 +63,8 @@ beforeEach(() => {
       throw error;
     }
     let data;
-    if (list) data = [plugin];
+    if (config.method === 'delete') data = null;
+    else if (list) data = [plugin];
     else if (config.url === '/api/plugin/task/runtime/status') {
       if (config.method === 'put') runtime = { ...runtime, ...body };
       data = runtime;
@@ -93,6 +94,60 @@ beforeEach(() => {
 });
 afterEach(() => {
   API.defaults.adapter = adapter;
+});
+
+test('Root 可打开真实源码文本框上传，保持 source-only 临时测试契约', async () => {
+  render(<TaskPlugins />);
+  await screen.findByText('Suno');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Upload custom task plugin' }),
+  );
+  const input = screen.getByPlaceholderText('Paste JavaScript plugin source');
+  await userEvent.type(input, 'const temporary = 1;');
+  await userEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await waitFor(() =>
+    expect(calls).toContainEqual({
+      url: '/api/plugin/task',
+      method: 'post',
+      body: { source: 'const temporary = 1;' },
+    }),
+  );
+  await waitFor(() => expect(input.value).toBe(''));
+});
+
+test('上传权限被撤销时显示权限错误并撤下后续上传入口', async () => {
+  render(<TaskPlugins />);
+  await screen.findByText('Suno');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Upload custom task plugin' }),
+  );
+  await userEvent.type(
+    screen.getByPlaceholderText('Paste JavaScript plugin source'),
+    'invalid();',
+  );
+  denyWrite = true;
+  await userEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await screen.findByText('No permission to access task plugins');
+  expect(
+    screen.queryByRole('button', { name: 'Upload custom task plugin' }),
+  ).toBeNull();
+});
+
+test('删除非活动自定义版本使用已编码插件版本路径并刷新列表', async () => {
+  plugin.source_kind = 'custom';
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  render(<TaskPlugins />);
+  await screen.findByText('Suno');
+  await userEvent.click(screen.getByRole('button', { name: 'Details' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+  await waitFor(() =>
+    expect(calls).toContainEqual({
+      url: '/api/plugin/task/sunoapi/versions/1.0',
+      method: 'delete',
+      body: undefined,
+    }),
+  );
+  expect(confirm).toHaveBeenCalledOnce();
 });
 
 test('首装无 active 能读取详情、激活最新归档；缺失计数不伪造为零', async () => {

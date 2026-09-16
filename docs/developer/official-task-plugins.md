@@ -22,6 +22,8 @@
 | `GET /api/task_plugin_options`                   | Admin | key/name/version/models/channel_type               |
 | `POST /api/plugin/task`                          | Root  | JSON `{source}`，编译校验后保存自定义版本（1 MiB） |
 | `DELETE /api/plugin/task/:key/versions/:version` | Root  | 删除无历史引用的非活动版本                         |
+| `GET /api/plugin/task/marketplace/sources`       | Admin | 读取多个索引源；显式空数组不回退默认值             |
+| `PUT /api/plugin/task/marketplace/sources`       | Root  | 保存 `{name,index_url}` 裸数组，最多 16 项         |
 
 列表和详情包含 `key/version/api_version/source_hash/enabled/active/source_kind`。
 `meta` 为服务端解析的完整官方元数据，包括 name/key/version/apiVersion/models，以及存在时的
@@ -36,7 +38,11 @@ description/author/protocols/routes/usageSchema。元数据声明不代表宿主
 自定义源码上传仅接受 JSON source，由宿主编译校验并以 disabled/inactive 保存；重复 key/version
 必须源码 hash 相同，否则冲突。删除仅允许无历史任务引用的非活动版本；活动版本必须先切换，
 避免影响在途任务。上传、删除和激活均由 Root 操作并写入管理审计。
-市场、发布者签名、S3 和匿名签名资源尚未开放；在线试运行仍返回 501。
+市场支持多个 HTTPS 索引源，默认 NewAPI 官方源与独立公开仓库 `moeacgx/maolaonewapi-plugins`。
+Admin 读取源和索引，Root 管理源、预览并安装；浏览器不携带网关凭据、不跟随重定向。
+安装提交源码、SHA-256、预期 key/version 和 marketplace 来源对象，宿主校验后保存为禁用、未激活版本。
+移除源不删除已装版本，来源记录仅用于追溯，不等于发布者签名。详见[多源契约与发布](../workflows/2026-09/16_task_plugin_sources_plan.md)。
+发布者签名、S3 和匿名签名资源尚未开放；在线试运行仍返回 501。
 
 ## 运行与安全
 
@@ -109,7 +115,7 @@ JS 有执行限时与并发限制，但没有进程级内存硬隔离；当前�
 
 下一阶段尚未验收：MySQL/PostgreSQL 真实迁移、订阅退款及故障恢复的插件组合测试、
 完整 TokenAuth HTTP 端到端、真实供应商与远程媒体成功、S3、匿名短期签名及撤销、
-市场、上传、在线试运行、UsageFacts 表达式计费、Responses 流式/同步协议外观。
+在线试运行、UsageFacts 表达式计费、Responses 流式/同步协议外观。
 十个内置源码与固定上游一致，但仅 Sora 提交退款和 Hailuo 异常传播做了宿主完整组合验证；
 其他供应商只证明离线脚本契约可运行。未移植依赖未接入 Responses 外观的上游测试。
 Default 与 Classic 由各自工作树实现，本工作项仅修改后端和开发文档。

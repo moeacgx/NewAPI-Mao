@@ -26,11 +26,13 @@ import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { handleServerError } from '@/lib/handle-server-error'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getTaskPluginEnabledOption, setTaskPluginEnabledOption } from './api'
+import { MarketplacePanel } from './components/marketplace-panel'
 import { PluginDetailSheet } from './components/plugin-detail-sheet'
 import { PluginsTable } from './components/plugins-table'
 import { UploadPluginDialog } from './components/upload-plugin-dialog'
@@ -72,7 +74,6 @@ export function TaskPlugins() {
           <Label htmlFor='task-plugin-enabled-switch'>
             {t('Enable task plugins')}
           </Label>
-          <Button disabled>{t('Marketplace')}</Button>
           <Button disabled={!canManage} onClick={() => setUploadOpen(true)}>
             {t('Upload plugin')}
           </Button>
@@ -81,7 +82,7 @@ export function TaskPlugins() {
           <div className='bg-card flex min-h-0 flex-1 flex-col gap-3 rounded-xl border p-4'>
             <p className='text-muted-foreground text-sm'>
               {t(
-                'Built-in and Root-uploaded custom plugins are supported. Marketplace, remote resources and sandbox are unavailable in this version.'
+                'Built-in, uploaded and source-installed plugins are supported. Remote resources and sandbox are unavailable.'
               )}
             </p>
             <p className='text-muted-foreground text-sm'>
@@ -95,7 +96,28 @@ export function TaskPlugins() {
                 onRetry={() => void runtime.refetch()}
               />
             )}
-            <PluginsTable onDetails={setDetail} canManage={canManage} />
+            <Tabs defaultValue='installed' className='min-h-0 flex-1'>
+              <TabsList>
+                <TabsTrigger value='installed'>
+                  {t('Installed plugins')}
+                </TabsTrigger>
+                <TabsTrigger value='marketplace'>
+                  {t('Marketplace')}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value='installed'
+                className='flex min-h-0 flex-1 flex-col'
+              >
+                <PluginsTable onDetails={setDetail} canManage={canManage} />
+              </TabsContent>
+              <TabsContent
+                value='marketplace'
+                className='min-h-0 overflow-y-auto'
+              >
+                <MarketplacePanel canManage={canManage} />
+              </TabsContent>
+            </Tabs>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

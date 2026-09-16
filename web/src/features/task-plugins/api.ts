@@ -20,6 +20,7 @@ import { api, type ApiRequestConfig } from '@/lib/api'
 
 import type {
   ApiResponse,
+  MarketplaceSource,
   TaskPluginDetail,
   TaskPluginListItem,
   TaskPluginRecord,
@@ -137,6 +138,38 @@ export type TaskPluginOption = {
 export async function getTaskPluginOptions() {
   const response = await api.get<ApiResponse<TaskPluginOption[]>>(
     '/api/task_plugin_options'
+  )
+  return requireSuccess(response.data)
+}
+
+export async function listMarketplaceSources() {
+  const response = await api.get<ApiResponse<MarketplaceSource[]>>(
+    '/api/plugin/task/marketplace/sources'
+  )
+  return requireSuccess(response.data)
+}
+
+export async function updateMarketplaceSources(sources: MarketplaceSource[]) {
+  const response = await api.put<ApiResponse<MarketplaceSource[]>>(
+    '/api/plugin/task/marketplace/sources',
+    sources,
+    mutationConfig
+  )
+  return requireSuccess(response.data)
+}
+
+export async function installMarketplacePlugin(request: {
+  source: string
+  sourceSha256: string
+  expectedKey: string
+  expectedVersion: string
+  remark: string
+  marketplace: { name: string; index_url: string; path: string }
+}) {
+  const response = await api.post<ApiResponse<TaskPluginDetail>>(
+    '/api/plugin/task',
+    request,
+    mutationConfig
   )
   return requireSuccess(response.data)
 }

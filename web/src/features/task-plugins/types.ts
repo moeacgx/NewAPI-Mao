@@ -134,3 +134,53 @@ export type ApiResponse<T> = {
   message: string
   data: T
 }
+
+export type MarketplaceSource = {
+  name: string
+  index_url: string
+}
+
+/**
+ * A single installable version from a marketplace index. `allowedHosts`,
+ * `baseUrl`, `auth` and `sha256` are optional: older or hand-rolled indexes may
+ * omit them, and the confirmation dialog degrades to a warning rather than
+ * refusing to render.
+ */
+export type MarketplaceIndexVersion = {
+  version: string
+  path: string
+  sha256?: string
+  minApiVersion?: number
+  kind?: string
+  allowedHosts?: string[]
+  baseUrl?: string
+  auth?: string
+}
+
+export type MarketplacePluginIcon = {
+  /** Index-relative path of the sidecar icon.svg / icon.png, resolved like `path`. */
+  path: string
+  sha256?: string
+}
+
+export type MarketplacePlugin = {
+  protocols?: TaskPluginProtocolClaim[]
+  sortPriority?: number
+  website?: string
+  key: string
+  name: string
+  icon?: string
+  /** Sidecar logo published by the index; rendered from the source repository. */
+  iconFile?: MarketplacePluginIcon
+  description?: string | Record<string, string>
+  channelTypes?: number[]
+  models?: string[]
+  latest: string
+  versions: MarketplaceIndexVersion[]
+}
+
+export type MarketplaceIndex = {
+  indexVersion: number
+  name: string
+  plugins: MarketplacePlugin[]
+}

@@ -125,6 +125,16 @@ export default function PluginDetails(props) {
                 <dd>{detail.api_version ?? t('Not provided')}</dd>
                 <dt>{t('Source hash')}</dt>
                 <dd>{detail.source_hash || t('Not provided')}</dd>
+                {detail.marketplace && (
+                  <>
+                    <dt>{t('Plugin source repository')}</dt>
+                    <dd>
+                      {detail.marketplace.name}
+                      <div>{detail.marketplace.index_url}</div>
+                      <div>{detail.marketplace.path}</div>
+                    </dd>
+                  </>
+                )}
                 <dt>{t('Enabled channels')}</dt>
                 <dd>{detail.channel_count ?? t('Not provided')}</dd>
                 <dt>{t('In-flight tasks')}</dt>
@@ -200,7 +210,7 @@ export default function PluginDetails(props) {
                           </Button>
                         )}
                         {props.canManage &&
-                          props.plugin.source_kind === 'custom' &&
+                          row.source_kind === 'custom' &&
                           row.active === false && (
                             <Button
                               disabled={props.busy}
@@ -216,7 +226,7 @@ export default function PluginDetails(props) {
                                 try {
                                   await taskPluginRequest(
                                     'delete',
-                                    `${path}/versions/${encodeURIComponent(row.version)}`,
+                                    `${taskPluginPath(props.plugin.key)}/versions/${encodeURIComponent(row.version)}`,
                                   );
                                   props.onChanged?.();
                                 } catch (err) {

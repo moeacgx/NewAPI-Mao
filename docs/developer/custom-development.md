@@ -46,8 +46,8 @@
 - 范围：接入官方 JS 插件运行时、内置插件、插件管理和市场；现有 `/extensions` 二开扩展与 Go 原生任务适配器继续保留。
 - 默认值：插件总开关默认关闭；体验阶段只在 zzapi 显式启用，不触碰 maolaoapi。
 - 编号：AtlasCloud 的渠道类型 61 保留，官方插件使用 62，渠道绑定为 `setting.task_plugin_key`。
-- 当前合同：内置插件列表、详情、版本、Root 激活与启停；专用 runtime/status 接口管理总开关。新安装先激活，关闭只阻新提交，历史任务仍须按版本和 hash 轮询。
-- 稳定性：内置 JSON/per_call/认证内联资源阶段已通过组合构建和定向回归，见接入计划的固定 PR 与证据。两套前端不启用当前未开放的上传、市场、删除版本和试运行；S3、匿名资源签名、UsageFacts、真实远程媒体与完整 TokenAuth 端到端仍待验收，尚未部署。
+- 当前合同：内置与自定义插件列表、详情、版本、Root 上传/激活/启停/删除；专用 runtime/status 管理总开关。支持多个插件源，默认官方源与独立公开的 `moeacgx/maolaonewapi-plugins`。安装后需显式激活，关闭只阻新提交，历史任务仍按版本和 hash 轮询。
+- 稳定性：内置 JSON/per_call/认证内联资源阶段已通过组合验证。多源安装与发布契约见[工作记录](../workflows/2026-09/16_task_plugin_sources_plan.md)，其部署状态以最终交付为准；S3、匿名资源签名、在线试运行、UsageFacts、真实远程媒体与完整 TokenAuth 端到端仍待验收。
 
 ## Responses WebSocket 集成准备
 

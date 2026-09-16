@@ -37,8 +37,15 @@ export function UploadPluginDialog(props: UploadPluginDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [source, setSource] = useState('')
+  const sourceTooLarge =
+    new TextEncoder().encode(source).byteLength > 1024 * 1024
   const upload = useMutation({
-    mutationFn: () => uploadTaskPlugin(source),
+    mutationFn: () => {
+      if (sourceTooLarge) {
+        throw new Error('Plugin source must be 1 MiB or smaller.')
+      }
+      return uploadTaskPlugin(source)
+    },
     onSuccess: () => {
       toast.success(t('Plugin uploaded'))
       setSource('')
@@ -47,7 +54,7 @@ export function UploadPluginDialog(props: UploadPluginDialogProps) {
       void queryClient.invalidateQueries({ queryKey: ['task-plugin-options'] })
     },
     onError: (error) => {
-      toast.error(uploadErrorMessage(error, t('Plugin upload failed')))
+      toast.error(t(uploadErrorMessage(error, 'Plugin upload failed')))
     },
   })
 
@@ -70,9 +77,14 @@ export function UploadPluginDialog(props: UploadPluginDialogProps) {
             onChange={(event) => setSource(event.target.value)}
             placeholder={t('Paste JavaScript plugin source')}
             className='min-h-72 font-mono text-xs'
-            maxLength={1024 * 1024}
+            aria-invalid={sourceTooLarge}
             disabled={upload.isPending}
           />
+          {sourceTooLarge && (
+            <p role='alert' className='text-destructive text-xs'>
+              {t('Plugin source must be 1 MiB or smaller.')}
+            </p>
+          )}
           <p className='text-muted-foreground text-xs'>
             {t(
               'Maximum source size: 1 MiB. The plugin key and version come from its metadata.'
@@ -89,7 +101,7 @@ export function UploadPluginDialog(props: UploadPluginDialogProps) {
           </Button>
           <Button
             onClick={() => upload.mutate()}
-            disabled={!source.trim() || upload.isPending}
+            disabled={!source.trim() || sourceTooLarge || upload.isPending}
           >
             {upload.isPending ? t('Uploading') : t('Upload')}
           </Button>

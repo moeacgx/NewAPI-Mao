@@ -21,11 +21,13 @@ import {
   Button,
   Card,
   Empty,
-  Input,
+  TextArea,
   Modal,
   Space,
   Spin,
   Table,
+  Tabs,
+  TabPane,
   Tag,
   Typography,
 } from '@douyinfe/semi-ui';
@@ -35,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import { isAdmin, isRoot } from '../../helpers/utils';
 import { taskPluginRequest, taskPluginPath, pluginError } from './api';
 import PluginDetails from './PluginDetails';
+import Marketplace from './Marketplace';
 
 import './style.css';
 
@@ -54,6 +57,7 @@ export default function TaskPlugins() {
   const [uploadError, setUploadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
+  const [tab, setTab] = useState('installed');
   const sequence = useRef(0);
   const lock = useRef(false);
   const admin = isAdmin();
@@ -139,7 +143,14 @@ export default function TaskPlugins() {
     });
 
   const upload = async () => {
-    if (!canManage || !uploadSource.trim() || busy) return;
+    if (
+      !canManage ||
+      !uploadSource.trim() ||
+      new TextEncoder().encode(uploadSource).byteLength > 1024 * 1024 ||
+      lock.current
+    )
+      return;
+    lock.current = true;
     setBusy(true);
     setUploadError('');
     try {
@@ -149,8 +160,10 @@ export default function TaskPlugins() {
       await load();
       setRevision((value) => value + 1);
     } catch (err) {
-      setUploadError(pluginError(err, t('Plugin upload failed')));
+      setUploadError(pluginError(err, t));
+      if ([401, 403].includes(err.response?.status)) setDenied(true);
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   };
@@ -221,7 +234,7 @@ export default function TaskPlugins() {
           )}
           <Typography.Text type='tertiary'>
             {t(
-              'Root users can upload custom plugins. Marketplace, remote resources and dry-run are unavailable.',
+              'Root users can upload temporary plugins or install stable versions from configured sources. Remote resources and dry-run are unavailable.',
             )}
           </Typography.Text>
         </div>
@@ -231,109 +244,127 @@ export default function TaskPlugins() {
           <div role='alert'>{mutationError}</div>
         </Card>
       )}
-      <Card title={t('Installed')}>
-        {loading ? (
-          <div role='status' aria-label={t('Loading plugins')}>
-            <Spin />
-          </div>
-        ) : error ? (
-          <div role='alert'>
-            {error}
-            <Button onClick={load}>{t('Retry')}</Button>
-          </div>
-        ) : (
-          <div className='task-plugin-table'>
-            <Table
-              rowKey='key'
-              pagination={{ pageSize: 10 }}
-              dataSource={plugins}
-              empty={<Empty description={t('No task plugins found')} />}
-              columns={[
-                {
-                  title: t('Plugin'),
-                  render: (_, row) => (
-                    <div>
-                      {row.meta?.name || row.key}
+      <Tabs activeKey={tab} onChange={setTab}>
+        <TabPane tab={t('Installed')} itemKey='installed' />
+        <TabPane tab={t('Marketplace')} itemKey='marketplace' />
+      </Tabs>
+      {tab === 'marketplace' && (
+        <Marketplace
+          canManage={canManage}
+          onInstalled={() => {
+            void load();
+            setRevision((value) => value + 1);
+          }}
+        />
+      )}
+      {tab === 'installed' && (
+        <Card title={t('Installed')}>
+          {loading ? (
+            <div role='status' aria-label={t('Loading plugins')}>
+              <Spin />
+            </div>
+          ) : error ? (
+            <div role='alert'>
+              {error}
+              <Button onClick={load}>{t('Retry')}</Button>
+            </div>
+          ) : (
+            <div className='task-plugin-table'>
+              <Table
+                rowKey='key'
+                pagination={{ pageSize: 10 }}
+                dataSource={plugins}
+                empty={<Empty description={t('No task plugins found')} />}
+                columns={[
+                  {
+                    title: t('Plugin'),
+                    render: (_, row) => (
                       <div>
-                        <Typography.Text type='tertiary'>
-                          {row.key}
-                        </Typography.Text>
+                        {row.meta?.name || row.key}
+                        <div>
+                          <Typography.Text type='tertiary'>
+                            {row.key}
+                          </Typography.Text>
+                        </div>
                       </div>
-                    </div>
-                  ),
-                },
-                {
-                  title: t('Version'),
-                  dataIndex: 'version',
-                  render: (value) => value ?? t('Not provided'),
-                },
-                {
-                  title: t('Source'),
-                  dataIndex: 'source_kind',
-                  render: (value) =>
-                    value === 'builtin'
-                      ? t('Built-in')
-                      : value || t('Not provided'),
-                },
-                {
-                  title: t('Status'),
-                  render: (_, row) => (
-                    <Space wrap>
-                      <Tag>
-                        {row.active === true ? t('Active') : t('Inactive')}
-                      </Tag>
-                      <Tag>
-                        {row.enabled === true ? t('Enabled') : t('Disabled')}
-                      </Tag>
-                    </Space>
-                  ),
-                },
-                {
-                  title: t('Enabled channels'),
-                  dataIndex: 'channel_count',
-                  render: (value) => value ?? t('Not provided'),
-                },
-                {
-                  title: t('In-flight tasks'),
-                  dataIndex: 'in_flight_count',
-                  render: (value) => value ?? t('Not provided'),
-                },
-                {
-                  title: t('Actions'),
-                  render: (_, row) => (
-                    <Space wrap>
-                      <Button disabled={busy} onClick={() => setSelected(row)}>
-                        {t('Details')}
-                      </Button>
-                      {canManage &&
-                        row.active === true &&
-                        typeof row.enabled === 'boolean' && (
-                          <Button
-                            disabled={busy}
-                            onClick={() =>
-                              setPending({
-                                method: 'post',
-                                path: taskPluginPath(row.key) + '/status',
-                                body: { enabled: !row.enabled },
-                                label: row.enabled
-                                  ? t('Disable plugin')
-                                  : t('Enable plugin'),
-                              })
-                            }
-                          >
-                            {row.enabled
-                              ? t('Disable plugin')
-                              : t('Enable plugin')}
-                          </Button>
-                        )}
-                    </Space>
-                  ),
-                },
-              ]}
-            />
-          </div>
-        )}
-      </Card>
+                    ),
+                  },
+                  {
+                    title: t('Version'),
+                    dataIndex: 'version',
+                    render: (value) => value ?? t('Not provided'),
+                  },
+                  {
+                    title: t('Source'),
+                    dataIndex: 'source_kind',
+                    render: (value) =>
+                      value === 'builtin'
+                        ? t('Built-in')
+                        : value || t('Not provided'),
+                  },
+                  {
+                    title: t('Status'),
+                    render: (_, row) => (
+                      <Space wrap>
+                        <Tag>
+                          {row.active === true ? t('Active') : t('Inactive')}
+                        </Tag>
+                        <Tag>
+                          {row.enabled === true ? t('Enabled') : t('Disabled')}
+                        </Tag>
+                      </Space>
+                    ),
+                  },
+                  {
+                    title: t('Enabled channels'),
+                    dataIndex: 'channel_count',
+                    render: (value) => value ?? t('Not provided'),
+                  },
+                  {
+                    title: t('In-flight tasks'),
+                    dataIndex: 'in_flight_count',
+                    render: (value) => value ?? t('Not provided'),
+                  },
+                  {
+                    title: t('Actions'),
+                    render: (_, row) => (
+                      <Space wrap>
+                        <Button
+                          disabled={busy}
+                          onClick={() => setSelected(row)}
+                        >
+                          {t('Details')}
+                        </Button>
+                        {canManage &&
+                          row.active === true &&
+                          typeof row.enabled === 'boolean' && (
+                            <Button
+                              disabled={busy}
+                              onClick={() =>
+                                setPending({
+                                  method: 'post',
+                                  path: taskPluginPath(row.key) + '/status',
+                                  body: { enabled: !row.enabled },
+                                  label: row.enabled
+                                    ? t('Disable plugin')
+                                    : t('Enable plugin'),
+                                })
+                              }
+                            >
+                              {row.enabled
+                                ? t('Disable plugin')
+                                : t('Enable plugin')}
+                            </Button>
+                          )}
+                      </Space>
+                    ),
+                  },
+                ]}
+              />
+            </div>
+          )}
+        </Card>
+      )}
       {selected && (
         <PluginDetails
           key={selected.key}
@@ -379,7 +410,11 @@ export default function TaskPlugins() {
           if (!busy) setUploadOpen(false);
         }}
         okButtonProps={{
-          disabled: !uploadSource.trim() || uploadSource.length > 1024 * 1024,
+          'aria-label': t('Upload'),
+          disabled:
+            !canManage ||
+            !uploadSource.trim() ||
+            new TextEncoder().encode(uploadSource).byteLength > 1024 * 1024,
         }}
         cancelButtonProps={{ disabled: busy }}
       >
@@ -389,7 +424,7 @@ export default function TaskPlugins() {
           )}
         </Typography.Paragraph>
         <Typography.Text>{t('Plugin source')}</Typography.Text>
-        <Input.TextArea
+        <TextArea
           value={uploadSource}
           onChange={setUploadSource}
           rows={14}

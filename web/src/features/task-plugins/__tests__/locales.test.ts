@@ -11,7 +11,12 @@ import zh from '@/i18n/locales/zh.json'
 
 const resources = { en, fr, ja, ru, vi, zh, 'zh-TW': zhTW }
 const keys = [
-  'Built-in plugins only. Marketplace, upload, deletion and sandbox are unavailable in this version.',
+  'Built-in, uploaded and source-installed plugins are supported. Remote resources and sandbox are unavailable.',
+  'Stable plugins can be installed from a source. Use upload for temporary tests.',
+  'Review and install',
+  'Review the source before installing. SHA-256 verifies integrity, not publisher identity. New versions stay disabled and inactive.',
+  'Could not download or verify plugin source',
+  'Plugin version could not be deleted. Active or referenced versions must be retained.',
   'Disabling task plugins stops new submissions. Existing tasks continue with their pinned version.',
   'Not activated',
   'Select a task plugin',
@@ -33,7 +38,11 @@ test.each(Object.entries(resources))(
     }
     if (locale === 'zh') {
       expect(i18n.t('Not activated')).toBe('未激活')
-      expect(i18n.t(keys[1])).toContain('已有任务继续使用固定版本处理')
+      expect(
+        i18n.t(
+          'Disabling task plugins stops new submissions. Existing tasks continue with their pinned version.'
+        )
+      ).toContain('已有任务继续使用固定版本处理')
     }
   }
 )
