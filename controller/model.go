@@ -194,6 +194,14 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 			ownerGroups: service.GetRequestAutoGroups(c, userGroup),
 		}, nil
 	}
+	// 显式多分组使用鉴权后解析的列表，不能把逗号连接值当作一个分组查询。
+	if groups := service.GetRequestTokenGroups(c, tokenGroup); len(groups) > 0 {
+		return modelListGroups{
+			userGroup:   userGroup,
+			tokenGroup:  tokenGroup,
+			ownerGroups: groups,
+		}, nil
+	}
 
 	group := userGroup
 	if tokenGroup != "" {

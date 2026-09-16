@@ -1,5 +1,9 @@
 # 开发文档
 
+- [zzapi 多分组模型列表修复 .326](../workflows/2026-09/16_zzapi_multigroup_models_326_release.md)：模型列表修复、发布检查、备份和三节点滚动更新。
+
+- [多分组令牌模型列表回归](../workflows/2026-09/16_token_multigroup_model_list.md)：显式绑定分组的模型并集、模型限制与真实鉴权路由验证。
+
 - [zzapi 插件多源版本 .325](../workflows/2026-09/16_zzapi_plugin_sources_325_release.md)：独立公开插件源、自定义上传、双模板市场及部署验收。
 
 - [Classic 任务插件多源管理](../workflows/2026-09/16_classic_task_plugin_marketplace.md)：多源索引读取、来源配置与 Root 哈希校验安装，保留临时源码上传。
