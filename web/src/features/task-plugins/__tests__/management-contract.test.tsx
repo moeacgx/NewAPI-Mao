@@ -274,7 +274,7 @@ test('list failure exits loading and retry can recover', async () => {
   expect(get).toHaveBeenCalledTimes(2)
 })
 
-test('management page does not request or enable unsupported marketplace and upload operations', async () => {
+test('administrator can browse marketplace but cannot upload or manage sources', async () => {
   const get = vi.spyOn(api, 'get').mockImplementation(async (url) => ({
     data: {
       success: true,
@@ -291,16 +291,19 @@ test('management page does not request or enable unsupported marketplace and upl
     </QueryClientProvider>
   )
   expect(await screen.findByText('No task plugins found')).toBeVisible()
-  const market = screen.getByRole('button', { name: 'Marketplace' })
+  const market = screen.getByRole('tab', { name: 'Marketplace' })
   const upload = screen.getByRole('button', { name: 'Upload plugin' })
-  expect(market).toBeDisabled()
+  expect(market).toBeEnabled()
   expect(upload).toBeDisabled()
   await user.click(market)
   await user.click(upload)
-  expect(get.mock.calls.map((call) => call[0]).sort()).toEqual([
-    '/api/plugin/task',
-    '/api/plugin/task/runtime/status',
-  ])
+  expect(get.mock.calls.map((call) => call[0]).sort()).toEqual(
+    [
+      '/api/plugin/task',
+      '/api/plugin/task/runtime/status',
+      '/api/plugin/task/marketplace/sources',
+    ].sort()
+  )
 })
 
 test('administrator can read versions but cannot activate or access source actions', async () => {

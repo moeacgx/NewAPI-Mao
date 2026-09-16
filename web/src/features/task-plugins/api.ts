@@ -20,6 +20,7 @@ import { api, type ApiRequestConfig } from '@/lib/api'
 
 import type {
   ApiResponse,
+  MarketplaceSource,
   TaskPluginDetail,
   TaskPluginListItem,
   TaskPluginRecord,
@@ -42,7 +43,10 @@ export async function listTaskPlugins() {
     await api.get<ApiResponse<TaskPluginListItem[]>>('/api/plugin/task')
   return requireSuccess(response.data).map((plugin) => ({
     ...plugin,
-    source: 'factory' as const,
+    source:
+      plugin.source_kind === 'custom'
+        ? ('override' as const)
+        : ('factory' as const),
     has_icon: false,
   }))
 }
@@ -84,6 +88,23 @@ export async function setTaskPluginStatus(key: string, enabled: boolean) {
   requireSuccess(response.data)
 }
 
+export async function uploadTaskPlugin(source: string) {
+  const response = await api.post<ApiResponse<TaskPluginDetail>>(
+    '/api/plugin/task',
+    { source },
+    mutationConfig
+  )
+  return requireSuccess(response.data)
+}
+
+export async function deleteTaskPluginVersion(key: string, version: string) {
+  const response = await api.delete<ApiResponse<null>>(
+    `/api/plugin/task/${encodeURIComponent(key)}/versions/${encodeURIComponent(version)}`,
+    mutationConfig
+  )
+  requireSuccess(response.data)
+}
+
 export type TaskPluginRuntime = {
   enabled: boolean
   channel_type: 62
@@ -117,6 +138,38 @@ export type TaskPluginOption = {
 export async function getTaskPluginOptions() {
   const response = await api.get<ApiResponse<TaskPluginOption[]>>(
     '/api/task_plugin_options'
+  )
+  return requireSuccess(response.data)
+}
+
+export async function listMarketplaceSources() {
+  const response = await api.get<ApiResponse<MarketplaceSource[]>>(
+    '/api/plugin/task/marketplace/sources'
+  )
+  return requireSuccess(response.data)
+}
+
+export async function updateMarketplaceSources(sources: MarketplaceSource[]) {
+  const response = await api.put<ApiResponse<MarketplaceSource[]>>(
+    '/api/plugin/task/marketplace/sources',
+    sources,
+    mutationConfig
+  )
+  return requireSuccess(response.data)
+}
+
+export async function installMarketplacePlugin(request: {
+  source: string
+  sourceSha256: string
+  expectedKey: string
+  expectedVersion: string
+  remark: string
+  marketplace: { name: string; index_url: string; path: string }
+}) {
+  const response = await api.post<ApiResponse<TaskPluginDetail>>(
+    '/api/plugin/task',
+    request,
+    mutationConfig
   )
   return requireSuccess(response.data)
 }

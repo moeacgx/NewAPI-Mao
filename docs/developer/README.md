@@ -1,9 +1,15 @@
 # 开发文档
 
+- [Classic 任务插件多源管理](../workflows/2026-09/16_classic_task_plugin_marketplace.md)：多源索引读取、来源配置与 Root 哈希校验安装，保留临时源码上传。
+
 - [zzapi 官方任务插件阶段 .324 发布](../workflows/2026-09/15_zzapi_official_task_plugin_324_release.md)：默认关闭的内置插件阶段版本、三节点滚动更新、回滚与验收记录。
 
 - [Default 官方任务插件管理](../workflows/2026-09/15_official_task_plugin_default.md)：内置管理、Admin 只读与 Root 操作、渠道绑定和真实语言资源验证。
 - [官方 Task Plugin 接入计划](../workflows/2026-09/15_official_task_plugin_integration_plan.md)：在保留二开扩展和原生任务的前提下接入官方 JS 插件、Default/Classic 管理入口、并存契约与上线门禁。
+- [自定义 Task Plugin 第一阶段](../workflows/2026-09/16_custom_task_plugin_phase.md)：Root 源码上传、版本删除、双前端管理和内置/自定义并存边界。
+- [任务插件多源与独立仓库发布](../workflows/2026-09/16_task_plugin_sources_plan.md)：官方源与独立公开 MaoLao 源、安装来源校验、双模板接线和稳定版本发布流程。
+- [Default 多插件源](../workflows/2026-09/16_task_plugin_marketplace_default.md)：源配置、指定版本预览安装、字节 hash 与七语验证。
+- [多插件源后端](../workflows/2026-09/16_plugin_sources_backend.md)：来源持久化、Root 权限、安装身份和历史版本边界。
 - [zzapi 上游兼容第一阶段 .323 发布](../workflows/2026-09/15_zzapi_upstream_phase_one_323_release.md)：发布第一阶段七项兼容补丁，备份并滚动更新 zzapi 三应用，核验 PostgreSQL 预填分组索引迁移。
 
 - [NewAPI 官方上游更新集成计划](../workflows/2026-09/14_newapi_upstream_update_plan.md)：官方差异、Paseo 分发、阶段 PR、合并验证及未完成迁移清单。

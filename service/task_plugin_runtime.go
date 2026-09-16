@@ -34,7 +34,7 @@ func InitTaskPlugins() error {
 			return err
 		}
 		hash := sha256.Sum256([]byte(source))
-		row := model.TaskPlugin{Key: meta.Key, Version: meta.Version, APIVersion: meta.APIVersion, Source: source, SourceHash: hex.EncodeToString(hash[:]), CreatedAt: time.Now().Unix()}
+		row := model.TaskPlugin{Key: meta.Key, Version: meta.Version, APIVersion: meta.APIVersion, Source: source, SourceHash: hex.EncodeToString(hash[:]), SourceKind: "builtin", CreatedAt: time.Now().Unix()}
 		if err := model.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
 			return err
 		}
@@ -60,12 +60,19 @@ func TaskPluginsEnabled() (bool, error) {
 
 // LoadPinnedTaskPlugin 不查询当前版本或启停状态，禁止静默回落到当前源码。
 func LoadPinnedTaskPlugin(pin *model.TaskPluginSnapshot) (*jsplugin.LoadedPlugin, error) {
-	if pin == nil || pin.SourceHash == "" || pin.SourceKind != "builtin" {
+	if pin == nil || pin.SourceHash == "" || (pin.SourceKind != "builtin" && pin.SourceKind != "custom") {
 		return nil, fmt.Errorf("插件缺少可信版本快照")
 	}
 	row, err := model.GetTaskPluginVersion(pin.Key, pin.Version)
 	if err != nil {
 		return nil, err
+	}
+	rowKind := row.SourceKind
+	if rowKind == "" {
+		rowKind = "builtin"
+	}
+	if rowKind != pin.SourceKind {
+		return nil, fmt.Errorf("插件来源类型不匹配")
 	}
 	hash := sha256.Sum256([]byte(row.Source))
 	if row.SourceHash != pin.SourceHash || hex.EncodeToString(hash[:]) != pin.SourceHash || row.APIVersion != pin.APIVersion {
@@ -100,7 +107,7 @@ func ActiveTaskPlugin(key string) (*jsplugin.LoadedPlugin, *model.TaskPluginSnap
 	if !row.Active || !row.Enabled {
 		return nil, nil, fmt.Errorf("任务插件未激活或已停用")
 	}
-	pin := &model.TaskPluginSnapshot{Key: row.Key, Version: row.Version, APIVersion: row.APIVersion, SourceHash: row.SourceHash, SourceKind: "builtin"}
+	pin := &model.TaskPluginSnapshot{Key: row.Key, Version: row.Version, APIVersion: row.APIVersion, SourceHash: row.SourceHash, SourceKind: row.SourceKind}
 	loaded, err := LoadPinnedTaskPlugin(pin)
 	if err != nil {
 		return nil, nil, err

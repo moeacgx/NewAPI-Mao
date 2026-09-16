@@ -7,6 +7,9 @@ test('任务插件页面和渠道选择的文案在八个 Classic translation �
     '../index.jsx',
     '../PluginDetails.jsx',
     '../api.js',
+    '../Marketplace.jsx',
+    '../MarketplaceSources.jsx',
+    '../marketplace-utils.js',
     '../../../components/table/channels/modals/TaskPluginSelect.jsx',
   ];
   const keys = new Set();
@@ -34,5 +37,21 @@ test('任务插件页面和渠道选择的文案在八个 Classic translation �
     }
     if (locale.startsWith('zh'))
       assert.notEqual(data.translation['Enabled channels'], 'Enabled channels');
+    if (locale !== 'en') {
+      for (const key of [
+        'Upload custom task plugin',
+        'Manage plugin sources',
+        'Plugin source',
+        'Review and install',
+        'Save plugin sources',
+      ]) {
+        assert.notEqual(data.translation[key], key, locale + ': ' + key);
+        assert.doesNotMatch(
+          data.translation[key],
+          /\?{2,}|\ufffd/,
+          locale + ': ' + key,
+        );
+      }
+    }
   }
 });

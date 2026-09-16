@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -29,7 +28,9 @@ import {
   Tag,
   Typography,
 } from '@douyinfe/semi-ui';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { taskPluginRequest, taskPluginPath, pluginError } from './api';
 
 export default function PluginDetails(props) {
@@ -124,6 +125,16 @@ export default function PluginDetails(props) {
                 <dd>{detail.api_version ?? t('Not provided')}</dd>
                 <dt>{t('Source hash')}</dt>
                 <dd>{detail.source_hash || t('Not provided')}</dd>
+                {detail.marketplace && (
+                  <>
+                    <dt>{t('Plugin source repository')}</dt>
+                    <dd>
+                      {detail.marketplace.name}
+                      <div>{detail.marketplace.index_url}</div>
+                      <div>{detail.marketplace.path}</div>
+                    </dd>
+                  </>
+                )}
                 <dt>{t('Enabled channels')}</dt>
                 <dd>{detail.channel_count ?? t('Not provided')}</dd>
                 <dt>{t('In-flight tasks')}</dt>
@@ -198,6 +209,34 @@ export default function PluginDetails(props) {
                             {t('Activate')}
                           </Button>
                         )}
+                        {props.canManage &&
+                          row.source_kind === 'custom' &&
+                          row.active === false && (
+                            <Button
+                              disabled={props.busy}
+                              onClick={async () => {
+                                if (
+                                  !window.confirm(
+                                    t(
+                                      'Delete this custom plugin version? Historical tasks referencing it cannot be deleted.',
+                                    ),
+                                  )
+                                )
+                                  return;
+                                try {
+                                  await taskPluginRequest(
+                                    'delete',
+                                    `${taskPluginPath(props.plugin.key)}/versions/${encodeURIComponent(row.version)}`,
+                                  );
+                                  props.onChanged?.();
+                                } catch (err) {
+                                  setVersionError(pluginError(err, t));
+                                }
+                              }}
+                            >
+                              {t('Delete')}
+                            </Button>
+                          )}
                       </Space>
                     ),
                   },

@@ -20,6 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -99,6 +100,45 @@ function endpointRow(path: string): HTMLElement {
 afterEach(() => {
   for (const queryClient of queryClients) queryClient.clear()
   queryClients.length = 0
+})
+
+test('version deletion uses each version origin and retains referenced versions after refusal', async () => {
+  const user = userEvent.setup()
+  const fixture = renderSheet({})
+  const remove = vi
+    .spyOn(api, 'delete')
+    .mockRejectedValue({ response: { status: 409 } })
+  const errorToast = vi.spyOn(toast, 'error')
+  await act(async () => {
+    fixture.queryClient.setQueryData(
+      ['task-plugin-versions', 'kling'],
+      [
+        { id: 1, version: '1.2.3', active: true, source_kind: 'builtin' },
+        { id: 2, version: '1.0.0', active: false, source_kind: 'custom' },
+        { id: 3, version: '0.9.0', active: false, source_kind: 'builtin' },
+      ]
+    )
+  })
+  await user.click(screen.getByRole('tab', { name: 'Version history' }))
+  expect(screen.getAllByRole('button', { name: /^Delete$/ })).toHaveLength(1)
+  await user.click(screen.getByRole('button', { name: /^Delete$/ }))
+  const confirmation = await screen.findByRole('alertdialog')
+  await user.click(
+    within(confirmation).getByRole('button', { name: /^Delete$/ })
+  )
+  await waitFor(() =>
+    expect(remove).toHaveBeenCalledWith(
+      '/api/plugin/task/kling/versions/1.0.0',
+      expect.anything()
+    )
+  )
+  expect(errorToast).toHaveBeenCalledWith(
+    'Plugin version could not be deleted. Active or referenced versions must be retained.'
+  )
+  expect(screen.getByRole('alertdialog')).toBeVisible()
+  expect(
+    fixture.queryClient.getQueryData(['task-plugin-versions', 'kling'])
+  ).toHaveLength(3)
 })
 
 describe('PluginDetailSheet metadata fields', () => {
