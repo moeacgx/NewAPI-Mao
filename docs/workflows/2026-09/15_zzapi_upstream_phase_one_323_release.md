@@ -46,3 +46,26 @@ Default/Classic 后台、任务计费、数据库兼容和 Responses HTTP/SSE us
 
 发布和滚动验证完成后，在本工作项补充 tag/source、镜像 digest、CloudSSH 作业、备份位置、
 前后容器身份与 PostgreSQL 索引结果；准备状态不能视为部署成功。
+
+## 已执行结果
+
+- 源码 tag：`v1.0.0-rc.10.1.10.323`，合并提交 `5d90556e217576ce17fa5f27ddc2c7260ad16b50`。
+- Docker 多架构 workflow `34952221388` 成功，manifest digest：
+  `sha256:687b240aee7a3c7e587c39399c223f41ba125dd570724142c8e0b1f816579c7a`。
+  amd64 节点实际镜像 ID：`sha256:6e6014fc7b236793a3fdf7e7b87772341a5fdef9f56c4476fe633396afd4c267`。
+- Linux Release workflow `34952221452` 首次因 GitHub Release API 500 失败，重跑后构建成功；资产接口偶发 500 已记录，未影响 GHCR 镜像。
+- 更新前备份 CloudSSH 作业：`6a27de29-796b-47e4-b977-49b9ca752e5c`；备份目录：
+  `/home/docker/zzapi/backups/release-323-20260915`；Compose SHA-256：
+  `3f8444d2fdf823b705f2387e01031b5432bb60d38f55703d7481e4a671f94189`；PostgreSQL dump 约 161,564,981 字节，982 个 TOC 条目。
+- 镜像准备和 Compose 仅替换三个应用 image 的 CloudSSH 作业：`f603e274-f95b-47f7-bf8b-437a8928ea26`；更新前 PostgreSQL 15.17、预填表 0 行、无入向外键，钱包 quota 为 bigint。
+- 三节点滚动作业按 `zzapi` → `zzapi-slave-1` → `zzapi-slave-2`：
+  `32493caa-5feb-45e8-a7c9-03afe1346166`、`23bbcddf-659b-469f-ba1f-d20c4ab0a60f`、
+  `924d4ff8-ad94-4b12-9d72-44b5948e52df`。每一步都确认新镜像、healthy、running、重启 0，
+  其他应用和 PostgreSQL/Redis 容器 ID 未被替换。
+- 最终验证作业：`a5458be1-841c-4c6b-9e28-231721a952f5`。三个本地端口 `18097/18098/18099`、
+  公网 `/api/status`、`/api/pricing`、`/`、`/console` 均成功；启动日志无 panic、fatal、数据库初始化失败或迁移异常。
+- PostgreSQL 最终状态：旧 `idx_prefill_groups_name` 约束 0 个，`uk_prefill_name` 部分唯一索引 1 个，
+  预填表 0 行、入向外键 0 个，users.quota 类型 bigint。迁移前 dump 和 Compose 备份保留。
+- 迁移实现未自动完成旧约束删除，现场在备份和无外键前提下执行一次目标约束删除作业：
+  `a8bedc70-30ab-49a0-8824-2d1c6a53ddf9`；该手工步骤属于本次 zzapi 部署审计，后续应修复代码并在测试库复现。
+- maolaoapi、zhishiapi、PostgreSQL、Redis 未重建；未创建真实渠道、未发起付费推理请求、未使用或记录任何凭据。
