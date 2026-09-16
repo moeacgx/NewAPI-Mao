@@ -1,5 +1,7 @@
 # 开发文档
 
+- [zzapi 插件多源版本 .325](../workflows/2026-09/16_zzapi_plugin_sources_325_release.md)：独立公开插件源、自定义上传、双模板市场及部署验收。
+
 - [Classic 任务插件多源管理](../workflows/2026-09/16_classic_task_plugin_marketplace.md)：多源索引读取、来源配置与 Root 哈希校验安装，保留临时源码上传。
 
 - [zzapi 官方任务插件阶段 .324 发布](../workflows/2026-09/15_zzapi_official_task_plugin_324_release.md)：默认关闭的内置插件阶段版本、三节点滚动更新、回滚与验收记录。
