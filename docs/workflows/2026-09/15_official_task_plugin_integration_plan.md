@@ -1,5 +1,8 @@
 # 官方 Task Plugin 接入计划
 
+本文保留 9 月 15 日内置插件阶段的历史责任人和验证记录。9 月 16 日的自定义上传、
+多源市场与独立公开插件仓库最终契约见[多源工作记录](16_task_plugin_sources_plan.md)，不依赖主仓库可见性。
+
 ## 目标
 
 在保留现有二开扩展模块（`/extensions`、原生扩展 SDK、通知、归档、安全审计等）
@@ -77,7 +80,7 @@
 - `GET /api/plugin/task/:key`：可用 `?version=...` 选择版本；省略时采用同一
   选择规则，首次安装没有 active 版本也能读取。
 - 列表和详情保留 `key/version/api_version/source_hash/enabled/active/source_kind`，
-  当前 `source_kind=builtin`；另有完整 `meta` 对象，前端不得自行解析源码获取元数据。
+  `source_kind` 为 builtin 或 custom；另有完整 `meta` 对象，前端不得自行解析源码获取元数据。
   `meta` 包含名称、模型、协议、路由和插件声明的用量字段等。
 - `channel_count` 是启用的 type 62 渠道中绑定该 key 的数量；`in_flight_count`
   是该 key 的非终态任务数量。前端应按该定义标注，不称作全部历史绑定数。
@@ -95,10 +98,9 @@
 关闭总开关仅阻止新提交；历史任务按持久化的 key/version/hash 解析，不能依赖当前
 active、enabled 或总开关。前端关闭说明不得沿用“立即停止在途轮询，等待超时清理”。
 
-当前已开放 Root 的本地源码上传和非活动版本删除；上传只接受 JSON source，源码经编译校验后
-以 disabled/inactive 保存，历史任务引用会阻止删除。市场、S3、匿名签名和 dryrun 尚未开放，
-两套前端不发送这些请求。自定义插件可以与内置插件并存，但完整供应商、远程媒体、计费和
-故障恢复能力仍需单独验收，不能把本阶段描述为完整官方插件市场。
+当前已开放 Root 本地上传、非活动版本删除及多个仓库源的市场安装。源码经编译校验后
+以 disabled/inactive 保存，历史任务引用阻止删除；市场安装还核对 SHA-256、预期身份和来源记录。
+S3、匿名签名和 dryrun 尚未开放。完整供应商、远程媒体、计费和故障恢复仍需单独验收。
 
 - **后端运行时 Agent**：只拥有 `pkg/jsplugin/`、`plugins/`、任务模型/控制器/服务/中间件/路由和迁移；必须保留 `/extensions` 与 AtlasCloud。
 - **Default Agent**：只拥有 `web/src/features/task-plugins/` 及其路由/API/i18n，复用后端契约，不改 Classic。
@@ -147,7 +149,7 @@ Sora 和资源用例手工注入身份上下文，不等于完整 TokenAuth HTTP
 
 - MySQL/PostgreSQL 新表现场迁移、订阅退款和故障恢复、完整 TokenAuth 端到端。
 - 真实供应商视频和远程媒体成功交付；当前仅有限内联资源，远程资源返回 501。
-- S3、匿名签名及撤销、市场、上传、完整 UsageFacts 表达式、Responses 等完整协议外观。
+- S3、匿名签名及撤销、完整 UsageFacts 表达式、Responses 等完整协议外观。
 - 未启用的 `task_plugin_full_protocol` 测试不能算作普通插件离线测试已经覆盖。
 
 ## 回滚
