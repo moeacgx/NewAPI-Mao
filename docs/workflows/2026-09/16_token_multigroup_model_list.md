@@ -22,7 +22,7 @@ Anthropic 返回空 `data`，Gemini 返回空 `models`。单分组、继承和�
 使用隔离 SQLite、假令牌、真实 TokenAuth 和 SetRelayRouter，验证多分组并集、去重、白名单、
 禁用能力、未绑定分组不可见、单分组和继承兼容、分组撤权拒绝；测试超时设置为 60 秒。
 执行相关 controller/router/middleware/service 测试、vet 和差异检查。
-本记录不代表已使用线上令牌复现，也不包含发布或部署。
+本节记录隔离环境的实现验证，不代表已使用线上令牌复现；后续发布记录见文末。
 
 ## 验证结果
 
@@ -46,4 +46,5 @@ Anthropic 返回空 `data`，Gemini 返回空 `models`。单分组、继承和�
 本次不涉及前端组件。外部客户端的模型发现行为恢复为令牌已授权分组的模型并集；
 不改变实际转发、模型 ID、价格或额度。后台令牌编辑器通过 UserAuth 获取 `/api/user/models`
 候选模型，属于另一条入口，不将本次 TokenAuth 复现等同于编辑器故障。
-未使用线上令牌做现场复现，也未合并发布或部署。
+未使用线上令牌做现场复现。后续按用户授权合并 PR #230 并发布 `.326`，
+zzapi 三节点更新及现场验证见[发布记录](16_zzapi_multigroup_models_326_release.md)。
