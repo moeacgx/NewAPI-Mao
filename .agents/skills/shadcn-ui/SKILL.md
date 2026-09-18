@@ -12,6 +12,8 @@ description: >-
 
 # Skills (shadcn/ui)
 
+本项目涉及分组时，遵守根目录 `AGENTS.md` 的全局分组显示名称规则：标签使用 `name` / `group_name`，不追加 code；控件值与提交参数保持 ID/code。验收必须包含名称与 code 不同的数据。该约束同样适用于 Classic 和外置扩展，不能仅在 Default 处理。
+
 Skills give AI assistants project-aware context about shadcn/ui. When used, the assistant knows how to find, install, compose, and customize components using the correct APIs and patterns for your project.
 
 For example, you can ask:
@@ -90,16 +92,16 @@ Vendored: [`vendor/shadcn/mcp.md`](./vendor/shadcn/mcp.md). Live docs: [MCP Serv
 
 Snapshot from [shadcn-ui/ui `skills/shadcn`](https://github.com/shadcn-ui/ui/tree/main/skills/shadcn); revision note in [`vendor/shadcn/UPSTREAM.txt`](./vendor/shadcn/UPSTREAM.txt). The upstream workflow is stored as a reference file, with its original skill frontmatter removed, so the vendored copy is not discovered as a second local skill.
 
-| Doc | Path |
-| --- | --- |
+| Doc                                   | Path                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Official shadcn/ui workflow reference | [`vendor/shadcn/official-shadcn-ui-workflow.md`](./vendor/shadcn/official-shadcn-ui-workflow.md) |
-| CLI reference | [`vendor/shadcn/cli.md`](./vendor/shadcn/cli.md) |
-| Theming / customization | [`vendor/shadcn/customization.md`](./vendor/shadcn/customization.md) |
-| MCP | [`vendor/shadcn/mcp.md`](./vendor/shadcn/mcp.md) |
-| Forms | [`vendor/shadcn/rules/forms.md`](./vendor/shadcn/rules/forms.md) |
-| Composition | [`vendor/shadcn/rules/composition.md`](./vendor/shadcn/rules/composition.md) |
-| Icons | [`vendor/shadcn/rules/icons.md`](./vendor/shadcn/rules/icons.md) |
-| Styling | [`vendor/shadcn/rules/styling.md`](./vendor/shadcn/rules/styling.md) |
-| Base vs Radix | [`vendor/shadcn/rules/base-vs-radix.md`](./vendor/shadcn/rules/base-vs-radix.md) |
+| CLI reference                         | [`vendor/shadcn/cli.md`](./vendor/shadcn/cli.md)                                                 |
+| Theming / customization               | [`vendor/shadcn/customization.md`](./vendor/shadcn/customization.md)                             |
+| MCP                                   | [`vendor/shadcn/mcp.md`](./vendor/shadcn/mcp.md)                                                 |
+| Forms                                 | [`vendor/shadcn/rules/forms.md`](./vendor/shadcn/rules/forms.md)                                 |
+| Composition                           | [`vendor/shadcn/rules/composition.md`](./vendor/shadcn/rules/composition.md)                     |
+| Icons                                 | [`vendor/shadcn/rules/icons.md`](./vendor/shadcn/rules/icons.md)                                 |
+| Styling                               | [`vendor/shadcn/rules/styling.md`](./vendor/shadcn/rules/styling.md)                             |
+| Base vs Radix                         | [`vendor/shadcn/rules/base-vs-radix.md`](./vendor/shadcn/rules/base-vs-radix.md)                 |
 
 **Workflow:** Prefer this **root** `SKILL.md` for repo paths (`web`, Bun). Read **`vendor/shadcn/official-shadcn-ui-workflow.md`** only when you need the complete official component, registry, or preset workflow. Use **`vendor/shadcn/rules/*.md`** when validating concrete markup.

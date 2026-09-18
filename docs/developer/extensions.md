@@ -36,6 +36,13 @@ Default 前端可使用宿主 SDK 暴露的 `@/lib/api` 客户端；Classic 前�
 请求上发放 `new_api_extension` HttpOnly cookie。该 cookie 仅限
 `/api/extensions` 路径，用于资源加载阶段识别当前后台会话。
 
+多节点共享模块目录时，`state.json` 的修改不会自动更新其他进程的模块快照。
+安装、启停或卸载后，应对每个节点调用 Root 接口 `POST /api/extension-admin/refresh`，
+再通过各节点的 `GET /api/extension-admin/?all=true` 核对状态、版本、清单错误和资源修订号。
+只对负载均衡入口执行一次刷新不能保证节点一致。模块在本节点仍关闭时，原生资源会返回 403，
+可能表现为样式成功但动态入口加载失败。该路径要求后台会话，不能使用管理 PAT 代替资源 Cookie 验收。
+现场证据及恢复边界见 [maolaoapi 部署记录](../workflows/2026-09/18_maolaoapi_model_guard_deployment.md#启用后的原生页面加载故障)。
+
 ## OKX 支付宝汇率模块
 
 `okx-alipay-rate` 是内置 Root 模块，用于读取 OKX C2C 支付宝 USDT/CNY 档位，
@@ -55,6 +62,22 @@ OKPay 充值要使用本模块时，支付设置中的 `OkpayRateSource` 必须�
 `usd_exchange_rate` 失败时回退配置的 `USDExchangeRate`，不直接读取 OKX 模块汇率。
 
 旧值 `okx-alipay-tier` 仍表示 OKPay 内置的 OKX 档位配置路径，与本模块配置分开。
+
+## 上游模型校验扩展
+
+`upstream-model-guard` 按分组与请求模型配置允许的上游响应模型，发现不匹配时禁用
+整条出错渠道，保留原因并通过通知中心 Bot 通知，需人工启用恢复。接口、生命周期、
+匹配边界和验证方法见 [上游模型校验扩展](upstream-model-guard.md)。
+
+本模块是通过 ZIP 上传安装的外置扩展，源码位于 `extensions/upstream-model-guard`，
+不自动安装或嵌入宿主二进制。七语资源随插件包携带，界面使用既有 `native v1` SDK；
+Classic 通过 `../../helpers.getAPI()` 取得刷新登录态后的当前客户端。
+
+清单声明 `channel.upstream-model-guard` 能力，仅允许同 ID、Root、静态模块。
+该能力表示宿主提供实时响应采集、规则保存、整渠道禁用及通知入队支持。
+旧宿主不认识该能力时会拒绝清单，避免页面安装成功但检测没有生效。
+这不是可执行任意后台代码的通用插件运行时，ZIP 不包含 Go 二进制。
+安装后默认关闭，Root 显式启用才绑定检测。停用或卸载后不再绑定，重启不会自动恢复插件。
 
 ## 对话归档扩展
 

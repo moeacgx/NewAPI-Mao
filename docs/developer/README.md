@@ -1,5 +1,12 @@
 # 开发文档
 
+- [全局分组显示名称规则](../../AGENTS.md#分组显示名称全局规则)：页面、通知、错误与导出使用显示名称，业务标识保持稳定；回归必须使用名称与 code 不同的数据。
+
+- [maolaoapi 模型校验插件部署](../workflows/2026-09/18_maolaoapi_model_guard_deployment.md)：正式实例备份、逐节点更新与外置 ZIP 安装验证。
+
+- [上游模型校验外置扩展](upstream-model-guard.md)：独立 ZIP 安装，按指定分组校验请求模型与响应模型，不匹配时关闭整条渠道并联动通知中心 Bot。
+- [上游模型校验实施记录](../workflows/2026-09/18_upstream_model_guard.md)：双模板页面、实时渠道禁用和通知任务的实现与验证。
+
 - [zzapi 多分组模型列表修复 .326](../workflows/2026-09/16_zzapi_multigroup_models_326_release.md)：模型列表修复、发布检查、备份和三节点滚动更新。
 
 - [多分组令牌模型列表回归](../workflows/2026-09/16_token_multigroup_model_list.md)：显式绑定分组的模型并集、模型限制与真实鉴权路由验证。

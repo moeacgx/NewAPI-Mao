@@ -1,0 +1,42 @@
+{
+  "id": "upstream-model-guard",
+  "name": "上游模型校验",
+  "version": "0.1.0",
+  "description": "按分组和请求模型校验上游响应模型，不匹配时关闭整条渠道并联动通知中心。",
+  "host": { "min": "v1.0.0-rc.10.1.10.326" },
+  "runtime": { "type": "static", "static_dir": "public", "health_path": "/compat.html" },
+  "ui": {
+    "nav": [{ "title": "上游模型校验", "page": "index", "icon": "ShieldCheck", "section": "admin", "order": 140 }],
+    "pages": [{
+      "key": "index", "title": "上游模型校验", "path": "/compat.html", "embed": true,
+      "render": {
+        "type": "native", "sdk": "v1",
+        "targets": {
+          "default": { "entry": "/native/default.mjs", "styles": ["/native/default.css"] },
+          "classic": { "entry": "/native/classic.mjs", "styles": ["/native/classic.css"] }
+        }
+      }
+    }]
+  },
+  "permissions": { "roles": ["root"], "capabilities": ["ui.native", "notification.events.publish", "channel.upstream-model-guard"] },
+  "notifications": {
+    "events": [{
+      "id": "channel_disabled",
+      "label": "上游模型不匹配，渠道已关闭",
+      "description": "上游响应模型不符合预设，整条渠道已停止调度，需要人工启用恢复。",
+      "default_template": "{{mention}} 渠道「{{channel_name}}」（#{{channel_id}}）已关闭\n{{comparison}}",
+      "variables": [
+        { "name": "channel_id", "label": "渠道 ID", "type": "number", "required": true },
+        { "name": "channel_name", "label": "渠道名称", "required": true },
+        { "name": "group", "label": "触发分组", "required": true },
+        { "name": "requested_model", "label": "请求模型", "required": true },
+        { "name": "expected_upstream_models", "label": "允许的上游模型", "required": true },
+        { "name": "actual_upstream_model", "label": "实际返回模型", "required": true },
+        { "name": "comparison", "label": "模型对比摘要", "required": true },
+        { "name": "reason", "label": "禁用原因", "required": true },
+        { "name": "request_id", "label": "请求 ID" },
+        { "name": "create_time", "label": "触发时间", "required": true }
+      ]
+    }]
+  }
+}

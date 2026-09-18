@@ -47,6 +47,26 @@ Classic 通知任务编辑器使用 TextArea，每行一个报错关键词；打
 
 扩展模块通过宿主声明变量白名单和默认模板，再由受信任的服务端事件入口发布事件。模块事件变量必须与声明的负载字段一致，事件 ID 使用小写字母、数字、短横线和下划线，完整事件名最多 64 个字符。模块不得把 Bot Token、Access Token 或密码放入负载。
 
+### 上游模型不匹配
+
+`extension.upstream-model-guard.channel_disabled` 在上游模型校验关闭整条渠道时触发。
+Root 在通知任务中选择「上游模型不匹配，渠道已关闭」，复用已有 Bot、Chat ID、提及对象和模板。
+这与通用 `channel_disabled` 是两个独立订阅，避免通用任务的状态码或错误关键词筛选误丢模型校验通知。
+
+变量包括 `channel_id`、`channel_name`、`group`、`requested_model`、
+`expected_upstream_models`、`actual_upstream_model`、`comparison`、`reason`、
+`request_id` 和 `create_time`，以及所有模块事件共有的 `mention` 等宿主变量。
+默认模板使用渠道名称、ID 和有长度上限的 `comparison`，摘要包含触发分组与三项模型对比。
+完整值保存在模块触发记录中。多条允许模型过长时，通知摘要允许截断。
+
+`group` 和 `comparison` 中的分组均为事件产生时的显示名称，按稳定分组 ID 在事务中解析；
+名称缺失或分组删除时才回退原标识。模块触发记录的 `group` 仍保留业务代码，
+展示使用记录 API 的 `group_name`，不可直接将代码填入面向用户的通知。
+
+渠道启用状态的条件更新、触发记录和通知事件在同一事务中写入；同一轮并发命中只发送一次。
+人工恢复后再次命中会产生新的事件。Telegram 发送由已有通知任务队列执行，重试不会再次修改渠道。
+没有启用的任务或 Bot 时，仍保存禁用状态与触发记录；不会自行创建 Bot 或发送测试通知。
+
 ## 变更与验证
 
 涉及事件变量、默认模板、请求字段或发送行为的改动，必须同时更新本专题文档和 `docs/workflows/YYYY-MM/` 工作记录，并覆盖保存校验、历史模板兼容、未知变量拒绝及 Telegram 请求负载测试。

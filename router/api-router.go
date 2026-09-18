@@ -60,6 +60,15 @@ func SetApiRouter(router *gin.Engine) {
 		conversationArchiveRoute.POST("/conversations/clear", middleware.CriticalRateLimit(), controller.ClearConversationArchives)
 	}
 
+	upstreamModelGuardRoute := apiRouter.Group("/extensions/upstream-model-guard")
+	upstreamModelGuardRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.RootAuth())
+	{
+		upstreamModelGuardRoute.GET("/config", controller.GetUpstreamModelGuardConfig)
+		upstreamModelGuardRoute.PUT("/config", middleware.CriticalRateLimit(), controller.UpdateUpstreamModelGuardConfig)
+		upstreamModelGuardRoute.GET("/groups", controller.GetConversationArchiveGroups)
+		upstreamModelGuardRoute.GET("/records", controller.ListUpstreamModelGuardRecords)
+	}
+
 	apiRouter.Use(middleware.GlobalAPIRateLimitWithChannelAdminBypass())
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{

@@ -357,6 +357,8 @@ func migrateDB() error {
 		&RequestArchiveQueueState{},
 		&ConversationArchiveConfig{},
 		&ConversationArchive{},
+		&UpstreamModelGuardConfig{},
+		&UpstreamModelGuardRecord{},
 		&Group{},
 		&GroupAlias{},
 		&AutoGroupMember{},
@@ -367,6 +369,9 @@ func migrateDB() error {
 		return err
 	}
 	if err := EnsureConversationArchiveConfig(); err != nil {
+		return err
+	}
+	if err := EnsureUpstreamModelGuardConfig(); err != nil {
 		return err
 	}
 	if err := migrateBenefitActivityQuotaConfig(DB); err != nil {
@@ -494,6 +499,8 @@ func migrateDBFast() error {
 		{&RequestArchiveQueueState{}, "RequestArchiveQueueState"},
 		{&ConversationArchiveConfig{}, "ConversationArchiveConfig"},
 		{&ConversationArchive{}, "ConversationArchive"},
+		{&UpstreamModelGuardConfig{}, "UpstreamModelGuardConfig"},
+		{&UpstreamModelGuardRecord{}, "UpstreamModelGuardRecord"},
 		{&Group{}, "Group"},
 		{&GroupAlias{}, "GroupAlias"},
 		{&AutoGroupMember{}, "AutoGroupMember"},
@@ -524,6 +531,9 @@ func migrateDBFast() error {
 		}
 	}
 	if err := EnsureConversationArchiveConfig(); err != nil {
+		return err
+	}
+	if err := EnsureUpstreamModelGuardConfig(); err != nil {
 		return err
 	}
 	if err := migrateBenefitActivityQuotaConfig(DB); err != nil {
