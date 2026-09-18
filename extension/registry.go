@@ -2,6 +2,9 @@ package extension
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -337,7 +340,22 @@ func (m *Manager) Uninstall(id string) error {
 	return nil
 }
 
+// ArchiveExpectation 仅校验上传字节的完整性与归档身份，不代表发布者签名。
+type ArchiveExpectation struct {
+	ArchiveSHA256   string
+	ExpectedID      string
+	ExpectedVersion string
+}
+
 func (m *Manager) InstallArchive(readerAt io.ReaderAt, size int64) (Module, error) {
+	return m.installArchive(readerAt, size, nil)
+}
+
+func (m *Manager) InstallArchiveWithExpectation(readerAt io.ReaderAt, size int64, expectation ArchiveExpectation) (Module, error) {
+	return m.installArchive(readerAt, size, &expectation)
+}
+
+func (m *Manager) installArchive(readerAt io.ReaderAt, size int64, expectation *ArchiveExpectation) (Module, error) {
 	m.operationMu.Lock()
 	defer m.operationMu.Unlock()
 
@@ -349,6 +367,20 @@ func (m *Manager) InstallArchive(readerAt io.ReaderAt, size int64) (Module, erro
 	}
 	if size > MaxInstallArchiveBytes {
 		return Module{}, fmt.Errorf("module archive exceeds %d MiB", MaxInstallArchiveBytes>>20)
+	}
+	if expectation != nil {
+		expectedHash, err := hex.DecodeString(expectation.ArchiveSHA256)
+		if err != nil || len(expectedHash) != sha256.Size || expectation.ExpectedID == "" || expectation.ExpectedVersion == "" {
+			return Module{}, errors.New("module archive expectation is invalid")
+		}
+		hash := sha256.New()
+		readBytes, err := io.Copy(hash, io.NewSectionReader(readerAt, 0, size))
+		if err != nil || readBytes != size {
+			return Module{}, errors.New("module archive cannot be read")
+		}
+		if subtle.ConstantTimeCompare(hash.Sum(nil), expectedHash) != 1 {
+			return Module{}, errors.New("module archive checksum does not match")
+		}
 	}
 	archive, err := zip.NewReader(readerAt, size)
 	if err != nil {
@@ -385,6 +417,9 @@ func (m *Manager) InstallArchive(readerAt io.ReaderAt, size int64) (Module, erro
 	}
 	if err := manifest.Validate(); err != nil {
 		return Module{}, errors.New("module manifest is invalid")
+	}
+	if expectation != nil && (manifest.ID != expectation.ExpectedID || manifest.Version != expectation.ExpectedVersion) {
+		return Module{}, errors.New("module manifest does not match expected identity or version")
 	}
 	if err := hostCompatibilityError(manifest); err != nil {
 		return Module{}, errors.New("module is incompatible with current host version")

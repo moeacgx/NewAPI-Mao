@@ -273,6 +273,9 @@ func migrateDB() error {
 	if err := migrateSQLiteRequestArchiveDedupeKey(); err != nil {
 		return err
 	}
+	if err := migrateSQLiteUpstreamModelGuardObservationKey(); err != nil {
+		return err
+	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 		if err := ensureSQLiteLogIdempotencyKey(DB); err != nil {
 			return err
@@ -359,6 +362,7 @@ func migrateDB() error {
 		&ConversationArchive{},
 		&UpstreamModelGuardConfig{},
 		&UpstreamModelGuardRecord{},
+		&UpstreamModelGuardStreak{},
 		&Group{},
 		&GroupAlias{},
 		&AutoGroupMember{},
@@ -415,6 +419,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := migrateSQLiteRequestArchiveDedupeKey(); err != nil {
+		return err
+	}
+	if err := migrateSQLiteUpstreamModelGuardObservationKey(); err != nil {
 		return err
 	}
 
@@ -501,6 +508,7 @@ func migrateDBFast() error {
 		{&ConversationArchive{}, "ConversationArchive"},
 		{&UpstreamModelGuardConfig{}, "UpstreamModelGuardConfig"},
 		{&UpstreamModelGuardRecord{}, "UpstreamModelGuardRecord"},
+		{&UpstreamModelGuardStreak{}, "UpstreamModelGuardStreak"},
 		{&Group{}, "Group"},
 		{&GroupAlias{}, "GroupAlias"},
 		{&AutoGroupMember{}, "AutoGroupMember"},

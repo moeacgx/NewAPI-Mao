@@ -1,5 +1,5 @@
 // oxfmt-ignore
-const guardTranslations = {"en":{"Request failed":"Request failed","Rule {{number}}":"Rule {{number}}","Unavailable group":"Unavailable group","Rule enabled":"Rule enabled","Remove rule":"Remove rule","Selected groups":"Selected groups","No groups available":"No groups available","Request model":"Request model","Allowed upstream models":"Allowed upstream models","One exact model name per line":"One exact model name per line","Complete groups and model names for rule {{number}}.":"Complete groups and model names for rule {{number}}.","Settings changed elsewhere. Reload before saving again.":"Settings changed elsewhere. Reload before saving again.","Loading settings...":"Loading settings...","Reload settings":"Reload settings","Model matching rules":"Model matching rules","Detection enabled":"Detection enabled","Add rule":"Add rule","Saving...":"Saving...","Save settings":"Save settings","Model guard settings saved":"Model guard settings saved","No model matching rules":"No model matching rules","Disabled at":"Disabled at","Channel":"Channel","Group":"Group","Expected upstream models":"Expected upstream models","Actual upstream model":"Actual upstream model","Loading records...":"Loading records...","No channel disable records":"No channel disable records","Channel disable records":"Channel disable records","Refresh records":"Refresh records","Total {{count}}":"Total {{count}}","Previous page":"Previous page","Next page":"Next page","Upstream model guard":"Upstream model guard","Notification Center":"Notification Center"},"zh":{"Request failed":"请求失败","Rule {{number}}":"规则 {{number}}","Unavailable group":"不可用分组","Rule enabled":"启用规则","Remove rule":"移除规则","Selected groups":"已选组","No groups available":"暂无可用分组","Request model":"请求模型","Allowed upstream models":"允许的上游模型","One exact model name per line":"每行一个完整模型名称","Complete groups and model names for rule {{number}}.":"请补全规则 {{number}} 的分组和模型名称。","Settings changed elsewhere. Reload before saving again.":"配置已被其他会话修改，请重新加载后再保存。","Loading settings...":"正在加载设置...","Reload settings":"重新加载配置","Model matching rules":"模型匹配规则","Detection enabled":"启用检测","Add rule":"添加规则","Saving...":"正在保存...","Save settings":"保存设置","Model guard settings saved":"模型校验配置已保存","No model matching rules":"暂无模型匹配规则","Disabled at":"禁用时间","Channel":"渠道","Group":"分组","Expected upstream models":"预期上游模型","Actual upstream model":"实测上游模型","Loading records...":"正在加载记录...","No channel disable records":"暂无渠道禁用记录","Channel disable records":"渠道禁用记录","Refresh records":"刷新记录","Total {{count}}":"共 {{count}} 条","Previous page":"上一页","Next page":"下一页","Upstream model guard":"上游模型校验","Notification Center":"通知中心"},"zh-TW":{"Request failed":"請求失敗","Rule {{number}}":"規則 {{number}}","Unavailable group":"無法使用的群組","Rule enabled":"啟用規則","Remove rule":"移除規則","Selected groups":"已選群組","No groups available":"暫無可用群組","Request model":"請求模型","Allowed upstream models":"允許的上游模型","One exact model name per line":"每行一個完整模型名稱","Complete groups and model names for rule {{number}}.":"請補齊規則 {{number}} 的群組和模型名稱。","Settings changed elsewhere. Reload before saving again.":"設定已被其他工作階段修改，請重新載入後再儲存。","Loading settings...":"正在載入設定...","Reload settings":"重新載入設定","Model matching rules":"模型比對規則","Detection enabled":"啟用偵測","Add rule":"新增規則","Saving...":"正在儲存...","Save settings":"儲存設定","Model guard settings saved":"模型校驗設定已儲存","No model matching rules":"暫無模型比對規則","Disabled at":"停用時間","Channel":"渠道","Group":"分組","Expected upstream models":"預期上游模型","Actual upstream model":"實測上游模型","Loading records...":"正在載入紀錄...","No channel disable records":"暫無通道停用紀錄","Channel disable records":"通道停用紀錄","Refresh records":"重新整理紀錄","Total {{count}}":"共 {{count}} 筆","Previous page":"上一頁","Next page":"下一頁","Upstream model guard":"上游模型校驗","Notification Center":"通知中心"},"fr":{"Request failed":"Échec de la requête","Rule {{number}}":"Règle {{number}}","Unavailable group":"Groupe indisponible","Rule enabled":"Règle active","Remove rule":"Retirer la règle","Selected groups":"Groupes sélectionnés","No groups available":"Aucun groupe disponible","Request model":"Modèle demandé","Allowed upstream models":"Modèles amont autorisés","One exact model name per line":"Un nom de modèle exact par ligne","Complete groups and model names for rule {{number}}.":"Complétez les groupes et modèles de la règle {{number}}.","Settings changed elsewhere. Reload before saving again.":"Les paramètres ont changé ailleurs. Rechargez avant de sauvegarder.","Loading settings...":"Chargement des paramètres...","Reload settings":"Recharger les paramètres","Model matching rules":"Règles de correspondance","Detection enabled":"Détection active","Add rule":"Ajouter une règle","Saving...":"Enregistrement en cours...","Save settings":"Enregistrer les paramètres","Model guard settings saved":"Paramètres de vérification enregistrés","No model matching rules":"Aucune règle de correspondance","Disabled at":"Désactivé le","Channel":"Canal","Group":"Groupe","Expected upstream models":"Modèles amont attendus","Actual upstream model":"Modèle amont observé","Loading records...":"Chargement des enregistrements...","No channel disable records":"Aucune désactivation de canal","Channel disable records":"Désactivations de canaux","Refresh records":"Actualiser les enregistrements","Total {{count}}":"Total : {{count}}","Previous page":"Page précédente","Next page":"Page suivante","Upstream model guard":"Vérification des modèles amont","Notification Center":"Centre de notifications"},"ja":{"Request failed":"リクエスト失敗","Rule {{number}}":"ルール {{number}}","Unavailable group":"利用できないグループ","Rule enabled":"ルールを有効化","Remove rule":"ルールを削除","Selected groups":"選択したグループ","No groups available":"利用可能なグループがありません","Request model":"要求モデル","Allowed upstream models":"許可する上流モデル","One exact model name per line":"1 行に 1 つの正確なモデル名","Complete groups and model names for rule {{number}}.":"ルール {{number}} のグループとモデル名を入力してください。","Settings changed elsewhere. Reload before saving again.":"設定が別の場所で変更されました。再読み込みしてから保存してください。","Loading settings...":"設定をロード中...","Reload settings":"設定を再読み込み","Model matching rules":"モデル照合ルール","Detection enabled":"検出を有効化","Add rule":"ルールを追加","Saving...":"保存中...","Save settings":"設定を保存","Model guard settings saved":"モデル検証設定を保存しました","No model matching rules":"モデル照合ルールがありません","Disabled at":"無効化日時","Channel":"チャネル","Group":"グループ","Expected upstream models":"期待する上流モデル","Actual upstream model":"実際の上流モデル","Loading records...":"記録を読み込み中...","No channel disable records":"チャネル無効化の記録がありません","Channel disable records":"チャネル無効化の記録","Refresh records":"記録を更新","Total {{count}}":"合計 {{count}}","Previous page":"前のページ","Next page":"次のページ","Upstream model guard":"上流モデル検証","Notification Center":"通知センター"},"ru":{"Request failed":"Запрос не выполнен","Rule {{number}}":"Правило {{number}}","Unavailable group":"Недоступная группа","Rule enabled":"Правило включено","Remove rule":"Удалить правило","Selected groups":"Выбранные группы","No groups available":"Нет доступных групп","Request model":"Запрошенная модель","Allowed upstream models":"Разрешённые модели провайдера","One exact model name per line":"Одно точное имя модели в строке","Complete groups and model names for rule {{number}}.":"Укажите группы и модели для правила {{number}}.","Settings changed elsewhere. Reload before saving again.":"Настройки изменены в другом сеансе. Перезагрузите перед сохранением.","Loading settings...":"Загрузка настроек...","Reload settings":"Перезагрузить настройки","Model matching rules":"Правила сопоставления моделей","Detection enabled":"Проверка включена","Add rule":"Добавить правило","Saving...":"Сохранение...","Save settings":"Сохранить настройки","Model guard settings saved":"Настройки проверки моделей сохранены","No model matching rules":"Нет правил сопоставления моделей","Disabled at":"Время отключения","Channel":"Канал","Group":"Группа","Expected upstream models":"Ожидаемые модели провайдера","Actual upstream model":"Фактическая модель провайдера","Loading records...":"Загрузка записей...","No channel disable records":"Нет записей об отключении каналов","Channel disable records":"Записи об отключении каналов","Refresh records":"Обновить записи","Total {{count}}":"Всего: {{count}}","Previous page":"Предыдущая страница","Next page":"Следующая страница","Upstream model guard":"Проверка моделей провайдера","Notification Center":"Центр уведомлений"},"vi":{"Request failed":"Yêu cầu thất bại","Rule {{number}}":"Quy tắc {{number}}","Unavailable group":"Nhóm không khả dụng","Rule enabled":"Bật quy tắc","Remove rule":"Xóa quy tắc","Selected groups":"Nhóm đã chọn","No groups available":"Không có nhóm khả dụng","Request model":"Mô hình yêu cầu","Allowed upstream models":"Mô hình thượng nguồn được phép","One exact model name per line":"Mỗi dòng một tên mô hình chính xác","Complete groups and model names for rule {{number}}.":"Điền đầy đủ nhóm và tên mô hình cho quy tắc {{number}}.","Settings changed elsewhere. Reload before saving again.":"Cấu hình đã được thay đổi ở nơi khác. Tải lại trước khi lưu.","Loading settings...":"Đang tải cài đặt...","Reload settings":"Tải lại cấu hình","Model matching rules":"Quy tắc đối chiếu mô hình","Detection enabled":"Bật kiểm tra","Add rule":"Thêm quy tắc","Saving...":"Đang lưu...","Save settings":"Lưu cài đặt","Model guard settings saved":"Đã lưu cấu hình kiểm tra mô hình","No model matching rules":"Chưa có quy tắc đối chiếu mô hình","Disabled at":"Thời gian vô hiệu hóa","Channel":"Kênh","Group":"Nhóm","Expected upstream models":"Mô hình thượng nguồn dự kiến","Actual upstream model":"Mô hình thượng nguồn thực tế","Loading records...":"Đang tải bản ghi...","No channel disable records":"Chưa có bản ghi vô hiệu hóa kênh","Channel disable records":"Bản ghi vô hiệu hóa kênh","Refresh records":"Làm mới bản ghi","Total {{count}}":"Tổng {{count}}","Previous page":"Trang trước","Next page":"Trang tiếp theo","Upstream model guard":"Kiểm tra mô hình thượng nguồn","Notification Center":"Trung tâm thông báo"},"zh-CN":{"Request failed":"请求失败","Rule {{number}}":"规则 {{number}}","Unavailable group":"不可用分组","Rule enabled":"启用规则","Remove rule":"移除规则","Selected groups":"已选组","No groups available":"暂无可用分组","Request model":"请求模型","Allowed upstream models":"允许的上游模型","One exact model name per line":"每行一个完整模型名称","Complete groups and model names for rule {{number}}.":"请补全规则 {{number}} 的分组和模型名称。","Settings changed elsewhere. Reload before saving again.":"配置已被其他会话修改，请重新加载后再保存。","Loading settings...":"正在加载设置...","Reload settings":"重新加载配置","Model matching rules":"模型匹配规则","Detection enabled":"启用检测","Add rule":"添加规则","Saving...":"正在保存...","Save settings":"保存设置","Model guard settings saved":"模型校验配置已保存","No model matching rules":"暂无模型匹配规则","Disabled at":"禁用时间","Channel":"渠道","Group":"分组","Expected upstream models":"预期上游模型","Actual upstream model":"实测上游模型","Loading records...":"正在加载记录...","No channel disable records":"暂无渠道禁用记录","Channel disable records":"渠道禁用记录","Refresh records":"刷新记录","Total {{count}}":"共 {{count}} 条","Previous page":"上一页","Next page":"下一页","Upstream model guard":"上游模型校验","Notification Center":"通知中心"}};
+const guardTranslations = {"en":{"Actual upstream model":"Actual upstream model","Add rule":"Add rule","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.","Allowed upstream models":"Allowed upstream models","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"Allowlisted channels skip detection, counting, records, disabling, and notifications.","Available channels":"Available channels","Channel":"Channel","Channel allowlist":"Channel allowlist","Channel disabled":"Channel disabled","Channel status":"Channel status","Complete groups and model names for rule {{number}}.":"Complete groups and model names for rule {{number}}.","Consecutive mismatch threshold":"Consecutive mismatch threshold","Consecutive mismatches":"Consecutive mismatches","Detected at":"Detected at","Detection enabled":"Detection enabled","Enter an integer from 1 to 100.":"Enter an integer from 1 to 100.","Expected upstream models":"Expected upstream models","Failed to load channels":"Failed to load channels","Group":"Group","Loading channels...":"Loading channels...","Loading records...":"Loading records...","Loading settings...":"Loading settings...","Model guard settings saved":"Model guard settings saved","Model matching rules":"Model matching rules","Model mismatch records":"Model mismatch records","Next page":"Next page","No allowlisted channels":"No allowlisted channels","No channels found":"No channels found","No groups available":"No groups available","No model matching rules":"No model matching rules","No model mismatch records":"No model mismatch records","Not disabled":"Not disabled","Notification Center":"Notification Center","One exact model name per line":"One exact model name per line","Previous page":"Previous page","Refresh records":"Refresh records","Reload settings":"Reload settings","Remove":"Remove","Remove {{channel}} from allowlist":"Remove {{channel}} from allowlist","Remove rule":"Remove rule","Request failed":"Request failed","Request model":"Request model","Retry channel search":"Retry channel search","Rule {{number}}":"Rule {{number}}","Rule enabled":"Rule enabled","Save settings":"Save settings","Saving...":"Saving...","Search":"Search","Search channels":"Search channels","Select no more than 1000 channels.":"Select no more than 1000 channels.","Selected {{count}} of 1000":"Selected {{count}} of 1000","Selected groups":"Selected groups","Settings changed elsewhere. Reload before saving again.":"Settings changed elsewhere. Reload before saving again.","Total {{count}}":"Total {{count}}","Unavailable channel":"Unavailable channel","Unavailable group":"Unavailable group","Upstream model guard":"Upstream model guard"},"zh":{"Actual upstream model":"实测上游模型","Add rule":"添加规则","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"同一渠道的所有检测请求跨模型、跨分组共用计数。匹配请求清零；缺少模型名的请求跳过。","Allowed upstream models":"允许的上游模型","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"白名单渠道跳过检测、计数、异常记录、关闭和通知。","Available channels":"可选渠道","Channel":"渠道","Channel allowlist":"渠道白名单","Channel disabled":"渠道已关闭","Channel status":"渠道状态","Complete groups and model names for rule {{number}}.":"请补全规则 {{number}} 的分组和模型名称。","Consecutive mismatch threshold":"连续异常阈值","Consecutive mismatches":"连续异常次数","Detected at":"异常时间","Detection enabled":"启用检测","Enter an integer from 1 to 100.":"请输入 1 至 100 的整数。","Expected upstream models":"预期上游模型","Failed to load channels":"渠道加载失败","Group":"分组","Loading channels...":"正在加载渠道...","Loading records...":"正在加载记录...","Loading settings...":"正在加载设置...","Model guard settings saved":"模型校验配置已保存","Model matching rules":"模型匹配规则","Model mismatch records":"模型异常记录","Next page":"下一页","No allowlisted channels":"暂无白名单渠道","No channels found":"未找到渠道","No groups available":"暂无可用分组","No model matching rules":"暂无模型匹配规则","No model mismatch records":"暂无模型异常记录","Not disabled":"未关闭","Notification Center":"通知中心","One exact model name per line":"每行一个完整模型名称","Previous page":"上一页","Refresh records":"刷新记录","Reload settings":"重新加载配置","Remove":"移除","Remove {{channel}} from allowlist":"将 {{channel}} 移出白名单","Remove rule":"移除规则","Request failed":"请求失败","Request model":"请求模型","Retry channel search":"重新加载渠道","Rule {{number}}":"规则 {{number}}","Rule enabled":"启用规则","Save settings":"保存设置","Saving...":"正在保存...","Search":"搜索","Search channels":"搜索渠道","Select no more than 1000 channels.":"最多可选择 1000 个渠道。","Selected {{count}} of 1000":"已选 {{count}} / 1000","Selected groups":"已选组","Settings changed elsewhere. Reload before saving again.":"配置已被其他会话修改，请重新加载后再保存。","Total {{count}}":"共 {{count}} 条","Unavailable channel":"不可用渠道","Unavailable group":"不可用分组","Upstream model guard":"上游模型校验"},"zh-TW":{"Actual upstream model":"實測上游模型","Add rule":"新增規則","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"同一通道的所有偵測請求跨模型、跨群組共用計數。符合預期的請求歸零；缺少模型名稱的請求略過。","Allowed upstream models":"允許的上游模型","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"允許清單中的通道略過偵測、計數、異常紀錄、停用和通知。","Available channels":"可選通道","Channel":"渠道","Channel allowlist":"通道允許清單","Channel disabled":"通道已停用","Channel status":"通道狀態","Complete groups and model names for rule {{number}}.":"請補齊規則 {{number}} 的群組和模型名稱。","Consecutive mismatch threshold":"連續異常門檻","Consecutive mismatches":"連續異常次數","Detected at":"異常時間","Detection enabled":"啟用偵測","Enter an integer from 1 to 100.":"請輸入 1 至 100 的整數。","Expected upstream models":"預期上游模型","Failed to load channels":"通道載入失敗","Group":"分組","Loading channels...":"正在載入通道...","Loading records...":"正在載入紀錄...","Loading settings...":"正在載入設定...","Model guard settings saved":"模型校驗設定已儲存","Model matching rules":"模型比對規則","Model mismatch records":"模型異常紀錄","Next page":"下一頁","No allowlisted channels":"尚無允許清單通道","No channels found":"找不到通道","No groups available":"暫無可用群組","No model matching rules":"暫無模型比對規則","No model mismatch records":"暫無模型異常紀錄","Not disabled":"未停用","Notification Center":"通知中心","One exact model name per line":"每行一個完整模型名稱","Previous page":"上一頁","Refresh records":"重新整理紀錄","Reload settings":"重新載入設定","Remove":"移除","Remove {{channel}} from allowlist":"將 {{channel}} 移出允許清單","Remove rule":"移除規則","Request failed":"請求失敗","Request model":"請求模型","Retry channel search":"重新載入通道","Rule {{number}}":"規則 {{number}}","Rule enabled":"啟用規則","Save settings":"儲存設定","Saving...":"正在儲存...","Search":"搜尋","Search channels":"搜尋通道","Select no more than 1000 channels.":"最多可選擇 1000 個通道。","Selected {{count}} of 1000":"已選 {{count}} / 1000","Selected groups":"已選群組","Settings changed elsewhere. Reload before saving again.":"設定已被其他工作階段修改，請重新載入後再儲存。","Total {{count}}":"共 {{count}} 筆","Unavailable channel":"不可用通道","Unavailable group":"無法使用的群組","Upstream model guard":"上游模型校驗"},"fr":{"Actual upstream model":"Modèle amont observé","Add rule":"Ajouter une règle","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"Les requêtes contrôlées d’un même canal partagent un compteur, tous modèles et groupes confondus. Une correspondance le remet à zéro ; les noms de modèle absents sont ignorés.","Allowed upstream models":"Modèles amont autorisés","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"Les canaux exemptés ignorent la détection, le comptage, les journaux, la désactivation et les notifications.","Available channels":"Canaux disponibles","Channel":"Canal","Channel allowlist":"Canaux exemptés","Channel disabled":"Canal désactivé","Channel status":"État du canal","Complete groups and model names for rule {{number}}.":"Complétez les groupes et modèles de la règle {{number}}.","Consecutive mismatch threshold":"Seuil de divergences consécutives","Consecutive mismatches":"Divergences consécutives","Detected at":"Détecté le","Detection enabled":"Détection active","Enter an integer from 1 to 100.":"Saisissez un entier de 1 à 100.","Expected upstream models":"Modèles amont attendus","Failed to load channels":"Échec du chargement des canaux","Group":"Groupe","Loading channels...":"Chargement des canaux...","Loading records...":"Chargement des enregistrements...","Loading settings...":"Chargement des paramètres...","Model guard settings saved":"Paramètres de vérification enregistrés","Model matching rules":"Règles de correspondance","Model mismatch records":"Divergences de modèles","Next page":"Page suivante","No allowlisted channels":"Aucun canal exempté","No channels found":"Aucun canal trouvé","No groups available":"Aucun groupe disponible","No model matching rules":"Aucune règle de correspondance","No model mismatch records":"Aucune divergence de modèle","Not disabled":"Non désactivé","Notification Center":"Centre de notifications","One exact model name per line":"Un nom de modèle exact par ligne","Previous page":"Page précédente","Refresh records":"Actualiser les enregistrements","Reload settings":"Recharger les paramètres","Remove":"Retirer","Remove {{channel}} from allowlist":"Retirer {{channel}} des exemptions","Remove rule":"Retirer la règle","Request failed":"Échec de la requête","Request model":"Modèle demandé","Retry channel search":"Réessayer la recherche","Rule {{number}}":"Règle {{number}}","Rule enabled":"Règle active","Save settings":"Enregistrer les paramètres","Saving...":"Enregistrement en cours...","Search":"Rechercher","Search channels":"Rechercher des canaux","Select no more than 1000 channels.":"Sélectionnez au maximum 1000 canaux.","Selected {{count}} of 1000":"{{count}} sélectionnés sur 1000","Selected groups":"Groupes sélectionnés","Settings changed elsewhere. Reload before saving again.":"Les paramètres ont changé ailleurs. Rechargez avant de sauvegarder.","Total {{count}}":"Total : {{count}}","Unavailable channel":"Canal indisponible","Unavailable group":"Groupe indisponible","Upstream model guard":"Vérification des modèles amont"},"ja":{"Actual upstream model":"実際の上流モデル","Add rule":"ルールを追加","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"同じチャネルの検出対象リクエストは、モデルやグループをまたいでカウントを共有します。一致したリクエストでゼロに戻り、モデル名がない場合はスキップします。","Allowed upstream models":"許可する上流モデル","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"許可リストのチャネルは検出、カウント、記録、無効化、通知をスキップします。","Available channels":"選択可能なチャネル","Channel":"チャネル","Channel allowlist":"チャネル許可リスト","Channel disabled":"チャネル無効化済み","Channel status":"チャネル状態","Complete groups and model names for rule {{number}}.":"ルール {{number}} のグループとモデル名を入力してください。","Consecutive mismatch threshold":"連続不一致のしきい値","Consecutive mismatches":"連続不一致回数","Detected at":"検出日時","Detection enabled":"検出を有効化","Enter an integer from 1 to 100.":"1～100 の整数を入力してください。","Expected upstream models":"期待する上流モデル","Failed to load channels":"チャネルを読み込めませんでした","Group":"グループ","Loading channels...":"チャネルを読み込み中...","Loading records...":"記録を読み込み中...","Loading settings...":"設定をロード中...","Model guard settings saved":"モデル検証設定を保存しました","Model matching rules":"モデル照合ルール","Model mismatch records":"モデル不一致の記録","Next page":"次のページ","No allowlisted channels":"許可リストは空です","No channels found":"チャネルが見つかりません","No groups available":"利用可能なグループがありません","No model matching rules":"モデル照合ルールがありません","No model mismatch records":"モデル不一致の記録がありません","Not disabled":"無効化されていません","Notification Center":"通知センター","One exact model name per line":"1 行に 1 つの正確なモデル名","Previous page":"前のページ","Refresh records":"記録を更新","Reload settings":"設定を再読み込み","Remove":"削除","Remove {{channel}} from allowlist":"{{channel}} を許可リストから削除","Remove rule":"ルールを削除","Request failed":"リクエスト失敗","Request model":"要求モデル","Retry channel search":"チャネル検索を再試行","Rule {{number}}":"ルール {{number}}","Rule enabled":"ルールを有効化","Save settings":"設定を保存","Saving...":"保存中...","Search":"検索","Search channels":"チャネルを検索","Select no more than 1000 channels.":"選択できるチャネルは最大 1000 件です。","Selected {{count}} of 1000":"{{count}} / 1000 件選択","Selected groups":"選択したグループ","Settings changed elsewhere. Reload before saving again.":"設定が別の場所で変更されました。再読み込みしてから保存してください。","Total {{count}}":"合計 {{count}}","Unavailable channel":"利用できないチャネル","Unavailable group":"利用できないグループ","Upstream model guard":"上流モデル検証"},"ru":{"Actual upstream model":"Фактическая модель провайдера","Add rule":"Добавить правило","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"Все проверяемые запросы одного канала используют общий счётчик для всех моделей и групп. Совпадение сбрасывает счётчик; запросы без имени модели пропускаются.","Allowed upstream models":"Разрешённые модели провайдера","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"Исключённые каналы пропускают проверку, подсчёт, записи, отключение и уведомления.","Available channels":"Доступные каналы","Channel":"Канал","Channel allowlist":"Исключённые каналы","Channel disabled":"Канал отключён","Channel status":"Состояние канала","Complete groups and model names for rule {{number}}.":"Укажите группы и модели для правила {{number}}.","Consecutive mismatch threshold":"Порог последовательных несовпадений","Consecutive mismatches":"Последовательные несовпадения","Detected at":"Время обнаружения","Detection enabled":"Проверка включена","Enter an integer from 1 to 100.":"Введите целое число от 1 до 100.","Expected upstream models":"Ожидаемые модели провайдера","Failed to load channels":"Не удалось загрузить каналы","Group":"Группа","Loading channels...":"Загрузка каналов...","Loading records...":"Загрузка записей...","Loading settings...":"Загрузка настроек...","Model guard settings saved":"Настройки проверки моделей сохранены","Model matching rules":"Правила сопоставления моделей","Model mismatch records":"Записи несовпадений моделей","Next page":"Следующая страница","No allowlisted channels":"Нет исключённых каналов","No channels found":"Каналы не найдены","No groups available":"Нет доступных групп","No model matching rules":"Нет правил сопоставления моделей","No model mismatch records":"Нет записей о несовпадениях моделей","Not disabled":"Не отключён","Notification Center":"Центр уведомлений","One exact model name per line":"Одно точное имя модели в строке","Previous page":"Предыдущая страница","Refresh records":"Обновить записи","Reload settings":"Перезагрузить настройки","Remove":"Удалить","Remove {{channel}} from allowlist":"Убрать {{channel}} из исключений","Remove rule":"Удалить правило","Request failed":"Запрос не выполнен","Request model":"Запрошенная модель","Retry channel search":"Повторить поиск каналов","Rule {{number}}":"Правило {{number}}","Rule enabled":"Правило включено","Save settings":"Сохранить настройки","Saving...":"Сохранение...","Search":"Поиск","Search channels":"Поиск каналов","Select no more than 1000 channels.":"Можно выбрать не более 1000 каналов.","Selected {{count}} of 1000":"Выбрано {{count}} из 1000","Selected groups":"Выбранные группы","Settings changed elsewhere. Reload before saving again.":"Настройки изменены в другом сеансе. Перезагрузите перед сохранением.","Total {{count}}":"Всего: {{count}}","Unavailable channel":"Недоступный канал","Unavailable group":"Недоступная группа","Upstream model guard":"Проверка моделей провайдера"},"vi":{"Actual upstream model":"Mô hình thượng nguồn thực tế","Add rule":"Thêm quy tắc","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"Mọi yêu cầu được kiểm tra trên cùng kênh dùng chung bộ đếm cho tất cả mô hình và nhóm. Yêu cầu khớp đặt lại bộ đếm; yêu cầu thiếu tên mô hình được bỏ qua.","Allowed upstream models":"Mô hình thượng nguồn được phép","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"Kênh trong danh sách bỏ qua kiểm tra, đếm, ghi nhận, vô hiệu hóa và thông báo.","Available channels":"Kênh có thể chọn","Channel":"Kênh","Channel allowlist":"Danh sách kênh miễn kiểm tra","Channel disabled":"Kênh đã vô hiệu hóa","Channel status":"Trạng thái kênh","Complete groups and model names for rule {{number}}.":"Điền đầy đủ nhóm và tên mô hình cho quy tắc {{number}}.","Consecutive mismatch threshold":"Ngưỡng sai lệch liên tiếp","Consecutive mismatches":"Số lần sai lệch liên tiếp","Detected at":"Thời điểm phát hiện","Detection enabled":"Bật kiểm tra","Enter an integer from 1 to 100.":"Nhập số nguyên từ 1 đến 100.","Expected upstream models":"Mô hình thượng nguồn dự kiến","Failed to load channels":"Không thể tải kênh","Group":"Nhóm","Loading channels...":"Đang tải kênh...","Loading records...":"Đang tải bản ghi...","Loading settings...":"Đang tải cài đặt...","Model guard settings saved":"Đã lưu cấu hình kiểm tra mô hình","Model matching rules":"Quy tắc đối chiếu mô hình","Model mismatch records":"Bản ghi sai lệch mô hình","Next page":"Trang tiếp theo","No allowlisted channels":"Chưa có kênh miễn kiểm tra","No channels found":"Không tìm thấy kênh","No groups available":"Không có nhóm khả dụng","No model matching rules":"Chưa có quy tắc đối chiếu mô hình","No model mismatch records":"Chưa có bản ghi sai lệch mô hình","Not disabled":"Chưa vô hiệu hóa","Notification Center":"Trung tâm thông báo","One exact model name per line":"Mỗi dòng một tên mô hình chính xác","Previous page":"Trang trước","Refresh records":"Làm mới bản ghi","Reload settings":"Tải lại cấu hình","Remove":"Xóa","Remove {{channel}} from allowlist":"Xóa {{channel}} khỏi danh sách miễn kiểm tra","Remove rule":"Xóa quy tắc","Request failed":"Yêu cầu thất bại","Request model":"Mô hình yêu cầu","Retry channel search":"Thử lại tìm kênh","Rule {{number}}":"Quy tắc {{number}}","Rule enabled":"Bật quy tắc","Save settings":"Lưu cài đặt","Saving...":"Đang lưu...","Search":"Tìm kiếm","Search channels":"Tìm kênh","Select no more than 1000 channels.":"Chọn tối đa 1000 kênh.","Selected {{count}} of 1000":"Đã chọn {{count}} / 1000","Selected groups":"Nhóm đã chọn","Settings changed elsewhere. Reload before saving again.":"Cấu hình đã được thay đổi ở nơi khác. Tải lại trước khi lưu.","Total {{count}}":"Tổng {{count}}","Unavailable channel":"Kênh không khả dụng","Unavailable group":"Nhóm không khả dụng","Upstream model guard":"Kiểm tra mô hình thượng nguồn"},"zh-CN":{"Actual upstream model":"实测上游模型","Add rule":"添加规则","All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.":"同一渠道的所有检测请求跨模型、跨分组共用计数。匹配请求清零；缺少模型名的请求跳过。","Allowed upstream models":"允许的上游模型","Allowlisted channels skip detection, counting, records, disabling, and notifications.":"白名单渠道跳过检测、计数、异常记录、关闭和通知。","Available channels":"可选渠道","Channel":"渠道","Channel allowlist":"渠道白名单","Channel disabled":"渠道已关闭","Channel status":"渠道状态","Complete groups and model names for rule {{number}}.":"请补全规则 {{number}} 的分组和模型名称。","Consecutive mismatch threshold":"连续异常阈值","Consecutive mismatches":"连续异常次数","Detected at":"异常时间","Detection enabled":"启用检测","Enter an integer from 1 to 100.":"请输入 1 至 100 的整数。","Expected upstream models":"预期上游模型","Failed to load channels":"渠道加载失败","Group":"分组","Loading channels...":"正在加载渠道...","Loading records...":"正在加载记录...","Loading settings...":"正在加载设置...","Model guard settings saved":"模型校验配置已保存","Model matching rules":"模型匹配规则","Model mismatch records":"模型异常记录","Next page":"下一页","No allowlisted channels":"暂无白名单渠道","No channels found":"未找到渠道","No groups available":"暂无可用分组","No model matching rules":"暂无模型匹配规则","No model mismatch records":"暂无模型异常记录","Not disabled":"未关闭","Notification Center":"通知中心","One exact model name per line":"每行一个完整模型名称","Previous page":"上一页","Refresh records":"刷新记录","Reload settings":"重新加载配置","Remove":"移除","Remove {{channel}} from allowlist":"将 {{channel}} 移出白名单","Remove rule":"移除规则","Request failed":"请求失败","Request model":"请求模型","Retry channel search":"重新加载渠道","Rule {{number}}":"规则 {{number}}","Rule enabled":"启用规则","Save settings":"保存设置","Saving...":"正在保存...","Search":"搜索","Search channels":"搜索渠道","Select no more than 1000 channels.":"最多可选择 1000 个渠道。","Selected {{count}} of 1000":"已选 {{count}} / 1000","Selected groups":"已选组","Settings changed elsewhere. Reload before saving again.":"配置已被其他会话修改，请重新加载后再保存。","Total {{count}}":"共 {{count}} 条","Unavailable channel":"不可用渠道","Unavailable group":"不可用分组","Upstream model guard":"上游模型校验"}};
 function createGuardPage(sdk, ui, translations) {
   const { jsx, jsxs, Fragment } = sdk.modules["react/jsx-runtime"];
   const { useEffect, useState } = sdk.modules.react;
@@ -16,6 +16,235 @@ function createGuardPage(sdk, ui, translations) {
 
   function errorText(error, t) {
     return error?.response?.data?.message || error?.message || t("Request failed");
+  }
+
+  function channelLabel(channel, t) {
+    return `${channel.name?.trim() || t("Unavailable channel")} (#${channel.id})`;
+  }
+
+  function ChannelAllowlist(props) {
+    const { t } = useTranslation();
+    const onReady = props.onReady;
+    const [search, setSearch] = useState("");
+    const [query, setQuery] = useState({ keyword: "", page: 1, revision: 0 });
+    const [state, setState] = useState({ loading: true, error: "", items: [], total: 0 });
+    useEffect(() => {
+      let active = true;
+      onReady(false);
+      setState((current) => ({ ...current, loading: true, error: "" }));
+      ui.api()
+        .get(`${base}/channels`, {
+          params: { keyword: query.keyword, page: query.page, page_size: 50 },
+          skipErrorHandler: true,
+        })
+        .then(unwrap)
+        .then((data) => {
+          if (!active) return;
+          if (!Array.isArray(data.items)) throw new Error(t("Failed to load channels"));
+          setState({
+            loading: false,
+            error: "",
+            items: data.items,
+            total: Number(data.total || 0),
+          });
+          onReady(true);
+        })
+        .catch((error) => {
+          if (active) setState({ loading: false, error: errorText(error, t), items: [], total: 0 });
+        });
+      return () => {
+        active = false;
+      };
+    }, [query, t, onReady]);
+
+    function toggle(channel, checked) {
+      if (props.disabled) return;
+      if (!checked) {
+        props.onChange(props.selected.filter((item) => item.id !== channel.id));
+        return;
+      }
+      if (props.selected.length >= 1000 || props.selected.some((item) => item.id === channel.id)) {
+        return;
+      }
+      props.onChange([...props.selected, channel]);
+    }
+
+    const pages = Math.max(1, Math.ceil(state.total / 50));
+    return jsxs(ui.Panel, {
+      className: "guard-allowlist",
+      children: [
+        jsxs("div", {
+          className: "guard-panel-header",
+          children: [
+            jsx("h2", { children: t("Channel allowlist") }),
+            jsx("span", {
+              className: "guard-muted",
+              children: t("Selected {{count}} of 1000", { count: props.selected.length }),
+            }),
+          ],
+        }),
+        jsxs("div", {
+          className: "guard-panel-content",
+          children: [
+            jsx("p", {
+              className: "guard-muted guard-help",
+              children: t(
+                "Allowlisted channels skip detection, counting, records, disabling, and notifications.",
+              ),
+            }),
+            jsx("div", {
+              className: "guard-selected-channels",
+              children: props.selected.length
+                ? props.selected.map((channel) =>
+                    jsxs(
+                      "div",
+                      {
+                        className: "guard-selected-channel",
+                        children: [
+                          jsx("span", { children: channelLabel(channel, t) }),
+                          jsx(ui.Button, {
+                            label: t("Remove"),
+                            ariaLabel: t("Remove {{channel}} from allowlist", {
+                              channel: channelLabel(channel, t),
+                            }),
+                            disabled: props.disabled,
+                            onClick: () => toggle(channel, false),
+                          }),
+                        ],
+                      },
+                      channel.id,
+                    ),
+                  )
+                : jsx("p", { className: "guard-muted", children: t("No allowlisted channels") }),
+            }),
+            jsxs("form", {
+              className: "guard-channel-search",
+              onSubmit: (event) => {
+                event.preventDefault();
+                if (!props.disabled) {
+                  setQuery((current) => ({
+                    keyword: search.trim(),
+                    page: 1,
+                    revision: current.revision + 1,
+                  }));
+                }
+              },
+              children: [
+                jsxs("div", {
+                  className: "guard-field",
+                  children: [
+                    jsx("label", {
+                      htmlFor: "guard-channel-search",
+                      children: t("Search channels"),
+                    }),
+                    jsx(ui.Input, {
+                      id: "guard-channel-search",
+                      value: search,
+                      disabled: props.disabled,
+                      maxLength: 200,
+                      onChange: setSearch,
+                    }),
+                  ],
+                }),
+                jsx(ui.Button, {
+                  label: t("Search"),
+                  disabled: props.disabled || state.loading,
+                  onClick: () =>
+                    setQuery((current) => ({
+                      keyword: search.trim(),
+                      page: 1,
+                      revision: current.revision + 1,
+                    })),
+                }),
+              ],
+            }),
+            jsxs("div", {
+              role: "group",
+              "aria-label": t("Available channels"),
+              className: "guard-channel-results",
+              children: [
+                state.loading
+                  ? jsx("p", {
+                      role: "status",
+                      className: "guard-muted",
+                      children: t("Loading channels..."),
+                    })
+                  : null,
+                state.error
+                  ? jsxs("div", {
+                      className: "guard-channel-error",
+                      children: [
+                        jsx("p", {
+                          role: "alert",
+                          className: "guard-error",
+                          children: state.error,
+                        }),
+                        jsx(ui.Button, {
+                          label: t("Retry channel search"),
+                          disabled: props.disabled,
+                          onClick: () =>
+                            setQuery((current) => ({ ...current, revision: current.revision + 1 })),
+                        }),
+                      ],
+                    })
+                  : null,
+                !state.loading && !state.error && state.items.length === 0
+                  ? jsx("p", { className: "guard-muted", children: t("No channels found") })
+                  : null,
+                !state.loading && !state.error
+                  ? jsx("div", {
+                      className: "guard-channel-options",
+                      children: state.items.map((channel) => {
+                        const checked = props.selected.some((item) => item.id === channel.id);
+                        return jsx(
+                          ui.Checkbox,
+                          {
+                            label: channelLabel(channel, t),
+                            checked,
+                            disabled: props.disabled || (!checked && props.selected.length >= 1000),
+                            onChange: (value) => toggle(channel, value),
+                          },
+                          channel.id,
+                        );
+                      }),
+                    })
+                  : null,
+                jsxs("div", {
+                  className: "guard-panel-footer",
+                  children: [
+                    jsx("span", {
+                      className: "guard-muted",
+                      children: t("Total {{count}}", { count: state.total }),
+                    }),
+                    jsxs("div", {
+                      className: "guard-actions",
+                      children: [
+                        jsx(ui.Button, {
+                          label: t("Previous page"),
+                          disabled: props.disabled || state.loading || query.page <= 1,
+                          onClick: () =>
+                            setQuery((current) => ({ ...current, page: current.page - 1 })),
+                        }),
+                        jsx("span", {
+                          className: "guard-page-number",
+                          children: `${query.page} / ${pages}`,
+                        }),
+                        jsx(ui.Button, {
+                          label: t("Next page"),
+                          disabled: props.disabled || state.loading || query.page >= pages,
+                          onClick: () =>
+                            setQuery((current) => ({ ...current, page: current.page + 1 })),
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
   }
 
   function RuleEditor(props) {
@@ -133,7 +362,13 @@ function createGuardPage(sdk, ui, translations) {
     const [nextKey, setNextKey] = useState(1);
     const [reload, setReload] = useState(0);
     const [state, setState] = useState({ loading: true, error: "", config: null, groups: [] });
-    const [draft, setDraft] = useState({ enabled: false, rules: [] });
+    const [draft, setDraft] = useState({
+      enabled: false,
+      rules: [],
+      threshold: "2",
+      excludedChannels: [],
+    });
+    const [channelsReady, setChannelsReady] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState("");
     const [saved, setSaved] = useState(false);
@@ -141,6 +376,7 @@ function createGuardPage(sdk, ui, translations) {
 
     useEffect(() => {
       let active = true;
+      setChannelsReady(false);
       setState((current) => ({ ...current, loading: true, error: "" }));
       Promise.all([
         ui.api().get(`${base}/config`, { skipErrorHandler: true }).then(unwrap),
@@ -157,6 +393,15 @@ function createGuardPage(sdk, ui, translations) {
           onGroupsLoaded(Array.isArray(groups) ? groups : []);
           setDraft({
             enabled: Boolean(config.enabled),
+            threshold: String(config.failure_threshold ?? 2),
+            excludedChannels: (config.excluded_channel_ids || []).map(
+              (id) =>
+                (config.excluded_channels || []).find((channel) => channel.id === id) || {
+                  id,
+                  name: "",
+                  status: 0,
+                },
+            ),
             rules: (config.rules || []).map((rule, index) => ({
               key: index + 1,
               enabled: Boolean(rule.enabled),
@@ -200,7 +445,16 @@ function createGuardPage(sdk, ui, translations) {
     }
 
     async function save() {
-      if (saving || conflict || !state.config) return;
+      if (saving || conflict || !state.config || !channelsReady) return;
+      const threshold = Number(draft.threshold);
+      if (!Number.isInteger(threshold) || threshold < 1 || threshold > 100) {
+        setSaveError(t("Enter an integer from 1 to 100."));
+        return;
+      }
+      if (draft.excludedChannels.length > 1000) {
+        setSaveError(t("Select no more than 1000 channels."));
+        return;
+      }
       const rules = draft.rules.map((rule) => ({
         enabled: rule.enabled,
         group_codes: [...rule.group_codes],
@@ -233,6 +487,8 @@ function createGuardPage(sdk, ui, translations) {
             {
               expected_version: state.config.config_version,
               enabled: draft.enabled,
+              failure_threshold: threshold,
+              excluded_channel_ids: draft.excludedChannels.map((channel) => channel.id),
               rules,
             },
             { skipErrorHandler: true },
@@ -304,10 +560,40 @@ function createGuardPage(sdk, ui, translations) {
                       icon: "Save",
                       primary: true,
                       label: saving ? t("Saving...") : t("Save settings"),
-                      disabled: saving || conflict,
+                      disabled: saving || conflict || !channelsReady,
                       onClick: save,
                     }),
                   ],
+                }),
+              ],
+            }),
+            jsxs("div", {
+              className: "guard-panel-content guard-tolerance",
+              children: [
+                jsxs("div", {
+                  className: "guard-field",
+                  children: [
+                    jsx("label", {
+                      htmlFor: "guard-failure-threshold",
+                      children: t("Consecutive mismatch threshold"),
+                    }),
+                    jsx(ui.Input, {
+                      id: "guard-failure-threshold",
+                      type: "number",
+                      min: 1,
+                      max: 100,
+                      step: 1,
+                      value: draft.threshold,
+                      disabled: saving || conflict,
+                      onChange: (threshold) => edit({ threshold }),
+                    }),
+                  ],
+                }),
+                jsx("p", {
+                  className: "guard-muted guard-help",
+                  children: t(
+                    "All detected requests on the same channel share one count across models and groups. A matching request resets the count; missing model names are skipped.",
+                  ),
                 }),
               ],
             }),
@@ -342,6 +628,12 @@ function createGuardPage(sdk, ui, translations) {
                 children: t("No model matching rules"),
               }),
           ],
+        }),
+        jsx(ChannelAllowlist, {
+          selected: draft.excludedChannels,
+          disabled: saving || conflict,
+          onReady: setChannelsReady,
+          onChange: (excludedChannels) => edit({ excludedChannels }),
         }),
         ...draft.rules.map((rule, index) =>
           jsx(
@@ -394,7 +686,7 @@ function createGuardPage(sdk, ui, translations) {
     const columns = [
       {
         key: "created_at",
-        title: t("Disabled at"),
+        title: t("Detected at"),
         render: (row) => {
           const date = new Date(Number(row.created_at) * 1000);
           return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
@@ -434,6 +726,17 @@ function createGuardPage(sdk, ui, translations) {
         title: t("Actual upstream model"),
         render: (row) => row.actual_upstream_model || "-",
       },
+      {
+        key: "count",
+        title: t("Consecutive mismatches"),
+        render: (row) => `${row.consecutive_mismatches ?? 1} / ${row.failure_threshold ?? 1}`,
+      },
+      {
+        key: "disabled",
+        title: t("Channel status"),
+        render: (row) =>
+          row.channel_disabled === false ? t("Not disabled") : t("Channel disabled"),
+      },
     ];
     let content = jsx(ui.RecordsTable, { columns, items: state.items });
     if (state.loading) {
@@ -451,17 +754,19 @@ function createGuardPage(sdk, ui, translations) {
     } else if (!state.items.length) {
       content = jsx("div", {
         className: "guard-state guard-muted",
-        children: t("No channel disable records"),
+        children: t("No model mismatch records"),
       });
     }
     const pages = Math.max(1, Math.ceil(state.total / 20));
     return jsxs(ui.Panel, {
       className: "guard-records",
+      role: "region",
+      "aria-label": t("Model mismatch records"),
       children: [
         jsxs("div", {
           className: "guard-panel-header",
           children: [
-            jsx("h2", { children: t("Channel disable records") }),
+            jsx("h2", { children: t("Model mismatch records") }),
             jsx(ui.Button, {
               icon: "RefreshCw",
               label: t("Refresh records"),
@@ -556,8 +861,8 @@ const ui = {
       type: props.primary ? "primary" : "tertiary",
       disabled: props.disabled,
       onClick: props.onClick,
-      "aria-label": props.label,
-      title: props.label,
+      "aria-label": props.ariaLabel || props.label,
+      title: props.ariaLabel || props.label,
       children: props.label,
     });
   },

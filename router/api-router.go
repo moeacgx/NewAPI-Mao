@@ -66,6 +66,7 @@ func SetApiRouter(router *gin.Engine) {
 		upstreamModelGuardRoute.GET("/config", controller.GetUpstreamModelGuardConfig)
 		upstreamModelGuardRoute.PUT("/config", middleware.CriticalRateLimit(), controller.UpdateUpstreamModelGuardConfig)
 		upstreamModelGuardRoute.GET("/groups", controller.GetConversationArchiveGroups)
+		upstreamModelGuardRoute.GET("/channels", controller.ListUpstreamModelGuardChannels)
 		upstreamModelGuardRoute.GET("/records", controller.ListUpstreamModelGuardRecords)
 	}
 

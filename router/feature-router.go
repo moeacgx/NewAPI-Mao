@@ -38,6 +38,7 @@ func registerExtensionRoutes(apiRouter *gin.RouterGroup) {
 	extensionAdminRoute.Use(middleware.RootAuth())
 	{
 		extensionAdminRoute.GET("/", controller.ListExtensions)
+		extensionAdminRoute.GET("/marketplace", middleware.DisableCache(), controller.GetExtensionMarketplace)
 		extensionAdminRoute.POST("/refresh", middleware.CriticalRateLimit(), controller.RefreshExtensions)
 		extensionAdminRoute.POST("/upload", middleware.CriticalRateLimit(), controller.UploadExtension)
 		extensionAdminRoute.PUT("/:id/enabled", middleware.CriticalRateLimit(), controller.SetExtensionEnabled)

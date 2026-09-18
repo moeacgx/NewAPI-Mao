@@ -16,8 +16,8 @@ const ui = {
       type: props.primary ? "primary" : "tertiary",
       disabled: props.disabled,
       onClick: props.onClick,
-      "aria-label": props.label,
-      title: props.label,
+      "aria-label": props.ariaLabel || props.label,
+      title: props.ariaLabel || props.label,
       children: props.label,
     });
   },

@@ -25,7 +25,7 @@ import (
 func setupUpstreamModelGuardServiceTest(t *testing.T) (*model.Channel, *relaycommon.RelayInfo, *UpstreamModelGuardConfig) {
 	t.Helper()
 	setupNotificationServiceTestDB(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.Group{}, &model.Channel{}, &model.Ability{}, &model.UpstreamModelGuardConfig{}, &model.UpstreamModelGuardRecord{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Group{}, &model.Channel{}, &model.Ability{}, &model.UpstreamModelGuardConfig{}, &model.UpstreamModelGuardRecord{}, &model.UpstreamModelGuardStreak{}))
 	for _, group := range []model.Group{{Code: "default", Name: "默认", Status: model.GroupStatusActive}, {Code: "other", Name: "其他", Status: model.GroupStatusActive}} {
 		require.NoError(t, model.DB.Create(&group).Error)
 	}
@@ -49,7 +49,8 @@ func setupUpstreamModelGuardServiceTest(t *testing.T) (*model.Channel, *relaycom
 	require.NoError(t, err)
 	config, err = SaveUpstreamModelGuardConfig(context.Background(), UpstreamModelGuardConfigUpdate{
 		ExpectedVersion: config.ConfigVersion, Enabled: true,
-		Rules: []UpstreamModelGuardRule{{Enabled: true, GroupCodes: []string{"default"}, Model: "client", UpstreamModels: []string{"provider", "provider-v2"}}},
+		FailureThreshold: common.GetPointer(1),
+		Rules:            []UpstreamModelGuardRule{{Enabled: true, GroupCodes: []string{"default"}, Model: "client", UpstreamModels: []string{"provider", "provider-v2"}}},
 	}, 42)
 	require.NoError(t, err)
 	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id}, UsingGroup: "default", OriginModelName: "client", RequestId: "request-guard"}
@@ -298,7 +299,7 @@ func VerifyUpstreamModelGuardStreamIntegration(t *testing.T, parseStream func(*g
 	assert.Equal(t, "/botguard-local-token/sendMessage", call.path)
 	assert.Equal(t, telegramMessageRequest{
 		ChatID: "-10001", ParseMode: "HTML", DisableWebPagePreview: true,
-		Text: fmt.Sprintf(`<a href="tg://user?id=42">&lt;管理员&gt;</a> 渠道「&lt;模型校验渠道&gt;」（#%d）已关闭`+"\n分组: 默认\n请求模型: client\n允许上游模型: provider, provider-v2\n实际上游模型: wrong-provider", channel.Id),
+		Text: fmt.Sprintf(`<a href="tg://user?id=42">&lt;管理员&gt;</a> 渠道「&lt;模型校验渠道&gt;」（#%d）已关闭`+"\n分组: 默认\n请求模型: client\n允许上游模型: provider, provider-v2\n实际上游模型: wrong-provider\n连续不匹配: 1/1", channel.Id),
 	}, call.message)
 	var delivery model.NotificationDelivery
 	require.NoError(t, model.DB.First(&delivery).Error)

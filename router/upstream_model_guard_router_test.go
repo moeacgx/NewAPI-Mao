@@ -48,7 +48,7 @@ func awaitUpstreamModelGuardAudit(t *testing.T, auditWritten <-chan struct{}) {
 
 func TestUpstreamModelGuardRoutesRequireRootAndPersistVersionedRules(t *testing.T) {
 	engine, rootAuth, adminAuth, auditWritten := setupUpstreamModelGuardAPITest(t)
-	for _, endpoint := range []string{"config", "groups", "records"} {
+	for _, endpoint := range []string{"config", "groups", "records", "channels"} {
 		for _, test := range []struct {
 			auth   string
 			status int
@@ -110,6 +110,51 @@ func TestUpstreamModelGuardRecordsRejectInvalidPagination(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestUpstreamModelGuardToleranceConfigDefaultsAndSafeChannelOptions(t *testing.T) {
+	engine, rootAuth, _, auditWritten := setupUpstreamModelGuardAPITest(t)
+	channel := model.Channel{Name: "免检测渠道", Key: "must-never-appear", Status: common.ChannelStatusEnabled}
+	require.NoError(t, model.DB.Create(&channel).Error)
+	request := httptest.NewRequest(http.MethodGet, "/api/extensions/upstream-model-guard/config", nil)
+	request.Header.Set("Authorization", rootAuth)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+	var response struct {
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.EqualValues(t, 2, response.Data["failure_threshold"])
+	assert.Equal(t, []any{}, response.Data["excluded_channel_ids"])
+	request = httptest.NewRequest(http.MethodGet, "/api/extensions/upstream-model-guard/channels?page=1&page_size=50", nil)
+	request.Header.Set("Authorization", rootAuth)
+	recorder = httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "免检测渠道")
+	assert.NotContains(t, recorder.Body.String(), "must-never-appear")
+	assert.NotContains(t, recorder.Body.String(), `"key"`)
+	body, err := common.Marshal(map[string]any{"expected_version": 1, "enabled": true, "rules": []any{}, "failure_threshold": 3, "excluded_channel_ids": []int{channel.Id}})
+	require.NoError(t, err)
+	request = httptest.NewRequest(http.MethodPut, "/api/extensions/upstream-model-guard/config", strings.NewReader(string(body)))
+	request.Header.Set("Authorization", rootAuth)
+	recorder = httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	awaitUpstreamModelGuardAudit(t, auditWritten)
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.EqualValues(t, 3, response.Data["failure_threshold"])
+	assert.Equal(t, []any{float64(channel.Id)}, response.Data["excluded_channel_ids"])
+	// 旧客户端不提交新字段时不得清空白名单或阈值。
+	request = httptest.NewRequest(http.MethodPut, "/api/extensions/upstream-model-guard/config", strings.NewReader(`{"expected_version":2,"enabled":true,"rules":[]}`))
+	request.Header.Set("Authorization", rootAuth)
+	recorder = httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	awaitUpstreamModelGuardAudit(t, auditWritten)
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.EqualValues(t, 3, response.Data["failure_threshold"])
+	assert.Equal(t, []any{float64(channel.Id)}, response.Data["excluded_channel_ids"])
 }
 
 func TestUpstreamModelGuardConfigRejectsInvalidRulesAndAllowsEmptyDisabledConfig(t *testing.T) {

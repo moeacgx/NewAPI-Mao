@@ -35,6 +35,8 @@ func TestUpstreamModelGuardNotificationDefaultCanBeSavedWithExistingBot(t *testi
 	assert.Contains(t, definition.Variables, "channel_id")
 	assert.Contains(t, definition.Variables, "actual_upstream_model")
 	assert.Contains(t, definition.Variables, "comparison")
+	assert.Contains(t, definition.Variables, "consecutive_mismatches")
+	assert.Contains(t, definition.Variables, "failure_threshold")
 	assert.Contains(t, definition.DefaultTemplate, "{{channel_name}}")
 	assert.Contains(t, definition.DefaultTemplate, "{{channel_id}}")
 	assert.Contains(t, definition.DefaultTemplate, "{{comparison}}")

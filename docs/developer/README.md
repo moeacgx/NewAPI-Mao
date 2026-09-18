@@ -2,6 +2,10 @@
 
 - [扩展模块与任务插件配套仓库](extension-repositories.md)：两个独立仓库的职责、发布入口、安装区别和宿主兼容边界。
 
+- [扩展仓库与在线安装](../workflows/2026-09/18_extension_repository_marketplace.md)：独立公开模块仓库、固定目录、浏览器下载、宿主校验及双模板安装入口。
+
+- [模型校验白名单与连续容错](../workflows/2026-09/18_upstream_model_guard_tolerance.md)：渠道跳过策略、默认连续两次关渠、跨节点计数和双模板验证。
+
 - [全局分组显示名称规则](../../AGENTS.md#分组显示名称全局规则)：页面、通知、错误与导出使用显示名称，业务标识保持稳定；回归必须使用名称与 code 不同的数据。
 
 - [maolaoapi 模型校验插件部署](../workflows/2026-09/18_maolaoapi_model_guard_deployment.md)：正式实例备份、逐节点更新与外置 ZIP 安装验证。

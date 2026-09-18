@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -33,8 +40,11 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import { ExternalLink, Puzzle, RefreshCw, Trash2, Upload } from 'lucide-react';
-import { API, isRoot, showError, showSuccess } from '../../helpers';
-import NativeExtensionHost from './NativeExtensionHost';
+import { API } from '../../helpers/api';
+import { isRoot, showError, showSuccess } from '../../helpers/utils';
+import ExtensionMarketplace from './ExtensionMarketplace';
+
+const NativeExtensionHost = lazy(() => import('./NativeExtensionHost'));
 
 const { Text, Title } = Typography;
 const CLASSIC_EXTENSION_REFRESH_EVENT = 'classic-extension-refresh';
@@ -174,7 +184,7 @@ export default function Extensions() {
   };
 
   useEffect(() => {
-    loadData();
+    if (isRoot()) loadData();
   }, []);
 
   const refreshModules = async () => {
@@ -467,6 +477,14 @@ export default function Extensions() {
         </Space>
       </div>
 
+      <ExtensionMarketplace
+        canManage={isRoot()}
+        onInstalled={async () => {
+          await loadData();
+          notifyClassicSidebar();
+        }}
+      />
+
       <Card
         title={t('模块目录')}
         headerExtraContent={
@@ -568,7 +586,11 @@ export function ExtensionModulePage() {
   }
 
   if (page.render?.type === 'native') {
-    return <NativeExtensionHost module={module} page={page} />;
+    return (
+      <Suspense fallback={<Spin spinning />}>
+        <NativeExtensionHost module={module} page={page} />
+      </Suspense>
+    );
   }
 
   const src = extensionPageUrl(

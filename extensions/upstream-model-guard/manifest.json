@@ -1,7 +1,7 @@
 {
   "id": "upstream-model-guard",
   "name": "上游模型校验",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "按分组和请求模型校验上游响应模型，不匹配时关闭整条渠道并联动通知中心。",
   "host": { "min": "v1.0.0-rc.10.1.10.326" },
   "runtime": { "type": "static", "static_dir": "public", "health_path": "/compat.html" },
@@ -18,7 +18,7 @@
       }
     }]
   },
-  "permissions": { "roles": ["root"], "capabilities": ["ui.native", "notification.events.publish", "channel.upstream-model-guard"] },
+  "permissions": { "roles": ["root"], "capabilities": ["ui.native", "notification.events.publish", "channel.upstream-model-guard", "channel.upstream-model-guard-tolerance"] },
   "notifications": {
     "events": [{
       "id": "channel_disabled",
@@ -33,6 +33,8 @@
         { "name": "expected_upstream_models", "label": "允许的上游模型", "required": true },
         { "name": "actual_upstream_model", "label": "实际返回模型", "required": true },
         { "name": "comparison", "label": "模型对比摘要", "required": true },
+        { "name": "consecutive_mismatches", "label": "连续不匹配次数", "type": "number" },
+        { "name": "failure_threshold", "label": "关渠阈值", "type": "number" },
         { "name": "reason", "label": "禁用原因", "required": true },
         { "name": "request_id", "label": "请求 ID" },
         { "name": "create_time", "label": "触发时间", "required": true }

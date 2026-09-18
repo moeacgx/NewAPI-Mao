@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { after, test } from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const directory = path.dirname(fileURLToPath(import.meta.url))
@@ -70,12 +70,32 @@ await i18next.use(I18n.initReactI18next).init({
 const base = '/api/extensions/upstream-model-guard'
 const writes = []
 let records = []
+let configuration = {}
+let channelOptions = []
+let channelError = false
+beforeEach(async () => {
+  await i18next.changeLanguage('en')
+  writes.length = 0
+  records = []
+  configuration = { config_version: 4, enabled: true, rules: [] }
+  channelOptions = []
+  channelError = false
+})
 after(() => dom.window.close())
 const ok = (data) => ({ data: { success: true, data } })
 const api = {
   async get(url, options) {
     if (url === `${base}/config`) {
-      return ok({ config_version: 4, enabled: true, rules: [] })
+      return ok(configuration)
+    }
+    if (url === `${base}/channels`) {
+      if (channelError) throw new Error('Channels unavailable')
+      return ok({
+        items: channelOptions,
+        total: channelOptions.length,
+        page: 1,
+        page_size: 50,
+      })
     }
     if (url === `${base}/groups`) {
       return ok([
@@ -118,6 +138,10 @@ test(
     const renderer = createRoot(container)
     try {
       await act(async () => renderer.render(React.createElement(Page)))
+      assert.equal(
+        screen.getByLabelText('Consecutive mismatch threshold').value,
+        '2'
+      )
       await act(async () =>
         fireEvent.click(screen.getByRole('button', { name: 'Add rule' }))
       )
@@ -149,6 +173,8 @@ test(
         data: {
           expected_version: 4,
           enabled: true,
+          failure_threshold: 2,
+          excluded_channel_ids: [],
           rules: [
             {
               enabled: true,
@@ -165,11 +191,11 @@ test(
           .getAttribute('href'),
         '/notification-center'
       )
-      assert.ok(screen.getByText('No channel disable records'))
+      assert.ok(screen.getByText('No model mismatch records'))
       await act(async () => i18next.changeLanguage('zh-CN'))
       assert.ok(screen.getByRole('button', { name: '添加规则' }))
       assert.ok(screen.getByRole('link', { name: '通知中心' }))
-      assert.ok(screen.getByText('暂无渠道禁用记录'))
+      assert.ok(screen.getByText('暂无模型异常记录'))
       assert.equal(
         i18next.getResource('zh-CN', 'translation', 'Upstream model guard'),
         undefined
@@ -181,6 +207,147 @@ test(
           'Upstream model guard'
         ),
         '上游模型校验'
+      )
+    } finally {
+      await act(async () => renderer.unmount())
+      container.remove()
+    }
+  }
+)
+
+test(
+  'Classic validates threshold and saves allowlist additions and removals using channel IDs',
+  { timeout: 15000 },
+  async () => {
+    configuration = {
+      ...configuration,
+      failure_threshold: 3,
+      excluded_channel_ids: [900, 901],
+      excluded_channels: [
+        { id: 900, name: 'Known provider', status: 1 },
+        { id: 901, name: '', status: 0 },
+      ],
+    }
+    channelOptions = [{ id: 902, name: 'New provider', status: 1 }]
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = createRoot(container)
+    try {
+      await act(async () => renderer.render(React.createElement(Page)))
+      assert.ok(screen.getByText('Known provider (#900)'))
+      await act(async () =>
+        fireEvent.change(
+          screen.getByLabelText('Consecutive mismatch threshold'),
+          { target: { value: '1.5' } }
+        )
+      )
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      )
+      assert.match(
+        screen.getByRole('alert').textContent,
+        /Enter an integer from 1 to 100/
+      )
+      assert.equal(writes.length, 0)
+      await act(async () =>
+        fireEvent.change(
+          screen.getByLabelText('Consecutive mismatch threshold'),
+          { target: { value: '4' } }
+        )
+      )
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: 'Remove Unavailable channel (#901) from allowlist',
+          })
+        )
+      )
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole('checkbox', { name: 'New provider (#902)' })
+        )
+      )
+      await act(async () =>
+        fireEvent.change(screen.getByLabelText('Search channels'), {
+          target: { value: 'New' },
+        })
+      )
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+      )
+      assert.equal(
+        screen.getByLabelText('Consecutive mismatch threshold').value,
+        '4'
+      )
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      )
+      assert.deepEqual(writes[0].data, {
+        expected_version: 4,
+        enabled: true,
+        rules: [],
+        failure_threshold: 4,
+        excluded_channel_ids: [900, 902],
+      })
+    } finally {
+      await act(async () => renderer.unmount())
+      container.remove()
+    }
+  }
+)
+
+test(
+  'Classic blocks saving when channel options fail',
+  { timeout: 15000 },
+  async () => {
+    channelError = true
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = createRoot(container)
+    try {
+      await act(async () => renderer.render(React.createElement(Page)))
+      assert.match(
+        screen.getByRole('alert').textContent,
+        /Channels unavailable/
+      )
+      assert.equal(
+        screen.getByRole('button', { name: 'Save settings' }).disabled,
+        true
+      )
+    } finally {
+      await act(async () => renderer.unmount())
+      container.remove()
+    }
+  }
+)
+
+test(
+  'Classic displays mismatch progress and legacy records as disabled',
+  { timeout: 15000 },
+  async () => {
+    records = [
+      {
+        id: 1,
+        channel_id: 901,
+        channel_name: 'Pending channel',
+        consecutive_mismatches: 1,
+        failure_threshold: 2,
+        channel_disabled: false,
+      },
+      { id: 2, channel_id: 902, channel_name: 'Legacy channel' },
+    ]
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = createRoot(container)
+    try {
+      await act(async () => renderer.render(React.createElement(Page)))
+      const pending = screen.getByRole('row', { name: /Pending channel/ })
+      assert.ok(within(pending).getByRole('gridcell', { name: '1 / 2' }))
+      assert.ok(within(pending).getByRole('gridcell', { name: 'Not disabled' }))
+      const legacy = screen.getByRole('row', { name: /Legacy channel/ })
+      assert.ok(within(legacy).getByRole('gridcell', { name: '1 / 1' }))
+      assert.ok(
+        within(legacy).getByRole('gridcell', { name: 'Channel disabled' })
       )
     } finally {
       await act(async () => renderer.unmount())
