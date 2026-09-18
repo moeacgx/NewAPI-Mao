@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ExternalLink, Puzzle, RefreshCw, Trash2, Upload } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { createElement, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -55,6 +55,7 @@ import {
   uninstallExtension,
   uploadExtension,
 } from './api'
+import { ExtensionMarketplacePanel } from './marketplace-panel'
 import { getExtensionQueryKey } from './query-key'
 import type { ExtensionModule } from './types'
 
@@ -247,6 +248,8 @@ export function Extensions() {
         </CardContent>
       </Card>
 
+      <ExtensionMarketplacePanel />
+
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
@@ -404,11 +407,10 @@ function ExtensionsTable({
 }
 
 function ModuleIcon({ module }: { module: ExtensionModule }) {
-  const iconName = useMemo(() => module.ui?.nav?.[0]?.icon, [module])
-  const Icon = getCustomNavIcon(iconName) ?? Puzzle
+  const icon = getCustomNavIcon(module.ui?.nav?.[0]?.icon) ?? Puzzle
   return (
     <div className='bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg'>
-      <Icon className='size-4' />
+      {createElement(icon, { className: 'size-4' })}
     </div>
   )
 }

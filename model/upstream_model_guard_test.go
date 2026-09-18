@@ -2,7 +2,10 @@ package model
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -17,11 +21,21 @@ import (
 
 func setupUpstreamModelGuardModelTest(t *testing.T) (*Channel, *UpstreamModelGuardConfig) {
 	t.Helper()
-	setupNotificationTestDB(t)
+	originalDB, originalDBType := DB, common.MainDatabaseType()
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "guard.db")+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"), &gorm.Config{})
+	require.NoError(t, err)
+	DB = db
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	sqlDB, err := DB.DB()
 	require.NoError(t, err)
-	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, DB.AutoMigrate(&Group{}, &Channel{}, &Ability{}, &UpstreamModelGuardConfig{}, &UpstreamModelGuardRecord{}))
+	sqlDB.SetMaxOpenConns(4)
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+		DB = originalDB
+		common.SetMainDatabaseType(originalDBType)
+	})
+	require.NoError(t, DB.AutoMigrate(&NotificationBot{}, &NotificationTask{}, &NotificationTarget{}, &NotificationEventReceipt{}, &NotificationEvent{}, &NotificationDelivery{}))
+	require.NoError(t, DB.AutoMigrate(&Group{}, &Channel{}, &Ability{}, &UpstreamModelGuardConfig{}, &UpstreamModelGuardRecord{}, &UpstreamModelGuardStreak{}))
 	originalMemory := common.MemoryCacheEnabled
 	originalGroups, originalChannels, originalAdvanced := group2model2channels, channelsIDM, channel2advancedCustomConfig
 	common.MemoryCacheEnabled = false
@@ -41,6 +55,7 @@ func setupUpstreamModelGuardModelTest(t *testing.T) (*Channel, *UpstreamModelGua
 	config, err := LoadUpstreamModelGuardConfig(context.Background())
 	require.NoError(t, err)
 	config.Enabled = true
+	config.FailureThreshold = 1
 	require.NoError(t, SaveUpstreamModelGuardConfig(context.Background(), config.ConfigVersion, config))
 	bot := &NotificationBot{Name: "existing-bot", Token: "no-network", Enabled: true}
 	require.NoError(t, DB.Create(bot).Error)
@@ -51,10 +66,11 @@ func setupUpstreamModelGuardModelTest(t *testing.T) (*Channel, *UpstreamModelGua
 }
 
 func upstreamModelGuardTestRecord(channel *Channel, config *UpstreamModelGuardConfig) *UpstreamModelGuardRecord {
+	key := fmt.Sprintf("%x", sha256.Sum256([]byte(common.GetUUID())))
 	return &UpstreamModelGuardRecord{
 		ChannelID: channel.Id, GroupID: 1, Group: "default", RequestedModel: "client-model",
 		ExpectedUpstreamModels: []string{"provider-model", "provider-model-v2"}, ActualUpstreamModel: "wrong-model",
-		RequestID: "guard-request", ConfigVersion: config.ConfigVersion,
+		RequestID: "guard-request", ConfigVersion: config.ConfigVersion, ObservationKey: &key,
 	}
 }
 
@@ -68,7 +84,7 @@ func TestUpstreamModelGuardDisablesWholeChannelAndEnqueuesOnce(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			changed, err := DisableChannelForUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config))
+			changed, err := ObserveUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config), false)
 			results <- changed
 			errors <- err
 		}()
@@ -123,7 +139,7 @@ func TestUpstreamModelGuardUsesGroupNameWithoutChangingIdentity(t *testing.T) {
 	require.NoError(t, DB.Create(&group).Error)
 	record := upstreamModelGuardTestRecord(channel, config)
 	record.GroupID, record.Group = group.Id, group.Code
-	changed, err := DisableChannelForUpstreamModelGuard(context.Background(), record)
+	changed, err := ObserveUpstreamModelGuard(context.Background(), record, false)
 	require.NoError(t, err)
 	require.True(t, changed)
 	var event NotificationEvent
@@ -174,7 +190,7 @@ func TestUpstreamModelGuardRollsBackWhenNotificationFails(t *testing.T) {
 			tx.AddError(errors.New("delivery storage failure"))
 		}
 	}))
-	changed, err := DisableChannelForUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config))
+	changed, err := ObserveUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config), false)
 	require.ErrorContains(t, err, "delivery storage failure")
 	assert.False(t, changed)
 	var stored Channel
@@ -195,10 +211,10 @@ func TestUpstreamModelGuardRejectsStaleConfigurationAndAllowsExplicitRecovery(t 
 	channel, config := setupUpstreamModelGuardModelTest(t)
 	stale := upstreamModelGuardTestRecord(channel, config)
 	require.NoError(t, SaveUpstreamModelGuardConfig(context.Background(), config.ConfigVersion, config))
-	changed, err := DisableChannelForUpstreamModelGuard(context.Background(), stale)
+	changed, err := ObserveUpstreamModelGuard(context.Background(), stale, false)
 	require.NoError(t, err)
 	assert.False(t, changed)
-	changed, err = DisableChannelForUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config))
+	changed, err = ObserveUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config), false)
 	require.NoError(t, err)
 	assert.True(t, changed)
 	available, err := IsChannelEnabledAfterUpstreamModelGuard(context.Background(), channel.Id)
@@ -208,7 +224,7 @@ func TestUpstreamModelGuardRejectsStaleConfigurationAndAllowsExplicitRecovery(t 
 	available, err = IsChannelEnabledAfterUpstreamModelGuard(context.Background(), channel.Id)
 	require.NoError(t, err)
 	assert.True(t, available)
-	changed, err = DisableChannelForUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config))
+	changed, err = ObserveUpstreamModelGuard(context.Background(), upstreamModelGuardTestRecord(channel, config), false)
 	require.NoError(t, err)
 	assert.True(t, changed)
 	_, total, err := ListUpstreamModelGuardRecords(context.Background(), 1, 1)
@@ -221,7 +237,7 @@ func TestUpstreamModelGuardNotificationSummaryPreservesEveryDimension(t *testing
 	record := upstreamModelGuardTestRecord(channel, config)
 	record.ExpectedUpstreamModels = []string{strings.Repeat("期", 1024)}
 	record.ActualUpstreamModel = "实际模型-" + strings.Repeat("实", 5000)
-	changed, err := DisableChannelForUpstreamModelGuard(context.Background(), record)
+	changed, err := ObserveUpstreamModelGuard(context.Background(), record, false)
 	require.NoError(t, err)
 	assert.True(t, changed)
 	var event NotificationEvent

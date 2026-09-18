@@ -145,7 +145,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 	applyImageTaskAsyncPreConsume(c, relayInfo)
 	service.BindChannelMetricRelayInfo(c, relayInfo)
-	service.BindUpstreamModelGuard(relayInfo)
+	defer service.BindUpstreamModelGuard(relayInfo)()
 	if err := applyAtlasCloudImageDefaultsForPricing(c, relayInfo, relayFormat, request); err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 		return

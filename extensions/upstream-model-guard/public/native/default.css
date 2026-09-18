@@ -61,6 +61,64 @@
 .upstream-model-guard .guard-model-fields {
   gap: 16px;
 }
+.upstream-model-guard .guard-tolerance {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: end;
+}
+.upstream-model-guard .guard-help {
+  margin: 0;
+  line-height: 1.6;
+}
+.upstream-model-guard .guard-selected-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+.upstream-model-guard .guard-selected-channel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--guard-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.upstream-model-guard .guard-selected-channel > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.upstream-model-guard .guard-channel-search {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.upstream-model-guard .guard-channel-search > .guard-field {
+  flex: 1;
+}
+.upstream-model-guard .guard-channel-results {
+  margin-top: 14px;
+  border: 1px solid var(--guard-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.upstream-model-guard .guard-channel-results > p,
+.upstream-model-guard .guard-channel-error {
+  padding: 12px;
+}
+.upstream-model-guard .guard-channel-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 14px;
+}
 .upstream-model-guard .guard-groups {
   border: 0;
   padding: 0;
@@ -182,7 +240,7 @@
 }
 .upstream-model-guard table {
   width: 100%;
-  min-width: 800px;
+  min-width: 1050px;
   table-layout: fixed;
 }
 .upstream-model-guard th,
@@ -211,6 +269,13 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
+  .upstream-model-guard .guard-tolerance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .upstream-model-guard .guard-selected-channel {
+    width: 100%;
+    box-sizing: border-box;
+  }
   .upstream-model-guard .guard-rule-fields {
     grid-template-columns: minmax(0, 1fr);
   }

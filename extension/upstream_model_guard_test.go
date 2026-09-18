@@ -93,3 +93,17 @@ func TestUpstreamModelGuardCapabilityRejectsWrongModuleOrRole(t *testing.T) {
 		})
 	}
 }
+
+func TestUpstreamModelGuardToleranceCapabilityRequiresGuardIdentity(t *testing.T) {
+	data, err := os.ReadFile("../extensions/upstream-model-guard/manifest.json")
+	require.NoError(t, err)
+	var manifest Manifest
+	require.NoError(t, common.Unmarshal(data, &manifest))
+	manifest.Permissions.Capabilities = []string{CapabilityUINative, CapabilityNotificationEventsPublish, "channel.upstream-model-guard-tolerance"}
+	require.NoError(t, manifest.Validate())
+	manifest.ID = "unrelated-module"
+	require.Error(t, manifest.Validate())
+	manifest.ID = "upstream-model-guard"
+	manifest.Permissions.Roles = []string{"admin"}
+	require.Error(t, manifest.Validate())
+}

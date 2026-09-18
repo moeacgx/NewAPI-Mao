@@ -41,7 +41,7 @@ func TestUpstreamModelGuardStatusUsesDatabaseOverStaleCache(t *testing.T) {
 
 func TestUpstreamModelGuardStatusAuthorityDoesNotDependOnReason(t *testing.T) {
 	channel, config := setupUpstreamModelGuardModelTest(t)
-	changed, err := DisableChannelForUpstreamModelGuard(t.Context(), upstreamModelGuardTestRecord(channel, config))
+	changed, err := ObserveUpstreamModelGuard(t.Context(), upstreamModelGuardTestRecord(channel, config), false)
 	require.NoError(t, err)
 	require.True(t, changed)
 	assert.False(t, UpdateChannelStatusAutomatically(channel.Id, "", common.ChannelStatusEnabled, "manual operation"), "自动入口不能借助文案恢复渠道")

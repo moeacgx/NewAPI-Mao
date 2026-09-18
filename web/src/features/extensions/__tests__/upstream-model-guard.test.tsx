@@ -62,6 +62,9 @@ describe('upstream model guard native page', () => {
     await screen.findByRole('button', { name: 'Add rule' })
     fireEvent.click(screen.getByRole('switch', { name: 'Detection enabled' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add rule' }))
+    expect(screen.getByLabelText('Consecutive mismatch threshold')).toHaveValue(
+      2
+    )
     const rule = screen.getByRole('group', { name: 'Rule 1' })
     fireEvent.click(
       within(rule).getByRole('checkbox', { name: 'Default group' })
@@ -80,6 +83,8 @@ describe('upstream model guard native page', () => {
         {
           expected_version: 7,
           enabled: true,
+          failure_threshold: 2,
+          excluded_channel_ids: [],
           rules: [
             {
               enabled: true,
@@ -301,7 +306,11 @@ describe('upstream model guard native page', () => {
     fireEvent.change(screen.getByLabelText('Request model'), {
       target: { value: 'unsaved-model' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    fireEvent.click(
+      within(
+        screen.getByRole('region', { name: 'Model mismatch records' })
+      ).getByRole('button', { name: 'Next page' })
+    )
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith(`${base}/records`, {
         params: { page: 2, page_size: 20 },
@@ -313,5 +322,250 @@ describe('upstream model guard native page', () => {
     expect(
       screen.getByRole('link', { name: 'Notification Center' })
     ).toHaveAttribute('href', '/notification-center')
+  })
+
+  it.each(['0', '101', '1.5', ''])(
+    'rejects invalid mismatch threshold %s without saving',
+    async (value) => {
+      render(<Page />)
+      await screen.findByRole('button', { name: 'Save settings' })
+      fireEvent.change(
+        screen.getByLabelText('Consecutive mismatch threshold'),
+        { target: { value } }
+      )
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Save settings' })
+        ).toBeEnabled()
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Enter an integer from 1 to 100.'
+      )
+      expect(api.put).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([1, 100])(
+    'saves the allowed threshold boundary %s',
+    async (threshold) => {
+      render(<Page />)
+      await screen.findByRole('button', { name: 'Save settings' })
+      fireEvent.change(
+        screen.getByLabelText('Consecutive mismatch threshold'),
+        { target: { value: String(threshold) } }
+      )
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Save settings' })
+        ).toBeEnabled()
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      await waitFor(() =>
+        expect(api.put).toHaveBeenCalledWith(
+          `${base}/config`,
+          expect.objectContaining({
+            failure_threshold: threshold,
+            excluded_channel_ids: [],
+          }),
+          { skipErrorHandler: true }
+        )
+      )
+    }
+  )
+
+  it('keeps selected channel identities and edited rules across allowlist search and pagination', async () => {
+    vi.mocked(api.get).mockImplementation(async (url, options) => {
+      if (url === `${base}/config`) {
+        return ok({
+          ...configuration,
+          failure_threshold: 3,
+          excluded_channel_ids: [900, 901],
+          excluded_channels: [
+            { id: 900, name: 'Existing provider', status: 1 },
+            { id: 901, name: '', status: 0 },
+          ],
+        })
+      }
+      if (url === `${base}/groups`) {
+        return ok([{ id: 2, code: 'vip', name: 'VIP group' }])
+      }
+      if (url === `${base}/channels`) {
+        const params = options?.params as { keyword: string; page: number }
+        const item =
+          params.page === 2
+            ? { id: 903, name: 'Provider second page', status: 1 }
+            : { id: 902, name: 'Provider first page', status: 1 }
+        return ok({
+          items: [item],
+          total: 51,
+          page: params.page,
+          page_size: 50,
+        })
+      }
+      return ok({ items: [], total: 0, page: 1, page_size: 20 })
+    })
+    render(<Page />)
+    await screen.findByText('Existing provider (#900)')
+    expect(screen.getByText('Unavailable channel (#901)')).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Remove Unavailable channel (#901) from allowlist',
+      })
+    )
+    fireEvent.change(screen.getByLabelText('Consecutive mismatch threshold'), {
+      target: { value: '4' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add rule' }))
+    const rule = screen.getByRole('group', { name: 'Rule 1' })
+    fireEvent.click(within(rule).getByRole('checkbox', { name: 'VIP group' }))
+    fireEvent.change(within(rule).getByLabelText('Request model'), {
+      target: { value: 'unsaved-model' },
+    })
+    fireEvent.change(within(rule).getByLabelText('Allowed upstream models'), {
+      target: { value: 'provider-A' },
+    })
+    fireEvent.change(screen.getByLabelText('Search channels'), {
+      target: { value: 'Provider' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    const choices = screen.getByRole('group', { name: 'Available channels' })
+    fireEvent.click(
+      await within(choices).findByRole('checkbox', {
+        name: 'Provider first page (#902)',
+      })
+    )
+    fireEvent.click(within(choices).getByRole('button', { name: 'Next page' }))
+    fireEvent.click(
+      await within(choices).findByRole('checkbox', {
+        name: 'Provider second page (#903)',
+      })
+    )
+    expect(screen.getByLabelText('Request model')).toHaveValue('unsaved-model')
+    expect(screen.getByLabelText('Consecutive mismatch threshold')).toHaveValue(
+      4
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        `${base}/config`,
+        {
+          expected_version: 7,
+          enabled: false,
+          failure_threshold: 4,
+          excluded_channel_ids: [900, 902, 903],
+          rules: [
+            {
+              enabled: true,
+              group_codes: ['vip'],
+              model: 'unsaved-model',
+              upstream_models: ['provider-A'],
+            },
+          ],
+        },
+        { skipErrorHandler: true }
+      )
+    )
+    expect(api.get).toHaveBeenCalledWith(`${base}/channels`, {
+      params: { keyword: 'Provider', page: 2, page_size: 50 },
+      skipErrorHandler: true,
+    })
+  })
+
+  it('blocks saving when allowlist options fail and preserves selected channels on retry', async () => {
+    let failed = true
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === `${base}/config`) {
+        return ok({
+          ...configuration,
+          excluded_channel_ids: [900],
+          excluded_channels: [
+            { id: 900, name: 'Existing provider', status: 1 },
+          ],
+        })
+      }
+      if (url === `${base}/groups`) return ok([])
+      if (url === `${base}/channels` && failed) {
+        throw new Error('Channels unavailable')
+      }
+      return ok({ items: [], total: 0, page: 1, page_size: 50 })
+    })
+    render(<Page />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Channels unavailable'
+    )
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled()
+    expect(screen.getByText('Existing provider (#900)')).toBeInTheDocument()
+    failed = false
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry channel search' })
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Save settings' })
+      ).toBeEnabled()
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        `${base}/config`,
+        expect.objectContaining({
+          failure_threshold: 2,
+          excluded_channel_ids: [900],
+        }),
+        { skipErrorHandler: true }
+      )
+    )
+  })
+
+  it('distinguishes below-threshold records from disabled channels and legacy records', async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === `${base}/config`) return ok(configuration)
+      if (url === `${base}/groups`) return ok([])
+      if (url === `${base}/channels`) {
+        return ok({ items: [], total: 0, page: 1, page_size: 50 })
+      }
+      return ok({
+        items: [
+          {
+            id: 1,
+            channel_id: 901,
+            channel_name: 'Pending channel',
+            consecutive_mismatches: 1,
+            failure_threshold: 2,
+            channel_disabled: false,
+          },
+          {
+            id: 2,
+            channel_id: 902,
+            channel_name: 'Disabled channel',
+            consecutive_mismatches: 2,
+            failure_threshold: 2,
+            channel_disabled: true,
+          },
+          { id: 3, channel_id: 903, channel_name: 'Legacy channel' },
+        ],
+        total: 3,
+        page: 1,
+        page_size: 20,
+      })
+    })
+    render(<Page />)
+    const row = await screen.findByRole('row', { name: /Pending channel/ })
+    expect(within(row).getByRole('cell', { name: '1 / 2' })).toBeInTheDocument()
+    expect(
+      within(row).getByRole('cell', { name: 'Not disabled' })
+    ).toBeInTheDocument()
+    const disabled = screen.getByRole('row', { name: /Disabled channel/ })
+    expect(
+      within(disabled).getByRole('cell', { name: '2 / 2' })
+    ).toBeInTheDocument()
+    const legacy = screen.getByRole('row', { name: /Legacy channel/ })
+    expect(
+      within(legacy).getByRole('cell', { name: '1 / 1' })
+    ).toBeInTheDocument()
+    expect(
+      within(legacy).getByRole('cell', { name: 'Channel disabled' })
+    ).toBeInTheDocument()
   })
 })

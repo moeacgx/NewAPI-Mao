@@ -8,6 +8,10 @@
 
 ## 模块清单
 
+模块源码和版本安装包集中发布在 [maolaonewapi-extensions](https://github.com/moeacgx/maolaonewapi-extensions)，
+Task Plugin 的独立 [maolaonewapi-plugins](https://github.com/moeacgx/maolaonewapi-plugins) 仓库保持原安装方式。
+两个包格式不互通，宿主业务、权限和数据库迁移仍在主程序中维护。
+
 内置和外部模块都通过 `manifest.json` 声明：
 
 - `id` 使用小写字母、数字、`-` 或 `_`。
@@ -15,6 +19,23 @@
 - `ui.pages[].path` 必须是模块内绝对路径，不能包含跳转或路径穿越。
 - `ui.pages[].render.type = native` 时，必须声明 `sdk = v1`。
 - 使用原生 UI 时，`permissions.capabilities` 必须包含 `ui.native`。
+
+## 在线安装
+
+Default 与 Classic 的 Root 扩展管理页提供固定维护源的在线安装卡片，保留原 ZIP 上传。
+`GET /api/extension-admin/marketplace` 返回固定 `catalog_url`、`repository_url`、`host_version`、`max_archive_bytes`。
+浏览器下载 `catalogVersion:1`、`purpose:extension-catalog` 的版本目录，每条带
+`id/name/version/path/sha256/size/host`，显示名称、版本和兼容要求，确认后安装所选版本。
+外部下载不发送登录凭据或 Referer，不跟随重定向；清单限制 2 MiB，ZIP 限制 100 MiB，按实际响应流字节执行限制。
+
+浏览器核对包大小和 SHA-256 后，将 ZIP 连同 `archiveSha256`、`expectedId`、`expectedVersion`、
+`catalogUrl`、`archivePath` 发送原 `POST /api/extension-admin/upload`。
+五项元数据必须全部存在或全部省略；仅接受固定目录与同目录 `published/<id>/<version>/<id>-<version>.zip` 路径。
+服务器不访问上传的 URL，而是在替换文件前检查实际字节 hash、清单 ID/版本、宿主兼容和原有安全解包规则。
+失败保留已安装内容和启用状态，首次安装关闭，更新沿用原启用状态。SHA-256 只表示完整性，不是发布者签名。
+兼容错误仍可能由宿主最终拒绝；公开目录存在不代表任意旧站点已有所需宿主接口。
+
+固定源和双端交互/失败矩阵见 [在线安装工作记录](../workflows/2026-09/18_extension_repository_marketplace.md)。
 
 ## 原生 UI
 
@@ -78,6 +99,8 @@ Classic 通过 `../../helpers.getAPI()` 取得刷新登录态后的当前客户�
 旧宿主不认识该能力时会拒绝清单，避免页面安装成功但检测没有生效。
 这不是可执行任意后台代码的通用插件运行时，ZIP 不包含 Go 二进制。
 安装后默认关闭，Root 显式启用才绑定检测。停用或卸载后不再绑定，重启不会自动恢复插件。
+`0.2.0` 额外要求 `channel.upstream-model-guard-tolerance` 能力，支持渠道白名单和默认两次的连续不匹配阈值。
+旧宿主必须拒绝新能力，避免页面配置可保存而运行时仍单次关渠。配置和记录契约见模块专题文档。
 
 ## 对话归档扩展
 
