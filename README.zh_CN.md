@@ -6,6 +6,8 @@
 
 # New API
 
+**MaoLaoNewAPI 配套仓库：** [扩展模块源码与安装包](https://github.com/moeacgx/maolaonewapi-extensions) · [任务插件仓库](https://github.com/moeacgx/maolaonewapi-plugins) · [仓库职责与安装说明](docs/developer/extension-repositories.md)
+
 🍥 **新一代大模型网关与AI资产管理系统**
 
 <p align="center">
