@@ -57,6 +57,15 @@
 
 ## 📝 Project Description
 
+### MaoLaoNewAPI companion repositories
+
+| Repository | Purpose |
+| --- | --- |
+| [Extension modules](https://github.com/moeacgx/maolaonewapi-extensions) | Dashboard module sources, versioned ZIP packages, checksums and installation catalog |
+| [Task plugins](https://github.com/moeacgx/maolaonewapi-plugins) | Task Plugin adapters and the existing task-plugin marketplace source |
+
+See [repository roles and installation](docs/developer/extension-repositories.md). The two package formats use separate installation flows; modules still require compatible host capabilities.
+
 > [!IMPORTANT]
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.
 > - Users must lawfully obtain upstream API keys, accounts, model services, and interface permissions, and must comply with upstream terms of service and applicable laws and regulations.

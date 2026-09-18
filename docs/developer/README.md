@@ -1,5 +1,7 @@
 # 开发文档
 
+- [扩展模块与任务插件配套仓库](extension-repositories.md)：两个独立仓库的职责、发布入口、安装区别和宿主兼容边界。
+
 - [全局分组显示名称规则](../../AGENTS.md#分组显示名称全局规则)：页面、通知、错误与导出使用显示名称，业务标识保持稳定；回归必须使用名称与 code 不同的数据。
 
 - [maolaoapi 模型校验插件部署](../workflows/2026-09/18_maolaoapi_model_guard_deployment.md)：正式实例备份、逐节点更新与外置 ZIP 安装验证。
