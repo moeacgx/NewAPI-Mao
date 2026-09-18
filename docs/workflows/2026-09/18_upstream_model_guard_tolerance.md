@@ -61,3 +61,17 @@ ZIP：`output/extensions/upstream-model-guard-0.2.0.zip`，SHA-256：
 仅上传 ZIP 到现有 `.326.guard.1` 不会生效，须先部署本版宿主与数据库迁移。
 MySQL/PostgreSQL 本轮未执行真实升级；SQL 使用通用 GORM，SQLite 特例只在 SQLite 分支执行。
 文档格式与 `git diff --check` 通过；链接检查无新增失效链接，保留开发索引原有 81 个失效目标的已知边界。
+
+## 子仓库关联 PR 中发现的测试时序问题
+
+PR #235 的 CI 在 `keeps an edited draft when the server rejects a stale configuration`
+用例中未找到预期的冲突提示。Default 页面先渲染配置，再异步获取渠道白名单选项；
+保存按钮存在时仍可能因 `channelsReady=false` 禁用，原测试只等待按钮出现便点击，
+导致请求未发出，无法触发模拟的 409 响应。
+
+本地复核也在多分组保存用例中复现零次请求，确认同一加载竞争影响多个保存场景。
+修复范围仅为 Default 测试：为多分组保存、409 冲突、不完整规则与白名单分页保存四个场景
+补齐按钮可用等待；保留请求内容、冲突提示、草稿保留等原有断言。
+页面业务、Classic 与模块发布包均无改动。
+该测试文件本地 18/18 通过，TypeScript、相关文件 lint、格式和差异检查通过；
+完整回归由 PR CI 复核。不使用固定延时掩盖竞争。
