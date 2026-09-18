@@ -32,6 +32,28 @@ func TestRelayInfoSetUpstreamResponseModelNameTrimsAndPreservesPreviousValue(t *
 	require.Equal(t, "provider-actual", info.UpstreamResponseModelName)
 }
 
+func TestUpstreamModelObserverSeesEachDeclaredModelAndCurrentRoute(t *testing.T) {
+	info := &RelayInfo{ChannelMeta: &ChannelMeta{ChannelId: 11}, UsingGroup: "first"}
+	type observation struct {
+		channel int
+		group   string
+		model   string
+	}
+	var observed []observation
+	info.OnUpstreamResponseModel = func(current *RelayInfo, name string) {
+		observed = append(observed, observation{current.ChannelId, current.UsingGroup, name})
+	}
+	info.SetUpstreamResponseModelName(" unexpected ")
+	info.SetUpstreamResponseModelName(" ")
+	info.SetUpstreamResponseModelName("expected")
+	info.ChannelMeta = &ChannelMeta{ChannelId: 22}
+	info.UsingGroup = "second"
+	info.SetUpstreamResponseModelName("other")
+	assert.Equal(t, []observation{
+		{11, "first", "unexpected"}, {11, "first", "expected"}, {22, "second", "other"},
+	}, observed)
+}
+
 func TestRelayInfoGetFinalRequestRelayFormatFallsBackToConversionChain(t *testing.T) {
 	info := &RelayInfo{
 		RelayFormat:            types.RelayFormatOpenAI,

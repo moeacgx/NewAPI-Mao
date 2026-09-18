@@ -292,7 +292,7 @@ func patchCachedTokensProOverview(channel *model.Channel) {
 }
 
 func applyTokensProOverviewDisable(channel *model.Channel) bool {
-	success := model.UpdateChannelStatus(channel.Id, "", common.ChannelStatusAutoDisabled, tokensProOverviewZeroDisableReason)
+	success := model.UpdateChannelStatusAutomatically(channel.Id, "", common.ChannelStatusAutoDisabled, tokensProOverviewZeroDisableReason)
 	if success {
 		enqueueChannelNotification(
 			model.NotificationEventTypeChannelDisabled,
@@ -308,7 +308,7 @@ func applyTokensProOverviewDisable(channel *model.Channel) bool {
 }
 
 func applyTokensProOverviewEnable(channel *model.Channel) bool {
-	success := model.UpdateChannelStatus(channel.Id, "", common.ChannelStatusEnabled, "")
+	success := model.UpdateChannelStatusAutomatically(channel.Id, "", common.ChannelStatusEnabled, "")
 	if success {
 		enqueueChannelNotification(model.NotificationEventTypeChannelEnabled, channel.Id, channel.Name, "", "", "", 0)
 	}

@@ -69,6 +69,14 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 - For host, container, deployment, or production diagnostics, use the `cloudssh-agent` skill / CloudSSH first. Do not start by probing local `ssh`, `sshpass`, SSH keys, or credential files.
 - Only fall back to direct SSH tooling when CloudSSH is unavailable and the user explicitly authorizes that fallback for the current task.
 
+### 分组显示名称（全局规则）
+
+- 所有面向用户的分组展示必须使用当前显示名称 `Group.Name` / `group_name`，覆盖 Default、Classic、外置扩展、通知中心及 Bot 消息、记录详情、错误提示和导出。不得直接展示分组 code、历史 alias 或 ID，也不得默认追加 `(code)` 作为第二名称。
+- `Group.Id` 是稳定身份，新持久化关联使用 ID；已有接口、规则匹配、路由、鉴权、计费、筛选值和提交值继续使用原有 ID/code 契约。显示名称只用于展示，不得替代业务标识。
+- 后端向展示层提供独立名称字段；已有分组 ID 时按 ID 解析名称，历史 code/alias 复用 `GetGroupDisplayNameMap` / `FormatGroupDisplayNames` 等现有解析逻辑，不要各自维护硬编码映射。列表应批量解析，避免逐行查询。
+- 只有名称缺失、分组已删除或历史标识无法解析时，才允许回退原标识；不能因为调用方缺少名称字段就长期展示 code。通知在事件产生时解析并保存名称到负载，已有事件不因后续改名而重写。
+- 涉及分组展示的变更，必须使用“显示名称与 code 不同”的测试数据，验证页面/消息展示名称、接口提交和业务匹配仍使用稳定标识；按实际变更覆盖改名、历史 alias、已删除分组等边界。
+
 ### Backend Rules
 
 **relaykit module independence:** The `relaykit/` Go module MUST remain independently buildable.

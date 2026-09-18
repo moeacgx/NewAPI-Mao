@@ -629,6 +629,21 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
+	if service.IsUpstreamModelGuardModuleEnabled() {
+		ctx := context.Background()
+		if c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		enabled, err := model.IsChannelEnabledAfterUpstreamModelGuard(checkCtx, channel.Id)
+		cancel()
+		if err != nil {
+			return types.NewError(errors.New("渠道状态检查失败"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if !enabled {
+			return types.NewError(errors.New("渠道已停用"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+	}
 	requestPath := ""
 	if c.Request != nil && c.Request.URL != nil {
 		requestPath = c.Request.URL.Path

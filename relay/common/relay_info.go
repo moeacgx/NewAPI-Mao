@@ -107,6 +107,8 @@ type RelayInfo struct {
 	// UpstreamResponseModelName 是上游响应声明的模型标识。
 	// 它与请求中发送的映射模型 UpstreamModelName 分开保存。
 	UpstreamResponseModelName string
+	// OnUpstreamResponseModel 在解析到模型标识时同步通知宿主策略，不依赖日志落库。
+	OnUpstreamResponseModel func(*RelayInfo, string) `json:"-"`
 	// OriginalRequestURLPath preserves the exact incoming path and query for
 	// auditing/routing rules. RequestURLPath is the upstream-facing path.
 	OriginalRequestURLPath string
@@ -786,6 +788,9 @@ func (info *RelayInfo) SetUpstreamResponseModelName(modelName string) {
 		return
 	}
 	info.UpstreamResponseModelName = modelName
+	if info.OnUpstreamResponseModel != nil {
+		info.OnUpstreamResponseModel(info, modelName)
+	}
 }
 
 func (info *RelayInfo) HasChannelMeta() bool { return info != nil && info.ChannelMeta != nil }

@@ -862,7 +862,17 @@ func hasEnabledMultiKey(keys []string, statusList map[int]int) bool {
 	return false
 }
 
+// UpdateChannelStatusAutomatically 更新后台健康检查或上游错误触发的渠道状态。
+func UpdateChannelStatusAutomatically(channelId int, usingKey string, status int, reason string) bool {
+	return updateChannelStatus(channelId, usingKey, status, reason, true)
+}
+
+// UpdateChannelStatus 保留管理接口的显式人工状态变更入口。
 func UpdateChannelStatus(channelId int, usingKey string, status int, reason string) bool {
+	return updateChannelStatus(channelId, usingKey, status, reason, false)
+}
+
+func updateChannelStatus(channelId int, usingKey string, status int, reason string, automatic bool) bool {
 	if common.MemoryCacheEnabled {
 		channelStatusLock.Lock()
 		defer channelStatusLock.Unlock()
@@ -875,67 +885,67 @@ func UpdateChannelStatus(channelId int, usingKey string, status int, reason stri
 	pollingLock.Lock()
 	defer pollingLock.Unlock()
 
-	if common.MemoryCacheEnabled {
-		channelCache, _ := CacheGetChannel(channelId)
-		if channelCache == nil {
-			return false
+	var channel Channel
+	changed := false
+	// 与模型校验使用同一数据库行锁，避免其他进程的旧请求覆盖人工禁用。
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).First(&channel, "id = ?", channelId).Error; err != nil {
+			return err
 		}
-		if channelCache.ChannelInfo.IsMultiKey {
-			beforeStatus := channelCache.Status
-			// 如果是多Key模式，更新缓存中的状态
-			handlerMultiKeyUpdate(channelCache, usingKey, status, reason)
-			if beforeStatus != channelCache.Status {
-				CacheUpdateChannelStatus(channelId, channelCache.Status)
-			}
-			//CacheUpdateChannel(channelCache)
-			//return true
-		} else {
-			// 如果缓存渠道存在，且状态已是目标状态，直接返回
-			if channelCache.Status == status {
-				return false
-			}
-			CacheUpdateChannelStatus(channelId, status)
-		}
-	}
-
-	shouldUpdateAbilities := false
-	defer func() {
-		if shouldUpdateAbilities {
-			err := UpdateAbilityStatus(channelId, status == common.ChannelStatusEnabled)
-			if err != nil {
-				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channelId, err))
-			}
-		}
-	}()
-	channel, err := GetChannelById(channelId, true)
-	if err != nil {
-		return false
-	} else {
 		if channel.Status == status {
-			return false
+			return nil
 		}
-
-		if channel.ChannelInfo.IsMultiKey {
-			beforeStatus := channel.Status
-			handlerMultiKeyUpdate(channel, usingKey, status, reason)
-			if beforeStatus != channel.Status {
-				shouldUpdateAbilities = true
+		other := channel.GetOtherInfo()
+		if other["upstream_model_guard"] == true {
+			// 仅人工入口可解除校验禁用，权限与状态原因文案无关。
+			if channel.Status != common.ChannelStatusEnabled && (automatic || status != common.ChannelStatusEnabled) {
+				return nil
 			}
+			// 批量标签启用可能保留历史标记，已经启用的渠道应恢复普通自动管理。
+			delete(other, "upstream_model_guard")
+			channel.SetOtherInfo(other)
+		}
+		previousStatus := channel.Status
+		if channel.ChannelInfo.IsMultiKey {
+			handlerMultiKeyUpdate(&channel, usingKey, status, reason)
 		} else {
 			info := channel.GetOtherInfo()
 			info["status_reason"] = reason
 			info["status_time"] = common.GetTimestamp()
 			channel.SetOtherInfo(info)
 			channel.Status = status
-			shouldUpdateAbilities = true
 		}
-		err = channel.saveStatusState()
-		if err != nil {
-			common.SysLog(fmt.Sprintf("failed to update channel status: channel_id=%d, status=%d, error=%v", channel.Id, status, err))
-			return false
+		updates := map[string]any{"status": channel.Status, "other_info": channel.OtherInfo}
+		if channel.ChannelInfo.IsMultiKey {
+			updates["channel_info"] = channel.ChannelInfo
+		}
+		if err := tx.Model(&Channel{}).Where("id = ?", channelId).Updates(updates).Error; err != nil {
+			return err
+		}
+		if previousStatus != channel.Status {
+			if err := tx.Model(&Ability{}).Where("channel_id = ?", channelId).Update("enabled", channel.Status == common.ChannelStatusEnabled).Error; err != nil {
+				return err
+			}
+		}
+		changed = true
+		return nil
+	})
+	if err != nil {
+		common.SysLog(fmt.Sprintf("failed to update channel status: channel_id=%d, status=%d, error=%v", channelId, status, err))
+		return false
+	}
+	if common.MemoryCacheEnabled {
+		if cached, err := CacheGetChannel(channelId); err == nil && cached != nil {
+			// 提交后再同步缓存；拒绝的旧请求也应修正旧节点的启用快照。
+			cached.OtherInfo = channel.OtherInfo
+			if channel.ChannelInfo.IsMultiKey {
+				channel.ChannelInfo.MultiKeyPollingIndex = cached.ChannelInfo.MultiKeyPollingIndex
+				cached.ChannelInfo = channel.ChannelInfo
+			}
+			CacheUpdateChannelStatus(channelId, channel.Status)
 		}
 	}
-	return true
+	return changed
 }
 
 func EnableChannelByTag(tag string) error {

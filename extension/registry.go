@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service"
 )
 
 const (
@@ -62,6 +63,10 @@ func Init() error {
 		return err
 	}
 	DefaultManager = manager
+	service.RegisterUpstreamModelGuardModuleEnabledCheck(func() bool {
+		module, ok := DefaultManager.Get(service.UpstreamModelGuardModuleID)
+		return ok && module.Enabled && module.Error == "" && hasPermissionCapability(module.Permissions.Capabilities, CapabilityUpstreamModelGuard)
+	})
 	return nil
 }
 

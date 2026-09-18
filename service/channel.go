@@ -48,14 +48,14 @@ func disableChannel(channelError types.ChannelError, reason, errorMessage, error
 		return
 	}
 
-	success := model.UpdateChannelStatus(channelError.ChannelId, channelError.UsingKey, common.ChannelStatusAutoDisabled, reason)
+	success := model.UpdateChannelStatusAutomatically(channelError.ChannelId, channelError.UsingKey, common.ChannelStatusAutoDisabled, reason)
 	if success {
 		enqueueChannelNotification(model.NotificationEventTypeChannelDisabled, channelError.ChannelId, channelError.ChannelName, reason, errorMessage, errorCode, statusCode)
 	}
 }
 
 func EnableChannel(channelId int, usingKey string, channelName string) {
-	success := model.UpdateChannelStatus(channelId, usingKey, common.ChannelStatusEnabled, "")
+	success := model.UpdateChannelStatusAutomatically(channelId, usingKey, common.ChannelStatusEnabled, "")
 	if success {
 		enqueueChannelNotification(model.NotificationEventTypeChannelEnabled, channelId, channelName, "", "", "", 0)
 	}

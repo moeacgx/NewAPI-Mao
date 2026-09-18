@@ -1,0 +1,228 @@
+.upstream-model-guard {
+  --guard-primary: var(--primary);
+  --guard-background: var(--background);
+  --guard-foreground: var(--foreground);
+  --guard-border: var(--border);
+  --guard-muted: var(--muted-foreground);
+  --guard-danger: var(--destructive);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.upstream-model-guard .guard-panel {
+  border: 1px solid var(--guard-border);
+  border-radius: 8px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  min-width: 0;
+}
+.upstream-model-guard .guard-panel-header,
+.upstream-model-guard .guard-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.upstream-model-guard .guard-panel-header {
+  border-bottom: 1px solid var(--guard-border);
+}
+.upstream-model-guard .guard-panel-footer {
+  border-top: 1px solid var(--guard-border);
+}
+.upstream-model-guard h2,
+.upstream-model-guard h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.upstream-model-guard .guard-panel-content {
+  padding: 16px;
+}
+.upstream-model-guard .guard-rule-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 2fr);
+  gap: 20px;
+}
+.upstream-model-guard .guard-model-fields,
+.upstream-model-guard .guard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.upstream-model-guard .guard-model-fields {
+  gap: 16px;
+}
+.upstream-model-guard .guard-groups {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.upstream-model-guard legend {
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.upstream-model-guard .guard-group-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 3px;
+}
+.upstream-model-guard .guard-checkbox-label,
+.upstream-model-guard .guard-switch-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.upstream-model-guard .guard-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.upstream-model-guard .guard-checkbox,
+.upstream-model-guard .guard-toggle {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--guard-primary);
+  cursor: pointer;
+}
+.upstream-model-guard .guard-toggle {
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  padding: 2px;
+  border: 1px solid var(--guard-border);
+  border-radius: 12px;
+  background: var(--guard-muted);
+}
+.upstream-model-guard .guard-toggle::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--guard-background);
+  transition: transform 120ms;
+}
+.upstream-model-guard .guard-toggle:checked {
+  background: var(--guard-primary);
+}
+.upstream-model-guard .guard-toggle:checked::before {
+  transform: translateX(14px);
+}
+.upstream-model-guard .guard-toggle:focus-visible,
+.upstream-model-guard .guard-checkbox:focus-visible,
+.upstream-model-guard .guard-textarea:focus-visible {
+  outline: 2px solid var(--guard-primary);
+  outline-offset: 3px;
+}
+.upstream-model-guard .guard-toggle:disabled,
+.upstream-model-guard .guard-checkbox:disabled,
+.upstream-model-guard .guard-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.upstream-model-guard .guard-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 96px;
+  border: 1px solid var(--guard-border);
+  border-radius: 6px;
+  background: var(--guard-background);
+  color: var(--guard-foreground);
+  font: inherit;
+  line-height: 1.5;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.upstream-model-guard button {
+  min-height: 34px;
+  flex-shrink: 0;
+}
+.upstream-model-guard .guard-state {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+}
+.upstream-model-guard .guard-error {
+  color: var(--guard-danger);
+  overflow-wrap: anywhere;
+}
+.upstream-model-guard .guard-success {
+  color: var(--foreground);
+}
+.upstream-model-guard .guard-muted {
+  color: var(--guard-muted);
+}
+.upstream-model-guard .guard-table-scroll {
+  overflow: auto;
+  width: 100%;
+  min-width: 0;
+}
+.upstream-model-guard table {
+  width: 100%;
+  min-width: 800px;
+  table-layout: fixed;
+}
+.upstream-model-guard th,
+.upstream-model-guard td {
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.upstream-model-guard .guard-channel-id {
+  display: block;
+  margin-top: 4px;
+}
+.upstream-model-guard .guard-page-number {
+  min-width: 54px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.guard-notification-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .upstream-model-guard .guard-rule-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .upstream-model-guard .guard-config-toolbar {
+    align-items: flex-start;
+  }
+  .upstream-model-guard .guard-config-toolbar > .guard-actions {
+    width: 100%;
+  }
+  .upstream-model-guard .guard-config-toolbar > .guard-actions > button {
+    flex: 1;
+    white-space: normal;
+    height: auto;
+  }
+}
