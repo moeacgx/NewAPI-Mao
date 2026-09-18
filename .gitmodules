@@ -1,0 +1,8 @@
+[submodule "maolaonewapi-extensions"]
+	path = maolaonewapi-extensions
+	url = https://github.com/moeacgx/maolaonewapi-extensions.git
+	branch = main
+[submodule "maolaonewapi-plugins"]
+	path = maolaonewapi-plugins
+	url = https://github.com/moeacgx/maolaonewapi-plugins.git
+	branch = main
