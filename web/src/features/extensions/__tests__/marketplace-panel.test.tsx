@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import {
   afterEach,
   beforeAll,
@@ -83,6 +84,150 @@ afterEach(() => {
 })
 
 describe('online extension installation', () => {
+  it('does not request the online catalog before opening the dialog', async () => {
+    render(
+      <QueryClientProvider client={client}>
+        <Extensions />
+      </QueryClientProvider>
+    )
+    await screen.findByText('No extensions found')
+    expect(
+      screen.getByRole('button', { name: 'Online modules' })
+    ).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.get).not.toHaveBeenCalledWith('/api/extension-admin/marketplace')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+  it.each(['close button', 'Escape', 'backdrop'])(
+    'returns focus to the entry after closing with %s and reopens without a stale selection',
+    async (method) => {
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={client}>
+          <Extensions />
+        </QueryClientProvider>
+      )
+      const trigger = screen.getByRole('button', { name: 'Online modules' })
+      await user.click(trigger)
+      const dialog = screen.getByRole('dialog', { name: 'Online modules' })
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+      expect(dialog).toHaveAccessibleDescription(
+        'Install a specific module version from the extension repository.'
+      )
+      await user.click(
+        await within(dialog).findByRole('button', {
+          name: 'Install Demo extension 0.2.0',
+        })
+      )
+      await user.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Cancel',
+        })
+      )
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      )
+      if (method === 'close button') {
+        await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+      } else if (method === 'Escape') {
+        await user.keyboard('{Escape}')
+      } else {
+        const backdrop = document.querySelector('[data-slot="dialog-overlay"]')
+        expect(backdrop).toBeInTheDocument()
+        await user.click(backdrop as HTMLElement)
+      }
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      )
+      await waitFor(() => expect(trigger).toHaveFocus())
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      await client.invalidateQueries({ queryKey: ['extension-marketplace'] })
+      expect(fetch).toHaveBeenCalledTimes(1)
+      vi.mocked(fetch)
+        .mockReset()
+        .mockResolvedValueOnce(new Response(JSON.stringify(catalog())))
+      await user.click(trigger)
+      expect(
+        await screen.findByRole('dialog', { name: 'Online modules' })
+      ).toBeInTheDocument()
+      expect(
+        await screen.findByRole('button', {
+          name: 'Install Demo extension 0.2.0',
+        })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(api.post).not.toHaveBeenCalled()
+    }
+  )
+  it.each(['download', 'upload'])(
+    'keeps the dialog open and prevents duplicate installation during %s',
+    async (phase) => {
+      const user = userEvent.setup()
+      let finishDownload!: (response: Response) => void
+      let finishUpload!: (response: ReturnType<typeof ok>) => void
+      const download = new Promise<Response>((resolve) => {
+        finishDownload = resolve
+      })
+      const upload = new Promise<ReturnType<typeof ok>>((resolve) => {
+        finishUpload = resolve
+      })
+      vi.mocked(fetch)
+        .mockReset()
+        .mockResolvedValueOnce(new Response(JSON.stringify(catalog())))
+      if (phase === 'download') {
+        vi.mocked(fetch).mockReturnValueOnce(download)
+      } else {
+        vi.mocked(fetch).mockResolvedValueOnce(new Response(bytes))
+        vi.mocked(api.post).mockReturnValueOnce(upload)
+      }
+      render(
+        <QueryClientProvider client={client}>
+          <Extensions />
+        </QueryClientProvider>
+      )
+      await user.click(screen.getByRole('button', { name: 'Online modules' }))
+      const outerDialog = screen.getByRole('dialog', { name: 'Online modules' })
+      const close = within(outerDialog).getByRole('button', { name: 'Close' })
+      const install = await within(outerDialog).findByRole('button', {
+        name: 'Install Demo extension 0.2.0',
+      })
+      await user.click(install)
+      const confirmation = screen.getByRole('alertdialog')
+      const confirm = within(confirmation).getByRole('button', {
+        name: 'Confirm installation',
+      })
+      await user.click(confirm)
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+      if (phase === 'upload') {
+        await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+      }
+      expect(close).toBeDisabled()
+      expect(install).toBeDisabled()
+      expect(confirm).toBeDisabled()
+      expect(
+        within(confirmation).getByRole('button', { name: 'Cancel' })
+      ).toBeDisabled()
+      fireEvent.click(close)
+      await user.keyboard('{Escape}')
+      fireEvent.mouseDown(
+        document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement
+      )
+      fireEvent.click(confirm)
+      expect(outerDialog).toBeInTheDocument()
+      expect(screen.getByRole('alertdialog')).toHaveTextContent('0.2.0')
+      expect(fetch).toHaveBeenCalledTimes(2)
+      if (phase === 'download') finishDownload(new Response(bytes))
+      else finishUpload(ok({}))
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      )
+      expect(api.post).toHaveBeenCalledTimes(1)
+      expect(
+        screen.getByRole('dialog', { name: 'Online modules' })
+      ).toBeInTheDocument()
+      expect(close).not.toBeDisabled()
+    }
+  )
   it('confirms a specific version then uploads verified bytes and refreshes extension navigation', async () => {
     const invalidate = vi.spyOn(client, 'invalidateQueries')
     render(
@@ -90,14 +235,15 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    expect(
+      screen.getByRole('button', { name: 'Upload Module' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     const install = await screen.findByRole('button', {
       name: 'Install Demo extension 0.2.0',
     })
     expect(screen.getByText('Host upgrade required')).toBeInTheDocument()
     expect(screen.getByText('Requires guard support')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Upload Module' })
-    ).toBeInTheDocument()
     fireEvent.click(install)
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveTextContent('Demo extension')
@@ -133,6 +279,7 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Install Demo extension 0.2.0',
@@ -156,12 +303,22 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    expect(
+      screen.getByRole('button', { name: 'Upload Module' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load online modules'
     )
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(catalog()))
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(
-      screen.getByRole('button', { name: 'Upload Module' })
+      await screen.findByRole('button', {
+        name: 'Install Demo extension 0.2.0',
+      })
     ).toBeInTheDocument()
   })
   it('shows an empty catalog', async () => {
@@ -178,6 +335,7 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     expect(
       await screen.findByText('No online modules available')
     ).toBeInTheDocument()
@@ -209,6 +367,7 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Install Demo extension 0.2.0',
@@ -234,6 +393,7 @@ describe('online extension installation', () => {
         <Extensions />
       </QueryClientProvider>
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Online modules' }))
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Install Demo extension 0.2.0',

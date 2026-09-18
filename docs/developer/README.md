@@ -2,7 +2,7 @@
 
 - [扩展模块与任务插件配套仓库](extension-repositories.md)：两个独立仓库的职责、根目录子模块入口、初始化与指针更新、发布入口和宿主兼容边界。
 
-- [扩展仓库与在线安装](../workflows/2026-09/18_extension_repository_marketplace.md)：独立公开模块仓库、固定目录、浏览器下载、宿主校验及双模板安装入口。
+- [扩展仓库与在线安装](../workflows/2026-09/18_extension_repository_marketplace.md)：独立公开模块仓库、固定目录、浏览器下载、宿主校验及双模板在线模块弹窗。
 
 - [模型校验白名单与连续容错](../workflows/2026-09/18_upstream_model_guard_tolerance.md)：渠道跳过策略、默认连续两次关渠、跨节点计数和双模板验证。
 

@@ -177,6 +177,7 @@ export function Extensions() {
           </p>
         </div>
         <div className='flex flex-wrap gap-2'>
+          <ExtensionMarketplacePanel />
           <input
             ref={fileInputRef}
             type='file'
@@ -247,8 +248,6 @@ export function Extensions() {
           )}
         </CardContent>
       </Card>
-
-      <ExtensionMarketplacePanel />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

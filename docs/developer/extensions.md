@@ -22,7 +22,10 @@ Task Plugin 的独立 [maolaonewapi-plugins](https://github.com/moeacgx/maolaone
 
 ## 在线安装
 
-Default 与 Classic 的 Root 扩展管理页提供固定维护源的在线安装卡片，保留原 ZIP 上传。
+Default 与 Classic 的 Root 扩展管理页在操作区提供“在线模块”按钮，点击后用弹窗展示固定维护源的目录，保留原 ZIP 上传。
+未打开弹窗时不请求市场配置或外部目录；弹窗包含加载、错误重试、空态和可滚动模块列表。
+安装仍需确认具体模块与版本，下载或上传过程中禁止关闭弹窗，成功后刷新已安装列表。
+普通关闭会清除未提交的安装选择，再次打开可重新选择；关闭后焦点返回入口按钮。
 `GET /api/extension-admin/marketplace` 返回固定 `catalog_url`、`repository_url`、`host_version`、`max_archive_bytes`。
 浏览器下载 `catalogVersion:1`、`purpose:extension-catalog` 的版本目录，每条带
 `id/name/version/path/sha256/size/host`，显示名称、版本和兼容要求，确认后安装所选版本。
