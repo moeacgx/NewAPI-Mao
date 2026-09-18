@@ -76,7 +76,9 @@ describe('upstream model guard native page', () => {
     fireEvent.change(within(rule).getByLabelText('Allowed upstream models'), {
       target: { value: ' provider-A\r\nprovider-B\nprovider-A\n' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(save)
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith(
         `${base}/config`,
@@ -209,9 +211,10 @@ describe('upstream model guard native page', () => {
       response: { status: 409, data: { message: 'Changed elsewhere' } },
     })
     render(<Page />)
-    await screen.findByRole('button', { name: 'Save settings' })
+    const save = await screen.findByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
     fireEvent.click(screen.getByRole('switch', { name: 'Detection enabled' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    fireEvent.click(save)
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Settings changed elsewhere. Reload before saving again.'
     )
@@ -260,7 +263,9 @@ describe('upstream model guard native page', () => {
   it('rejects an incomplete rule before sending a configuration update', async () => {
     render(<Page />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add rule' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(save)
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Complete groups and model names for rule 1.'
     )
@@ -445,7 +450,9 @@ describe('upstream model guard native page', () => {
     expect(screen.getByLabelText('Consecutive mismatch threshold')).toHaveValue(
       4
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(save)
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith(
         `${base}/config`,

@@ -20,6 +20,48 @@ SHA-256 只用于完整性验证，不能当成发布者签名。模块的后台
 任务插件安装后依照既有版本激活和启停规则，扩展首次安装保持关闭。具体契约见
 [扩展开发](extensions.md)与[任务插件源发布](../workflows/2026-09/16_task_plugin_sources_plan.md)。
 
-主仓库以文档链接关联两个独立仓库，不使用 Git submodule，不改变普通克隆、构建或部署命令。
+## 主仓库中的子模块入口
+
+主仓库根目录通过 Git submodule 关联两个独立仓库：
+
+- `maolaonewapi-extensions/`：扩展模块仓库。
+- `maolaonewapi-plugins/`：任务插件仓库。
+
+GitHub 文件列表会显示两个可点击的 `仓库名 @ 提交` 入口。`.gitmodules` 使用公开 HTTPS 地址，
+主仓库的 gitlink 固定各子仓库的具体提交；`branch = main` 只指定主动更新时的目标分支，
+不会在克隆、构建或启动宿主时自动跟进新版本。
+
+首次克隆且需要同时获取模块源码时：
+
+```sh
+git clone --recurse-submodules https://github.com/moeacgx/maolaonewapi.git
+```
+
+已有主仓库克隆时，在根目录执行：
+
+```sh
+git submodule update --init --recursive
+```
+
+维护子仓库指针时，先在对应独立仓库提交并发布；确认其工作区干净后，按需更新主仓库的指针：
+
+```sh
+git submodule update --init --remote maolaonewapi-extensions
+git diff --submodule=log
+git add maolaonewapi-extensions
+```
+
+更新任务插件仓库时，将命令中的路径替换为 `maolaonewapi-plugins`。核对版本和差异后，
+把 gitlink 变更作为主仓库 PR 提交；其他克隆拉取主仓库后，再运行初始化命令同步到固定提交。
+回滚指针同样通过主仓库 PR 恢复先前提交，不会改写子仓库历史。
+
+普通克隆可以不初始化子模块，宿主构建与运行不依赖这两个目录；`.dockerignore` 排除它们，
+避免递归克隆后将模块源码和安装包带入宿主 Docker 构建上下文。
+在线安装仍读取独立仓库 `main` 上的目录，和主仓库固定的 gitlink 提交相互独立。
+本变更不修改 Default、Classic 的页面、安装接口或生产部署。
+
+验证入口时，检查 `git submodule status`、`.gitmodules` 地址及 `git ls-files --stage` 中两个
+`160000` 条目；合并后核对 GitHub 根目录入口和其目标提交。
+
 现有宿主内置资源继续保留；扩展仓库版本不可覆盖，修订须提升版本并重新验证。
 不得发布运行状态文件、数据库、渠道密钥、Bot Token 或生产配置。
