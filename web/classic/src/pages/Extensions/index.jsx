@@ -451,6 +451,13 @@ export default function Extensions() {
           </Text>
         </div>
         <Space wrap>
+          <ExtensionMarketplace
+            canManage={isRoot()}
+            onInstalled={async () => {
+              await loadData();
+              notifyClassicSidebar();
+            }}
+          />
           <input
             ref={fileInputRef}
             type='file'
@@ -476,14 +483,6 @@ export default function Extensions() {
           </Button>
         </Space>
       </div>
-
-      <ExtensionMarketplace
-        canManage={isRoot()}
-        onInstalled={async () => {
-          await loadData();
-          notifyClassicSidebar();
-        }}
-      />
 
       <Card
         title={t('模块目录')}

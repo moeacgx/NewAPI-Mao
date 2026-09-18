@@ -30,6 +30,7 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
+import { Download } from 'lucide-react';
 import { API } from '../../helpers/api';
 import {
   parseExtensionMarketplaceMetadata,
@@ -42,6 +43,7 @@ const { Text } = Typography;
 
 export default function ExtensionMarketplace(props) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const [metadata, setMetadata] = useState(null);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function ExtensionMarketplace(props) {
   useEffect(() => () => installAbort.current?.abort(), []);
 
   useEffect(() => {
-    if (!props.canManage) return undefined;
+    if (!props.canManage || !open) return undefined;
     const controller = new AbortController();
     setLoading(true);
     setError('');
@@ -94,10 +96,16 @@ export default function ExtensionMarketplace(props) {
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [props.canManage, revision, t]);
+  }, [props.canManage, open, revision, t]);
 
   const install = async () => {
-    if (!pending || !metadata || !props.canManage || installLocked.current)
+    if (
+      !open ||
+      !pending ||
+      !metadata ||
+      !props.canManage ||
+      installLocked.current
+    )
       return;
     installLocked.current = true;
     setBusy(true);
@@ -234,86 +242,128 @@ export default function ExtensionMarketplace(props) {
   ];
 
   return (
-    <Card
-      title={t('Online modules')}
-      style={{ marginBottom: 16 }}
-      headerExtraContent={
-        <Button
-          size='small'
-          theme='outline'
-          loading={loading}
-          disabled={busy}
-          onClick={() => setRevision((value) => value + 1)}
-        >
-          {t('Reload repository')}
-        </Button>
-      }
-    >
-      <Space vertical align='start' style={{ width: '100%' }} spacing={12}>
-        <Text type='secondary'>
-          {t('Browse published modules from the maintained repository.')}
-        </Text>
-        {metadata && (
-          <Space wrap>
-            <a
-              href={metadata.repository_url}
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              {t('Extension repository')}
-            </a>
-            <Text type='tertiary'>
-              {t('Current host: {{version}}', {
-                version: metadata.host_version,
-              })}
-            </Text>
-          </Space>
-        )}
-        {success && (
-          <div role='status'>
-            <Text type='success'>
-              {t(
-                'Extension installed. Review its enabled state in the module list.',
-              )}
-            </Text>
-          </div>
-        )}
-        {error && (
-          <div role='alert'>
-            <Text type='danger'>{error}</Text>
-          </div>
-        )}
-        <Spin spinning={loading} style={{ width: '100%' }}>
-          {!loading && !error && entries.length === 0 && (
-            <Empty description={t('No online modules are available.')} />
-          )}
-          {entries.length > 0 && (
-            <Table
-              rowKey={(entry) => `${entry.id}:${entry.version}`}
-              columns={columns}
-              dataSource={entries}
-              pagination={false}
-              scroll={{ x: 985 }}
-            />
-          )}
-        </Spin>
-      </Space>
-      <Modal
-        title={t('Confirm extension installation')}
-        visible={Boolean(pending)}
-        maskClosable={false}
-        closeOnEsc={!busy}
-        onCancel={() => {
-          if (!busy) setPending(null);
-        }}
-        onOk={install}
-        confirmLoading={busy}
-        okText={t('Confirm installation')}
-        cancelText={t('Cancel')}
-        okButtonProps={{ 'aria-label': t('Confirm installation') }}
-        cancelButtonProps={{ disabled: busy, 'aria-label': t('Cancel') }}
+    <>
+      <Button
+        theme='outline'
+        icon={<Download size={16} />}
+        onClick={() => setOpen(true)}
       >
-        {pending && (
+        {t('Online modules')}
+      </Button>
+      <Modal
+        title={
+          pending ? t('Confirm extension installation') : t('Online modules')
+        }
+        visible={open}
+        width='min(1120px, calc(100vw - 32px))'
+        centered
+        bodyStyle={{ maxHeight: 'calc(85dvh - 140px)', overflowY: 'auto' }}
+        maskClosable={!busy}
+        closeOnEsc={!busy}
+        closable={!busy}
+        onCancel={() => {
+          if (installLocked.current) return;
+          setOpen(false);
+          setPending(null);
+          setInstallError('');
+          setSuccess(false);
+        }}
+        footer={
+          pending ? (
+            <Space>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  setPending(null);
+                  setInstallError('');
+                }}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                theme='solid'
+                loading={busy}
+                disabled={busy}
+                onClick={install}
+              >
+                {t('Confirm installation')}
+              </Button>
+            </Space>
+          ) : null
+        }
+      >
+        {!pending ? (
+          <Space vertical align='start' style={{ width: '100%' }} spacing={12}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
+                justifyContent: 'space-between',
+                width: '100%',
+              }}
+            >
+              <Text type='secondary'>
+                {t('Browse published modules from the maintained repository.')}
+              </Text>
+              <Button
+                size='small'
+                theme='outline'
+                loading={loading}
+                disabled={busy}
+                onClick={() => setRevision((value) => value + 1)}
+              >
+                {t('Reload repository')}
+              </Button>
+            </div>
+            {metadata && (
+              <Space wrap>
+                <a
+                  href={metadata.repository_url}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                >
+                  {t('Extension repository')}
+                </a>
+                <Text type='tertiary'>
+                  {t('Current host: {{version}}', {
+                    version: metadata.host_version,
+                  })}
+                </Text>
+              </Space>
+            )}
+            {success && (
+              <div role='status'>
+                <Text type='success'>
+                  {t(
+                    'Extension installed. Review its enabled state in the module list.',
+                  )}
+                </Text>
+              </div>
+            )}
+            {error && (
+              <div role='alert'>
+                <Text type='danger'>{error}</Text>
+              </div>
+            )}
+            <Spin spinning={loading} style={{ width: '100%' }}>
+              <Card bodyStyle={{ padding: 12 }} style={{ width: '100%' }}>
+                {!loading && !error && entries.length === 0 && (
+                  <Empty description={t('No online modules are available.')} />
+                )}
+                {entries.length > 0 && (
+                  <Table
+                    rowKey={(entry) => `${entry.id}:${entry.version}`}
+                    columns={columns}
+                    dataSource={entries}
+                    pagination={false}
+                    scroll={{ x: 985 }}
+                  />
+                )}
+              </Card>
+            </Spin>
+          </Space>
+        ) : (
           <Space vertical align='start' spacing={12} style={{ width: '100%' }}>
             <Space wrap>
               <Text strong>{pending.name}</Text>
@@ -338,6 +388,6 @@ export default function ExtensionMarketplace(props) {
           </Space>
         )}
       </Modal>
-    </Card>
+    </>
   );
 }

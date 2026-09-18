@@ -20,7 +20,13 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { createHash, webcrypto } from 'node:crypto';
 import { beforeEach, afterEach, expect, test, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ExtensionMarketplace from '../ExtensionMarketplace';
@@ -30,6 +36,15 @@ import {
   EXTENSION_CATALOG_URL,
   EXTENSION_REPOSITORY_URL,
 } from '../marketplace-utils';
+
+// JSDOM 不触发 CSS 动画结束事件，关闭生命周期测试使用无动画的真实弹窗。
+vi.mock('@douyinfe/semi-ui', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    Modal: (props) => <actual.Modal {...props} motion={false} />,
+  };
+});
 
 const originalAdapter = API.defaults.adapter;
 const zip = new Uint8Array([80, 75, 3, 4, 5, 6]);
@@ -126,8 +141,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test('在线目录按需打开，关闭返回入口焦点，重开清除未提交选择', async () => {
+  render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  const trigger = screen.getByRole('button', { name: 'Online modules' });
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(calls).toEqual([]);
+  expect(fetch).not.toHaveBeenCalled();
+  await userEvent.click(trigger);
+  await screen.findByText('Catalog Demo');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Install from repository' }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'close' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+  await userEvent.click(trigger);
+  await screen.findByText('Catalog Demo');
+  expect(
+    screen.queryByRole('button', { name: 'Confirm installation' }),
+  ).toBeNull();
+  expect(calls.some((item) => item.method === 'post')).toBe(false);
+  fireEvent.keyDown(document, { key: 'Escape', code: 'Escape', keyCode: 27 });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+});
+
 test('Root 先确认模块和版本再下载上传，传递完整来源字段且成功回调刷新', async () => {
   render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
   await screen.findByText('Catalog Demo');
   expect(screen.getByText('Requires installed host support')).toBeTruthy();
   await userEvent.click(
@@ -161,6 +202,7 @@ test('Root 先确认模块和版本再下载上传，传递完整来源字段且
 
 test('取消确认不下载 ZIP、不上传', async () => {
   render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
   await screen.findByText('Catalog Demo');
   await userEvent.click(
     screen.getByRole('button', { name: 'Install from repository' }),
@@ -178,6 +220,7 @@ test('取消确认不下载 ZIP、不上传', async () => {
 test('哈希错误拒绝上传并保持确认错误可见', async () => {
   catalog.modules[0].sha256 = '0'.repeat(64);
   render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
   await screen.findByText('Catalog Demo');
   await userEvent.click(
     screen.getByRole('button', { name: 'Install from repository' }),
@@ -195,6 +238,7 @@ test('哈希错误拒绝上传并保持确认错误可见', async () => {
 test('宿主拒绝安装时保留失败原因，不刷新为成功', async () => {
   failUpload = true;
   render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
   await screen.findByText('Catalog Demo');
   await userEvent.click(
     screen.getByRole('button', { name: 'Install from repository' }),
@@ -211,6 +255,7 @@ test('宿主拒绝安装时保留失败原因，不刷新为成功', async () =>
 test('空清单显示空态，来源失败可重试后加载', async () => {
   failMetadata = true;
   render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
   await screen.findByText('Could not load the extension repository.');
   failMetadata = false;
   catalog.modules = [];
@@ -245,8 +290,11 @@ test('模块管理安装后重载已安装模块并通知侧栏，手动上传�
         <Extensions />
       </MemoryRouter>,
     );
-    await screen.findByText('Catalog Demo');
     expect(screen.getByRole('button', { name: '上传模块' })).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Online modules' }),
+    );
+    await screen.findByText('Catalog Demo');
     await userEvent.click(
       screen.getByRole('button', { name: 'Install from repository' }),
     );
@@ -263,4 +311,36 @@ test('模块管理安装后重载已安装模块并通知侧栏，手动上传�
   } finally {
     window.removeEventListener('classic-extension-refresh', sidebar);
   }
+});
+
+test('下载安装期间阻止关闭与重复提交，成功后仍可关闭弹窗', async () => {
+  let releaseArchive;
+  const archiveResponse = new Promise((resolve) => {
+    releaseArchive = resolve;
+  });
+  vi.mocked(fetch).mockImplementation((url) =>
+    url === EXTENSION_CATALOG_URL
+      ? Promise.resolve(new Response(JSON.stringify(catalog)))
+      : archiveResponse,
+  );
+  render(<ExtensionMarketplace canManage onInstalled={installed} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Online modules' }));
+  await screen.findByText('Catalog Demo');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Install from repository' }),
+  );
+  const confirm = screen.getByRole('button', { name: 'Confirm installation' });
+  await userEvent.click(confirm);
+  await userEvent.click(confirm);
+  expect(confirm.disabled).toBe(true);
+  expect(screen.getByRole('button', { name: 'Cancel' }).disabled).toBe(true);
+  expect(screen.queryByRole('button', { name: 'close' })).toBeNull();
+  fireEvent.keyDown(document, { key: 'Escape', code: 'Escape', keyCode: 27 });
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  releaseArchive(new Response(zip));
+  await waitFor(() => expect(installed).toHaveBeenCalledOnce());
+  expect(calls.filter((item) => item.url.endsWith('/upload'))).toHaveLength(1);
+  await userEvent.click(screen.getByRole('button', { name: 'close' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });

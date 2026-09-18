@@ -87,7 +87,7 @@
 ## 扩展模块
 
 - 在线分发：独立公开 `maolaonewapi-extensions` 仓库维护模块源码、版本 ZIP 和完整性目录；主仓库关联扩展与任务插件仓库。
-- 安装入口：Default/Classic Root 浏览器读取固定目录、下载并核对包，宿主复核 hash/ID/版本后安装；保留手工 ZIP，不增加服务端远程下载或自动升级。实现与边界见[工作记录](../workflows/2026-09/18_extension_repository_marketplace.md)。
+- 安装入口：Default/Classic Root 点击“在线模块”打开弹窗后读取固定目录、下载并核对包，宿主复核 hash/ID/版本后安装；保留手工 ZIP，不增加服务端远程下载或自动升级。实现与边界见[工作记录](../workflows/2026-09/18_extension_repository_marketplace.md)。
 
 ### 上游模型校验
 

@@ -8,7 +8,7 @@
 - 主程序：`https://github.com/moeacgx/maolaonewapi`。
 - 扩展模块：`https://github.com/moeacgx/maolaonewapi-extensions`，公开源码、版本 ZIP、SHA-256、下载清单。
 - 任务插件：`https://github.com/moeacgx/maolaonewapi-plugins`，保持现有 Task Plugin 安装机制。
-- 主仓库通过 README 和开发文档关联两个仓库，不引入 Git submodule 或改变构建依赖。
+- 主仓库通过根目录 Git submodule、README 和开发文档关联两个仓库；初始化和指针更新见[配套仓库说明](../../developer/extension-repositories.md)。宿主构建不依赖初始化子模块。
 - 本期固定官方维护源，不新增自定义源管理、远程执行、自动升级或通知能力。
 
 ## 在线安装契约
@@ -74,3 +74,26 @@ Root `GET /api/extension-admin/marketplace` 返回 `data`：
 
 源码变更含上一工作项已验证的容错宿主支持，以便当前公开 0.2.0 包有对应实现。
 本次不部署线上实例；他站需升级包含本项的宿主，旧版本继续下载 ZIP 手工安装。
+
+## 在线模块弹窗调整
+
+用户要求在线模块通过弹窗展示。Default 与 Classic 的模块管理操作区提供入口按钮，
+移除页面常驻目录。复用各模板已有 Dialog/Modal，保留明确边界、标题与说明，
+限制弹窗高度并在内容区滚动，适配桌面与窄屏。
+
+只有打开弹窗后才请求市场配置和外部目录；Root 权限、安装确认、下载完整性、来源字段、
+错误重试和安装后刷新契约保持一致。下载或上传进行中禁止通过关闭按钮、遮罩或 Esc
+关闭外层弹窗，防止安装状态丢失或重复提交。普通关闭清除临时选择，焦点返回入口按钮。
+
+验证覆盖两模板初始不请求、点击加载、关闭与重开、键盘焦点、安装中关闭保护、成功刷新和失败重试，
+并执行相关组件测试、Default 类型检查、格式/lint、构建及桌面/窄屏浏览器验收。
+
+2026-09-19 验证结果：
+
+- Default 弹窗组件 13/13，Classic 组件 9/9、安全与七语 8/8；Default 完整类型检查与相关文件 lint/格式检查通过。
+- Default 使用已有忽略目录中的 Windows 字体路径适配脚本完成生产构建；Classic 标准生产构建通过，宿主重新编译后验收。
+- 真实 Chromium 在全新 SQLite、独立模块目录和本地账号下验证：页面初始不请求目录，按钮打开后加载，关闭重开与焦点返回正常；1440px、390px 弹窗边界均在视口内，无页面横向溢出。
+- Default 的安装确认使用嵌套 AlertDialog；Classic 在同一个 Modal 内切换目录与确认步骤，取消确认返回目录。下载/上传期间的关闭和重复提交保护由组件回归覆盖。
+- Default 从公开源安装模型校验 `0.2.0`，Classic 安装 OKX 汇率 `0.3.0`，宿主返回成功且安装列表回读一致。5 次公开仓库请求均不含 Cookie、Authorization 或 Referer，页面异常为 0。
+- 截图与报告保存在 `.local-tests/marketplace-dialog-browser/`。隔离宿主验收后已停止；没有生产部署、接口或扩展包格式变更。
+- Windows 首次启动仍遇已知内置资源目录 rename 占用；验收前复制相同内置资源到独立目录后启动，未修改运行时安装器。
