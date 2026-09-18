@@ -1,5 +1,7 @@
 # 开发文档
 
+- [Classic 会话刷新限流与误退登修复](../workflows/2026-09/19_classic_refresh_rate_limit.md)：刷新独立限流桶、临时刷新错误保留登录态与真实请求回归。
+
 - [zzapi 扩展在线安装 .327 发布](../workflows/2026-09/19_zzapi_327_extension_release.md)：双模板在线模块弹窗、模型校验容错、发布产物和三节点滚动更新。
 
 - [扩展模块与任务插件配套仓库](extension-repositories.md)：两个独立仓库的职责、根目录子模块入口、初始化与指针更新、发布入口和宿主兼容边界。
