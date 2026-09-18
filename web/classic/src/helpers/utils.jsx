@@ -135,13 +135,17 @@ export function showError(error) {
   console.error(error);
   if (error.message) {
     if (error.name === 'AxiosError') {
-      switch (error.response.status) {
-        case 401:
-          // 清除用户状态
-          localStorage.removeItem('user');
-          // toast.error('错误：未登录或登录已过期，请重新登录！', showErrorOptions);
-          window.location.href = '/login?expired=true';
-          break;
+      const status = error.response?.status;
+      if (
+        status === 401 ||
+        (status === 409 && error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
+      ) {
+        // 明确失效或会话身份不匹配时重新登录，临时故障保留用户状态。
+        localStorage.removeItem('user');
+        window.location.href = '/login?expired=true';
+        return;
+      }
+      switch (status) {
         case 429:
           Toast.error('错误：请求次数过多，请稍后再试！');
           break;

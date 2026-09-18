@@ -168,10 +168,13 @@ function attachApiInterceptors(instance) {
           if (user?.token)
             config.headers.Authorization = `Bearer ${user.token}`;
           return API.request(config);
-        } catch {}
+        } catch (refreshError) {
+          // 刷新失败不等于登录失效，调用方也必须收到实际的刷新错误。
+          error = refreshError;
+        }
       }
       // 如果请求配置中显式要求跳过全局错误处理，则不弹出默认错误提示
-      if (error.config && error.config.skipErrorHandler) {
+      if (config?.skipErrorHandler) {
         return Promise.reject(error);
       }
       showError(error);
