@@ -1,5 +1,7 @@
 # 开发文档
 
+- [zzapi 会话刷新修复 .328 发布](../workflows/2026-09/19_zzapi_328_auth_refresh_release.md)：Classic 临时刷新故障保留登录态、刷新计数隔离、发布产物与三节点滚动更新。
+
 - [Classic 会话刷新限流与误退登修复](../workflows/2026-09/19_classic_refresh_rate_limit.md)：刷新独立限流桶、临时刷新错误保留登录态与真实请求回归。
 
 - [zzapi 扩展在线安装 .327 发布](../workflows/2026-09/19_zzapi_327_extension_release.md)：双模板在线模块弹窗、模型校验容错、发布产物和三节点滚动更新。
