@@ -47,4 +47,60 @@ lint 和构建已通过。发布验收检查工作流、产物校验与镜像摘
 
 ## 执行记录
 
-发布与部署进行中，完成后补充 PR、标签、工作流、备份、镜像摘要与逐节点结果。
+版本 PR [#240](https://github.com/moeacgx/maolaonewapi/pull/240) 已合并。
+标签 `.328` 固定指向 `5ad71c2c4ce74fffedc6f20b847c025eccdee310`。
+CI `35426719865` 首次在 Classic 依赖安装时出现 `mermaid` 包解压失败；
+未改依赖或锁文件，重跑失败作业后全部通过，PR 质量检查也通过。
+
+Linux 工作流 `35427227489`、GHCR 多架构工作流 `35427227460` 均成功。
+[正式 Release](https://github.com/moeacgx/maolaonewapi/releases/tag/v1.0.0-rc.10.1.10.328)
+已补齐中文说明，发布两架构二进制及 `checksums-linux.txt`。
+现场作业 `915465d2-6974-4d56-8a15-7e0d423d880d` 下载两份二进制并核验 SHA-256，均为 OK。
+
+- amd64 二进制：`88e9796f9d25f06c08317ba89324195f2d3ae00c6b849ca8c0687f94ee32378d`。
+- arm64 二进制：`7d516f185e6ab1182beee76ed4c17f4ff7b6c2b2b6b2251fdc1e9f5aa41a72dc`。
+- 多架构摘要：`sha256:b3a9f9ca1be205efb3d6d147ca7162a654bf1d66667f7cc2b79128d50bcdf72e`。
+- 现场 amd64 image ID：`sha256:f5f66fd530e3b3c71ad803f6ee565670c367ba9968d77d54bb7d666df188d573`。
+- 镜像 revision 标签与上述发布提交完全一致。
+
+### 备份与配置保留
+
+备份作业 `9f5c1b45-8bf9-49cd-a94a-28afb4ef094f` 成功，目录为：
+`/home/docker/zzapi/backups/pre-328-20260919T063324Z`。
+保存 PostgreSQL 自定义格式备份、Compose、环境文件、模块归档、29 个模块文件摘要
+及脱敏容器身份快照。数据库备份 47,986,057 字节，`pg_restore --list` 通过。
+
+- 数据库 SHA-256：`b4845a29a82fcfca22f74f7dd0b61f4ed226c2b4c698cc9fff4c0c48fbe25912`。
+- Compose SHA-256：`eabd710a647dbf98c6c2a5b51b8ff3c526010979cd05424cc0c828e7229f936e`。
+- 模块归档 SHA-256：`527d3359f1b5419eb7b1d51ea5f7e5c88a05a7ea94cce3f8327f647fcc1961bb`。
+
+镜像与配置准备作业 `e09cf028-2c63-4278-b25a-68a1479131ba` 通过 YAML 节点定位
+仅替换三个 image 值，再用 Compose 规范化配置比较，证明其他配置保持。
+保留原角色：主节点未设置 `NODE_TYPE`，两个从节点为 `slave`。
+
+### 滚动更新与检查修正
+
+- `zzapi-slave-1` / 18098：更新作业 `447bf761-73b0-42e9-957f-71c4d649945d`。
+  容器健康和版本通过，但旧校验器把环境变量数组顺序变化识别为配置差异，因此暂停后续更新。
+  只读核对 `0d7673e0-59b2-4f4e-8638-b501402df6a1` 证明环境变量值、挂载和端口未变。
+  改为对照备份 Compose 和旧镜像的结构化比较，复验作业
+  `77175b84-9c02-450b-8bc6-3a12da516720` 通过；没有再次重建该节点。
+- `zzapi-slave-2` / 18099：`497ac813-4731-42f4-ae7e-ba5845bf21f0` 成功。
+- `zzapi` / 18097：`cd497ebd-66f4-44dd-bb4d-797c77665859` 成功。
+
+### 最终验收
+
+最终作业 `e9720ef0-dbe1-4486-8d8e-ecd57bd5fe36` 成功：
+
+- 三节点实际 image ID 一致，均为 `.328`、healthy、restart=0；原环境变量值、挂载与端口保持。
+- 公网 `/api/status` 返回 `success=true`、`.328`，本机独立请求也得到同一结果。
+- 每节点无身份 `/api/user/self`、`/api/extensions/`、`/v1/models` 均返回 401，
+  Classic HTML 返回 200；静态资源作业 `6152b7ea-d70b-4d66-8d76-dc541820fe28`
+  验证公网入口脚本 `/assets/index-CvZhUcOZ.js` 返回 200，内容为非空 JavaScript。
+- 29 个模块文件的集合与 SHA-256 全部不变。
+- PostgreSQL 和 Redis 的容器 ID、启动时间、运行状态和重启次数与更新前相同。
+- 各节点启动后日志未出现检查范围内的 panic、FATAL 或 `[ERROR]` 标记。
+
+验收记录保存在 `/home/docker/zzapi/releases/328/verification.json`。
+旧镜像和备份保留；未修改 maolaoapi、zhishiapi 或用户、令牌、渠道业务数据。
+没有使用后台测试会话触发真实 429，登录态行为以已通过的真实 Axios 回归为依据。
