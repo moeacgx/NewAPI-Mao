@@ -74,8 +74,8 @@ export const formatBucketTime = (timestamp, includeDate = true) => {
 export const getSuccessRateLevel = (value) => {
   if (!Number.isFinite(Number(value))) return 'unknown';
   const rate = clampSuccessRate(value);
-  if (rate >= 99) return 'healthy';
-  if (rate >= 95) return 'warning';
+  if (rate >= 90) return 'healthy';
+  if (rate >= 70) return 'warning';
   return 'critical';
 };
 
@@ -88,21 +88,20 @@ export const getSuccessRateTextClass = (value) => {
 };
 
 export const getSuccessRateTextColor = (value) => {
-  if (!Number.isFinite(Number(value))) return 'var(--semi-color-text-2)';
-  const rate = clampSuccessRate(value);
-  if (rate >= 90) return 'var(--semi-color-success)';
-  if (rate >= 70) return 'var(--semi-color-warning)';
-  return 'var(--semi-color-danger)';
+  const level = getSuccessRateLevel(value);
+  if (level === 'healthy') return 'var(--semi-color-success)';
+  if (level === 'warning') return 'var(--semi-color-warning)';
+  if (level === 'critical') return 'var(--semi-color-danger)';
+  return 'var(--semi-color-text-2)';
 };
 
 export const getSuccessRateHex = (value) => {
   if (!Number.isFinite(Number(value))) return '#9ca3af';
   const rate = clampSuccessRate(value);
-  if (rate >= 99.9) return '#10b981';
-  if (rate >= 99) return '#34d399';
-  if (rate >= 95) return '#f59e0b';
-  if (rate >= 90) return '#d97706';
-  return '#f43f5e';
+  if (rate >= 100) return '#10b981';
+  if (rate >= 90) return '#34d399';
+  if (rate >= 70) return '#f59e0b';
+  return '#ef4444';
 };
 
 export const getStatusSegmentHex = (value) => {

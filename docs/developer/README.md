@@ -1,5 +1,7 @@
 # 开发文档
 
+- [Classic 模型广场成功率配色对齐官方](../workflows/2026-09/20_classic_performance_upstream_colors.md)：统一详情数字、成功率柱和趋势点的 90% / 70% 颜色阈值，保留统计与卡片可用性口径。
+
 - [zzapi 会话刷新修复 .328 发布](../workflows/2026-09/19_zzapi_328_auth_refresh_release.md)：Classic 临时刷新故障保留登录态、刷新计数隔离、发布产物与三节点滚动更新。
 
 - [Classic 会话刷新限流与误退登修复](../workflows/2026-09/19_classic_refresh_rate_limit.md)：刷新独立限流桶、临时刷新错误保留登录态与真实请求回归。
