@@ -7,6 +7,7 @@ import {
   buildStatusSegments,
   getSuccessRateHex,
   getSuccessRateLevel,
+  getSuccessRateTextClass,
   getSuccessRateTextColor,
   getStatusRateTextClass,
   getStatusSegmentHex,
@@ -113,19 +114,37 @@ test('详情指标按分组等权聚合并生成趋势', () => {
   ]);
 });
 
-test('PackyAPI 风格成功率颜色和可用率轴下限保持稳定', () => {
-  assert.equal(getSuccessRateLevel(99), 'healthy');
-  assert.equal(getSuccessRateLevel(98.6), 'warning');
-  assert.equal(getSuccessRateLevel(89.5), 'critical');
-  assert.equal(getSuccessRateHex(100), '#10b981');
-  assert.equal(getSuccessRateHex(99.3), '#34d399');
-  assert.equal(getSuccessRateHex(98.6), '#f59e0b');
-  assert.equal(getSuccessRateHex(93.7), '#d97706');
-  assert.equal(getSuccessRateHex(89.5), '#f43f5e');
-  assert.equal(getSuccessRateTextColor(100), 'var(--semi-color-success)');
-  assert.equal(getSuccessRateTextColor(93.7), 'var(--semi-color-success)');
-  assert.equal(getSuccessRateTextColor(77.77), 'var(--semi-color-warning)');
-  assert.equal(getSuccessRateTextColor(69.99), 'var(--semi-color-danger)');
+test('详情成功率按官方阈值统一数字、柱与趋势点的颜色', () => {
+  const cases = [
+    [100, 'healthy', '#10b981', 'success'],
+    [99.99, 'healthy', '#34d399', 'success'],
+    [98.6, 'healthy', '#34d399', 'success'],
+    [90, 'healthy', '#34d399', 'success'],
+    [89.99, 'warning', '#f59e0b', 'warning'],
+    [70, 'warning', '#f59e0b', 'warning'],
+    [69.99, 'critical', '#ef4444', 'danger'],
+    [0, 'critical', '#ef4444', 'danger'],
+    [Number.NaN, 'unknown', '#9ca3af', 'text-2'],
+    [Number.POSITIVE_INFINITY, 'unknown', '#9ca3af', 'text-2'],
+  ];
+
+  for (const [rate, level, hex, semanticColor] of cases) {
+    assert.equal(getSuccessRateLevel(rate), level, String(rate));
+    assert.equal(getSuccessRateHex(rate), hex, String(rate));
+    assert.equal(
+      getSuccessRateTextClass(rate),
+      `text-semi-color-${semanticColor}`,
+      String(rate),
+    );
+    assert.equal(
+      getSuccessRateTextColor(rate),
+      `var(--semi-color-${semanticColor})`,
+      String(rate),
+    );
+  }
+});
+
+test('可用率趋势轴下限保持稳定', () => {
   assert.equal(getUptimeAxisMin([99.9, 98]), 95);
   assert.equal(getUptimeAxisMin([94.5]), 90);
   assert.equal(getUptimeAxisMin([83]), 70);
