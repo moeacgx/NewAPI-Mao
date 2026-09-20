@@ -1,5 +1,10 @@
 # 本项目二次开发能力
 
+## 上游模型校验渠道 ID 白名单
+
+- `upstream-model-guard` 模块 `0.2.1` 在 Default、Classic 支持直接填写渠道 ID，与现有勾选白名单同步；沿用 `excluded_channel_ids` 与 Root 权限。
+- 记录：[白名单 ID 输入](../workflows/2026-09/21_model_guard_allowlist_ids.md)。外置模块需单独安装，宿主更新不会自动升级旧模块。
+
 ## 渠道强制使用 Responses 上游
 
 - 文档：[渠道强制使用 Responses 上游](channel-force-responses.md)。

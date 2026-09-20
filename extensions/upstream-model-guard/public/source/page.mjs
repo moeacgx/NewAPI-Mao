@@ -3,17 +3,21 @@ export function createGuardPage(sdk, ui, translations) {
   const { useEffect, useState } = sdk.modules.react;
   const I18n = sdk.modules["react-i18next"];
   const namespace = "upstream-model-guard";
-  const useTranslation = () => I18n.useTranslation(namespace, { useSuspense: false });
+  const useTranslation = () =>
+    I18n.useTranslation(namespace, { useSuspense: false });
   const base = "/api/extensions/upstream-model-guard";
 
   function unwrap(response) {
     const body = response?.data ?? response;
-    if (body?.success === false) throw new Error(body.message || "Request failed");
+    if (body?.success === false)
+      throw new Error(body.message || "Request failed");
     return body?.data ?? body;
   }
 
   function errorText(error, t) {
-    return error?.response?.data?.message || error?.message || t("Request failed");
+    return (
+      error?.response?.data?.message || error?.message || t("Request failed")
+    );
   }
 
   function channelLabel(channel, t) {
@@ -25,7 +29,19 @@ export function createGuardPage(sdk, ui, translations) {
     const onReady = props.onReady;
     const [search, setSearch] = useState("");
     const [query, setQuery] = useState({ keyword: "", page: 1, revision: 0 });
-    const [state, setState] = useState({ loading: true, error: "", items: [], total: 0 });
+    const [state, setState] = useState({
+      loading: true,
+      error: "",
+      items: [],
+      total: 0,
+    });
+    const [idsText, setIdsText] = useState(() =>
+      props.selected.map((channel) => channel.id).join("\n"),
+    );
+    const [idsError, setIdsError] = useState("");
+    useEffect(() => {
+      onReady(!state.loading && !state.error && !idsError);
+    }, [state.loading, state.error, idsError, onReady]);
     useEffect(() => {
       let active = true;
       onReady(false);
@@ -38,33 +54,84 @@ export function createGuardPage(sdk, ui, translations) {
         .then(unwrap)
         .then((data) => {
           if (!active) return;
-          if (!Array.isArray(data.items)) throw new Error(t("Failed to load channels"));
+          if (!Array.isArray(data.items))
+            throw new Error(t("Failed to load channels"));
           setState({
             loading: false,
             error: "",
             items: data.items,
             total: Number(data.total || 0),
           });
-          onReady(true);
         })
         .catch((error) => {
-          if (active) setState({ loading: false, error: errorText(error, t), items: [], total: 0 });
+          if (active)
+            setState({
+              loading: false,
+              error: errorText(error, t),
+              items: [],
+              total: 0,
+            });
         });
       return () => {
         active = false;
       };
     }, [query, t, onReady]);
 
+    function changeIds(value) {
+      if (props.disabled) return;
+      setIdsText(value);
+      const parts = value.split(/[\s,，;；]+/u).filter(Boolean);
+      if (
+        parts.some(
+          (part) =>
+            !/^\d+$/.test(part) ||
+            !Number.isSafeInteger(Number(part)) ||
+            Number(part) <= 0,
+        )
+      ) {
+        setIdsError("Enter positive integer channel IDs.");
+        props.onChange(props.selected);
+        return;
+      }
+      const ids = [...new Set(parts.map(Number))];
+      if (ids.length > 1000) {
+        setIdsError("Select no more than 1000 channels.");
+        props.onChange(props.selected);
+        return;
+      }
+      setIdsError("");
+      props.onChange(
+        ids.map(
+          (id) =>
+            props.selected.find((channel) => channel.id === id) ||
+            state.items.find((channel) => channel.id === id) || {
+              id,
+              name: t("Channel"),
+              status: 0,
+            },
+        ),
+      );
+    }
+
     function toggle(channel, checked) {
       if (props.disabled) return;
       if (!checked) {
-        props.onChange(props.selected.filter((item) => item.id !== channel.id));
+        const selected = props.selected.filter(
+          (item) => item.id !== channel.id,
+        );
+        setIdsText(selected.map((item) => item.id).join("\n"));
+        props.onChange(selected);
         return;
       }
-      if (props.selected.length >= 1000 || props.selected.some((item) => item.id === channel.id)) {
+      if (
+        props.selected.length >= 1000 ||
+        props.selected.some((item) => item.id === channel.id)
+      ) {
         return;
       }
-      props.onChange([...props.selected, channel]);
+      const selected = [...props.selected, channel];
+      setIdsText(selected.map((item) => item.id).join("\n"));
+      props.onChange(selected);
     }
 
     const pages = Math.max(1, Math.ceil(state.total / 50));
@@ -77,7 +144,9 @@ export function createGuardPage(sdk, ui, translations) {
             jsx("h2", { children: t("Channel allowlist") }),
             jsx("span", {
               className: "guard-muted",
-              children: t("Selected {{count}} of 1000", { count: props.selected.length }),
+              children: t("Selected {{count}} of 1000", {
+                count: props.selected.length,
+              }),
             }),
           ],
         }),
@@ -89,6 +158,41 @@ export function createGuardPage(sdk, ui, translations) {
               children: t(
                 "Allowlisted channels skip detection, counting, records, disabling, and notifications.",
               ),
+            }),
+            jsxs("div", {
+              className: "guard-field",
+              children: [
+                jsx("label", {
+                  htmlFor: "guard-channel-ids",
+                  children: t("Allowlisted channel IDs"),
+                }),
+                jsx(ui.Textarea, {
+                  id: "guard-channel-ids",
+                  value: idsText,
+                  disabled: props.disabled,
+                  rows: 3,
+                  maxLength: 30000,
+                  "aria-invalid": Boolean(idsError),
+                  "aria-describedby":
+                    "guard-channel-ids-help" +
+                    (idsError ? " guard-channel-ids-error" : ""),
+                  onChange: changeIds,
+                }),
+                jsx("p", {
+                  id: "guard-channel-ids-help",
+                  className: "guard-muted guard-help",
+                  children: t(
+                    "Separate IDs with commas or newlines. Duplicates are removed. Clear the field to remove all allowlisted channels, then save settings.",
+                  ),
+                }),
+                idsError &&
+                  jsx("p", {
+                    id: "guard-channel-ids-error",
+                    role: "alert",
+                    className: "guard-error",
+                    children: t(idsError),
+                  }),
+              ],
             }),
             jsx("div", {
               className: "guard-selected-channels",
@@ -105,7 +209,7 @@ export function createGuardPage(sdk, ui, translations) {
                             ariaLabel: t("Remove {{channel}} from allowlist", {
                               channel: channelLabel(channel, t),
                             }),
-                            disabled: props.disabled,
+                            disabled: props.disabled || Boolean(idsError),
                             onClick: () => toggle(channel, false),
                           }),
                         ],
@@ -113,7 +217,10 @@ export function createGuardPage(sdk, ui, translations) {
                       channel.id,
                     ),
                   )
-                : jsx("p", { className: "guard-muted", children: t("No allowlisted channels") }),
+                : jsx("p", {
+                    className: "guard-muted",
+                    children: t("No allowlisted channels"),
+                  }),
             }),
             jsxs("form", {
               className: "guard-channel-search",
@@ -181,25 +288,36 @@ export function createGuardPage(sdk, ui, translations) {
                           label: t("Retry channel search"),
                           disabled: props.disabled,
                           onClick: () =>
-                            setQuery((current) => ({ ...current, revision: current.revision + 1 })),
+                            setQuery((current) => ({
+                              ...current,
+                              revision: current.revision + 1,
+                            })),
                         }),
                       ],
                     })
                   : null,
                 !state.loading && !state.error && state.items.length === 0
-                  ? jsx("p", { className: "guard-muted", children: t("No channels found") })
+                  ? jsx("p", {
+                      className: "guard-muted",
+                      children: t("No channels found"),
+                    })
                   : null,
                 !state.loading && !state.error
                   ? jsx("div", {
                       className: "guard-channel-options",
                       children: state.items.map((channel) => {
-                        const checked = props.selected.some((item) => item.id === channel.id);
+                        const checked = props.selected.some(
+                          (item) => item.id === channel.id,
+                        );
                         return jsx(
                           ui.Checkbox,
                           {
                             label: channelLabel(channel, t),
                             checked,
-                            disabled: props.disabled || (!checked && props.selected.length >= 1000),
+                            disabled:
+                              props.disabled ||
+                              Boolean(idsError) ||
+                              (!checked && props.selected.length >= 1000),
                             onChange: (value) => toggle(channel, value),
                           },
                           channel.id,
@@ -219,9 +337,13 @@ export function createGuardPage(sdk, ui, translations) {
                       children: [
                         jsx(ui.Button, {
                           label: t("Previous page"),
-                          disabled: props.disabled || state.loading || query.page <= 1,
+                          disabled:
+                            props.disabled || state.loading || query.page <= 1,
                           onClick: () =>
-                            setQuery((current) => ({ ...current, page: current.page - 1 })),
+                            setQuery((current) => ({
+                              ...current,
+                              page: current.page - 1,
+                            })),
                         }),
                         jsx("span", {
                           className: "guard-page-number",
@@ -229,9 +351,15 @@ export function createGuardPage(sdk, ui, translations) {
                         }),
                         jsx(ui.Button, {
                           label: t("Next page"),
-                          disabled: props.disabled || state.loading || query.page >= pages,
+                          disabled:
+                            props.disabled ||
+                            state.loading ||
+                            query.page >= pages,
                           onClick: () =>
-                            setQuery((current) => ({ ...current, page: current.page + 1 })),
+                            setQuery((current) => ({
+                              ...current,
+                              page: current.page + 1,
+                            })),
                         }),
                       ],
                     }),
@@ -305,15 +433,21 @@ export function createGuardPage(sdk, ui, translations) {
                           ui.Checkbox,
                           {
                             label: group.name?.trim() || group.code,
-                            checked: props.rule.group_codes.includes(group.code),
+                            checked: props.rule.group_codes.includes(
+                              group.code,
+                            ),
                             disabled: props.disabled,
-                            onChange: (checked) => changeGroup(group.code, checked),
+                            onChange: (checked) =>
+                              changeGroup(group.code, checked),
                           },
                           group.code,
                         ),
                       ),
                     })
-                  : jsx("p", { className: "guard-muted", children: t("No groups available") }),
+                  : jsx("p", {
+                      className: "guard-muted",
+                      children: t("No groups available"),
+                    }),
               ],
             }),
             jsxs("div", {
@@ -322,7 +456,10 @@ export function createGuardPage(sdk, ui, translations) {
                 jsxs("div", {
                   className: "guard-field",
                   children: [
-                    jsx("label", { htmlFor: modelId, children: t("Request model") }),
+                    jsx("label", {
+                      htmlFor: modelId,
+                      children: t("Request model"),
+                    }),
                     jsx(ui.Input, {
                       id: modelId,
                       value: props.rule.model,
@@ -335,14 +472,18 @@ export function createGuardPage(sdk, ui, translations) {
                 jsxs("div", {
                   className: "guard-field",
                   children: [
-                    jsx("label", { htmlFor: upstreamId, children: t("Allowed upstream models") }),
+                    jsx("label", {
+                      htmlFor: upstreamId,
+                      children: t("Allowed upstream models"),
+                    }),
                     jsx(ui.Textarea, {
                       id: upstreamId,
                       value: props.rule.upstreamText,
                       disabled: props.disabled,
                       rows: 4,
                       placeholder: t("One exact model name per line"),
-                      onChange: (upstreamText) => props.onChange({ upstreamText }),
+                      onChange: (upstreamText) =>
+                        props.onChange({ upstreamText }),
                     }),
                   ],
                 }),
@@ -359,7 +500,12 @@ export function createGuardPage(sdk, ui, translations) {
     const onGroupsLoaded = props.onGroupsLoaded;
     const [nextKey, setNextKey] = useState(1);
     const [reload, setReload] = useState(0);
-    const [state, setState] = useState({ loading: true, error: "", config: null, groups: [] });
+    const [state, setState] = useState({
+      loading: true,
+      error: "",
+      config: null,
+      groups: [],
+    });
     const [draft, setDraft] = useState({
       enabled: false,
       rules: [],
@@ -394,7 +540,9 @@ export function createGuardPage(sdk, ui, translations) {
             threshold: String(config.failure_threshold ?? 2),
             excludedChannels: (config.excluded_channel_ids || []).map(
               (id) =>
-                (config.excluded_channels || []).find((channel) => channel.id === id) || {
+                (config.excluded_channels || []).find(
+                  (channel) => channel.id === id,
+                ) || {
                   id,
                   name: "",
                   status: 0,
@@ -414,7 +562,11 @@ export function createGuardPage(sdk, ui, translations) {
         })
         .catch((error) => {
           if (active) {
-            setState((current) => ({ ...current, loading: false, error: errorText(error, t) }));
+            setState((current) => ({
+              ...current,
+              loading: false,
+              error: errorText(error, t),
+            }));
           }
         });
       return () => {
@@ -429,14 +581,24 @@ export function createGuardPage(sdk, ui, translations) {
     }
 
     function updateRule(key, patch) {
-      edit({ rules: draft.rules.map((rule) => (rule.key === key ? { ...rule, ...patch } : rule)) });
+      edit({
+        rules: draft.rules.map((rule) =>
+          rule.key === key ? { ...rule, ...patch } : rule,
+        ),
+      });
     }
 
     function addRule() {
       edit({
         rules: [
           ...draft.rules,
-          { key: nextKey, enabled: true, group_codes: [], model: "", upstreamText: "" },
+          {
+            key: nextKey,
+            enabled: true,
+            group_codes: [],
+            model: "",
+            upstreamText: "",
+          },
         ],
       });
       setNextKey((value) => value + 1);
@@ -467,11 +629,16 @@ export function createGuardPage(sdk, ui, translations) {
         ],
       }));
       const invalid = rules.findIndex(
-        (rule) => !rule.group_codes.length || !rule.model || !rule.upstream_models.length,
+        (rule) =>
+          !rule.group_codes.length ||
+          !rule.model ||
+          !rule.upstream_models.length,
       );
       if (invalid >= 0) {
         setSaveError(
-          t("Complete groups and model names for rule {{number}}.", { number: invalid + 1 }),
+          t("Complete groups and model names for rule {{number}}.", {
+            number: invalid + 1,
+          }),
         );
         return;
       }
@@ -486,13 +653,25 @@ export function createGuardPage(sdk, ui, translations) {
               expected_version: state.config.config_version,
               enabled: draft.enabled,
               failure_threshold: threshold,
-              excluded_channel_ids: draft.excludedChannels.map((channel) => channel.id),
+              excluded_channel_ids: draft.excludedChannels.map(
+                (channel) => channel.id,
+              ),
               rules,
             },
             { skipErrorHandler: true },
           ),
         );
         setState((current) => ({ ...current, config }));
+        // 保存后使用宿主返回的渠道名称回显手动填写的 ID。
+        setDraft((current) => ({
+          ...current,
+          excludedChannels: current.excludedChannels.map(
+            (channel) =>
+              (config.excluded_channels || []).find(
+                (item) => item.id === channel.id,
+              ) || channel,
+          ),
+        }));
         setSaved(true);
       } catch (error) {
         const stale = error?.response?.status === 409;
@@ -521,7 +700,11 @@ export function createGuardPage(sdk, ui, translations) {
         children: jsxs("div", {
           className: "guard-state",
           children: [
-            jsx("div", { role: "alert", className: "guard-error", children: state.error }),
+            jsx("div", {
+              role: "alert",
+              className: "guard-error",
+              children: state.error,
+            }),
             jsx(ui.Button, {
               icon: "RefreshCw",
               label: t("Reload settings"),
@@ -642,7 +825,10 @@ export function createGuardPage(sdk, ui, translations) {
               groups: state.groups,
               disabled: saving || conflict,
               onChange: (patch) => updateRule(rule.key, patch),
-              onRemove: () => edit({ rules: draft.rules.filter((item) => item.key !== rule.key) }),
+              onRemove: () =>
+                edit({
+                  rules: draft.rules.filter((item) => item.key !== rule.key),
+                }),
             },
             rule.key,
           ),
@@ -655,12 +841,20 @@ export function createGuardPage(sdk, ui, translations) {
     const { t } = useTranslation();
     const [page, setPage] = useState(1);
     const [refresh, setRefresh] = useState(0);
-    const [state, setState] = useState({ loading: true, error: "", items: [], total: 0 });
+    const [state, setState] = useState({
+      loading: true,
+      error: "",
+      items: [],
+      total: 0,
+    });
     useEffect(() => {
       let active = true;
       setState((current) => ({ ...current, loading: true, error: "" }));
       ui.api()
-        .get(`${base}/records`, { params: { page, page_size: 20 }, skipErrorHandler: true })
+        .get(`${base}/records`, {
+          params: { page, page_size: 20 },
+          skipErrorHandler: true,
+        })
         .then(unwrap)
         .then((data) => {
           if (active) {
@@ -674,7 +868,11 @@ export function createGuardPage(sdk, ui, translations) {
         })
         .catch((error) => {
           if (active) {
-            setState((current) => ({ ...current, loading: false, error: errorText(error, t) }));
+            setState((current) => ({
+              ...current,
+              loading: false,
+              error: errorText(error, t),
+            }));
           }
         });
       return () => {
@@ -709,11 +907,17 @@ export function createGuardPage(sdk, ui, translations) {
         title: t("Group"),
         render: (row) =>
           row.group_name?.trim() ||
-          props.groups.find((group) => group.code === row.group)?.name?.trim() ||
+          props.groups
+            .find((group) => group.code === row.group)
+            ?.name?.trim() ||
           row.group ||
           "-",
       },
-      { key: "model", title: t("Request model"), render: (row) => row.requested_model || "-" },
+      {
+        key: "model",
+        title: t("Request model"),
+        render: (row) => row.requested_model || "-",
+      },
       {
         key: "expected",
         title: t("Expected upstream models"),
@@ -727,13 +931,16 @@ export function createGuardPage(sdk, ui, translations) {
       {
         key: "count",
         title: t("Consecutive mismatches"),
-        render: (row) => `${row.consecutive_mismatches ?? 1} / ${row.failure_threshold ?? 1}`,
+        render: (row) =>
+          `${row.consecutive_mismatches ?? 1} / ${row.failure_threshold ?? 1}`,
       },
       {
         key: "disabled",
         title: t("Channel status"),
         render: (row) =>
-          row.channel_disabled === false ? t("Not disabled") : t("Channel disabled"),
+          row.channel_disabled === false
+            ? t("Not disabled")
+            : t("Channel disabled"),
       },
     ];
     let content = jsx(ui.RecordsTable, { columns, items: state.items });
@@ -792,7 +999,10 @@ export function createGuardPage(sdk, ui, translations) {
                   disabled: state.loading || page <= 1,
                   onClick: () => setPage((value) => value - 1),
                 }),
-                jsx("span", { className: "guard-page-number", children: `${page} / ${pages}` }),
+                jsx("span", {
+                  className: "guard-page-number",
+                  children: `${page} / ${pages}`,
+                }),
                 jsx(ui.Button, {
                   icon: "ChevronRight",
                   label: t("Next page"),
@@ -820,7 +1030,10 @@ export function createGuardPage(sdk, ui, translations) {
       }),
       children: jsxs("div", {
         className: "upstream-model-guard",
-        children: [jsx(Settings, { onGroupsLoaded: setGroups }), jsx(Records, { groups })],
+        children: [
+          jsx(Settings, { onGroupsLoaded: setGroups }),
+          jsx(Records, { groups }),
+        ],
       }),
     });
   }
@@ -834,7 +1047,13 @@ export function createGuardPage(sdk, ui, translations) {
       }
       // 两套宿主使用不同的中文语言代码，别名只注册到插件命名空间。
       i18n.addResourceBundle("zhCN", namespace, translations.zh, true, false);
-      i18n.addResourceBundle("zhTW", namespace, translations["zh-TW"], true, false);
+      i18n.addResourceBundle(
+        "zhTW",
+        namespace,
+        translations["zh-TW"],
+        true,
+        false,
+      );
       setReady(true);
     }, [i18n]);
     return ready ? jsx(GuardContent, {}) : null;

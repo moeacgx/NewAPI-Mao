@@ -53,7 +53,7 @@ const Semi = Object.fromEntries(
   ['Button', 'Card', 'Input', 'Table'].map((name) => [
     name,
     require(`@douyinfe/semi-ui/lib/cjs/${name.toLowerCase()}`).default,
-  ])
+  ]),
 )
 const { fireEvent, screen, within } = require('@testing-library/dom')
 const { createRoot } = require('react-dom/client')
@@ -125,7 +125,10 @@ globalThis.__NEW_API_EXTENSION_NATIVE_SDK__ = {
 }
 const { default: Page } = await import(
   pathToFileURL(
-    path.join(root, 'extensions/upstream-model-guard/public/native/classic.mjs')
+    path.join(
+      root,
+      'extensions/upstream-model-guard/public/native/classic.mjs',
+    ),
   )
 )
 
@@ -140,32 +143,32 @@ test(
       await act(async () => renderer.render(React.createElement(Page)))
       assert.equal(
         screen.getByLabelText('Consecutive mismatch threshold').value,
-        '2'
+        '2',
       )
       await act(async () =>
-        fireEvent.click(screen.getByRole('button', { name: 'Add rule' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Add rule' })),
       )
       const rule = screen.getByRole('group', { name: 'Rule 1' })
       await act(async () =>
         fireEvent.click(
-          within(rule).getByRole('checkbox', { name: 'Premium group' })
-        )
+          within(rule).getByRole('checkbox', { name: 'Premium group' }),
+        ),
       )
       await act(async () =>
         fireEvent.change(within(rule).getByLabelText('Request model'), {
           target: { value: 'gpt-test' },
-        })
+        }),
       )
       await act(async () =>
         fireEvent.change(
           within(rule).getByLabelText('Allowed upstream models'),
           {
             target: { value: 'provider-A\nprovider-B' },
-          }
-        )
+          },
+        ),
       )
       await act(async () =>
-        fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Save settings' })),
       )
       assert.equal(writes.length, 1)
       assert.deepEqual(writes[0], {
@@ -189,7 +192,7 @@ test(
         screen
           .getByRole('link', { name: 'Notification Center' })
           .getAttribute('href'),
-        '/notification-center'
+        '/notification-center',
       )
       assert.ok(screen.getByText('No model mismatch records'))
       await act(async () => i18next.changeLanguage('zh-CN'))
@@ -198,21 +201,21 @@ test(
       assert.ok(screen.getByText('暂无模型异常记录'))
       assert.equal(
         i18next.getResource('zh-CN', 'translation', 'Upstream model guard'),
-        undefined
+        undefined,
       )
       assert.equal(
         i18next.getResource(
           'zh-CN',
           'upstream-model-guard',
-          'Upstream model guard'
+          'Upstream model guard',
         ),
-        '上游模型校验'
+        '上游模型校验',
       )
     } finally {
       await act(async () => renderer.unmount())
       container.remove()
     }
-  }
+  },
 )
 
 test(
@@ -238,49 +241,49 @@ test(
       await act(async () =>
         fireEvent.change(
           screen.getByLabelText('Consecutive mismatch threshold'),
-          { target: { value: '1.5' } }
-        )
+          { target: { value: '1.5' } },
+        ),
       )
       await act(async () =>
-        fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Save settings' })),
       )
       assert.match(
         screen.getByRole('alert').textContent,
-        /Enter an integer from 1 to 100/
+        /Enter an integer from 1 to 100/,
       )
       assert.equal(writes.length, 0)
       await act(async () =>
         fireEvent.change(
           screen.getByLabelText('Consecutive mismatch threshold'),
-          { target: { value: '4' } }
-        )
+          { target: { value: '4' } },
+        ),
       )
       await act(async () =>
         fireEvent.click(
           screen.getByRole('button', {
             name: 'Remove Unavailable channel (#901) from allowlist',
-          })
-        )
+          }),
+        ),
       )
       await act(async () =>
         fireEvent.click(
-          screen.getByRole('checkbox', { name: 'New provider (#902)' })
-        )
+          screen.getByRole('checkbox', { name: 'New provider (#902)' }),
+        ),
       )
       await act(async () =>
         fireEvent.change(screen.getByLabelText('Search channels'), {
           target: { value: 'New' },
-        })
+        }),
       )
       await act(async () =>
-        fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Search' })),
       )
       assert.equal(
         screen.getByLabelText('Consecutive mismatch threshold').value,
-        '4'
+        '4',
       )
       await act(async () =>
-        fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Save settings' })),
       )
       assert.deepEqual(writes[0].data, {
         expected_version: 4,
@@ -293,7 +296,7 @@ test(
       await act(async () => renderer.unmount())
       container.remove()
     }
-  }
+  },
 )
 
 test(
@@ -308,17 +311,77 @@ test(
       await act(async () => renderer.render(React.createElement(Page)))
       assert.match(
         screen.getByRole('alert').textContent,
-        /Channels unavailable/
+        /Channels unavailable/,
       )
       assert.equal(
         screen.getByRole('button', { name: 'Save settings' }).disabled,
-        true
+        true,
       )
     } finally {
       await act(async () => renderer.unmount())
       container.remove()
     }
-  }
+  },
+)
+
+test(
+  'Classic 直接填写渠道 ID，非法值禁止保存并可清空',
+  { timeout: 15000 },
+  async () => {
+    configuration = {
+      ...configuration,
+      excluded_channel_ids: [900],
+      excluded_channels: [{ id: 900, name: 'Known', status: 1 }],
+    }
+    channelOptions = [{ id: 902, name: 'Provider', status: 1 }]
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = createRoot(container)
+    try {
+      await act(async () => renderer.render(React.createElement(Page)))
+      const ids = screen.getByLabelText('Allowlisted channel IDs')
+      const save = screen.getByRole('button', { name: 'Save settings' })
+      assert.equal(ids.value, '900')
+      await act(async () =>
+        fireEvent.change(ids, { target: { value: '900，901\n900;902；903' } }),
+      )
+      assert.equal(
+        screen.getByRole('checkbox', { name: 'Provider (#902)' }).checked,
+        true,
+      )
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole('checkbox', { name: 'Provider (#902)' }),
+        ),
+      )
+      assert.equal(ids.value, '900\n901\n903')
+      await act(async () => fireEvent.click(save))
+      assert.deepEqual(writes[0].data.excluded_channel_ids, [900, 901, 903])
+      for (const value of ['0', '-1', '1.5', '1e3', '9007199254740992']) {
+        await act(async () => fireEvent.change(ids, { target: { value } }))
+        assert.equal(save.disabled, true)
+        assert.equal(ids.getAttribute('aria-invalid'), 'true')
+      }
+      await act(async () =>
+        fireEvent.change(ids, {
+          target: {
+            value: Array.from({ length: 1001 }, (_, i) => i + 1).join(','),
+          },
+        }),
+      )
+      assert.match(
+        screen.getByRole('alert').textContent,
+        /Select no more than 1000/,
+      )
+      await act(async () => fireEvent.change(ids, { target: { value: '' } }))
+      assert.equal(save.disabled, false)
+      await act(async () => fireEvent.click(save))
+      assert.deepEqual(writes.at(-1).data.excluded_channel_ids, [])
+    } finally {
+      await act(async () => renderer.unmount())
+      container.remove()
+    }
+  },
 )
 
 test(
@@ -347,13 +410,13 @@ test(
       const legacy = screen.getByRole('row', { name: /Legacy channel/ })
       assert.ok(within(legacy).getByRole('gridcell', { name: '1 / 1' }))
       assert.ok(
-        within(legacy).getByRole('gridcell', { name: 'Channel disabled' })
+        within(legacy).getByRole('gridcell', { name: 'Channel disabled' }),
       )
     } finally {
       await act(async () => renderer.unmount())
       container.remove()
     }
-  }
+  },
 )
 
 test(
@@ -384,19 +447,19 @@ test(
       await act(async () => renderer.render(React.createElement(Page)))
       const table = screen.getByRole('grid')
       assert.ok(
-        within(table).getByRole('gridcell', { name: 'Current premium group' })
+        within(table).getByRole('gridcell', { name: 'Current premium group' }),
       )
       assert.ok(within(table).getByRole('gridcell', { name: 'Official group' }))
       assert.ok(within(table).getByRole('gridcell', { name: 'deleted-code' }))
       assert.equal(within(table).queryByRole('gridcell', { name: 'vip' }), null)
       assert.equal(
         within(table).queryByRole('gridcell', { name: 'Premium group' }),
-        null
+        null,
       )
     } finally {
       await act(async () => renderer.unmount())
       container.remove()
       records = []
     }
-  }
+  },
 )

@@ -1,7 +1,7 @@
 {
   "id": "upstream-model-guard",
   "name": "上游模型校验",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "按分组和请求模型校验上游响应模型，不匹配时关闭整条渠道并联动通知中心。",
   "host": { "min": "v1.0.0-rc.10.1.10.326" },
   "runtime": { "type": "static", "static_dir": "public", "health_path": "/compat.html" },

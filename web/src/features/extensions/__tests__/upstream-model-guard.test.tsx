@@ -57,6 +57,89 @@ beforeEach(async () => {
 })
 
 describe('upstream model guard native page', () => {
+  it('直接填写渠道 ID 去重并与勾选、移除和保存同步', async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === `${base}/config`) return ok(configuration)
+      if (url === `${base}/groups`) return ok([])
+      return ok({ items: [{ id: 902, name: 'Provider', status: 1 }], total: 1 })
+    })
+    render(<Page />)
+    const ids = await screen.findByLabelText('Allowlisted channel IDs')
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.change(ids, { target: { value: '900，901\n900; 902；903' } })
+    expect(
+      screen.getByRole('checkbox', { name: 'Provider (#902)' })
+    ).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Provider (#902)' }))
+    expect(ids).toHaveValue('900\n901\n903')
+    fireEvent.click(save)
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        `${base}/config`,
+        expect.objectContaining({ excluded_channel_ids: [900, 901, 903] }),
+        { skipErrorHandler: true }
+      )
+    )
+    fireEvent.change(ids, { target: { value: '' } })
+    fireEvent.click(save)
+    await waitFor(() =>
+      expect(api.put).toHaveBeenLastCalledWith(
+        `${base}/config`,
+        expect.objectContaining({ excluded_channel_ids: [] }),
+        { skipErrorHandler: true }
+      )
+    )
+  })
+
+  it('非法或超量渠道 ID 阻止保存，修正后恢复', async () => {
+    render(<Page />)
+    const ids = await screen.findByLabelText('Allowlisted channel IDs')
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    for (const value of [
+      '0',
+      '-1',
+      '1.5',
+      '1e3',
+      '9007199254740992',
+      '123,abc',
+    ]) {
+      fireEvent.change(ids, { target: { value } })
+      expect(ids).toHaveAttribute('aria-invalid', 'true')
+      expect(save).toBeDisabled()
+    }
+    fireEvent.change(ids, {
+      target: {
+        value: Array.from({ length: 1001 }, (_, i) => i + 1).join(','),
+      },
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Select no more than 1000 channels.'
+    )
+    expect(api.put).not.toHaveBeenCalled()
+    fireEvent.change(ids, { target: { value: '123' } })
+    await waitFor(() => expect(save).toBeEnabled())
+    expect(ids).toHaveAttribute('aria-invalid', 'false')
+  })
+
+  it('未知渠道保存失败时保留输入与原配置，修正后可重试', async () => {
+    vi.mocked(api.put).mockRejectedValueOnce({
+      response: { data: { message: 'Unknown channel 999' } },
+    })
+    render(<Page />)
+    const ids = await screen.findByLabelText('Allowlisted channel IDs')
+    const save = screen.getByRole('button', { name: 'Save settings' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.change(ids, { target: { value: '999' } })
+    fireEvent.click(save)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unknown channel 999'
+    )
+    expect(ids).toHaveValue('999')
+    expect(save).toBeEnabled()
+  })
+
   it('saves multiple checked groups and exact upstream names with the loaded version', async () => {
     render(<Page />)
     await screen.findByRole('button', { name: 'Add rule' })
