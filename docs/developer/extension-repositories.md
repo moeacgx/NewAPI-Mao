@@ -6,9 +6,10 @@
 | [maolaonewapi-extensions](https://github.com/moeacgx/maolaonewapi-extensions) | 扩展模块源码、版本 ZIP、SHA-256 和在线安装目录 | [模块目录](https://github.com/moeacgx/maolaonewapi-extensions/blob/main/MODULES.md)            |
 | [maolaonewapi-plugins](https://github.com/moeacgx/maolaonewapi-plugins)       | Task Plugin 源码及任务插件市场源               | [任务插件索引](https://raw.githubusercontent.com/moeacgx/maolaonewapi-plugins/main/index.json) |
 
-扩展模块仓库收录渠道可观测性中心 `0.4.1`、对话归档 `0.1.1`、OKX 支付宝汇率 `0.3.0`、上游模型校验 `0.2.0`。
+扩展模块仓库收录渠道可观测性中心 `0.4.1`、对话归档 `0.1.1`、OKX 支付宝汇率 `0.3.0`、上游模型校验 `0.2.1`（保留旧版 `0.2.0`）。
 前面三个是主程序内置资源的版本快照，宿主启动仍可能按内嵌版本刷新；上游模型校验是外置模块，
 `0.2.0` 需要白名单与容错宿主能力及数据库迁移。仅看清单最低版本不能判断全部业务兼容性。
+`0.2.1` 在双模板增加渠道白名单 ID 直接输入，沿用同一宿主能力，无新增迁移；已发布到在线目录，安装由 Root 在后台执行，多节点须分别刷新模块注册表。
 
 模块源码在扩展仓库 `modules/`，版本安装包在 `published/<id>/<version>/`，
 固定目录地址为 `https://raw.githubusercontent.com/moeacgx/maolaonewapi-extensions/main/catalog.json`。

@@ -89,6 +89,8 @@ OKPay 充值要使用本模块时，支付设置中的 `OkpayRateSource` 必须�
 
 ## 上游模型校验扩展
 
+`0.2.1` 提供渠道白名单 ID 直接输入，Default 与 Classic 均可使用逗号或换行粘贴，兼容原有勾选方式。需要宿主 `channel.upstream-model-guard-tolerance` 能力，不新增 API 或迁移；安装后须逐节点刷新。详见[本次工作记录](../workflows/2026-09/21_model_guard_allowlist_ids.md)。
+
 `upstream-model-guard` 按分组与请求模型配置允许的上游响应模型，发现不匹配时禁用
 整条出错渠道，保留原因并通过通知中心 Bot 通知，需人工启用恢复。接口、生命周期、
 匹配边界和验证方法见 [上游模型校验扩展](upstream-model-guard.md)。
