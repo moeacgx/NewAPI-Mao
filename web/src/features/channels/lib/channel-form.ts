@@ -25,6 +25,7 @@ import {
   CHANNEL_STATUS,
   ERROR_MESSAGES,
   FIELD_PASSTHROUGH_TYPES,
+  FORCE_RESPONSES_CHANNEL_TYPES,
   MODEL_FETCHABLE_TYPES,
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../constants'
@@ -289,6 +290,7 @@ export const channelFormSchema = z
     // Channel extra settings (stored in setting JSON, not sent directly)
     task_plugin_key: z.string().optional(),
     force_format: z.boolean().optional(),
+    force_responses: z.boolean().optional(),
     thinking_to_content: z.boolean().optional(),
     proxy: z
       .string()
@@ -513,6 +515,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   // Channel extra settings
   task_plugin_key: '',
   force_format: false,
+  force_responses: false,
   thinking_to_content: false,
   proxy: '',
   http_protocol: HTTP_PROTOCOL_AUTO,
@@ -570,6 +573,7 @@ export function transformChannelToFormDefaults(
   let extraSettings = {
     task_plugin_key: '',
     force_format: false,
+    force_responses: false,
     thinking_to_content: false,
     proxy: '',
     http_protocol: HTTP_PROTOCOL_AUTO as 'auto' | 'http1',
@@ -592,6 +596,7 @@ export function transformChannelToFormDefaults(
             ? parsed.task_plugin_key
             : '',
         force_format: parsed.force_format || false,
+        force_responses: parsed.force_responses === true,
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
         http_protocol: protocol,
@@ -794,6 +799,9 @@ export function transformChannelToFormDefaults(
 export function buildSettingJSON(formData: ChannelFormValues): string {
   const settingObj: Record<string, unknown> = {
     force_format: formData.force_format || false,
+    force_responses:
+      FORCE_RESPONSES_CHANNEL_TYPES.has(formData.type) &&
+      formData.force_responses === true,
     thinking_to_content: formData.thinking_to_content || false,
     proxy: formData.proxy?.trim() || '',
     pass_through_body_enabled: formData.pass_through_body_enabled || false,

@@ -13,6 +13,7 @@ import (
 type ChannelSettings struct {
 	TaskPluginKey          string `json:"task_plugin_key,omitempty"`
 	ForceFormat            bool   `json:"force_format,omitempty"`
+	ForceResponses         bool   `json:"force_responses,omitempty"` // 对话请求强制使用 Responses 上游。
 	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
 	Proxy                  string `json:"proxy"`
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`

@@ -196,6 +196,12 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 		}
 
 	}
+	// 先完成默认端点推断，再强制对话探测使用 Responses，保留图片与向量等探测。
+	if channel.GetSetting().ForceResponses && constant.SupportsForceResponses(channel.Type) &&
+		(requestPath == "/v1/chat/completions" || requestPath == "/v1/messages" || strings.HasSuffix(requestPath, ":generateContent")) {
+		endpointType = string(constant.EndpointTypeOpenAIResponse)
+		requestPath = "/v1/responses"
+	}
 	// Gemini 原生流式通过 URL action（:streamGenerateContent）表达而非请求体字段，
 	// GeminiChatRequest.IsStream 依据请求 URL 判定，合成请求路径需与生产入口保持一致
 	if isStream && constant.EndpointType(endpointType) == constant.EndpointTypeGemini {

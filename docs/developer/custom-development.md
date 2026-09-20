@@ -1,5 +1,13 @@
 # 本项目二次开发能力
 
+## 渠道强制使用 Responses 上游
+
+- 文档：[渠道强制使用 Responses 上游](channel-force-responses.md)。
+- 配置：`setting.force_responses` 默认关闭，要求渠道敏感写权限，Default 与 Classic 均提供入口。
+- 能力：支持 OpenAI、Azure、xAI、Codex、Sub2API、NewAPI 渠道，将 Chat/Claude/Gemini 对话转为 Responses，客户端返回协议不变。
+- 边界：开启后优先于透传与 Responses 转 Chat；其他业务端点不改路由，无数据库迁移。
+- 稳定性：复用既有协议转换和结算链路；供应商实际兼容性与线上部署需单独验证。
+
 ## 认证上游兼容阶段
 
 - 文档：[认证差异与兼容矩阵](../workflows/2026-09/15_auth_upstream_compatibility.md)。

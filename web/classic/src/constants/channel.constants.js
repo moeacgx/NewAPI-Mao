@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+export const FORCE_RESPONSES_CHANNEL_TYPES = new Set([1, 3, 48, 57, 59, 60]);
+
 export const CHANNEL_OPTIONS = [
   { value: 1, color: 'green', label: 'OpenAI' },
   {

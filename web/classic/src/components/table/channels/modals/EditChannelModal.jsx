@@ -29,7 +29,11 @@ import {
 } from '../../../../helpers';
 import { useUserPermissions } from '../../../../hooks/common/useUserPermissions';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
-import { CHANNEL_OPTIONS, MODEL_FETCHABLE_CHANNEL_TYPES } from '../../../../constants';
+import {
+  CHANNEL_OPTIONS,
+  MODEL_FETCHABLE_CHANNEL_TYPES,
+  FORCE_RESPONSES_CHANNEL_TYPES,
+} from '../../../../constants';
 import {
   SideSheet,
   Space,
@@ -207,6 +211,7 @@ const EditChannelModal = (props) => {
     multi_key_mode: 'random',
     // 渠道额外设置的默认值
     force_format: false,
+    force_responses: false,
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
@@ -548,6 +553,7 @@ const EditChannelModal = (props) => {
   // 渠道额外设置状态
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
+    force_responses: false,
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
@@ -683,6 +689,9 @@ const EditChannelModal = (props) => {
     }
     setInputs((inputs) => ({ ...inputs, [name]: value }));
     if (name === 'type') {
+      if (!FORCE_RESPONSES_CHANNEL_TYPES.has(Number(value))) {
+        handleChannelSettingsChange('force_responses', false);
+      }
       let localModels = [];
       switch (value) {
         case 2:
@@ -922,6 +931,7 @@ const EditChannelModal = (props) => {
           const parsedSettings = JSON.parse(data.setting);
           data.task_plugin_key = typeof parsedSettings.task_plugin_key === 'string' ? parsedSettings.task_plugin_key : '';
           data.force_format = parsedSettings.force_format || false;
+          data.force_responses = parsedSettings.force_responses === true;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
           data.proxy = parsedSettings.proxy || '';
@@ -938,6 +948,7 @@ const EditChannelModal = (props) => {
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
+          data.force_responses = false;
           data.thinking_to_content = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
@@ -948,6 +959,7 @@ const EditChannelModal = (props) => {
         }
       } else {
         data.force_format = false;
+        data.force_responses = false;
         data.thinking_to_content = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
@@ -1148,6 +1160,7 @@ const EditChannelModal = (props) => {
       // 同步更新channelSettings状态显示
       setChannelSettings({
         force_format: data.force_format,
+        force_responses: data.force_responses,
         thinking_to_content: data.thinking_to_content,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
@@ -1199,6 +1212,7 @@ const EditChannelModal = (props) => {
         data.thinking_to_content ||
         data.pass_through_body_enabled ||
         data.force_format ||
+        data.force_responses ||
         data.http_protocol === 'http1' ||
         (data.http2_connection_shards || 1) > 1 ||
         data.claude_beta_query ||
@@ -1555,6 +1569,7 @@ const EditChannelModal = (props) => {
     // 重置渠道设置状态
     setChannelSettings({
       force_format: false,
+      force_responses: false,
       thinking_to_content: false,
       proxy: '',
       pass_through_body_enabled: false,
@@ -1937,6 +1952,9 @@ const EditChannelModal = (props) => {
     // 生成渠道额外设置JSON
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
+      force_responses:
+        FORCE_RESPONSES_CHANNEL_TYPES.has(Number(localInputs.type)) &&
+        localInputs.force_responses === true,
       thinking_to_content: localInputs.thinking_to_content || false,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
@@ -2118,6 +2136,7 @@ const EditChannelModal = (props) => {
 
     // 清理不需要发送到后端的字段
     delete localInputs.force_format;
+    delete localInputs.force_responses;
     delete localInputs.thinking_to_content;
     delete localInputs.proxy;
     delete localInputs.pass_through_body_enabled;
@@ -2174,6 +2193,10 @@ const EditChannelModal = (props) => {
     }
 
     if (isEdit) {
+      if (!canWriteSensitive) {
+        // 普通编辑不重写敏感设置，避免新增默认字段导致旧渠道保存被拒绝。
+        delete localInputs.setting;
+      }
       res = await API.put(`/api/channel/`, {
         ...localInputs,
         id: parseInt(channelId),
@@ -3148,6 +3171,23 @@ const EditChannelModal = (props) => {
                     <Form.Switch field='force_format' label={t('强制格式化')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('force_format', value)} extraText={t('强制将响应格式化为 OpenAI 标准格式（只适用于OpenAI渠道类型）')} />
                   )}
 
+                  {(FORCE_RESPONSES_CHANNEL_TYPES.has(Number(inputs.type)) ||
+                    inputs.force_responses) && (
+                    <Form.Switch
+                      field='force_responses'
+                      label={t('Force Responses upstream')}
+                      aria-label={t('Force Responses upstream')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      disabled={isEdit && !canWriteSensitive}
+                      onChange={(value) =>
+                        handleChannelSettingsChange('force_responses', value)
+                      }
+                      extraText={t(
+                        'Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.',
+                      )}
+                    />
+                  )}
                   <Form.Switch field='thinking_to_content' label={t('思考内容转换')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('thinking_to_content', value)} extraText={t('将 reasoning_content 转换为 <think> 标签拼接到内容中')} />
                   <Form.Switch field='pass_through_body_enabled' label={t('透传请求体')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('pass_through_body_enabled', value)} extraText={t('启用请求体透传功能')} />
 

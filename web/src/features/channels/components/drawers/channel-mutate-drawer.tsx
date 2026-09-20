@@ -150,6 +150,7 @@ import {
   FIELD_PASSTHROUGH_TYPES,
   FIELD_DESCRIPTIONS,
   FIELD_PLACEHOLDERS,
+  FORCE_RESPONSES_CHANNEL_TYPES,
   MODEL_FETCHABLE_TYPES,
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../../constants'
@@ -291,6 +292,7 @@ const SENSITIVE_FORM_FIELDS = [
   'azure_responses_version',
   'task_plugin_key',
   'force_format',
+  'force_responses',
   'thinking_to_content',
   'proxy',
   'http_protocol',
@@ -363,6 +365,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
+    values.force_responses ||
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
     values.system_prompt_override ||
@@ -792,6 +795,7 @@ export function ChannelMutateDrawer({
   const currentParamOverride = form.watch('param_override')
   const currentHeaderOverride = form.watch('header_override')
   const currentForceFormat = form.watch('force_format')
+  const currentForceResponses = form.watch('force_responses')
   const currentThinkingToContent = form.watch('thinking_to_content')
   const currentPassThroughBodyEnabled = form.watch('pass_through_body_enabled')
   const currentDisableTaskPollingSleep = form.watch(
@@ -1080,6 +1084,7 @@ export function ChannelMutateDrawer({
   )
   const extraSettingsConfigured = Boolean(
     currentForceFormat ||
+    currentForceResponses ||
     currentThinkingToContent ||
     currentPassThroughBodyEnabled ||
     currentDisableTaskPollingSleep ||
@@ -2064,6 +2069,19 @@ export function ChannelMutateDrawer({
                                             nextType > 0
                                           ) {
                                             field.onChange(nextType)
+                                            if (
+                                              !FORCE_RESPONSES_CHANNEL_TYPES.has(
+                                                nextType
+                                              )
+                                            ) {
+                                              form.setValue(
+                                                'force_responses',
+                                                false,
+                                                {
+                                                  shouldDirty: true,
+                                                }
+                                              )
+                                            }
                                           }
                                         }}
                                         placeholder={t('Select channel type')}
@@ -4235,6 +4253,37 @@ export function ChannelMutateDrawer({
                                         <Switch
                                           checked={field.value}
                                           onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+
+                              {(FORCE_RESPONSES_CHANNEL_TYPES.has(
+                                currentType
+                              ) ||
+                                currentForceResponses) && (
+                                <FormField
+                                  control={form.control}
+                                  name='force_responses'
+                                  render={({ field }) => (
+                                    <FormItem className='flex items-center justify-between gap-4 px-4 py-3'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel>
+                                          {t('Force Responses upstream')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                          disabled={sensitiveLocked}
                                         />
                                       </FormControl>
                                     </FormItem>

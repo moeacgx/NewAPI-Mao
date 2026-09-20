@@ -1,5 +1,9 @@
 # 开发文档
 
+- [zzapi 渠道强制 Responses .329 发布](../workflows/2026-09/21_channel_force_responses_329_release.md)：双模板渠道开关、版本产物、三节点滚动更新与回滚边界。
+
+- [渠道强制使用 Responses 上游](channel-force-responses.md)：渠道级开关、双模板配置、对话协议转换与透传优先级。
+
 - [Classic 模型广场成功率配色对齐官方](../workflows/2026-09/20_classic_performance_upstream_colors.md)：统一详情数字、成功率柱和趋势点的 90% / 70% 颜色阈值，保留统计与卡片可用性口径。
 
 - [zzapi 会话刷新修复 .328 发布](../workflows/2026-09/19_zzapi_328_auth_refresh_release.md)：Classic 临时刷新故障保留登录态、刷新计数隔离、发布产物与三节点滚动更新。
