@@ -5907,6 +5907,8 @@
     "Worker地址": "Workerアドレス",
     "Worker密钥": "WorkerAPIキー",
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "テンプレート適用後は通常ここを編集する必要はありません。利用できるリクエスト情報には base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated、prompt_chars があります。"
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "テンプレート適用後は通常ここを編集する必要はありません。利用できるリクエスト情報には base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated、prompt_chars があります。",
+    "Force Responses upstream": "上流への Responses リクエストを強制",
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chat・Claude・Gemini の会話を Responses に変換し、クライアントの応答形式を維持します。本文の透過転送と Responses から Chat への変換より優先されます。上流は Responses に対応している必要があります。"
   }
 }

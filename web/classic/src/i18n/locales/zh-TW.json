@@ -5931,6 +5931,8 @@
     "Worker地址": "Worker位址",
     "Worker密钥": "Worker密鑰",
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板後通常不需要修改這裡。可用的請求事實包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。"
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板後通常不需要修改這裡。可用的請求事實包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。",
+    "Force Responses upstream": "強制使用 Responses 請求上游",
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "將 Chat、Claude 與 Gemini 對話轉換為 Responses 請求，保留客戶端回應格式。優先於請求本文透傳及 Responses 轉 Chat 設定；上游須支援 Responses。"
   }
 }

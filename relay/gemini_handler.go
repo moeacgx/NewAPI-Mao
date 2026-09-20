@@ -134,6 +134,18 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		}
 	}
 
+	if info.ShouldForceResponses() {
+		openAIRequest, err := service.GeminiToOpenAIRequest(request, info)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+		usage, apiErr := chatCompletionsViaResponses(c, info, adaptor, openAIRequest)
+		if apiErr != nil {
+			return apiErr
+		}
+		return service.PostTextConsumeQuota(c, info, usage, nil)
+	}
+
 	var requestBody io.Reader
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 		storage, err := common.GetBodyStorage(c)

@@ -17,7 +17,7 @@ import (
 )
 
 func shouldUseChatCompletionsForResponses(info *relaycommon.RelayInfo) bool {
-	return info != nil && info.ChannelMeta != nil && info.ChannelOtherSettings.ResponsesToChatEnabled
+	return info != nil && info.ChannelMeta != nil && info.ChannelOtherSettings.ResponsesToChatEnabled && !info.ShouldForceResponses()
 }
 
 func OaiChatToResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

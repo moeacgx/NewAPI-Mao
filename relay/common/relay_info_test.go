@@ -24,6 +24,21 @@ func TestRelayInfoGetFinalRequestRelayFormatPrefersExplicitFinal(t *testing.T) {
 	require.Equal(t, types.RelayFormat(types.RelayFormatOpenAIResponses), info.GetFinalRequestRelayFormat())
 }
 
+func TestChannelRetryClearsPreviousResponsesProtocol(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	info := &RelayInfo{
+		RelayFormat:             types.RelayFormatOpenAI,
+		RequestConversionChain:  []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses},
+		FinalRequestRelayFormat: types.RelayFormatOpenAIResponses,
+	}
+	info.InitChannelMeta(c)
+	require.NotNil(t, info.ChannelMeta)
+	assert.Equal(t, types.RelayFormat(types.RelayFormatOpenAI), info.GetFinalRequestRelayFormat())
+	assert.Equal(t, []types.RelayFormat{types.RelayFormatOpenAI}, info.RequestConversionChain)
+}
+
 func TestRelayInfoSetUpstreamResponseModelNameTrimsAndPreservesPreviousValue(t *testing.T) {
 	info := &RelayInfo{}
 	info.SetUpstreamResponseModelName(" provider-actual ")

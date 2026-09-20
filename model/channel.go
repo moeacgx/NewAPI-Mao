@@ -1188,6 +1188,9 @@ func (channel *Channel) ValidateSettings() error {
 	if err := channelParams.ValidateHTTPTransport(); err != nil {
 		return err
 	}
+	if channelParams.ForceResponses && !constant.SupportsForceResponses(channel.Type) {
+		return fmt.Errorf("force_responses is not supported for channel type %d", channel.Type)
+	}
 	channelOtherSettings := &dto.ChannelOtherSettings{}
 	if channel.OtherSettings != "" {
 		err := common.UnmarshalJsonStr(channel.OtherSettings, channelOtherSettings)

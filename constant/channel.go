@@ -64,6 +64,16 @@ const (
 
 )
 
+// SupportsForceResponses 仅允许最终请求仍为 Responses 的上游适配器。
+func SupportsForceResponses(channelType int) bool {
+	switch channelType {
+	case ChannelTypeOpenAI, ChannelTypeAzure, ChannelTypeXai, ChannelTypeCodex, ChannelTypeSub2API, ChannelTypeNewAPI:
+		return true
+	default:
+		return false
+	}
+}
+
 var ChannelBaseURLs = []string{
 	"",                                    // 0
 	"https://api.openai.com",              // 1

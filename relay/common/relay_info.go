@@ -200,7 +200,27 @@ type RelayInfo struct {
 	*TaskRelayInfo
 }
 
+// ShouldForceResponses 限定对话端点，避免影响图片、音频及其他独立业务接口。
+func (info *RelayInfo) ShouldForceResponses() bool {
+	if info == nil || info.ChannelMeta == nil || !info.ChannelSetting.ForceResponses || !constant.SupportsForceResponses(info.ChannelType) {
+		return false
+	}
+	if info.RelayFormat == types.RelayFormatClaude {
+		return true
+	}
+	switch info.RelayMode {
+	case relayconstant.RelayModeChatCompletions, relayconstant.RelayModeGemini, relayconstant.RelayModeResponses:
+		return true
+	default:
+		return false
+	}
+}
+
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
+	// 重试选渠后重新记录协议，避免沿用上一渠道的转换与计费语义。
+	info.FinalRequestRelayFormat = ""
+	info.RequestConversionChain = nil
+	info.InitRequestConversionChain()
 	// 每次选定（或重试切换）渠道时清除上一次尝试的响应模型，避免
 	// 当前渠道未声明模型时把旧渠道的值写入最终日志。
 	info.UpstreamResponseModelName = ""
@@ -252,7 +272,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// Channel identity feeds the converter options snapshot (e.g.
 	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled {
+	if !info.ShouldForceResponses() && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled) {
 		info.ReasoningEffort = ""
 	} else {
 		info.ReasoningEffort = reasoningEffortFromRequest(info.Request)
@@ -1047,8 +1067,8 @@ func FailTaskInfo(reason string) *TaskInfo {
 // store: 数据存储授权字段，涉及用户隐私（仅 OpenAI、Responses API 支持，默认允许透传，禁用后可能导致 Codex 无法使用）
 // safety_identifier: 安全标识符，用于向 OpenAI 报告违规用户（仅 OpenAI 支持，涉及用户隐私）
 // stream_options.include_obfuscation: 响应流混淆控制字段（仅 OpenAI Responses API 支持）
-func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool) ([]byte, error) {
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled {
+func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool, forceFilter ...bool) ([]byte, error) {
+	if !(len(forceFilter) > 0 && forceFilter[0]) && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled) {
 		return jsonData, nil
 	}
 	if !hasRemovableDisabledField(jsonData, channelOtherSettings) {

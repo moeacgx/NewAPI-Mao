@@ -6449,6 +6449,8 @@
     "Worker地址": "Địa chỉ Worker",
     "Worker密钥": "Khóa Worker",
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "Sau khi áp dụng mẫu, thường không cần sửa phần này. Dữ kiện request có sẵn gồm base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated và prompt_chars."
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "Sau khi áp dụng mẫu, thường không cần sửa phần này. Dữ kiện request có sẵn gồm base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated và prompt_chars.",
+    "Force Responses upstream": "Buộc dùng Responses cho dịch vụ phía trên",
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chuyển hội thoại Chat, Claude và Gemini sang Responses, giữ nguyên định dạng phản hồi cho máy khách. Ưu tiên hơn chuyển tiếp nguyên nội dung và chuyển Responses sang Chat. Dịch vụ phía trên phải hỗ trợ Responses."
   }
 }

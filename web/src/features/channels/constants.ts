@@ -23,6 +23,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const CHANNEL_TYPE_NEW_API = 60
 export const CHANNEL_TYPE_TASK_PLUGIN = 62
+export const FORCE_RESPONSES_CHANNEL_TYPES = new Set([1, 3, 48, 57, 59, 60])
 
 export const CHANNEL_TYPES = {
   0: 'Unknown',
