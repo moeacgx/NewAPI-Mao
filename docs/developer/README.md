@@ -1,5 +1,7 @@
 # 开发文档
 
+- [maolaoapi 强制 Responses .329 逐节点更新](../workflows/2026-09/21_maolaoapi_force_responses_329_deployment.md)：生产三节点固定镜像升级、备份、配置保留和验收边界。
+
 - [zzapi 渠道强制 Responses .329 发布](../workflows/2026-09/21_channel_force_responses_329_release.md)：双模板渠道开关、版本产物、三节点滚动更新与回滚边界。
 
 - [渠道强制使用 Responses 上游](channel-force-responses.md)：渠道级开关、双模板配置、对话协议转换与透传优先级。
