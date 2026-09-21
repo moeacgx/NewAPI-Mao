@@ -26,6 +26,7 @@
 - [网站 SEO 设置](site-seo-settings.md)：浏览器标题、网站描述与分享元数据的配置、公开读取和 HTML 输出安全边界。
 
 - [zzapi 使用日志筛选 .334 发布](../workflows/2026-09/23_zzapi_334_usage_log_release.md)：记录 MAO-4 发布、zzapi 三节点串行更新、备份与验收边界。
+- [xAI 分段缓存用量一致性](../workflows/2026-09/21_xai_cache_usage_merge.md)：字段来源、分片合并和 Claude 回包与结算一致性，含低缓存现场证据边界。
 
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
 
