@@ -347,6 +347,8 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 			sr.Stop(streamErr)
 		}
 	})
+	// 扫描结束后先规范已收到的用量，取消或错误返回也不能丢失缓存计费信息。
+	normalizeXAIClaudeUsage(usage)
 	if streamErr != nil {
 		return usage, streamErr
 	}
