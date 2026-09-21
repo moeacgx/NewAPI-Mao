@@ -286,6 +286,14 @@ func AuthRefreshRateLimit() func(c *gin.Context) {
 	return defNext
 }
 
+// TokenKeyReadRateLimit 在 UserAuth 后使用，单条和批量读取共用用户额度。
+func TokenKeyReadRateLimit() func(c *gin.Context) {
+	if !common.TokenKeyReadRateLimitEnable {
+		return defNext
+	}
+	return userRateLimitFactory(common.TokenKeyReadRateLimitNum, common.TokenKeyReadRateLimitDuration, "TKR")
+}
+
 func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 	if !common.CriticalRateLimitEnable {
 		return defNext
