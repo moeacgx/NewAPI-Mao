@@ -1,5 +1,7 @@
 # 上游模型校验接入 Codex 响应头证据
 
+> 历史记录：本能力已按用户要求撤销，当前主程序恢复正文模型校验。下文保留原实现、验证与 .330 发布事实，当前行为见[撤销记录](21_remove_codex_faster_model_evidence.md)。
+
 ## 目标与方案
 
 当前守卫只消费响应正文模型声明。当正文仍声明允许模型、Codex `x-codex-safety-buffering-faster-model` 响应头声明其他模型时，异常会漏检。本次参考团队 tokens-pro-gang 的头部信号，在宿主现有 HTTP 请求链路采集这项模型声明，接入现有守卫。

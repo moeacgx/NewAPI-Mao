@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,11 +36,6 @@ func TestUpstreamModelGuardMigratesLegacySQLiteRows(t *testing.T) {
 	require.NoError(t, migrateSQLiteUpstreamModelGuardObservationKey())
 	require.NoError(t, db.AutoMigrate(&UpstreamModelGuardConfig{}, &UpstreamModelGuardRecord{}, &UpstreamModelGuardStreak{}, &Group{}))
 	require.NoError(t, migrateSQLiteUpstreamModelGuardObservationKey(), "重启时重复迁移应安全跳过")
-	var nullSources int64
-	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("detection_source IS NULL").Count(&nullSources).Error)
-	assert.EqualValues(t, 2, nullSources, "旧记录加列后保留 NULL，不依赖数据库默认值")
-	// 同时覆盖历史 NULL 与空字符串，列表只投影来源，不回写旧记录。
-	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("id = ?", 2).Update("detection_source", "").Error)
 	config, err := LoadUpstreamModelGuardConfig(t.Context())
 	require.NoError(t, err)
 	assert.EqualValues(t, 7, config.ConfigVersion)
@@ -58,19 +52,50 @@ func TestUpstreamModelGuardMigratesLegacySQLiteRows(t *testing.T) {
 		assert.Equal(t, 1, record.FailureThreshold)
 		assert.True(t, record.ChannelDisabled)
 		assert.Nil(t, record.ObservationKey)
-		assert.Equal(t, constant.UpstreamModelSourceResponseBody, record.DetectionSource)
 	}
-	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("detection_source IS NULL").Count(&nullSources).Error)
-	assert.EqualValues(t, 1, nullSources)
 	key := strings.Repeat("a", 64)
 	newRecord := records[0]
 	newRecord.Id = 0
 	newRecord.ObservationKey = &key
-	newRecord.DetectionSource = constant.UpstreamModelSourceCodexFasterModel
 	require.NoError(t, db.Create(&newRecord).Error)
-	var migratedRecord UpstreamModelGuardRecord
-	require.NoError(t, db.First(&migratedRecord, newRecord.Id).Error)
-	assert.Equal(t, constant.UpstreamModelSourceCodexFasterModel, migratedRecord.DetectionSource)
 	newRecord.Id = 0
 	require.Error(t, db.Create(&newRecord).Error, "迁移后必须拒绝重复 HTTP 观察键")
+}
+
+func TestUpstreamModelGuardRetainsHistoricalHeaderColumnAfterRemoval(t *testing.T) {
+	channel, config := setupUpstreamModelGuardModelTest(t)
+	// 模拟已安装 .330 的数据库，撤销宿主字段不应删除历史来源或阻止新记录。
+	require.NoError(t, DB.Exec("ALTER TABLE upstream_model_guard_records ADD COLUMN detection_source TEXT").Error)
+	legacy := upstreamModelGuardTestRecord(channel, config)
+	legacy.Reason = "历史 Codex faster-model 响应头异常"
+	expectedModels, err := common.Marshal(legacy.ExpectedUpstreamModels)
+	require.NoError(t, err)
+	legacy.ExpectedUpstreamModelsJSON = string(expectedModels)
+	require.NoError(t, DB.Create(legacy).Error)
+	require.NoError(t, DB.Model(legacy).Update("detection_source", "codex_faster_model").Error)
+	require.NoError(t, DB.AutoMigrate(&UpstreamModelGuardRecord{}))
+
+	current := upstreamModelGuardTestRecord(channel, config)
+	disabled, err := ObserveUpstreamModelGuard(t.Context(), current, false)
+	require.NoError(t, err)
+	assert.True(t, disabled, "存在历史额外列时，正文异常仍可记录并关渠")
+	records, total, err := ListUpstreamModelGuardRecords(t.Context(), 1, 50)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, total)
+	require.Len(t, records, 2)
+	assert.Equal(t, legacy.Reason, records[1].Reason)
+	assert.Equal(t, current.ActualUpstreamModel, records[0].ActualUpstreamModel)
+	payload, err := common.Marshal(records)
+	require.NoError(t, err)
+	assert.NotContains(t, string(payload), `"detection_source"`, "记录接口恢复原字段集合")
+
+	var sources []struct {
+		ID              int
+		DetectionSource *string
+	}
+	require.NoError(t, DB.Table("upstream_model_guard_records").Select("id", "detection_source").Order("id ASC").Find(&sources).Error)
+	require.Len(t, sources, 2)
+	require.NotNil(t, sources[0].DetectionSource)
+	assert.Equal(t, "codex_faster_model", *sources[0].DetectionSource, "历史来源原样保留")
+	assert.Nil(t, sources[1].DetectionSource, "新正文记录不再写入来源列")
 }

@@ -13,7 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
@@ -311,11 +310,11 @@ func BindUpstreamModelGuard(info *relaycommon.RelayInfo) func() {
 	checked := make(map[int]bool)
 	observed := make(map[int]*model.UpstreamModelGuardRecord)
 	mismatched := make(map[int]bool)
-	info.OnUpstreamModelEvidence = func(current *relaycommon.RelayInfo, evidence relaycommon.UpstreamModelEvidence) {
+	info.OnUpstreamResponseModel = func(current *relaycommon.RelayInfo, actual string) {
 		if current == nil || current.ChannelMeta == nil || !IsUpstreamModelGuardModuleEnabled() {
 			return
 		}
-		actual := strings.TrimSpace(evidence.Model)
+		actual = strings.TrimSpace(actual)
 		if actual == "" {
 			return
 		}
@@ -348,17 +347,12 @@ func BindUpstreamModelGuard(info *relaycommon.RelayInfo) func() {
 			if matched && mismatched[current.ChannelId] {
 				return
 			}
-			// 允许的缓冲模型不等于正文完整匹配，不能仅凭头部清零连续异常。
-			if matched && evidence.Source == constant.UpstreamModelSourceCodexFasterModel {
-				return
-			}
 			observationKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%d", requestID, current.ChannelId))))
 			record := &model.UpstreamModelGuardRecord{
 				ChannelID: current.ChannelId, GroupID: groupID, Group: strings.TrimSpace(current.UsingGroup),
 				RequestedModel: rule.Model, ExpectedUpstreamModels: append([]string(nil), rule.UpstreamModels...),
 				ActualUpstreamModel: actual, RequestID: current.RequestId, ConfigVersion: config.ConfigVersion,
-				DetectionSource: evidence.Source,
-				ObservationKey:  &observationKey,
+				ObservationKey: &observationKey,
 			}
 			if len(record.RequestID) > 128 {
 				record.RequestID = strings.ToValidUTF8(record.RequestID[:128], "")

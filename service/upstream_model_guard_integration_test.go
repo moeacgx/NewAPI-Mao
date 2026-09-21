@@ -12,11 +12,11 @@ func TestUpstreamModelGuardOpenAIStreamDisablesChannelAndDispatchesTelegram(t *t
 	service.VerifyUpstreamModelGuardStreamIntegration(t, openai.OaiStreamHandler)
 }
 
-func TestUpstreamModelGuardCodexHTTPHeaderOverridesMatchingBodyForDetection(t *testing.T) {
+func TestUpstreamModelGuardHTTPUsesBodyModelOnly(t *testing.T) {
 	t.Run("JSON", func(t *testing.T) {
-		service.VerifyUpstreamModelGuardCodexHTTPIntegration(t, false, channel.DoRequest, openai.OaiResponsesHandler)
+		service.VerifyUpstreamModelGuardHTTPBodyIntegration(t, false, channel.DoRequest, openai.OaiResponsesHandler)
 	})
 	t.Run("SSE", func(t *testing.T) {
-		service.VerifyUpstreamModelGuardCodexHTTPIntegration(t, true, channel.DoRequest, openai.OaiResponsesStreamHandler)
+		service.VerifyUpstreamModelGuardHTTPBodyIntegration(t, true, channel.DoRequest, openai.OaiResponsesStreamHandler)
 	})
 }
