@@ -1,6 +1,7 @@
 package xai
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -46,35 +47,65 @@ func normalizeXAIUsage(usage *dto.Usage) {
 	usage.PromptTokensDetails.HasCachedTokens = true
 }
 
-func mergeXAIUsage(dst, src *dto.Usage) {
-	if dst == nil || src == nil {
+func mergeXAIUsage(fields map[string]json.RawMessage, data string) (*dto.Usage, error) {
+	var chunk struct {
+		Usage map[string]json.RawMessage `json:"usage"`
+	}
+	if err := common.UnmarshalJsonStr(data, &chunk); err != nil {
+		return nil, err
+	}
+	// 原始字段独立累计，避免把归一化补出的值当成上游声明的标准字段。
+	for name, value := range chunk.Usage {
+		if common.GetJsonType(value) == "null" {
+			continue
+		}
+		switch name {
+		case "prompt_tokens_details", "input_tokens_details", "completion_tokens_details", "output_tokens_details":
+			details := make(map[string]json.RawMessage)
+			if previous := fields[name]; len(previous) > 0 {
+				if err := common.Unmarshal(previous, &details); err != nil {
+					return nil, err
+				}
+			}
+			var incoming map[string]json.RawMessage
+			if err := common.Unmarshal(value, &incoming); err != nil {
+				return nil, err
+			}
+			for key, detail := range incoming {
+				if common.GetJsonType(detail) != "null" {
+					details[key] = detail
+				}
+			}
+			merged, err := common.Marshal(details)
+			if err != nil {
+				return nil, err
+			}
+			fields[name] = merged
+		default:
+			fields[name] = value
+		}
+	}
+	merged, err := common.Marshal(fields)
+	if err != nil {
+		return nil, err
+	}
+	var usage dto.Usage
+	if err := common.Unmarshal(merged, &usage); err != nil {
+		return nil, err
+	}
+	return &usage, nil
+}
+
+func normalizeXAIClaudeUsage(usage *dto.Usage) {
+	normalizeXAIUsage(usage)
+	if usage == nil || usage.InputTokensDetails == nil {
 		return
 	}
-	previous := *dst
-	previousPromptDetails := dst.PromptTokensDetails
-	previousInputDetails := dst.InputTokensDetails
-	*dst = *src
-	if !src.HasPromptTokens && previous.HasPromptTokens {
-		dst.PromptTokens = previous.PromptTokens
-		dst.HasPromptTokens = true
-	}
-	if !src.HasCompletionTokens && previous.HasCompletionTokens {
-		dst.CompletionTokens = previous.CompletionTokens
-		dst.HasCompletionTokens = true
-	}
-	if !src.HasTotalTokens && previous.HasTotalTokens {
-		dst.TotalTokens = previous.TotalTokens
-		dst.HasTotalTokens = true
-	}
-	if !src.HasPromptCacheHitTokens && !src.PromptTokensDetails.HasCachedTokens && src.PromptTokensDetails.CachedTokens == 0 &&
-		(previous.HasPromptCacheHitTokens || previousPromptDetails.HasCachedTokens || previousPromptDetails.CachedTokens != 0) {
-		dst.PromptCacheHitTokens = previous.PromptCacheHitTokens
-		dst.HasPromptCacheHitTokens = previous.HasPromptCacheHitTokens
-		dst.PromptTokensDetails = previousPromptDetails
-	}
-	if src.InputTokensDetails == nil && previousInputDetails != nil {
-		dst.InputTokensDetails = previousInputDetails
-	}
+	// 通用 Claude 转换器优先读取 input_tokens_details，xAI 边界统一为结算值。
+	details := *usage.InputTokensDetails
+	details.CachedTokens = usage.PromptTokensDetails.CachedTokens
+	details.HasCachedTokens = usage.PromptTokensDetails.HasCachedTokens
+	usage.InputTokensDetails = &details
 }
 
 func streamResponseXAI2OpenAI(xAIResp *dto.ChatCompletionsStreamResponse, usage *dto.Usage) *dto.ChatCompletionsStreamResponse {
@@ -101,6 +132,7 @@ func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		return xAIClaudeStreamHandler(c, info, resp)
 	}
 	usage := &dto.Usage{}
+	usageFields := make(map[string]json.RawMessage)
 	var responseTextBuilder strings.Builder
 	var toolCount int
 	var containStreamUsage bool
@@ -119,8 +151,12 @@ func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		// 把 xAI 的usage转换为 OpenAI 的usage
 		if xAIResp.Usage != nil {
 			containStreamUsage = true
-			mergeXAIUsage(usage, xAIResp.Usage)
-			normalizeXAIUsage(usage)
+			merged, err := mergeXAIUsage(usageFields, data)
+			if err != nil {
+				sr.Error(err)
+				return
+			}
+			usage = merged
 			usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 		}
 
@@ -136,6 +172,7 @@ func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
 	}
+	normalizeXAIUsage(usage)
 
 	helper.Done(c)
 	service.CloseResponseBodyGracefully(resp)
@@ -214,7 +251,7 @@ func xAIClaudeHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	} else if usage.HasTotalTokens && usage.HasPromptTokens {
 		usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 	}
-	normalizeXAIUsage(usage)
+	normalizeXAIClaudeUsage(usage)
 	usage.CompletionTokenDetails.TextTokens = usage.CompletionTokens - usage.CompletionTokenDetails.ReasoningTokens
 	converted, err := relayconvert.ConvertResponse(c, info, types.RelayFormatClaude, response)
 	if err != nil {
@@ -238,6 +275,7 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	usage := &dto.Usage{}
+	usageFields := make(map[string]json.RawMessage)
 	var responseText strings.Builder
 	var toolCount int
 	var streamErr *types.NewAPIError
@@ -271,8 +309,13 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		}
 		info.SetUpstreamResponseModelName(chunk.Model)
 		if chunk.Usage != nil {
-			mergeXAIUsage(usage, chunk.Usage)
-			normalizeXAIUsage(usage)
+			merged, err := mergeXAIUsage(usageFields, data)
+			if err != nil {
+				streamErr = types.NewError(err, types.ErrorCodeBadResponseBody)
+				sr.Stop(streamErr)
+				return
+			}
+			usage = merged
 			if usage.HasPromptTokens && usage.HasTotalTokens {
 				usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 				usage.HasCompletionTokens = true
@@ -323,7 +366,7 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	} else if usage.HasTotalTokens && usage.HasPromptTokens {
 		usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 	}
-	normalizeXAIUsage(usage)
+	normalizeXAIClaudeUsage(usage)
 	info.EnsureClaudeConvertInfo().Usage = usage
 	results, err := relayconvert.FinalizeStreamResponse(c, info, state)
 	if err == nil {

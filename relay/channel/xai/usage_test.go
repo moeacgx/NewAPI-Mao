@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -178,4 +179,133 @@ func TestNormalizeXAIUsageBoundsCacheTokens(t *testing.T) {
 			assert.Equal(t, tt.cached, usage.PromptTokensDetails.CachedTokens)
 		})
 	}
+}
+
+func TestXAIStreamCacheSourcesRemainConsistent(t *testing.T) {
+	tests := []struct {
+		name   string
+		chunks []string
+		cached int
+	}{
+		{"input details update", []string{`{"input_tokens_details":{"cached_tokens":128}}`, `{"input_tokens_details":{"cached_tokens":64000}}`}, 64000},
+		{"input details lower update", []string{`{"input_tokens_details":{"cached_tokens":64000}}`, `{"input_tokens_details":{"cached_tokens":128}}`}, 128},
+		{"standard survives later alias", []string{`{"prompt_tokens_details":{"cached_tokens":64000}}`, `{"prompt_cache_hit_tokens":128}`}, 64000},
+		{"standard zero beats alias", []string{`{"prompt_tokens_details":{"cached_tokens":0}}`, `{"prompt_cache_hit_tokens":64000}`}, 0},
+		{"input zero beats alias", []string{`{"input_tokens_details":{"cached_tokens":0}}`, `{"prompt_cache_hit_tokens":64000}`}, 0},
+		{"input zero update", []string{`{"input_tokens_details":{"cached_tokens":64000}}`, `{"input_tokens_details":{"cached_tokens":0}}`}, 0},
+		{"alias zero update", []string{`{"prompt_cache_hit_tokens":64000}`, `{"prompt_cache_hit_tokens":0}`}, 0},
+		{"standard zero update", []string{`{"prompt_tokens_details":{"cached_tokens":64000}}`, `{"prompt_tokens_details":{"cached_tokens":0}}`}, 0},
+		{"standard beats larger input", []string{`{"prompt_tokens_details":{"cached_tokens":128}}`, `{"input_tokens_details":{"cached_tokens":64000}}`}, 128},
+		{"new standard beats old input", []string{`{"input_tokens_details":{"cached_tokens":128}}`, `{"prompt_tokens_details":{"cached_tokens":64000}}`}, 64000},
+		{"clamp waits for final prompt", []string{`{"prompt_tokens":128,"prompt_tokens_details":{"cached_tokens":64000}}`}, 64000},
+		{"clamp to final prompt", []string{`{"prompt_tokens":128,"prompt_tokens_details":{"cached_tokens":100000}}`}, 64213},
+		{"input cache survives other detail", []string{`{"input_tokens_details":{"cached_tokens":64000}}`, `{"input_tokens_details":{"text_tokens":128}}`}, 64000},
+		{"null leaves previous declaration", []string{`{"input_tokens_details":{"cached_tokens":64000}}`, `{"input_tokens_details":{"cached_tokens":null},"prompt_cache_hit_tokens":null}`}, 64000},
+	}
+	for _, tt := range tests {
+		for _, format := range []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatClaude} {
+			t.Run(tt.name+"/"+string(format), func(t *testing.T) {
+				c, recorder, info := newXAIClaudeResponseTestContext()
+				info.RelayFormat = format
+				var body strings.Builder
+				body.WriteString("data: " + `{"id":"cache-test","model":"grok-4.6-build","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}` + "\n\n")
+				for _, chunk := range append(append([]string{}, tt.chunks...), `{"prompt_tokens":64213,"completion_tokens":125,"total_tokens":64338}`) {
+					body.WriteString(`data: {"id":"cache-test","choices":[],"usage":` + chunk + "}\n\n")
+				}
+				body.WriteString("data: [DONE]\n\n")
+				usage, apiErr := xAIStreamHandler(c, info, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body.String()))})
+				require.Nil(t, apiErr)
+				require.NotNil(t, usage)
+				assert.Equal(t, 64213, usage.PromptTokens)
+				assert.Equal(t, 125, usage.CompletionTokens)
+				assert.Equal(t, tt.cached, usage.PromptTokensDetails.CachedTokens)
+				if format == types.RelayFormatOpenAI {
+					assert.Contains(t, recorder.Body.String(), "data: [DONE]")
+					assert.NotContains(t, recorder.Body.String(), "message_delta")
+					return
+				}
+				var finalUsage *dto.ClaudeUsage
+				for _, event := range readXAIClaudeEvents(t, recorder.Body.String()) {
+					if event.Type == "message_delta" {
+						finalUsage = event.Usage
+					}
+				}
+				require.NotNil(t, finalUsage)
+				assert.Equal(t, tt.cached, finalUsage.CacheReadInputTokens)
+				assert.Equal(t, 125, finalUsage.OutputTokens)
+			})
+		}
+	}
+}
+
+func TestXAIClaudeJSONCacheMatchesBilling(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		detail string
+		cached int
+	}{
+		{"standard priority", `"prompt_tokens_details":{"cached_tokens":64},"input_tokens_details":{"cached_tokens":12}`, 64},
+		{"standard explicit zero", `"prompt_tokens_details":{"cached_tokens":0},"input_tokens_details":{"cached_tokens":64}`, 0},
+		{"input cache clamped", `"input_tokens_details":{"cached_tokens":64000}`, 100},
+		{"non-cache input details", `"input_tokens_details":{"text_tokens":100},"prompt_cache_hit_tokens":64`, 64},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, recorder, info := newXAIClaudeResponseTestContext()
+			body := `{"id":"cache-test","model":"grok-4.6-build","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":2,"total_tokens":102,` + tt.detail + `}}`
+			usage, apiErr := xAIHandler(c, info, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))})
+			require.Nil(t, apiErr)
+			assert.Equal(t, tt.cached, usage.PromptTokensDetails.CachedTokens)
+			var response dto.ClaudeResponse
+			require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+			require.NotNil(t, response.Usage)
+			assert.Equal(t, tt.cached, response.Usage.CacheReadInputTokens)
+		})
+	}
+}
+
+func TestXAIStreamUsagePreservesPartialDetailsAndNativeChunks(t *testing.T) {
+	c, recorder, info := newXAIClaudeResponseTestContext()
+	info.RelayFormat = types.RelayFormatOpenAI
+	chunks := []string{
+		`{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":8,"text_tokens":2,"audio_tokens":0,"image_tokens":1},"input_tokens_details":{"cached_tokens":6,"text_tokens":4},"completion_tokens_details":{"reasoning_tokens":5,"audio_tokens":2},"prompt_cache_hit_tokens":99}`,
+		`{"prompt_tokens":64,"total_tokens":70,"prompt_tokens_details":{"text_tokens":0},"input_tokens_details":{"text_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"prompt_cache_hit_tokens":0}`,
+		`{"prompt_tokens_details":{"audio_tokens":3}}`,
+	}
+	var body strings.Builder
+	for _, chunk := range chunks {
+		body.WriteString(`data: {"id":"partial-usage","choices":[],"usage":` + chunk + "}\n\n")
+	}
+	body.WriteString("data: [DONE]\n\n")
+	usage, apiErr := xAIStreamHandler(c, info, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body.String()))})
+	require.Nil(t, apiErr)
+	require.NotNil(t, usage)
+	assert.Equal(t, 64, usage.PromptTokens)
+	assert.Equal(t, 6, usage.CompletionTokens)
+	assert.Equal(t, 8, usage.PromptTokensDetails.CachedTokens)
+	assert.Zero(t, usage.PromptTokensDetails.TextTokens)
+	assert.Equal(t, 3, usage.PromptTokensDetails.AudioTokens)
+	assert.Equal(t, 1, usage.PromptTokensDetails.ImageTokens)
+	assert.Zero(t, usage.CompletionTokenDetails.ReasoningTokens)
+	assert.Equal(t, 2, usage.CompletionTokenDetails.AudioTokens)
+	require.NotNil(t, usage.InputTokensDetails)
+	assert.Equal(t, 6, usage.InputTokensDetails.CachedTokens)
+	assert.Zero(t, usage.InputTokensDetails.TextTokens)
+	assert.True(t, usage.HasPromptCacheHitTokens)
+	assert.Zero(t, usage.PromptCacheHitTokens)
+	var wireUsage []dto.Usage
+	for _, line := range strings.Split(recorder.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: {") {
+			continue
+		}
+		var chunk dto.ChatCompletionsStreamResponse
+		require.NoError(t, common.UnmarshalJsonStr(strings.TrimPrefix(line, "data: "), &chunk))
+		require.NotNil(t, chunk.Usage)
+		wireUsage = append(wireUsage, *chunk.Usage)
+	}
+	require.Len(t, wireUsage, 3)
+	assert.Equal(t, 8, wireUsage[0].PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 99, wireUsage[0].PromptCacheHitTokens)
+	assert.Zero(t, wireUsage[1].PromptTokensDetails.CachedTokens)
+	assert.Zero(t, wireUsage[2].PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 1, strings.Count(recorder.Body.String(), "data: [DONE]"))
 }
