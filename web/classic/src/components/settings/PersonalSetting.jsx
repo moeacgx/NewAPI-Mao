@@ -73,6 +73,7 @@ const PersonalSetting = () => {
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [emailTurnstileKey, setEmailTurnstileKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -162,7 +163,7 @@ const PersonalSetting = () => {
       }
     })();
 
-    getUserData();
+    getUserData().catch((error) => showError(error.message));
 
     isPasskeySupported()
       .then(setPasskeySupported)
@@ -402,14 +403,46 @@ const PersonalSetting = () => {
   };
 
   const getUserData = async () => {
-    let res = await API.get(`/api/user/self`);
+    const initialUser = normalizeAuthData(
+      JSON.parse(localStorage.getItem('user') || 'null'),
+    );
+    if (
+      !initialUser?.id ||
+      (userState.user?.id && initialUser.id !== userState.user.id)
+    ) {
+      throw new Error(t('未登录或登录已过期，请重新登录'));
+    }
+    const res = await API.get('/api/user/self', { disableDuplicate: true });
     const { success, message, data } = res.data;
     if (success) {
-      userDispatch({ type: 'login', payload: data });
-      setUserData(data);
+      const currentUser = normalizeAuthData(
+        JSON.parse(localStorage.getItem('user') || 'null'),
+      );
+      // 资料接口不签发登录凭证，保留刷新后的令牌，并拒绝覆盖途中切换的账号。
+      if (
+        !data ||
+        data.id !== initialUser.id ||
+        currentUser?.id !== initialUser.id ||
+        (currentUser?.session?.sid || currentUser?.session?.id) !==
+          (initialUser.session?.sid || initialUser.session?.id)
+      ) {
+        throw new Error(t('未登录或登录已过期，请重新登录'));
+      }
+      const nextUser = {
+        ...currentUser,
+        ...data,
+        token: currentUser.token,
+        access_token: currentUser.access_token,
+        token_type: currentUser.token_type,
+        access_expires_at: currentUser.access_expires_at,
+        session: currentUser.session,
+      };
+      userDispatch({ type: 'login', payload: nextUser });
+      setUserData(nextUser);
+      updateAPI();
       await loadPasskeyStatus();
     } else {
-      showError(message);
+      throw new Error(message || t('操作失败'));
     }
   };
 
@@ -485,47 +518,84 @@ const PersonalSetting = () => {
   };
 
   const sendVerificationCode = async () => {
+    if (loading || disableButton) return;
     if (inputs.email === '') {
       showError(t('请输入邮箱！'));
       return;
     }
-    setDisableButton(true);
     if (turnstileEnabled && turnstileToken === '') {
       showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
       return;
     }
     setLoading(true);
-    const res = await API.get(
-      `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
-    );
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('验证码发送成功，请检查邮箱！'));
-    } else {
-      showError(message);
+    try {
+      const res = await API.get('/api/verification', {
+        params: { email: inputs.email, turnstile: turnstileToken },
+        skipErrorHandler: true,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        setCountdown(30);
+        setDisableButton(true);
+        showSuccess(t('验证码发送成功，请检查邮箱！'));
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(
+        error.response?.data?.message || error.message || t('操作失败'),
+      );
+    } finally {
+      if (turnstileEnabled) {
+        setTurnstileToken('');
+        setEmailTurnstileKey((previous) => previous + 1);
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const bindEmail = async () => {
+    if (loading) return;
+    if (!inputs.email.trim()) {
+      showError(t('请输入邮箱！'));
+      return;
+    }
     if (inputs.email_verification_code === '') {
       showError(t('请输入邮箱验证码！'));
       return;
     }
     setLoading(true);
-    const res = await API.post('/api/oauth/email/bind', {
-      email: inputs.email,
-      code: inputs.email_verification_code,
-    });
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('邮箱账户绑定成功！'));
-      setShowEmailBindModal(false);
-      userState.user.email = inputs.email;
-    } else {
-      showError(message);
+    try {
+      const res = await API.post(
+        '/api/oauth/email/bind',
+        {
+          email: inputs.email,
+          code: inputs.email_verification_code,
+        },
+        { skipErrorHandler: true },
+      );
+      const { success, message } = res.data;
+      if (success) {
+        setShowEmailBindModal(false);
+        setInputs((previous) => ({
+          ...previous,
+          email: '',
+          email_verification_code: '',
+        }));
+        setDisableButton(false);
+        setCountdown(30);
+        await getUserData();
+        showSuccess(t('邮箱账户绑定成功！'));
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(
+        error.response?.data?.message || error.message || t('操作失败'),
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const copyText = async (text) => {
@@ -622,6 +692,7 @@ const PersonalSetting = () => {
               passkeyDeleteLoading={passkeyDeleteLoading}
               onPasskeyRegister={handleRegisterPasskey}
               onPasskeyDelete={handleRemovePasskey}
+              onBindingUpdate={getUserData}
             />
 
             {/* 偏好设置（语言等） */}
@@ -653,6 +724,7 @@ const PersonalSetting = () => {
         turnstileEnabled={turnstileEnabled}
         turnstileSiteKey={turnstileSiteKey}
         setTurnstileToken={setTurnstileToken}
+        turnstileWidgetKey={emailTurnstileKey}
       />
 
       <WeChatBindModal

@@ -348,15 +348,25 @@ export async function getOAuthState(provider, intent = 'login') {
 }
 
 async function prepareOAuthState(options = {}, provider) {
-  const { shouldLogout = false } = options;
-  if (shouldLogout) {
+  const { shouldLogout = false, intent = 'login' } = options;
+  if (shouldLogout && intent === 'login') {
     try {
       await API.post('/api/user/auth/logout', null, { skipErrorHandler: true });
     } catch (err) {}
     localStorage.removeItem('user');
     updateAPI();
   }
-  return await getOAuthState(provider, 'login');
+  const state = await getOAuthState(provider, intent);
+  if (state && intent === 'bind') {
+    try {
+      // 绑定回调必须保留原操作意图，不能把异常登录响应切换为另一个账号。
+      sessionStorage.setItem(`oauth:bind:${provider}:${state}`, 'bind');
+    } catch (error) {
+      showError(t('授权失败'));
+      return '';
+    }
+  }
+  return state;
 }
 
 export async function onDiscordOAuthClicked(client_id, options = {}) {

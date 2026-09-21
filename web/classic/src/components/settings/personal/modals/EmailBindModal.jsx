@@ -36,6 +36,7 @@ const EmailBindModal = ({
   turnstileEnabled,
   turnstileSiteKey,
   setTurnstileToken,
+  turnstileWidgetKey,
 }) => {
   return (
     <Modal
@@ -48,6 +49,11 @@ const EmailBindModal = ({
       visible={showEmailBindModal}
       onCancel={() => setShowEmailBindModal(false)}
       onOk={bindEmail}
+      okText={t('绑定')}
+      confirmLoading={loading}
+      okButtonProps={{
+        disabled: loading || !inputs.email || !inputs.email_verification_code,
+      }}
       size={'small'}
       centered={true}
       maskClosable={false}
@@ -59,6 +65,7 @@ const EmailBindModal = ({
             placeholder={t('输入邮箱地址')}
             onChange={(value) => handleInputChange('email', value)}
             name='email'
+            value={inputs.email}
             type='email'
             size='large'
             className='!rounded-lg flex-1'
@@ -93,10 +100,13 @@ const EmailBindModal = ({
         {turnstileEnabled && (
           <div className='flex justify-center'>
             <Turnstile
+              key={turnstileWidgetKey}
               sitekey={turnstileSiteKey}
               onVerify={(token) => {
                 setTurnstileToken(token);
               }}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
             />
           </div>
         )}

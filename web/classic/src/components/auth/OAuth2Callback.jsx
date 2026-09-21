@@ -44,21 +44,42 @@ const OAuth2Callback = (props) => {
   const MAX_RETRIES = 3;
 
   const sendCode = async (code, state, retry = 0) => {
+    const bindingKey = `oauth:bind:${props.type}:${state}`;
+    let isBinding = false;
     try {
-      const { data: resData } = await API.get(
-        `/api/oauth/${props.type}?code=${code}&state=${state}`,
-        { skipErrorHandler: true },
-      );
+      isBinding = sessionStorage.getItem(bindingKey) === 'bind';
+    } catch {
+      // 普通登录无需绑定标记；存储受限时，绑定发起端已拒绝跳转。
+    }
+    try {
+      const { data: resData } = await API.get(`/api/oauth/${props.type}`, {
+        params: {
+          code: code || undefined,
+          state,
+          error: searchParams.get('error') || undefined,
+          error_description: searchParams.get('error_description') || undefined,
+        },
+        skipErrorHandler: true,
+      });
 
       const { success, message, data } = resData;
 
       if (!success) {
+        if (isBinding) sessionStorage.removeItem(bindingKey);
         // 业务错误不重试，直接显示错误
         showError(message || t('授权失败'));
         return;
       }
 
+      if (isBinding && data?.action !== 'bind') {
+        sessionStorage.removeItem(bindingKey);
+        showError(t('授权失败'));
+        navigate('/console/personal');
+        return;
+      }
+
       if (data?.action === 'bind') {
+        if (isBinding) sessionStorage.removeItem(bindingKey);
         showSuccess(t('绑定成功！'));
         navigate('/console/personal');
       } else {
@@ -85,6 +106,7 @@ const OAuth2Callback = (props) => {
       }
 
       // 重试次数耗尽，提示错误并返回设置页面
+      if (isBinding) sessionStorage.removeItem(bindingKey);
       showError(error.message || t('授权失败'));
       navigate('/console/personal');
     }
@@ -97,11 +119,37 @@ const OAuth2Callback = (props) => {
     }
     hasExecuted.current = true;
 
+    const telegramResult = searchParams.get('telegram_bind');
+    if (
+      props.type === 'telegram' &&
+      (telegramResult === 'success' || telegramResult === 'error')
+    ) {
+      const flowToken = searchParams.get('flow_token');
+      if (flowToken && window.opener && !window.opener.closed) {
+        window.opener.postMessage(
+          {
+            type: 'telegram:binding:result',
+            flow_token: flowToken,
+            success: telegramResult === 'success',
+            code: searchParams.get('error_code') || undefined,
+          },
+          window.location.origin,
+        );
+        window.close();
+      } else {
+        if (flowToken && telegramResult === 'success')
+          showSuccess(t('绑定成功！'));
+        else showError(t('授权失败'));
+        navigate('/console/personal');
+      }
+      return;
+    }
+
     const code = searchParams.get('code');
     const state = searchParams.get('state');
 
     // 参数缺失直接返回
-    if (!code) {
+    if (!code && !searchParams.get('error')) {
       showError(t('未获取到授权码'));
       navigate('/console/personal');
       return;
