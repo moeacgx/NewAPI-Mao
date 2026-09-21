@@ -182,3 +182,58 @@ func TestXAIClaudeCanceledStreamDoesNotFinish(t *testing.T) {
 	_, _ = xAIStreamHandler(c, info, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: [DONE]\n\n"))})
 	assert.NotContains(t, recorder.Body.String(), "message_stop")
 }
+
+type cancelAfterClaudeStartWriter struct {
+	gin.ResponseWriter
+	cancel context.CancelFunc
+}
+
+func (w *cancelAfterClaudeStartWriter) Write(data []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(data)
+	if strings.Contains(string(data), "event: message_start") {
+		w.cancel()
+	}
+	return n, err
+}
+
+func TestXAIClaudeInterruptedStreamRetainsNormalizedUsage(t *testing.T) {
+	for _, tt := range []struct {
+		name, cache string
+	}{
+		{"input details", `"input_tokens_details":{"cached_tokens":80}`},
+		{"cache alias", `"prompt_cache_hit_tokens":80`},
+	} {
+		for _, interruption := range []string{"client cancellation", "upstream error"} {
+			t.Run(tt.name+"/"+interruption, func(t *testing.T) {
+				c, recorder, info := newXAIClaudeResponseTestContext()
+				ctx, cancel := context.WithCancel(c.Request.Context())
+				defer cancel()
+				c.Request = c.Request.WithContext(ctx)
+				if interruption == "client cancellation" {
+					// 写出首个事件时 usage 已合并，随后取消无需依赖定时或调度先后。
+					c.Writer = &cancelAfterClaudeStartWriter{ResponseWriter: c.Writer, cancel: cancel}
+				}
+				body := `data: {"id":"interrupted","model":"grok-actual","choices":[{"index":0,"delta":{"content":"partial"}}],"usage":{"prompt_tokens":100,"completion_tokens":2,"total_tokens":102,` + tt.cache + "}}\n\n"
+				if interruption == "upstream error" {
+					body += "data: " + `{"error":{"message":"upstream interrupted","type":"server_error"}}` + "\n\n"
+				}
+				usage, apiErr := xAIStreamHandler(c, info, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))})
+				if interruption == "client cancellation" {
+					require.Nil(t, apiErr)
+					assert.ErrorIs(t, ctx.Err(), context.Canceled)
+				} else {
+					require.NotNil(t, apiErr)
+					assert.Contains(t, apiErr.Error(), "upstream interrupted")
+				}
+				require.NotNil(t, usage)
+				assert.Equal(t, 100, usage.PromptTokens)
+				assert.Equal(t, 2, usage.CompletionTokens)
+				assert.Equal(t, 80, usage.PromptTokensDetails.CachedTokens)
+				assert.True(t, usage.PromptTokensDetails.HasCachedTokens)
+				assert.Contains(t, recorder.Body.String(), "message_start")
+				assert.NotContains(t, recorder.Body.String(), "message_delta")
+				assert.NotContains(t, recorder.Body.String(), "message_stop")
+			})
+		}
+	}
+}
