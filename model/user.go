@@ -635,22 +635,31 @@ func (user *User) prepareForInsert(tx *gorm.DB) error {
 	return err
 }
 
-// BindEmailToUser atomically checks email availability and assigns it to the
-// user, serializing concurrent binds of the same email so two accounts cannot
-// end up sharing one address. The email is normalized before check and store.
+// BindEmailToUser 在邮箱唯一性锁内只更新现存用户的邮箱，避免旧资料覆盖并发更新。
 func BindEmailToUser(user *User, email string) error {
+	if user == nil || user.Id <= 0 {
+		return errors.New("id 为空！")
+	}
 	email = NormalizeEmail(email)
+	var current User
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		return withNormalizedEmailLock(tx, email, func(tx *gorm.DB) error {
+			if err := lockForUpdate(tx).First(&current, user.Id).Error; err != nil {
+				return err
+			}
 			if err := ensureEmailAvailableWithTx(tx, email, user.Id); err != nil {
 				return err
 			}
-			user.Email = email
-			return user.UpdateWithTx(tx, false)
+			return tx.Model(&current).Update("email", email).Error
 		})
 	}); err != nil {
 		return err
 	}
+	// 提交后重新读取已生效资料，沿用缓存版本栅栏，禁止发布调用方的旧快照。
+	if err := DB.First(&current, user.Id).Error; err != nil {
+		return err
+	}
+	*user = current
 	return updateUserCache(*user)
 }
 
