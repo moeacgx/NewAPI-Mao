@@ -291,6 +291,8 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 				usage.HasTotalTokens = true
 			}
 			info.EnsureClaudeConvertInfo().Usage = usage
+			stateUsage := usage
+			_ = stateUsage
 		}
 		if len(chunk.Choices) == 0 {
 			return
