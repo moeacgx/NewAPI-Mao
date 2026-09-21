@@ -256,6 +256,11 @@ var (
 	CriticalRateLimitNum            = 20
 	CriticalRateLimitDuration int64 = 20 * 60
 
+	// 读取密钥按已认证用户独立计数，避免同出口的关键操作互相影响。
+	TokenKeyReadRateLimitEnable         = true
+	TokenKeyReadRateLimitNum            = 60
+	TokenKeyReadRateLimitDuration int64 = 60
+
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60
 

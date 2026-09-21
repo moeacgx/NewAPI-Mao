@@ -1,5 +1,7 @@
 # 开发文档
 
+- [复制令牌密钥的共享限流修复](../workflows/2026-09/21_token_key_copy_shared_limit.md)：首次复制被登录等 CT 流量误伤，按认证用户独立计数，保留密钥归属与全局防护。
+
 - [maolaoapi Codex 响应头校验 .330 发布](../workflows/2026-09/21_maolaoapi_codex_header_330_deployment.md)：固定版本发布、数据库备份和加列迁移、maolaoapi 三应用逐节点更新与验收。
 
 - [主程序模型校验接入 Codex 响应头](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：正文与头部模型分离、现有规则及白名单复用、来源记录和迁移验证，无需更新模块包。
