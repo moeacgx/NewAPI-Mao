@@ -9,7 +9,7 @@
 
 ## 确认的问题与方案
 
-- 邮箱持久化当前用完整旧 User 快照调用通用 UpdateWithTx，会回写与邮箱无关的角色、状态、分组和社交身份。
+- 邮箱持久化原先用完整旧 User 快照调用通用 UpdateWithTx，会回写与邮箱无关的角色、状态、分组和社交身份。
   修复为按现存正整数 ID 锁定并仅更新 email，保留邮箱唯一性串行保护，缺失/删除用户拒绝，回读最新用户再更新缓存。
 - 邮箱验证码原先只校验不消费，可在有效期内重复绑定。绑定专用调用改为在同一互斥锁内校验并消费，错误验证码不消耗；匹配后即消费，数据库或缓存失败需要重新获取验证码。
 - Classic 普通 OAuth 绑定入口误生成 intent=login，可创建新账号并替换当前登录态。
@@ -17,6 +17,7 @@
 - Classic Telegram 绑定指向已移除的无 flow 路径，应使用现有 bind/start 与一次性 callback_url，校验回调来源及 flow。
 - Default 邮箱绑定发验证码未提供已启用的 Turnstile；补齐现有验证组件和 token 生命周期。
 - Classic 邮箱发验证码 URL 未编码，带 + 的地址会变成空格；改用 params，修正失败后 loading/按钮和成功后用户信息回读。
+- Classic 个人设置将 `/api/user/self` 的纯资料覆盖本地认证数据，丢失原令牌与 Session。资料回读改为校验用户 ID 及 Session 未切换，再合并最新凭证；邮箱成功后回读并同步 Context 和本地数据，不再直接修改 Context 对象。
 
 ## 契约与安全边界
 
@@ -39,3 +40,13 @@ Classic 覆盖所有普通 OAuth 入口 bind intent、登录保持 login、绑�
 - 修复前：`TestBindEmailPreservesConcurrentUserChanges` 复现旧用户名、密码、角色、启用状态和分组写回，并意外改变 AuthVersion；`TestEmailBindRouteKeepsAuthenticatedAccount` 复现验证码可重复使用。
 - 修复后：目标测试验证仅 email 改变、规范化保留 `+`、已占用邮箱拒绝、不存在/删除的用户不会被插入、错误验证码和未认证请求不修改数据、成功绑定不签发新 Cookie/登录包。
 - 真实路由测试在独立 SQLite 数据库和 Session 下执行；绑定前后用户数与 Session 数不增加，原访问令牌访问 `/api/user/self` 仍返回原 ID、资金及新邮箱。MySQL/PostgreSQL 复用现有邮件锁和 `lockForUpdate`，本次尚未运行真实数据库集成。
+
+## 验证结果
+
+- `go test ./common ./model ./controller ./router -count=1 -timeout 60s`：四个包全部通过。
+- `go vet ./common ./model ./controller ./router`、`go build ./...`：通过；后端独立只读审查未发现阻断问题。
+- Default 邮箱真实交互：修复前 7 失败 / 2 通过，修复后 9/9 通过；类型检查、局部 lint、格式与生产构建通过。
+- Classic 新增 29 项实际交互、既有 10 项刷新回归和 9 项认证契约通过；包括冷启动 Context 未就绪、同 Session 令牌刷新保留、跨账号迟到响应拒绝、邮箱参数与 Turnstile 重试、五类 OAuth 入口及 Telegram flow。局部 ESLint、Prettier、生产构建和独立源码复审通过。
+- 新文档索引链接、Markdown 格式与 `git diff --check`：通过。
+
+本轮验证未向真实邮箱或社交提供商发请求，未发布版本或操作线上账号。完整邮件投递、第三方授权和历史用户现场仍需与已证实的本地行为区分。
