@@ -25,4 +25,8 @@ Grok 经 xAI 渠道处理 `/v1/messages` 时，本地 `ConvertClaudeRequest` 直
 ## 验证与发布边界
 
 线上只读精确查询确认所报请求命中 xAI 渠道、未开启强制 Responses，记录为 `convert_request_failed` / HTTP 500 / `not available`，请求路径为 `/v1/messages`，未扣费。与适配器缺口一致。
-实施与验证进行中。尚未通过真实供应商请求验证；本工作不包含发版或生产部署。
+PR #256 已合并。`go test ./relay/... -count=1 -timeout 60s`、relaykit 转换器测试与独立构建通过；
+CI `35589322338` 后端 vet/build/test、前端检查及构建通过。首次后端 CI 因既有 Realtime
+测试清理时序失败，同提交重跑通过；CodeRabbit 本次跳过审查，不代表实质审查通过。
+后续经授权发布 .332，部署记录见[maolaoapi .332 发布](21_maolaoapi_grok_332_deployment.md)。
+协议兼容使用模拟上游验证，尚未通过真实供应商请求验收。
