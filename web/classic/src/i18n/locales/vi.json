@@ -6451,6 +6451,14 @@
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "Sau khi áp dụng mẫu, thường không cần sửa phần này. Dữ kiện request có sẵn gồm base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated và prompt_chars.",
     "Force Responses upstream": "Buộc dùng Responses cho dịch vụ phía trên",
-    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chuyển hội thoại Chat, Claude và Gemini sang Responses, giữ nguyên định dạng phản hồi cho máy khách. Ưu tiên hơn chuyển tiếp nguyên nội dung và chuyển Responses sang Chat. Dịch vụ phía trên phải hỗ trợ Responses."
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chuyển hội thoại Chat, Claude và Gemini sang Responses, giữ nguyên định dạng phản hồi cho máy khách. Ưu tiên hơn chuyển tiếp nguyên nội dung và chuyển Responses sang Chat. Dịch vụ phía trên phải hỗ trợ Responses.",
+    "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写": "Đối với các kênh chính thức, NewAPI-Mao đã tích hợp sẵn địa chỉ. Trừ khi đó là trang web proxy của bên thứ ba hoặc địa chỉ truy cập đặc biệt của Azure, không cần điền vào",
+    "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。": "Kênh này đã bật truyền qua yêu cầu; các tính năng tích hợp của NewAPI-Mao như ghi đè tham số và chuyển hướng mô hình sẽ bị vô hiệu hóa. Đây không phải là thực hành tốt nhất.",
+    "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "Kênh này đã bật truyền qua yêu cầu. Các tính năng tích hợp của NewAPI-Mao như ghi đè tham số, chuyển hướng mô hình và thích ứng kênh sẽ bị vô hiệu hóa. Đây không phải là thực hành tốt nhất. Nếu phát sinh vấn đề, vui lòng không gửi issue.",
+    "使用运行 NewAPI-Mao 服务端的绝对目录路径。": "Sử dụng đường dẫn thư mục tuyệt đối trên máy chủ đang chạy NewAPI-Mao.",
+    "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "Đã bật truyền qua yêu cầu toàn cục. Các tính năng tích hợp của NewAPI-Mao như ghi đè tham số, chuyển hướng mô hình và thích ứng kênh sẽ bị vô hiệu hóa. Đây không phải là thực hành tốt nhất. Nếu phát sinh vấn đề, vui lòng không gửi issue.",
+    "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示": "Khóa được sử dụng để xác minh các yêu cầu webhook gọi lại NewAPI-Mao, thông tin nhạy cảm không được hiển thị.",
+    "NewAPI-Mao Project Repository:": "Kho mã nguồn dự án NewAPI-Mao:",
+    "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。": "NewAPI-Mao mặc định không truyền User-Agent của yêu cầu đến kênh upstream; điều kiện này chỉ dùng để nhận diện client truy cập trang web này."
   }
 }

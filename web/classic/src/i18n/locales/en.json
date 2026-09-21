@@ -6171,6 +6171,14 @@
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.",
     "Force Responses upstream": "Force Responses upstream",
-    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses."
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.",
+    "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写": "For official channels, the NewAPI-Mao has a built-in address. Unless it is a third-party proxy site or a special Azure access address, there is no need to fill it in",
+    "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。": "Request pass-through is enabled for this channel; built-in NewAPI-Mao features such as parameter overrides and model redirection will be disabled. This is not a best practice.",
+    "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "Request pass-through is enabled for this channel. Built-in NewAPI-Mao features such as parameter overrides, model redirection, and channel adaptation will be disabled. This is not a best practice. If this causes issues, please do not submit an issue.",
+    "使用运行 NewAPI-Mao 服务端的绝对目录路径。": "Use an absolute directory path on the server running NewAPI-Mao.",
+    "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "Global request pass-through is enabled. Built-in NewAPI-Mao features such as parameter overrides, model redirection, and channel adaptation will be disabled. This is not a best practice. If this causes issues, please do not submit an issue.",
+    "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示": "The key used to validate webhook requests for the callback NewAPI-Mao, sensitive information is not displayed.",
+    "NewAPI-Mao Project Repository:": "NewAPI-Mao Project Repository:",
+    "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。": "NewAPI-Mao does not pass the incoming request's User-Agent to upstream channels by default; this condition is only used to identify clients accessing this site."
   }
 }

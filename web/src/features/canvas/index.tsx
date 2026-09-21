@@ -106,7 +106,7 @@ export function CanvasLauncher() {
           <CardTitle>{t('Infinite Canvas')}</CardTitle>
           <CardDescription>
             {t(
-              'Choose a group and open Infinite Canvas. The canvas uses your current New API login session to call models.'
+              'Choose a group and open Infinite Canvas. The canvas uses your current NewAPI-Mao login session to call models.'
             )}
           </CardDescription>
         </CardHeader>

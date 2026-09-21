@@ -1097,7 +1097,7 @@ const RequestArchiveTab = () => {
                       }
                     />
                     <Text type='tertiary' size='small'>
-                      {t('使用运行 New API 服务端的绝对目录路径。')}
+                      {t('使用运行 NewAPI-Mao 服务端的绝对目录路径。')}
                     </Text>
                   </label>
                 ) : (

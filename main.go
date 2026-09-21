@@ -65,7 +65,7 @@ func main() {
 		return
 	}
 
-	common.SysLog("New API " + common.Version + " started")
+	common.SysLog("NewAPI-Mao " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -213,7 +213,7 @@ func main() {
 		common.SysLog(fmt.Sprintf("panic detected: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": gin.H{
-				"message": "Internal server error. Please submit a issue here: https://github.com/Calcium-Ion/new-api",
+				"message": "Internal server error. Please submit a issue here: https://github.com/moeacgx/NewAPI-Mao/issues",
 				"type":    "new_api_panic",
 			},
 		})

@@ -2,7 +2,7 @@
 
 | 仓库                                                                          | 职责                                           | 发布入口                                                                                       |
 | ----------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [maolaonewapi](https://github.com/moeacgx/maolaonewapi)                       | 宿主、业务接口、权限、数据库迁移与两套后台     | 主程序版本                                                                                     |
+| [NewAPI-Mao](https://github.com/moeacgx/NewAPI-Mao)                       | 宿主、业务接口、权限、数据库迁移与两套后台     | 主程序版本                                                                                     |
 | [maolaonewapi-extensions](https://github.com/moeacgx/maolaonewapi-extensions) | 扩展模块源码、版本 ZIP、SHA-256 和在线安装目录 | [模块目录](https://github.com/moeacgx/maolaonewapi-extensions/blob/main/MODULES.md)            |
 | [maolaonewapi-plugins](https://github.com/moeacgx/maolaonewapi-plugins)       | Task Plugin 源码及任务插件市场源               | [任务插件索引](https://raw.githubusercontent.com/moeacgx/maolaonewapi-plugins/main/index.json) |
 
@@ -35,7 +35,7 @@ GitHub 文件列表会显示两个可点击的 `仓库名 @ 提交` 入口。`.g
 首次克隆且需要同时获取模块源码时：
 
 ```sh
-git clone --recurse-submodules https://github.com/moeacgx/maolaonewapi.git
+git clone --recurse-submodules https://github.com/moeacgx/NewAPI-Mao.git
 ```
 
 已有主仓库克隆时，在根目录执行：

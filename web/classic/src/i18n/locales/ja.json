@@ -5909,6 +5909,14 @@
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "テンプレート適用後は通常ここを編集する必要はありません。利用できるリクエスト情報には base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated、prompt_chars があります。",
     "Force Responses upstream": "上流への Responses リクエストを強制",
-    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chat・Claude・Gemini の会話を Responses に変換し、クライアントの応答形式を維持します。本文の透過転送と Responses から Chat への変換より優先されます。上流は Responses に対応している必要があります。"
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "Chat・Claude・Gemini の会話を Responses に変換し、クライアントの応答形式を維持します。本文の透過転送と Responses から Chat への変換より優先されます。上流は Responses に対応している必要があります。",
+    "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写": "公式チャネルの場合、NewAPI-MaoにはベースURLが組み込まれているため、サードパーティのプロキシサイトやAzureの専用のエンドポイントでない限り、入力する必要はありません。",
+    "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。": "このチャネルではリクエストのパススルーが有効です。パラメータ上書きやモデルリダイレクトなどの NewAPI-Mao 内蔵機能は無効になります。ベストプラクティスではありません。",
+    "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "このチャネルではリクエストのパススルーが有効です。パラメータ上書き、モデルリダイレクト、チャネル適応などの NewAPI-Mao 内蔵機能は無効になります。ベストプラクティスではありません。これにより問題が発生しても issue を投稿しないでください。",
+    "使用运行 NewAPI-Mao 服务端的绝对目录路径。": "NewAPI-Mao サーバー上の絶対ディレクトリパスを使用してください。",
+    "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "全体のリクエストパススルーが有効です。パラメータ上書き、モデルリダイレクト、チャネル適応などの NewAPI-Mao 内蔵機能は無効になります。ベストプラクティスではありません。これにより問題が発生しても issue を投稿しないでください。",
+    "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示": "The key used to validate webhook requests for the callback NewAPI-Mao, sensitive information is not displayed.",
+    "NewAPI-Mao Project Repository:": "NewAPI-Mao プロジェクトリポジトリ：",
+    "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。": "NewAPI-Maoはデフォルトでは入力リクエストのUser-Agentを上流チャネルにパススルーしません。この条件はこのサイトにアクセスするクライアントの識別にのみ使用されます。"
   }
 }
