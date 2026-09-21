@@ -271,12 +271,26 @@ func xAIClaudeStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		}
 		info.SetUpstreamResponseModelName(chunk.Model)
 		if chunk.Usage != nil {
+			previousPrompt, previousCompletion, previousTotal := usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens
+			previousPromptSet := usage.HasPromptTokens
+			previousCompletionSet := usage.HasCompletionTokens
+			previousTotalSet := usage.HasTotalTokens
 			mergeXAIUsage(usage, chunk.Usage)
+			if previousPromptSet && !chunk.Usage.HasPromptTokens {
+				usage.PromptTokens, usage.HasPromptTokens = previousPrompt, true
+			}
+			if previousCompletionSet && !chunk.Usage.HasCompletionTokens {
+				usage.CompletionTokens, usage.HasCompletionTokens = previousCompletion, true
+			}
+			if previousTotalSet && !chunk.Usage.HasTotalTokens {
+				usage.TotalTokens, usage.HasTotalTokens = previousTotal, true
+			}
 			normalizeXAIUsage(usage)
 			if usage.HasPromptTokens && usage.HasCompletionTokens {
 				usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 				usage.HasTotalTokens = true
 			}
+			info.EnsureClaudeConvertInfo().Usage = usage
 		}
 		if len(chunk.Choices) == 0 {
 			return
