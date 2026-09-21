@@ -4,6 +4,7 @@
 
 ## xAI 渠道 Messages 兼容
 
+- 缓存分片合并及回包/账单一致性见[缓存工作记录](../workflows/2026-09/21_xai_cache_usage_merge.md)；解析修复不能保证供应商实际缓存命中。
 - `/v1/messages` 经 xAI 渠道转为 Chat Completions，上游返回转换回 Anthropic JSON/SSE，保留 Grok 缓存用量和现有结算口径。
 - 强制 Responses、请求体透传及原生端点沿用既有优先级；无需新增开关或数据库迁移。
 - 实施与验证状态见[工作记录](../workflows/2026-09/21_xai_messages_compat.md)，实际供应商兼容性和上线需单独验收。

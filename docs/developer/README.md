@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [xAI 分段缓存用量一致性](../workflows/2026-09/21_xai_cache_usage_merge.md)：字段来源、分片合并和 Claude 回包与结算一致性，含低缓存现场证据边界。
+
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
 
 - [项目身份与发布兼容](project-identity.md)：项目名、镜像小写归一、自更新兼容、上游归属、配套仓库与功能分享规则。
