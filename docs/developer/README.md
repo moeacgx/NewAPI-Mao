@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
+
 - [项目身份与发布兼容](project-identity.md)：项目名、镜像小写归一、自更新兼容、上游归属、配套仓库与功能分享规则。
 - [源码身份更名记录](../workflows/2026-09/21_newapi_mao_identity.md)：全仓盘点、修改范围和实际验证。
 
