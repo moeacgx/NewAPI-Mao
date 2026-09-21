@@ -1,5 +1,7 @@
 # 开发文档
 
+- [maolaoapi 复制密钥与账号绑定 .331 发布](../workflows/2026-09/21_maolaoapi_account_binding_331_deployment.md)：修复版本发布、备份、三应用逐节点更新和线上验收。
+
 - [账号绑定身份与邮箱更新检查](../workflows/2026-09/21_account_binding_identity.md)：邮箱原位更新及验证码消费、Classic 社交绑定意图和会话保留、双模板邮箱验证码流程。
 
 - [复制令牌密钥的共享限流修复](../workflows/2026-09/21_token_key_copy_shared_limit.md)：首次复制被登录等 CT 流量误伤，按认证用户独立计数，保留密钥归属与全局防护。
