@@ -2,11 +2,9 @@
 
 通知中心只负责发送。业务模块产生事件，通知中心根据任务、Bot、接收目标和模板完成投递。模块不能读取 Bot Token，也不能覆盖接收人和模板；一个 Bot 可以被多个任务复用。
 
-上游模型校验的 Codex 响应头异常由主程序产生，沿用现有
-`extension.upstream-model-guard.channel_disabled` 事件、通知任务及模板。
-其 `reason`、`comparison` 会明确标注头部来源与声明模型，旧 0.2.1 模块无需更新。
-负载中的额外 `detection_source` 尚未在旧模块清单中声明为模板变量；自定义模板仍使用已有
-`reason` 或 `comparison`。详见[模型校验扩展](upstream-model-guard.md)。
+上游正文模型校验沿用 `extension.upstream-model-guard.channel_disabled` 事件、通知任务及模板。
+faster-model 响应头识别已撤销，新事件不再包含专用来源字段；历史已入队事件保持原负载。
+详见[模型校验扩展](upstream-model-guard.md)与[撤销记录](../workflows/2026-09/21_remove_codex_faster_model_evidence.md)。
 
 ## 内置事件
 

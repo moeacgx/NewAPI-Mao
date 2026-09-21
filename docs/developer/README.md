@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [撤销 faster-model 响应头识别](../workflows/2026-09/21_remove_codex_faster_model_evidence.md)：恢复正文模型校验，移除头部检测与新增日志字段，保留已有数据库额外列及历史记录。
+
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
 
 - [项目身份与发布兼容](project-identity.md)：项目名、镜像小写归一、自更新兼容、上游归属、配套仓库与功能分享规则。
@@ -15,7 +17,7 @@
 
 - [maolaoapi Codex 响应头校验 .330 发布](../workflows/2026-09/21_maolaoapi_codex_header_330_deployment.md)：固定版本发布、数据库备份和加列迁移、maolaoapi 三应用逐节点更新与验收。
 
-- [主程序模型校验接入 Codex 响应头](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：正文与头部模型分离、现有规则及白名单复用、来源记录和迁移验证，无需更新模块包。
+- [主程序模型校验接入 Codex 响应头（已撤销）](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：保留实现与发布历史，当前校验行为见撤销记录。
 
 - [模型校验白名单直接填写渠道 ID](../workflows/2026-09/21_model_guard_allowlist_ids.md)：双模板文本输入、校验与勾选同步、模块版本和安装边界。
 

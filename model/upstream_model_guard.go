@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -50,7 +49,6 @@ type UpstreamModelGuardRecord struct {
 	ExpectedUpstreamModelsJSON string   `json:"-" gorm:"type:text;not null"`
 	ExpectedUpstreamModels     []string `json:"expected_upstream_models" gorm:"-"`
 	ActualUpstreamModel        string   `json:"actual_upstream_model" gorm:"type:text;not null"`
-	DetectionSource            string   `json:"detection_source" gorm:"type:text"`
 	RequestID                  string   `json:"request_id" gorm:"size:128"`
 	Reason                     string   `json:"reason" gorm:"type:text;not null"`
 	ConfigVersion              int64    `json:"config_version" gorm:"not null"`
@@ -142,9 +140,6 @@ func ObserveUpstreamModelGuard(ctx context.Context, record *UpstreamModelGuardRe
 	if _, err := hex.DecodeString(*record.ObservationKey); err != nil {
 		return false, errors.New("上游模型校验请求身份无效")
 	}
-	if record.DetectionSource == "" {
-		record.DetectionSource = constant.UpstreamModelSourceResponseBody
-	}
 	if matched {
 		var streak UpstreamModelGuardStreak
 		result := DB.WithContext(ctx).Select("channel_id").
@@ -217,11 +212,6 @@ func ObserveUpstreamModelGuard(ctx context.Context, record *UpstreamModelGuardRe
 		record.ChannelName = channel.Name
 		record.CreatedAt = now
 		record.Reason = fmt.Sprintf("上游模型校验连续不匹配 %d/%d：请求模型 %q，预期 %s，实际 %q", record.ConsecutiveMismatches, record.FailureThreshold, record.RequestedModel, strings.Join(record.ExpectedUpstreamModels, ", "), record.ActualUpstreamModel)
-		detectionSourceName := "响应正文"
-		if record.DetectionSource == constant.UpstreamModelSourceCodexFasterModel {
-			detectionSourceName = "Codex faster-model 响应头"
-			record.Reason = fmt.Sprintf("上游模型校验连续不匹配 %d/%d：请求模型 %q，预期 %s，%s声明模型 %q", record.ConsecutiveMismatches, record.FailureThreshold, record.RequestedModel, strings.Join(record.ExpectedUpstreamModels, ", "), detectionSourceName, record.ActualUpstreamModel)
-		}
 		expectedJSON, err := common.Marshal(record.ExpectedUpstreamModels)
 		if err != nil {
 			return err
@@ -278,8 +268,7 @@ func ObserveUpstreamModelGuard(ctx context.Context, record *UpstreamModelGuardRe
 			"group": record.GroupName, "requested_model": record.RequestedModel,
 			"expected_upstream_models": strings.Join(record.ExpectedUpstreamModels, ", "),
 			"actual_upstream_model":    record.ActualUpstreamModel, "request_id": record.RequestID,
-			"detection_source": detectionSourceName,
-			"reason":           record.Reason, "create_time": time.Unix(now, 0).Format(time.RFC3339),
+			"reason": record.Reason, "create_time": time.Unix(now, 0).Format(time.RFC3339),
 			"comparison": upstreamModelGuardComparison(record), "module_id": "upstream-model-guard",
 			"event_type": UpstreamModelGuardNotificationEvent, "event_key": eventKey,
 			"consecutive_mismatches": record.ConsecutiveMismatches, "failure_threshold": record.FailureThreshold,
@@ -305,10 +294,6 @@ func upstreamModelGuardComparison(record *UpstreamModelGuardRecord) string {
 	parts := []struct{ label, value string }{
 		{"分组", record.GroupName}, {"请求模型", record.RequestedModel},
 		{"允许上游模型", strings.Join(record.ExpectedUpstreamModels, ", ")}, {"实际上游模型", record.ActualUpstreamModel},
-	}
-	if record.DetectionSource == constant.UpstreamModelSourceCodexFasterModel {
-		parts[3].label = "头部声明模型"
-		parts = append(parts, struct{ label, value string }{"检测来源", "Codex faster-model 响应头"})
 	}
 	var result strings.Builder
 	for index, part := range parts {
@@ -360,9 +345,6 @@ func ListUpstreamModelGuardRecords(ctx context.Context, page, pageSize int) ([]U
 		}
 	}
 	for index := range records {
-		if records[index].DetectionSource == "" {
-			records[index].DetectionSource = constant.UpstreamModelSourceResponseBody
-		}
 		if records[index].ObservationKey == nil {
 			records[index].ConsecutiveMismatches = 1
 			records[index].FailureThreshold = 1

@@ -18,14 +18,9 @@ func TestGenerateTextOtherInfoIncludesUpstreamResponseModelName(t *testing.T) {
 			UpstreamModelName: "mapped-model",
 		},
 		UpstreamResponseModelName: "provider-actual",
-		CodexFasterModelName:      "provider-buffer",
 	}
 
 	other := GenerateTextOtherInfo(c, info, 1, 1, 1, 0, 0, 0, 1)
 
 	require.Equal(t, "provider-actual", other["upstream_response_model_name"])
-	adminInfo, ok := other["admin_info"].(map[string]interface{})
-	require.True(t, ok)
-	require.Equal(t, "provider-buffer", adminInfo["codex_faster_model"])
-	require.NotContains(t, other, "codex_faster_model")
 }
