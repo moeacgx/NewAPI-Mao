@@ -1,5 +1,7 @@
 # 开发文档
 
+- [主程序模型校验接入 Codex 响应头](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：正文与头部模型分离、现有规则及白名单复用、来源记录和迁移验证，无需更新模块包。
+
 - [模型校验白名单直接填写渠道 ID](../workflows/2026-09/21_model_guard_allowlist_ids.md)：双模板文本输入、校验与勾选同步、模块版本和安装边界。
 
 - [maolaoapi 强制 Responses .329 逐节点更新](../workflows/2026-09/21_maolaoapi_force_responses_329_deployment.md)：生产三节点固定镜像升级、备份、配置保留和验收边界。

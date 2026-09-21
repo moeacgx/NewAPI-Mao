@@ -119,6 +119,7 @@ func TestUpstreamModelGuardDisablesWholeChannelAndEnqueuesOnce(t *testing.T) {
 	require.EqualValues(t, 1, total)
 	require.Len(t, records, 1)
 	assert.Equal(t, []string{"provider-model", "provider-model-v2"}, records[0].ExpectedUpstreamModels)
+	assert.Equal(t, constant.UpstreamModelSourceResponseBody, records[0].DetectionSource)
 	var events []NotificationEvent
 	require.NoError(t, DB.Find(&events).Error)
 	require.Len(t, events, 1)
@@ -128,9 +129,41 @@ func TestUpstreamModelGuardDisablesWholeChannelAndEnqueuesOnce(t *testing.T) {
 	assert.Equal(t, float64(channel.Id), payload["channel_id"])
 	assert.Equal(t, channel.Name, payload["channel_name"])
 	assert.Equal(t, "wrong-model", payload["actual_upstream_model"])
+	assert.Equal(t, "响应正文", payload["detection_source"])
 	var deliveries int64
 	require.NoError(t, DB.Model(&NotificationDelivery{}).Count(&deliveries).Error)
 	assert.EqualValues(t, 1, deliveries)
+}
+
+func TestUpstreamModelGuardPersistsCodexHeaderSourceAndNotification(t *testing.T) {
+	channel, config := setupUpstreamModelGuardModelTest(t)
+	record := upstreamModelGuardTestRecord(channel, config)
+	record.DetectionSource = constant.UpstreamModelSourceCodexFasterModel
+	record.ActualUpstreamModel = "gpt-5.6-luna"
+	changed, err := ObserveUpstreamModelGuard(t.Context(), record, false)
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	var stored UpstreamModelGuardRecord
+	require.NoError(t, DB.First(&stored, record.Id).Error)
+	assert.Equal(t, constant.UpstreamModelSourceCodexFasterModel, stored.DetectionSource)
+	assert.Equal(t, "gpt-5.6-luna", stored.ActualUpstreamModel)
+	assert.Contains(t, stored.Reason, `Codex faster-model 响应头声明模型 "gpt-5.6-luna"`)
+	assert.NotContains(t, stored.Reason, "实际 ")
+	var storedChannel Channel
+	require.NoError(t, DB.First(&storedChannel, channel.Id).Error)
+	assert.Equal(t, stored.Reason, storedChannel.GetOtherInfo()["status_reason"])
+
+	var event NotificationEvent
+	require.NoError(t, DB.First(&event).Error)
+	var payload map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(event.Payload, &payload))
+	assert.Equal(t, "Codex faster-model 响应头", payload["detection_source"])
+	assert.Equal(t, "gpt-5.6-luna", payload["actual_upstream_model"])
+	assert.Equal(t, stored.Reason, payload["reason"])
+	assert.Contains(t, payload["comparison"], "检测来源: Codex faster-model 响应头")
+	assert.Contains(t, payload["comparison"], "头部声明模型: gpt-5.6-luna")
+	assert.NotContains(t, payload["comparison"], "实际上游模型")
 }
 
 func TestUpstreamModelGuardUsesGroupNameWithoutChangingIdentity(t *testing.T) {

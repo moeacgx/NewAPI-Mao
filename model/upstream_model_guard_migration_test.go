@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,6 +37,11 @@ func TestUpstreamModelGuardMigratesLegacySQLiteRows(t *testing.T) {
 	require.NoError(t, migrateSQLiteUpstreamModelGuardObservationKey())
 	require.NoError(t, db.AutoMigrate(&UpstreamModelGuardConfig{}, &UpstreamModelGuardRecord{}, &UpstreamModelGuardStreak{}, &Group{}))
 	require.NoError(t, migrateSQLiteUpstreamModelGuardObservationKey(), "重启时重复迁移应安全跳过")
+	var nullSources int64
+	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("detection_source IS NULL").Count(&nullSources).Error)
+	assert.EqualValues(t, 2, nullSources, "旧记录加列后保留 NULL，不依赖数据库默认值")
+	// 同时覆盖历史 NULL 与空字符串，列表只投影来源，不回写旧记录。
+	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("id = ?", 2).Update("detection_source", "").Error)
 	config, err := LoadUpstreamModelGuardConfig(t.Context())
 	require.NoError(t, err)
 	assert.EqualValues(t, 7, config.ConfigVersion)
@@ -52,12 +58,19 @@ func TestUpstreamModelGuardMigratesLegacySQLiteRows(t *testing.T) {
 		assert.Equal(t, 1, record.FailureThreshold)
 		assert.True(t, record.ChannelDisabled)
 		assert.Nil(t, record.ObservationKey)
+		assert.Equal(t, constant.UpstreamModelSourceResponseBody, record.DetectionSource)
 	}
+	require.NoError(t, db.Model(&UpstreamModelGuardRecord{}).Where("detection_source IS NULL").Count(&nullSources).Error)
+	assert.EqualValues(t, 1, nullSources)
 	key := strings.Repeat("a", 64)
 	newRecord := records[0]
 	newRecord.Id = 0
 	newRecord.ObservationKey = &key
+	newRecord.DetectionSource = constant.UpstreamModelSourceCodexFasterModel
 	require.NoError(t, db.Create(&newRecord).Error)
+	var migratedRecord UpstreamModelGuardRecord
+	require.NoError(t, db.First(&migratedRecord, newRecord.Id).Error)
+	assert.Equal(t, constant.UpstreamModelSourceCodexFasterModel, migratedRecord.DetectionSource)
 	newRecord.Id = 0
 	require.Error(t, db.Create(&newRecord).Error, "迁移后必须拒绝重复 HTTP 观察键")
 }

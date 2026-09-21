@@ -2,6 +2,12 @@
 
 通知中心只负责发送。业务模块产生事件，通知中心根据任务、Bot、接收目标和模板完成投递。模块不能读取 Bot Token，也不能覆盖接收人和模板；一个 Bot 可以被多个任务复用。
 
+上游模型校验的 Codex 响应头异常由主程序产生，沿用现有
+`extension.upstream-model-guard.channel_disabled` 事件、通知任务及模板。
+其 `reason`、`comparison` 会明确标注头部来源与声明模型，旧 0.2.1 模块无需更新。
+负载中的额外 `detection_source` 尚未在旧模块清单中声明为模板变量；自定义模板仍使用已有
+`reason` 或 `comparison`。详见[模型校验扩展](upstream-model-guard.md)。
+
 ## 内置事件
 
 内置事件定义必须同时提供事件值、显示名称、默认模板、变量白名单和示例负载。当前核心事件包括：

@@ -1,5 +1,11 @@
 # 本项目二次开发能力
 
+## 主程序 Codex 响应头模型校验
+
+- 主程序读取成功上游 HTTP 响应的 `x-codex-safety-buffering-faster-model`，与正文模型独立校验；即使正文匹配，头部不匹配仍按现有白名单、连续容错和关渠规则处理。
+- 来源记录与通知区分正文和头部声明；单独的缓冲标志、turn-state 长度和 Plan 不触发关渠。现有 0.2.1 模块无需升级，能力通过主程序更新生效。
+- 记录：[Codex 响应头证据](../workflows/2026-09/21_model_guard_codex_header_evidence.md)。中间代理未透传头部时无法识别该信号；不能据此证明底层模型身份。
+
 ## 上游模型校验渠道 ID 白名单
 
 - `upstream-model-guard` 模块 `0.2.1` 在 Default、Classic 支持直接填写渠道 ID，与现有勾选白名单同步；沿用 `excluded_channel_ids` 与 Root 权限。
