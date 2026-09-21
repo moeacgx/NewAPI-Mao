@@ -6043,6 +6043,14 @@
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。",
     "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板后通常不需要修改这里。可用的请求事实包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。",
     "Force Responses upstream": "强制使用 Responses 请求上游",
-    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "将 Chat、Claude 和 Gemini 对话转换为 Responses 请求，保持客户端响应格式。优先于请求体透传及 Responses 转 Chat 设置；上游须支持 Responses。"
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "将 Chat、Claude 和 Gemini 对话转换为 Responses 请求，保持客户端响应格式。优先于请求体透传及 Responses 转 Chat 设置；上游须支持 Responses。",
+    "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写": "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写",
+    "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。": "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。",
+    "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。",
+    "使用运行 NewAPI-Mao 服务端的绝对目录路径。": "使用运行 NewAPI-Mao 服务端的绝对目录路径。",
+    "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。",
+    "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示": "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示",
+    "NewAPI-Mao Project Repository:": "NewAPI-Mao 项目仓库：",
+    "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。": "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。"
   }
 }

@@ -11,6 +11,8 @@ on:
 jobs:
   prepare:
     name: Prepare Docker tags
+    # 上游 Docker Hub 发布身份，本项目只使用 docker-build.yml 发布 GHCR。
+    if: github.repository == 'QuantumNous/new-api'
     runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.version.outputs.branch }}

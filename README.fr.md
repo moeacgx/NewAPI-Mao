@@ -1,8 +1,11 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![NewAPI-Mao](/web/public/logo.png)
 
-# New API
+# NewAPI-Mao
+
+本仓库为 [NewAPI-Mao](https://github.com/moeacgx/NewAPI-Mao)，基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 二次开发。上游版权与归属保留。
+项目身份、镜像迁移及保留标识见[开发说明](docs/developer/project-identity.md)。当前部署示例使用已发布的旧 GHCR 兼容路径，新路径须在首次发布验证后使用。
 
 🍥 **Passerelle de modèles étendus de nouvelle génération et système de gestion d'actifs d'IA**
 
@@ -18,11 +21,11 @@
   <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
     <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="licence">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="version">
+  --><a href="https://github.com/moeacgx/NewAPI-Mao/releases/latest">
+    <img src="https://img.shields.io/github/v/release/moeacgx/NewAPI-Mao?color=brightgreen&include_prereleases" alt="version">
   </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
-    <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
+  --><a href="https://github.com/moeacgx/NewAPI-Mao/pkgs/container/maolaonewapi">
+    <img src="https://img.shields.io/badge/docker-GHCR-blue" alt="docker">
   </a>
   <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
     <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/badge.svg"/>
@@ -30,6 +33,7 @@
 </p>
 
 <p align="center">
+  <span>上游 QuantumNous/new-api：</span>
   <a href="https://trendshift.io/repositories/20180" target="_blank">
     <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
   </a>
@@ -112,8 +116,8 @@
 
 ```bash
 # Cloner le projet
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/moeacgx/NewAPI-Mao.git
+cd NewAPI-Mao
 
 # Modifier la configuration docker-compose.yml
 nano docker-compose.yml
@@ -127,14 +131,15 @@ docker-compose up -d
 
 ```bash
 # Tirer la dernière image
-docker pull calciumion/new-api:latest
+# NewAPI-Mao 更名前的已发布兼容镜像路径
+docker pull ghcr.io/moeacgx/maolaonewapi:latest
 
 # Utilisation de SQLite (par défaut)
 docker run --name new-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 
 # Utilisation de MySQL
 docker run --name new-api -d --restart always \
@@ -142,7 +147,7 @@ docker run --name new-api -d --restart always \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 > **💡 Astuce:** `-v ./data:/data` sauvegardera les données dans le dossier `data` du répertoire actuel, vous pouvez également le changer en chemin absolu comme `-v /your/custom/path:/data`
@@ -296,7 +301,8 @@ docker run --name new-api -d --restart always \
 ## 🚢 Déploiement
 
 > [!TIP]
-> **Dernière image Docker:** `calciumion/new-api:latest`
+> **Dernière image Docker:** `ghcr.io/moeacgx/maolaonewapi:latest`
+> NewAPI-Mao 更名前的已发布兼容镜像路径；新镜像发布验收前继续使用。
 
 ### 📋 Exigences de déploiement
 
@@ -350,8 +356,8 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # Cloner le projet
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/moeacgx/NewAPI-Mao.git
+cd NewAPI-Mao
 
 # Modifier la configuration
 nano docker-compose.yml
@@ -371,7 +377,7 @@ docker run --name new-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 **Utilisation de MySQL:**
@@ -381,7 +387,7 @@ docker run --name new-api -d --restart always \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 > **💡 Explication du chemin:**
@@ -483,7 +489,7 @@ Si les politiques de votre organisation ne permettent pas l'utilisation de logic
 
 <div align="center">
 
-[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
+[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=moeacgx/NewAPI-Mao&type=Date)](https://star-history.com/#moeacgx/NewAPI-Mao&Date)
 
 </div>
 
@@ -491,11 +497,11 @@ Si les politiques de votre organisation ne permettent pas l'utilisation de logic
 
 <div align="center">
 
-### 💖 Merci d'utiliser New API
+### 💖 Merci d'utiliser NewAPI-Mao
 
 Si ce projet vous est utile, bienvenue à nous donner une ⭐️ Étoile！
 
-**[Documentation officielle](https://docs.newapi.pro/en/docs)** • **[Commentaires sur les problèmes](https://github.com/Calcium-Ion/new-api/issues)** • **[Dernière version](https://github.com/Calcium-Ion/new-api/releases)**
+**[Documentation officielle](https://docs.newapi.pro/en/docs)** • **[Commentaires sur les problèmes](https://github.com/moeacgx/NewAPI-Mao/issues)** • **[Dernière version](https://github.com/moeacgx/NewAPI-Mao/releases)**
 
 <sub>Construit avec ❤️ par QuantumNous</sub>
 

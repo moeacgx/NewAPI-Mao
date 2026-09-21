@@ -9,7 +9,7 @@ ID 支持逗号、中文逗号、分号、空白或换行分隔，自动去重�
 
 ## 宿主要求
 
-`0.2.1` 需要同时包含 `channel.upstream-model-guard` 和 `channel.upstream-model-guard-tolerance` 能力的 MaoLaoNewAPI 宿主支持。
+`0.2.1` 需要同时包含 `channel.upstream-model-guard` 和 `channel.upstream-model-guard-tolerance` 能力的 NewAPI-Mao 宿主支持。
 清单的版本下限不能代替能力检查；原版或未含本项适配的旧宿主会拒绝未知能力，
 不能只上传 ZIP 就获取实时响应拦截。
 

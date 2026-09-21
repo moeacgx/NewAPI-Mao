@@ -374,7 +374,7 @@ const OtherSetting = () => {
   const openGitHubRelease = () => {
     const releaseUrl =
       updateData.html_url ||
-      `https://github.com/moeacgx/maolaonewapi/releases/tag/${updateData.tag_name}`;
+      `https://github.com/moeacgx/NewAPI-Mao/releases/tag/${updateData.tag_name}`;
     window.open(releaseUrl, '_blank');
   };
 

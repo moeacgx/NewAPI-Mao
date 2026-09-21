@@ -5933,6 +5933,14 @@
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板後通常不需要修改這裡。可用的請求事實包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。",
     "Force Responses upstream": "強制使用 Responses 請求上游",
-    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "將 Chat、Claude 與 Gemini 對話轉換為 Responses 請求，保留客戶端回應格式。優先於請求本文透傳及 Responses 轉 Chat 設定；上游須支援 Responses。"
+    "Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.": "將 Chat、Claude 與 Gemini 對話轉換為 Responses 請求，保留客戶端回應格式。優先於請求本文透傳及 Responses 轉 Chat 設定；上游須支援 Responses。",
+    "对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写": "對於官方管道，NewAPI-Mao已經內置位址，除非是第三方代理站點或者Azure的特殊接入位址，否則不需要填寫",
+    "该渠道已开启请求透传，参数覆写、模型重定向等 NewAPI-Mao 内置功能将失效，非最佳实践。": "該管道已開啟請求透傳，參數覆寫、模型重定向等 NewAPI-Mao 內置功能將失效，非最佳實踐。",
+    "该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "該管道已開啟請求透傳：參數覆寫、模型重定向、管道相容等 NewAPI-Mao 內置功能將失效，非最佳實踐；如因此產生問題，請勿提交 issue 回饋。",
+    "使用运行 NewAPI-Mao 服务端的绝对目录路径。": "使用執行 NewAPI-Mao 伺服器的絕對目錄路徑。",
+    "已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI-Mao 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。": "已開啟全域請求透傳：參數覆寫、模型重定向、管道相容等 NewAPI-Mao 內置功能將失效，非最佳實踐；如因此產生問題，請勿提交 issue 回饋。",
+    "用于验证回调 NewAPI-Mao 的 webhook 请求的密钥，敏感信息不显示": "用於驗證回調 NewAPI-Mao 的 webhook 請求的密鑰，敏感資訊不顯示",
+    "NewAPI-Mao Project Repository:": "NewAPI-Mao 專案倉庫：",
+    "NewAPI-Mao 默认不会将入口请求的 User-Agent 透传到上游渠道；该条件仅用于识别访问本站点的客户端。": ""
   }
 }

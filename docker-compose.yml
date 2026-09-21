@@ -1,4 +1,4 @@
-# New-API Docker Compose Configuration
+# NewAPI-Mao Docker Compose Configuration
 # 
 # Quick Start:
 #   1. docker-compose up -d
@@ -16,7 +16,8 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    image: calciumion/new-api:latest
+    # NewAPI-Mao 更名前的已发布兼容镜像；新路径发布验收前继续使用。
+    image: ghcr.io/moeacgx/maolaonewapi:latest
     container_name: new-api
     restart: always
     command: --log-dir /app/logs

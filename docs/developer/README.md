@@ -1,4 +1,7 @@
-# 开发文档
+# NewAPI-Mao 开发文档
+
+- [项目身份与发布兼容](project-identity.md)：项目名、镜像小写归一、自更新兼容、上游归属、配套仓库与功能分享规则。
+- [源码身份更名记录](../workflows/2026-09/21_newapi_mao_identity.md)：全仓盘点、修改范围和实际验证。
 
 - [maolaoapi 复制密钥与账号绑定 .331 发布](../workflows/2026-09/21_maolaoapi_account_binding_331_deployment.md)：修复版本发布、备份、三应用逐节点更新和线上验收。
 
@@ -196,7 +199,7 @@
 - [管理员调整余额的目标用户日志可见性](../workflows/2026-09/04_target_user_quota_audit_visibility.md)：余额增减与覆盖日志重新归属目标用户，同时保留后台审计信息并剥离用户响应中的管理员 IP。
 - [Classic 模型广场新版模板布局迁移](../workflows/2026-08/22_classic_model_plaza_template_migration.md)：将新版模型广场的布局和筛选交互移植到 Classic，同时保留旧版计费、性能、折扣和批量操作能力。
 - [Classic 操练场图片附件与分组模型筛选](../workflows/2026-08/21_playground_image_upload_group_model.md)：移除图片地址配置，支持输入框粘贴/上传图片，并按当前分组加载模型。
-- [zzapi 自更新检查路由与跳转修复](../workflows/2026-08/21_zzapi_self_update_routes.md)：恢复后台检查更新与一键更新接口，默认 Release 仓库指向 `moeacgx/maolaonewapi`，Classic 详情跳转使用后端 Release URL。
+- [zzapi 自更新检查路由与跳转修复](../workflows/2026-08/21_zzapi_self_update_routes.md)：恢复后台检查更新与一键更新接口，当前默认 Release 仓库指向 `moeacgx/NewAPI-Mao`，Classic 详情跳转使用后端 Release URL。
 - [Canvas 预检跨域失败修复](../workflows/2026-08/28_canvas_preflight_cors.md)：修复外部 Infinite Canvas 通过 NewAPI 直登入口调用时，`OPTIONS /canvas/**` 落入前端首页导致真实请求未发出的问题。
 - [异步图片编辑模型解析回归修复](../workflows/2026-08/28_async_image_edit_model_regression.md)：修复官方主线合并后 `/canvas/v1/images/edits` multipart 异步重放无法提取模型、任务统一失败的问题。
 - [数据库业务日志自动保留清理](../workflows/2026-08/20_log_retention_cleanup.md)：新增 `LogRetentionDays` 配置，主节点按保留天数每小时小批量清理数据库 `logs` 表，Classic 与 Default 日志设置页同步提供入口。

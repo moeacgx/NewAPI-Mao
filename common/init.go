@@ -27,9 +27,10 @@ var (
 const gitVersionTimeout = 2 * time.Second
 
 func printHelp() {
-	fmt.Println("NewAPI(Based OneAPI) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
+	fmt.Println("NewAPI-Mao (based on QuantumNous/new-api and One API) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
 	fmt.Println("Original Project: OneAPI by JustSong - https://github.com/songquanpeng/one-api")
-	fmt.Println("Maintainer: QuantumNous - https://github.com/QuantumNous/new-api")
+	fmt.Println("Project: moeacgx - https://github.com/moeacgx/NewAPI-Mao")
+	fmt.Println("Upstream maintainer: QuantumNous - https://github.com/QuantumNous/new-api")
 	fmt.Println("Usage: newapi [--port <port>] [--log-dir <log directory>] [--version] [--help]")
 }
 

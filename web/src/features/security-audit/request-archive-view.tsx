@@ -641,7 +641,7 @@ function ArchiveTargetCard({
               />
               <FieldDescription>
                 {t(
-                  'Use an absolute directory path on the server running New API.'
+                  'Use an absolute directory path on the server running NewAPI-Mao.'
                 )}
               </FieldDescription>
             </Field>

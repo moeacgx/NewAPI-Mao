@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	defaultSelfUpdateRepo     = "moeacgx/maolaonewapi"
-	selfUpdateUserAgent       = "new-api-self-updater"
+	defaultSelfUpdateRepo     = "moeacgx/NewAPI-Mao"
+	selfUpdateUserAgent       = "NewAPI-Mao-self-updater"
 	defaultSelfUpdateMaxMB    = 256
 	defaultSelfUpdateExitSecs = 2
 )
@@ -245,6 +245,10 @@ func selfUpdateRepo() string {
 		repo = strings.TrimSpace(os.Getenv("SELF_UPDATE_GITHUB_REPO"))
 	}
 	if repo == "" {
+		repo = defaultSelfUpdateRepo
+	}
+	// 仅映射已确认更名的本仓库，后续资产校验仍严格限制规范仓库路径。
+	if strings.EqualFold(repo, "moeacgx/maolaonewapi") || strings.EqualFold(repo, defaultSelfUpdateRepo) {
 		repo = defaultSelfUpdateRepo
 	}
 	return repo
