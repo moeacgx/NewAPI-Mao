@@ -23,7 +23,7 @@ import {
   formatLatency,
   formatSuccessRate,
   formatThroughput,
-  getSuccessRateTextColor,
+  getSuccessRateHex,
   normalizePerformanceSeries,
 } from '../../performance/utils';
 
@@ -42,7 +42,7 @@ const ModelPerformanceBadge = ({ performance, t }) => {
     ? Number(performance.status_rate)
     : success_rate;
   const statusRateText = formatSuccessRate(statusRate);
-  const statusRateColor = getSuccessRateTextColor(statusRate);
+  const statusRateColor = getSuccessRateHex(statusRate);
   const hasStatusSeries = statusSeries.length > 0;
   const compactThroughput = formatThroughput(avg_tps).replace(' t/s', 't');
 

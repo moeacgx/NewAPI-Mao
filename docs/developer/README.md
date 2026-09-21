@@ -3,6 +3,8 @@
 - [项目身份与发布兼容](project-identity.md)：项目名、镜像小写归一、自更新兼容、上游归属、配套仓库与功能分享规则。
 - [源码身份更名记录](../workflows/2026-09/21_newapi_mao_identity.md)：全仓盘点、修改范围和实际验证。
 
+- [Classic 卡片状态柱配色](../workflows/2026-09/21_classic_card_status_colors.md)：卡片三根柱子及摘要回退复用官方深绿、浅绿、黄、红色阶，保留本地状态统计口径。
+
 - [maolaoapi 复制密钥与账号绑定 .331 发布](../workflows/2026-09/21_maolaoapi_account_binding_331_deployment.md)：修复版本发布、备份、三应用逐节点更新和线上验收。
 
 - [账号绑定身份与邮箱更新检查](../workflows/2026-09/21_account_binding_identity.md)：邮箱原位更新及验证码消费、Classic 社交绑定意图和会话保留、双模板邮箱验证码流程。

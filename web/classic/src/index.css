@@ -2080,7 +2080,9 @@ html.dark .with-pastel-balls::before {
   opacity: 0.85;
 }
 
-.classic-pricing-model-performance-badge > div > div:nth-child(2) {
+.classic-pricing-model-performance-badge
+  > div
+  > div:nth-child(2):not(.classic-pricing-model-performance-signal) {
   overflow: hidden;
   color: var(--semi-color-text-2);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
