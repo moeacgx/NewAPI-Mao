@@ -21,7 +21,7 @@ test('Classic 模型卡片把性能摘要放在右侧并隐藏时间与百分比
   );
 
   assert.match(source, /classic-pricing-model-performance-badge/);
-  assert.match(source, /getSuccessRateTextColor\(statusRate\)/);
+  assert.match(source, /getSuccessRateHex\(statusRate\)/);
   assert.match(source, /formatSuccessRate\(statusRate\)/);
   assert.match(source, /classic-pricing-model-performance-status-label/);
   assert.match(source, /performance\.status_rate/);

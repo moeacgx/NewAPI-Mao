@@ -24,7 +24,6 @@ import {
   formatBucketTime,
   formatLatency,
   formatSuccessRate,
-  getAvailabilityStatusHex,
   getStatusRateTextClass,
   getStatusSegmentHex,
   getSuccessRateHex,
@@ -126,7 +125,7 @@ const SuccessRateSparkline = ({
                   aggregateWindow && point.sample_count <= 0
                     ? 'var(--semi-color-fill-1)'
                     : availabilityTone
-                      ? getAvailabilityStatusHex(point.success_rate)
+                      ? getSuccessRateHex(point.success_rate)
                       : aggregateWindow
                         ? getStatusSegmentHex(point.success_rate)
                         : getSuccessRateHex(point.success_rate),

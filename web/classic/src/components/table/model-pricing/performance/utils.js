@@ -112,21 +112,6 @@ export const getStatusSegmentHex = (value) => {
   return '#f43f5e';
 };
 
-export const getAvailabilityStatusLevel = (value) => {
-  if (!Number.isFinite(Number(value))) return 'unavailable';
-  const rate = clampSuccessRate(value);
-  if (rate >= 95) return 'healthy';
-  if (rate > 0) return 'degraded';
-  return 'unavailable';
-};
-
-export const getAvailabilityStatusHex = (value) => {
-  const level = getAvailabilityStatusLevel(value);
-  if (level === 'healthy') return '#10b981';
-  if (level === 'degraded') return '#f59e0b';
-  return '#f43f5e';
-};
-
 export const getStatusRateTextClass = (value) => {
   if (!Number.isFinite(Number(value))) return 'text-semi-color-text-2';
   const rate = clampSuccessRate(value);
