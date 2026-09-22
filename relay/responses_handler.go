@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -83,7 +84,7 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	}
 	adaptor.Init(info)
 	var requestBody io.Reader
-	if !info.ShouldForceResponses() && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) {
+	if shouldPassThroughResponsesBody(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeReadRequestBodyFailed, types.ErrOptionWithSkipRetry())
@@ -183,6 +184,26 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return service.PostAudioConsumeQuota(c, info, usageDto, "")
 	} else {
 		return service.PostTextConsumeQuota(c, info, usageDto, nil)
+	}
+}
+
+// shouldPassThroughResponsesBody 只在上游本来就接收 Responses 正文时透传。
+// Claude、Gemini 渠道会把请求发到各自的原生接口，原文里没有 messages 或 contents。
+func shouldPassThroughResponsesBody(info *relaycommon.RelayInfo) bool {
+	if info == nil || info.ChannelMeta == nil || info.ShouldForceResponses() {
+		return false
+	}
+	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled && !info.ChannelSetting.PassThroughBodyEnabled {
+		return false
+	}
+	if info.ChannelOtherSettings.ResponsesToChatEnabled {
+		return false
+	}
+	switch info.ApiType {
+	case constant.APITypeAnthropic, constant.APITypeGemini:
+		return false
+	default:
+		return true
 	}
 }
 
