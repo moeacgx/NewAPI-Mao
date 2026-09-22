@@ -16,13 +16,19 @@ func GetAllLogs(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	username := c.Query("username")
+	userIDQuery := c.Query("user_id")
+	userId := parseLogUserID(userIDQuery)
+	if userIDQuery != "" && userId < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "用户 ID 无效"})
+		return
+	}
 	tokenName := c.Query("token_name")
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
+	logs, total, err := model.GetAllLogsByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -110,10 +116,16 @@ func GetLogsStat(c *gin.Context) {
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	tokenName := c.Query("token_name")
 	username := c.Query("username")
+	userIDQuery := c.Query("user_id")
+	userId := parseLogUserID(userIDQuery)
+	if userIDQuery != "" && userId < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "用户 ID 无效"})
+		return
+	}
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	stat, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, channel, group)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -131,8 +143,19 @@ func GetLogsStat(c *gin.Context) {
 	return
 }
 
+// parseLogUserID 将管理员日志筛选中的用户 ID 规范化；非法 ID 使用 -1 交由控制器返回 400。
+func parseLogUserID(raw string) int {
+	if raw == "" {
+		return 0
+	}
+	userId, err := strconv.Atoi(raw)
+	if err != nil || userId <= 0 {
+		return -1
+	}
+	return userId
+}
+
 func GetLogsSelfStat(c *gin.Context) {
-	username := c.GetString("username")
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -140,7 +163,7 @@ func GetLogsSelfStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	quotaNum, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, "", c.GetInt("id"), tokenName, channel, group)
 	if err != nil {
 		common.ApiError(c, err)
 		return
