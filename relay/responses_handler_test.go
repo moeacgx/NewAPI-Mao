@@ -6,9 +6,58 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/stretchr/testify/require"
 )
+
+func TestShouldPassThroughResponsesBodyOnlyForNativeResponsesUpstreams(t *testing.T) {
+	settings := model_setting.GetGlobalSettings()
+	saved := *settings
+	t.Cleanup(func() { *settings = saved })
+	settings.PassThroughRequestEnabled = true
+
+	require.True(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenAI, ApiType: constant.APITypeOpenAI},
+	}))
+	require.True(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeCodex, ApiType: constant.APITypeCodex},
+	}))
+	require.False(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeAnthropic, ApiType: constant.APITypeAnthropic},
+	}))
+	require.False(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeGemini, ApiType: constant.APITypeGemini},
+	}))
+	require.False(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:          constant.ChannelTypeOpenAI,
+			ApiType:              constant.APITypeOpenAI,
+			ChannelOtherSettings: dto.ChannelOtherSettings{ResponsesToChatEnabled: true},
+		},
+	}))
+
+	settings.PassThroughRequestEnabled = false
+	require.False(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenAI, ApiType: constant.APITypeOpenAI},
+	}))
+	require.False(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeAnthropic,
+			ApiType:        constant.APITypeAnthropic,
+			ChannelSetting: dto.ChannelSettings{PassThroughBodyEnabled: true},
+		},
+	}))
+	require.True(t, shouldPassThroughResponsesBody(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelSetting: dto.ChannelSettings{PassThroughBodyEnabled: true},
+		},
+	}))
+}
 
 func TestResponsesHelperDropsPreviousResponseIDForHTTPRelay(t *testing.T) {
 	original := &dto.OpenAIResponsesRequest{
