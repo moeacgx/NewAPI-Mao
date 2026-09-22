@@ -102,6 +102,7 @@ export const useLogsData = () => {
   let now = new Date();
   const formInitValues = {
     username: '',
+    userSearchType: 'username',
     token_name: '',
     model_name: '',
     channel: '',
@@ -261,6 +262,7 @@ export const useLogsData = () => {
 
     return {
       username: formValues.username || '',
+      userSearchType: formValues.userSearchType || 'username',
       token_name: formValues.token_name || '',
       model_name: formValues.model_name || '',
       start_timestamp,
@@ -283,22 +285,29 @@ export const useLogsData = () => {
       logType: formLogType,
     } = getFormValues();
     const currentLogType = formLogType !== undefined ? formLogType : logType;
-    let localStartTimestamp = Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = Date.parse(end_timestamp) / 1000;
-    let url = `/api/log/self/stat?type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}`;
-    url = encodeURI(url);
-    let res = await API.get(url);
+    const params = {
+      type: currentLogType,
+      token_name,
+      model_name,
+      start_timestamp: Date.parse(start_timestamp) / 1000,
+      end_timestamp: Date.parse(end_timestamp) / 1000,
+      group,
+    };
+    const res = await API.get('/api/log/self/stat', { params });
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
   const getLogStat = async () => {
     const {
       username,
+      userSearchType,
       token_name,
       model_name,
       start_timestamp,
@@ -308,16 +317,28 @@ export const useLogsData = () => {
       logType: formLogType,
     } = getFormValues();
     const currentLogType = formLogType !== undefined ? formLogType : logType;
-    let localStartTimestamp = Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = Date.parse(end_timestamp) / 1000;
-    let url = `/api/log/stat?type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}`;
-    url = encodeURI(url);
-    let res = await API.get(url);
+    const userFilter =
+      username === '' || userSearchType !== 'id'
+        ? { username }
+        : { user_id: username };
+    const params = {
+      type: currentLogType,
+      ...userFilter,
+      token_name,
+      model_name,
+      start_timestamp: Date.parse(start_timestamp) / 1000,
+      end_timestamp: Date.parse(end_timestamp) / 1000,
+      channel,
+      group,
+    };
+    const res = await API.get('/api/log/stat', { params });
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
@@ -326,13 +347,23 @@ export const useLogsData = () => {
       return;
     }
     setLoadingStat(true);
-    if (isAdminUser) {
-      await getLogStat();
-    } else {
-      await getLogSelfStat();
+    try {
+      let success;
+      if (isAdminUser) {
+        success = await getLogStat();
+      } else {
+        success = await getLogSelfStat();
+      }
+      if (success) {
+        setShowStat(true);
+      }
+      return success;
+    } catch {
+      // API 拦截器负责展示请求错误；这里仅确保后续查询不会被 loading 锁住。
+      return false;
+    } finally {
+      setLoadingStat(false);
     }
-    setShowStat(true);
-    setLoadingStat(false);
   };
 
   // User info function
@@ -854,9 +885,9 @@ export const useLogsData = () => {
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
     setLoading(true);
 
-    let url = '';
     const {
       username,
+      userSearchType,
       token_name,
       model_name,
       start_timestamp,
@@ -874,27 +905,47 @@ export const useLogsData = () => {
           ? formLogType
           : logType;
 
-    let localStartTimestamp = Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = Date.parse(end_timestamp) / 1000;
-    if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&request_id=${request_id}`;
-    } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}&request_id=${request_id}`;
-    }
-    url = encodeURI(url);
-    const res = await API.get(url);
-    const { success, message, data } = res.data;
-    if (success) {
-      const newPageData = data.items;
-      setActivePage(data.page);
-      setPageSize(data.page_size);
-      setLogCount(data.total);
+    const userFilter =
+      username === '' || userSearchType !== 'id'
+        ? { username }
+        : { user_id: username };
+    const params = {
+      p: startIdx,
+      page_size: pageSize,
+      type: currentLogType,
+      ...(isAdminUser ? userFilter : {}),
+      token_name,
+      model_name,
+      start_timestamp: Date.parse(start_timestamp) / 1000,
+      end_timestamp: Date.parse(end_timestamp) / 1000,
+      ...(isAdminUser ? { channel } : {}),
+      group,
+      request_id,
+    };
 
-      setLogsFormat(newPageData);
-    } else {
-      showError(message);
+    try {
+      const res = await API.get(isAdminUser ? '/api/log/' : '/api/log/self/', {
+        params,
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        const newPageData = data.items;
+        setActivePage(data.page);
+        setPageSize(data.page_size);
+        setLogCount(data.total);
+
+        setLogsFormat(newPageData);
+        return true;
+      } else {
+        showError(message);
+        return false;
+      }
+    } catch {
+      // API 拦截器负责展示请求错误；这里保证查询按钮可再次使用。
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Page handlers
@@ -917,7 +968,10 @@ export const useLogsData = () => {
   // Refresh function
   const refresh = async () => {
     setActivePage(1);
-    handleEyeClick();
+    const statLoaded = await handleEyeClick();
+    if (!statLoaded) {
+      return;
+    }
     await loadLogs(1, pageSize);
   };
 
