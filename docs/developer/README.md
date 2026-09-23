@@ -12,6 +12,8 @@
 - [原生同步任务 Token 统计修复](../workflows/2026-09/24_task_token_usage.md)：实际输入输出用量进入消费日志与渠道指标，保持计费规则。
 - [同步任务模型广场性能采样与结果留存](../workflows/2026-09/24_sync_task_performance.md)：同步插件接入独立性能统计、失败隔离、耗时及 Classic 结果说明。
 
+- [maolaoapi .335 逐节点更新](../workflows/2026-09/24_maolaoapi_335_deployment.md)：固定镜像、备份、主节点优先逐节点健康门禁与独立插件边界。
+
 - [zzapi 原生任务插件 .335 发布](../workflows/2026-09/24_zzapi_335_release.md)：版本、固定镜像、逐节点部署与回滚边界。
 
 - [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md)：复用图标字段支持图片直链，保留内置图标兼容与加载失败兜底。
