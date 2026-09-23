@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -52,6 +55,11 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
+	}
+	InjectTieredBillingInfo(other, info, info.TaskBillingResult)
+	if snap := info.TieredBillingSnapshot; snap != nil && snap.TaskUsageBilling {
+		other["task_usage_billing"] = true
+		other["usage_facts"] = snap.UsageFacts
 	}
 	attachQuotaSaturation(c, info, other)
 	AppendTaskPluginContextAuditInfo(c, other)
@@ -421,4 +429,19 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason, clamp)
+}
+
+// EvaluateTaskCompletionUsage 按冻结表达式合并实际用量，不修改原快照或移动资金。
+func EvaluateTaskCompletionUsage(snap *billingexpr.BillingSnapshot, facts map[string]any) (billingexpr.TieredResult, map[string]any, error) {
+	if snap == nil {
+		return billingexpr.TieredResult{}, nil, fmt.Errorf("task billing snapshot is missing")
+	}
+	usage := make(map[string]any, len(snap.UsageFacts)+len(facts))
+	maps.Copy(usage, snap.UsageFacts)
+	maps.Copy(usage, facts)
+	result, err := billingexpr.ComputeTieredQuotaWithRequest(snap, billingexpr.TokenParams{}, billingexpr.RequestInput{Usage: usage})
+	if err == nil && (result.ActualQuotaBeforeGroup < 0 || math.IsNaN(result.ActualQuotaBeforeGroup)) {
+		err = fmt.Errorf("task completion expression produced an invalid cost")
+	}
+	return result, usage, err
 }

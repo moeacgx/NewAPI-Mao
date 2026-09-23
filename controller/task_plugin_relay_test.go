@@ -29,7 +29,7 @@ import (
 func TestTaskPluginPublicViewAndAuthenticatedInlineResources(t *testing.T) {
 	setupCanvasControllerDB(t)
 	model.InitDBColumns()
-	require.NoError(t, model.DB.AutoMigrate(&model.TaskPlugin{}, &model.Channel{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}))
 	require.NoError(t, service.InitTaskPlugins())
 	row, err := model.GetTaskPluginVersion("sora", "")
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestTaskPluginPollingErrorsDoNotExposeProviderPayload(t *testing.T) {
 	sqlDB, err := model.DB.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, model.DB.AutoMigrate(&model.TaskPlugin{}, &model.Channel{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}))
 	require.NoError(t, service.InitTaskPlugins())
 	row, err := model.GetTaskPluginVersion("hailuo", "")
 	require.NoError(t, err)

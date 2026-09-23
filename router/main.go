@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,17 +19,18 @@ func SetRouter(router *gin.Engine, assets ThemeAssets) {
 	SetDashboardRouter(router)
 	SetRelayRouter(router)
 	SetVideoRouter(router)
+	pluginDispatcher := SetPluginRouter(router)
 	frontendBaseUrl := os.Getenv("FRONTEND_BASE_URL")
 	if common.IsMasterNode && frontendBaseUrl != "" {
 		frontendBaseUrl = ""
 		common.SysLog("FRONTEND_BASE_URL is ignored on master node")
 	}
 	if frontendBaseUrl == "" {
-		SetWebRouter(router, assets)
+		SetWebRouter(router, assets, pluginDispatcher)
 	} else {
 		frontendBaseUrl = strings.TrimSuffix(frontendBaseUrl, "/")
 		router.Use(middleware.StatsMiddleware())
-		router.NoRoute(pathAwareCORS(), func(c *gin.Context) {
+		router.NoRoute(pathAwareCORS(), pluginDispatcher, func(c *gin.Context) {
 			c.Set(middleware.RouteTagKey, "web")
 			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s%s", frontendBaseUrl, c.Request.RequestURI))
 		})
@@ -85,6 +87,9 @@ func isStrictCORSPath(path string) bool {
 }
 
 func isRelayCORSPath(path string) bool {
+	if binding, ok := jsplugin.DefaultRegistry.Generation().LookupDeclaredRoute(http.MethodPost, path); ok && binding.Route.Type == jsplugin.RouteTypeSubmit {
+		return true
+	}
 	if path == "/v1" || strings.HasPrefix(path, "/v1/") ||
 		path == "/v1beta" || strings.HasPrefix(path, "/v1beta/") ||
 		path == "/mj" || strings.HasPrefix(path, "/mj/") ||

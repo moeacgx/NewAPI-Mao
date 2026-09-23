@@ -83,9 +83,13 @@
 - 文档：[任务插件迁移](task-plugin-migration.md)。
 - 稳定性：原生任务计费修复与迁移分析阶段；在线任务继续使用原生适配器，本补丁不引入 JS 运行时或依赖。
 - 契约：AtlasCloud 渠道类型 61、源任务多分组授权与别名/继承、退款认领及补偿状态保留。
-- 限制：完整 JS 路由、插件管理、资源签名和插件用量计费尚未接入，禁止直接全量切换。
+- 历史阶段限制：该迁移分析当时未接入 JS 管理和路由；当前能力以紧接其后的「官方 Task Plugin 并存接入」及专题文档为准，仍禁止直接全量切换。
 
 ## 官方 Task Plugin 并存接入
+
+- 2026-09-23 补齐官方原生 JSON submit 路由、同步结果和 `retainResult:false` 的用量表达式计费，原样验证官方 TypeSafe Jev 插件。
+- 稳定性：本地模拟上游验证阶段，未部署；尚未开放原生 query/dynamic、源任务 intent 或异步 UsageFacts。Default/Classic 页面未改动。
+- 契约与限制见[原生同步链路](../workflows/2026-09/23_task_plugin_native_sync.md)及[用量计费](../workflows/2026-09/23_task_plugin_usage_billing.md)。
 
 - 文档：[官方 Task Plugin 接入计划](../workflows/2026-09/15_official_task_plugin_integration_plan.md)。
 - 范围：接入官方 JS 插件运行时、内置插件、插件管理和市场；现有 `/extensions` 二开扩展与 Go 原生任务适配器继续保留。

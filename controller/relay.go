@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
 	atlascloudrelay "github.com/QuantumNous/new-api/relay/channel/atlascloud"
@@ -404,8 +405,9 @@ func RelayTask(c *gin.Context) {
 
 	var result *relay.TaskSubmitResult
 	var taskErr *taskdto.TaskError
+	nativeTaskDurable := false
 	defer func() {
-		if taskErr != nil && relayInfo.Billing != nil {
+		if taskErr != nil && !nativeTaskDurable && relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
 		}
 	}()
@@ -481,22 +483,58 @@ func RelayTask(c *gin.Context) {
 
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
+		var nativeBody any
+		_, nativeRoute := c.Get(pluginruntime.ContextKeyPinnedRoute)
 		if result.PluginResponse != nil {
+			if nativeRoute {
+				var renderErr error
+				nativeBody, renderErr = renderNativeTaskSubmission(c, relayInfo, result)
+				if renderErr != nil {
+					taskErr = service.TaskErrorWrapperLocal(errors.New("插件无法返回原生结果"), "plugin_native_render_failed", http.StatusBadGateway)
+					taskErr.NoRetry = true
+					respondTaskError(c, taskErr)
+					return
+				}
+				// 上游任务提交后若费用上涨，先补足预留再越过持久化边界。
+				if relayInfo.Billing != nil {
+					if err := relayInfo.Billing.Reserve(result.Quota); err != nil {
+						taskErr = service.TaskErrorWrapperLocal(errors.New("任务实际费用超出可用额度"), string(types.ErrorCodeInsufficientUserQuota), http.StatusForbidden)
+						respondTaskError(c, taskErr)
+						return
+					}
+				}
+				if err := c.Request.Context().Err(); err != nil {
+					taskErr = service.TaskErrorWrapperLocal(errors.New("任务请求已取消"), "request_cancelled", http.StatusRequestTimeout)
+					respondTaskError(c, taskErr)
+					return
+				}
+			}
 			if err := persistOfficialPluginTask(c, relayInfo, result); err != nil {
 				taskErr = service.TaskErrorWrapperLocal(err, "plugin_task_persist_failed", http.StatusInternalServerError)
 				taskErr.NoRetry = true
 				respondTaskError(c, taskErr)
 				return
 			}
+			// 与上游 durable 边界一致：任务已落库后，结算故障不能再按提交失败退款。
+			nativeTaskDurable = nativeRoute
 		}
 		settleErr := service.SettleBilling(c, relayInfo, result.Quota)
 		service.AttachChannelMetricUsageAfterSettlement(c, service.ChannelMetricUsage{}, result.Quota, settleErr)
 		service.FinishChannelMetricAttempt(c, relayInfo, nil, false, "")
 		if settleErr != nil {
 			common.SysError("settle task billing error: " + settleErr.Error())
+			if nativeRoute {
+				taskErr = service.TaskErrorWrapperLocal(errors.New("插件任务结算失败"), "plugin_billing_settlement_failed", http.StatusInternalServerError)
+				respondTaskError(c, taskErr)
+				return
+			}
 		}
 		service.LogTaskConsumption(c, relayInfo)
 		if result.PluginResponse != nil {
+			if nativeRoute {
+				c.JSON(http.StatusOK, nativeBody)
+				return
+			}
 			common.ApiSuccess(c, gin.H{"task_id": relayInfo.PublicTaskID, "platform": result.Platform, "status": model.TaskStatusSubmitted})
 			return
 		}
@@ -1052,6 +1090,9 @@ func requestContextErrorReason(c *gin.Context, err error) string {
 
 // respondTaskError 统一输出 Task 错误响应（含 429 限流提示改写）
 func respondTaskError(c *gin.Context, taskErr *taskdto.TaskError) {
+	if middleware.RespondTaskPluginError(c, taskErr) {
+		return
+	}
 	if taskErr.StatusCode == http.StatusTooManyRequests {
 		taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
 	}
