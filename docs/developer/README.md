@@ -243,6 +243,7 @@
 - [Classic 动态分块静态资源兜底边界](../workflows/2026-07/28_classic_dynamic_chunk_asset_fallback.md)
 - [分组特殊倍率镜像同步修复记录](../workflows/2026-07/24_group_group_ratio_mirror_sync.md)
 - [全局网页限流与静态资源边界](../workflows/2026-07/24_global_web_rate_limit_static_assets.md)
+- [下划线静态资产嵌入与 404 缓存修复](../workflows/2026-09/23_embedded_underscore_assets.md)：两套前端构建目录使用 Go `all:` 嵌入下划线分块，并禁止缺失资产 404 继承一周缓存。
 - [上游流式断开错误中文说明](../workflows/2026-07/24_upstream_stream_disconnect_chinese_hint.md)
 - [客户端取消流式请求的 500 展示修复](../workflows/2026-08/09_client_stream_cancel_error.md)
 - [单 Key 渠道 429 重试去重](../workflows/2026-07/24_single_key_429_retry_dedup.md)

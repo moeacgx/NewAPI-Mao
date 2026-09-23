@@ -73,7 +73,12 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 		if serveCurrentIndexAssetFallback(c, frontendFS, currentAssets) {
 			return
 		}
-		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") || strings.HasPrefix(c.Request.RequestURI, "/assets") {
+		if strings.HasPrefix(c.Request.RequestURI, "/assets") {
+			c.Header("Cache-Control", "no-store")
+			controller.RelayNotFound(c)
+			return
+		}
+		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") {
 			controller.RelayNotFound(c)
 			return
 		}

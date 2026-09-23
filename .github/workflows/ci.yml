@@ -40,6 +40,9 @@ jobs:
           mkdir -p web/dist web/classic/dist
           touch web/dist/index.html
           touch web/classic/dist/index.html
+          mkdir -p web/dist/assets web/classic/dist/assets
+          printf 'underscore-asset' > web/dist/assets/_embed-contract.js
+          printf 'underscore-asset' > web/classic/dist/assets/_embed-contract.js
 
       - name: Vet root module
         run: go vet ./...
