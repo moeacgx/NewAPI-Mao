@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -27,6 +28,10 @@ func TaskPluginChannelMatchesPath(channel *Channel, requestPath string) bool {
 	if suffix, ok := strings.CutPrefix(requestPath, "/v1/task/plugins/"); ok {
 		key, _, _ := strings.Cut(suffix, "/")
 		return key != "" && channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == key
+	}
+	// 原生 JSON 提交路由沿用官方注册表，常规入口仍排除插件渠道。
+	if binding, ok := jsplugin.DefaultRegistry.Generation().LookupDeclaredRoute("POST", requestPath); ok && binding.Plugin != nil && binding.Route.Type == jsplugin.RouteTypeSubmit {
+		return channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == binding.Plugin.Meta.Key
 	}
 	return channel.Type != constant.ChannelTypeTaskPlugin
 }

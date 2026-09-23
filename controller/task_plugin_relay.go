@@ -2,12 +2,15 @@ package controller
 
 import (
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -44,7 +47,7 @@ func GetOfficialPluginTask(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	if !found || relay.AuthorizePluginTaskAccess(c, task, c.Param("plugin_key")) != nil {
+	if !found || task.PrivateData.ResultDiscarded || relay.AuthorizePluginTaskAccess(c, task, c.Param("plugin_key")) != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -71,7 +74,7 @@ func GetOfficialPluginArtifacts(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	if !found || relay.AuthorizePluginTaskAccess(c, task, c.Param("plugin_key")) != nil {
+	if !found || task.PrivateData.ResultDiscarded || relay.AuthorizePluginTaskAccess(c, task, c.Param("plugin_key")) != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -132,9 +135,64 @@ func persistOfficialPluginTask(c *gin.Context, info *relaycommon.RelayInfo, resu
 	task.Quota = result.Quota
 	task.Data = []byte(`{}`)
 	task.Action = info.Action
+	if pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedRoute); exists {
+		pinned, ok := pinnedValue.(pluginruntime.PinnedRoute)
+		immediate := result.PluginResponse.Immediate
+		if ok && immediate != nil && immediate.Status == model.TaskStatusSuccess {
+			// 原生同步成功不再进入轮询，避免把已结算用量再作为任务差额处理。
+			task.Status = model.TaskStatusSuccess
+			task.Progress = "100%"
+			task.FinishTime = time.Now().Unix()
+			task.PrivateData.PluginImmediate = nil
+			if pinned.Route.RetainResult != nil && !*pinned.Route.RetainResult {
+				// 沿用上游 retainResult 合同：保留任务账务记录，不保存可取回的响应。
+				task.PrivateData.ResultDiscarded = true
+				task.PrivateData.PluginData = nil
+				task.PrivateData.PluginState = nil
+				task.PrivateData.Key = ""
+			}
+		}
+	}
 	if err := task.Insert(); err != nil {
 		return err
 	}
 	// 即时终态也交给本地轮询 CAS 与退款认领处理，不能在这里重复退款。
 	return nil
+}
+
+// renderNativeTaskSubmission 复用上游原生任务视图及 native renderer 合同。
+func renderNativeTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, result *relay.TaskSubmitResult) (any, error) {
+	pinnedValue, _ := c.Get(pluginruntime.ContextKeyPinnedRoute)
+	pinned, ok := pinnedValue.(pluginruntime.PinnedRoute)
+	if !ok || pinned.Plugin == nil || pinned.Route.Render == "" {
+		return nil, errors.New("插件原生响应处理器不可用")
+	}
+	task := model.InitTask(result.Platform, info)
+	task.Data = result.TaskData
+	task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+	if immediate := result.PluginResponse.Immediate; immediate != nil {
+		if immediate.Status == model.TaskStatusFailure {
+			return nil, errors.New("插件同步任务失败")
+		}
+		task.Status = model.TaskStatus(immediate.Status)
+		task.Progress = immediate.Progress
+		if task.Status == model.TaskStatusSuccess {
+			task.FinishTime = time.Now().Unix()
+		}
+	}
+	view, err := service.BuildTaskPluginView(task)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := common.Marshal(view)
+	if err != nil {
+		return nil, err
+	}
+	var value any
+	if err = common.Unmarshal(encoded, &value); err != nil {
+		return nil, err
+	}
+	requestValue, _ := c.Get(pluginruntime.ContextKeyRouteRequest)
+	requestContext, _ := requestValue.(pluginruntime.RouteRequestContext)
+	return pinned.Plugin.Engine.CallPath(c.Request.Context(), "native", []string{pinned.Route.Render}, requestContext.JSValue(), value)
 }

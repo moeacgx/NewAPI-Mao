@@ -114,6 +114,7 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
+	ResultDiscarded bool                   `json:"result_discarded,omitempty"`
 	Execution       *TaskExecutionSnapshot `json:"execution,omitempty"`
 	PluginState     json.RawMessage        `json:"plugin_state,omitempty"`
 	PluginData      json.RawMessage        `json:"plugin_data,omitempty"`

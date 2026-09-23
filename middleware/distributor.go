@@ -437,6 +437,15 @@ func getJSONStringValue(result gjson.Result, field string) (string, error) {
 }
 
 func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
+	// 原生插件以已固定路由的解码模型参与现有权限和渠道选择。
+	if decoded := c.GetString("resolved_task_model"); decoded != "" {
+		var request ModelRequest
+		if err := common.UnmarshalBodyReusable(c, &request); err != nil {
+			return nil, false, err
+		}
+		request.Model = decoded
+		return &request, true, nil
+	}
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
 	var err error
@@ -650,6 +659,9 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	}
 	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
 		return types.NewError(errors.New("渠道与官方插件入口不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	if key := c.GetString("expected_task_plugin_key"); key != "" && (channel.Type != constant.ChannelTypeTaskPlugin || channel.GetSetting().TaskPluginKey != key) {
+		return types.NewError(errors.New("渠道与已固定插件身份不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if !tryAcquireChannelConcurrencyForContext(c, channel) {
 		return types.NewError(model.ErrChannelConcurrencyLimitReached, types.ErrorCodeChannelConcurrencyLimit, types.ErrOptionWithSkipRetry())

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -13,7 +14,9 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel"
 	pluginadaptor "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
@@ -23,6 +26,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -271,7 +275,34 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 			}
 		}
 		c.Set("task_request", body)
+		if pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedRoute); exists {
+			pinned, valid := pinnedValue.(pluginruntime.PinnedRoute)
+			requestValue, _ := c.Get(pluginruntime.ContextKeyRouteRequest)
+			requestContext, contextValid := requestValue.(pluginruntime.RouteRequestContext)
+			if !valid || !contextValid || pinned.Plugin != loaded {
+				return nil, service.TaskErrorWrapperLocal(errors.New("插件路由上下文无效"), "plugin_request_invalid", http.StatusBadRequest)
+			}
+			// 使用选渠后经过审计与脱敏的请求重新解码，不能恢复旧的原始输入。
+			requestContext.Body = map[string]any{"kind": "json", "value": body}
+			decoded, decodeErr := loaded.Engine.CallMember(c.Request.Context(), "native", pinned.Route.Decode, requestContext.JSValue())
+			resolved, resolvedOK := decoded.(map[string]any)
+			if decodeErr != nil || !resolvedOK || resolved["kind"] != "submit" || resolved["model"] != modelName {
+				return nil, service.TaskErrorWrapperLocal(errors.New("插件拒绝处理最终请求"), "plugin_request_invalid", http.StatusBadRequest)
+			}
+			if _, forbidden := resolved["renderer"]; forbidden {
+				return nil, service.TaskErrorWrapperLocal(errors.New("插件不能覆盖响应处理器"), "plugin_request_invalid", http.StatusBadRequest)
+			}
+			requestContext.RequestBody = body
+			if normalized, present := resolved["requestBody"]; present {
+				requestContext.RequestBody = normalized
+			}
+			c.Set(pluginruntime.ContextKeyRouteRequest, requestContext)
+			c.Set("task_request", requestContext.RequestBody)
+		}
 		action, _ := body["action"].(string)
+		if nativeAction := c.GetString("task_action"); nativeAction != "" {
+			action = nativeAction
+		}
 		if action == "" {
 			action = "text_to_video"
 		}
@@ -292,46 +323,82 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 		info.PublicTaskID = model.GenerateTaskID()
 	}
 
-	// 4. 价格计算：基础模型价格
+	// 4. 同步任务复用官方用量表达式；传统任务保留原按次定价。
 	info.OriginModelName = modelName
-	priceData, err := helper.ModelPriceHelperPerCall(c, info)
-	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
-	}
-	info.PriceData = priceData
-	if isPlugin && (!priceData.UsePrice || billing_setting.GetBillingMode(modelName) == billing_setting.BillingModeTieredExpr) {
-		return nil, service.TaskErrorWrapperLocal(errors.New("本阶段插件仅支持显式按次价格"), "plugin_billing_unsupported", http.StatusBadRequest)
-	}
-	// 价格重建会清空倍率；仅从源任务快照恢复，不能沿用上次尝试的价格。
-	for key, ratio := range info.OriginTaskOtherRatios {
-		info.PriceData.AddOtherRatio(key, ratio)
-	}
-
-	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
-	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。
-	//    ResolveOriginTask 可能已在 remix 路径中预设了 OtherRatios，此处合并。
-	var estimatedRatios map[string]float64
-	if isPlugin {
-		// 即使按次收费也验证用量边界；暂不把 usage facts 当作本地倍率。
-		_, usageErr := adaptor.(channel.TaskValidatedBillingProvider).EstimateBillingValidated(c, info)
+	info.TieredBillingSnapshot = nil
+	info.TaskBillingResult = nil
+	var priceData types.PriceData
+	var err error
+	if isPlugin && billing_setting.GetBillingMode(modelName) == billing_setting.BillingModeTieredExpr {
+		pinnedValue, _ := c.Get(pluginruntime.ContextKeyPinnedRoute)
+		pinned, native := pinnedValue.(pluginruntime.PinnedRoute)
+		if !native || pinned.Route.RetainResult == nil || *pinned.Route.RetainResult {
+			return nil, service.TaskErrorWrapperLocal(errors.New("用量表达式仅支持声明不保留结果的原生同步路由"), "plugin_billing_unsupported", http.StatusBadRequest)
+		}
+		exprStr, exists := billing_setting.GetBillingExpr(modelName)
+		schema, _ := loaded.Meta.UsageForModel(info.UpstreamModelName)
+		if !exists || !billing_setting.TaskExprCompatible(exprStr, schema) {
+			return nil, service.TaskErrorWrapperLocal(errors.New("任务模型缺少有效的插件用量表达式"), "model_price_error", http.StatusBadRequest)
+		}
+		provider, supported := adaptor.(channel.TaskValidatedUsageFactsProvider)
+		if !supported {
+			return nil, service.TaskErrorWrapperLocal(errors.New("插件不支持用量校验"), "plugin_usage_invalid", http.StatusBadRequest)
+		}
+		facts, usageErr := provider.ExtractUsageFactsValidated(c, info)
 		if usageErr != nil {
 			return nil, service.TaskErrorWrapperLocal(usageErr, "plugin_usage_invalid", http.StatusBadRequest)
 		}
+		cost, trace, runErr := billingexpr.RunExprWithRequest(exprStr, billingexpr.TokenParams{}, billingexpr.RequestInput{Usage: facts})
+		if runErr != nil || cost < 0 || math.IsNaN(cost) || math.IsInf(cost, 0) {
+			return nil, service.TaskErrorWrapperLocal(errors.New("任务用量表达式求值失败或费用非法"), "model_price_error", http.StatusBadRequest)
+		}
+		groupRatioInfo := helper.HandleGroupRatio(c, info)
+		quota, clamp := common.QuotaRoundChecked(cost * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		noteTaskQuotaClamp(info, clamp)
+		if clamp != nil || quota < 0 {
+			return nil, service.TaskErrorWrapperLocal(errors.New("任务预扣额度超出安全范围"), "model_price_error", http.StatusBadRequest)
+		}
+		priceData = types.PriceData{Quota: quota, QuotaToPreConsume: quota, GroupRatioInfo: groupRatioInfo}
+		info.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+			BillingMode: billing_setting.BillingModeTieredExpr, ModelName: modelName,
+			ExprString: exprStr, ExprHash: billingexpr.ExprHashString(exprStr), GroupRatio: groupRatioInfo.GroupRatio,
+			EstimatedQuotaBeforeGroup: cost * common.QuotaPerUnit, EstimatedQuotaAfterGroup: quota,
+			EstimatedTier: trace.MatchedTier, QuotaPerUnit: common.QuotaPerUnit,
+			ExprVersion: billingexpr.ExprVersion(exprStr), TaskUsageBilling: true, UsageFacts: facts,
+		}
 	} else {
-		estimatedRatios = adaptor.EstimateBilling(c, info)
-	}
-	if len(estimatedRatios) > 0 {
-		for k, v := range estimatedRatios {
-			info.PriceData.AddOtherRatio(k, v)
+		priceData, err = helper.ModelPriceHelperPerCall(c, info)
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		}
+		if isPlugin && !priceData.UsePrice {
+			return nil, service.TaskErrorWrapperLocal(errors.New("插件需要显式按次价格或原生同步用量表达式"), "plugin_billing_unsupported", http.StatusBadRequest)
 		}
 	}
+	info.PriceData = priceData
 
-	// 6. 将 OtherRatios 应用到基础额度（饱和转换，防止溢出成负数）
-	if !common.StringsContains(constant.TaskPricePatches, modelName) {
-		quotaWithRatios := info.PriceData.ApplyOtherRatiosToFloat(float64(info.PriceData.Quota))
-		quota, clamp := common.QuotaFromFloatChecked(quotaWithRatios)
-		info.PriceData.Quota = quota
-		noteTaskQuotaClamp(info, clamp)
+	if info.TieredBillingSnapshot == nil {
+		// 仅恢复源任务倍率，不能沿用重试前的计价结果。
+		for key, ratio := range info.OriginTaskOtherRatios {
+			info.PriceData.AddOtherRatio(key, ratio)
+		}
+		var estimatedRatios map[string]float64
+		if isPlugin {
+			// 按次插件仍校验用量，但用量事实不能变成乘数。
+			if _, usageErr := adaptor.(channel.TaskValidatedBillingProvider).EstimateBillingValidated(c, info); usageErr != nil {
+				return nil, service.TaskErrorWrapperLocal(usageErr, "plugin_usage_invalid", http.StatusBadRequest)
+			}
+		} else {
+			estimatedRatios = adaptor.EstimateBilling(c, info)
+		}
+		for key, value := range estimatedRatios {
+			info.PriceData.AddOtherRatio(key, value)
+		}
+		if !common.StringsContains(constant.TaskPricePatches, modelName) {
+			quota, clamp := common.QuotaFromFloatChecked(info.PriceData.ApplyOtherRatiosToFloat(float64(info.PriceData.Quota)))
+			info.PriceData.Quota = quota
+			noteTaskQuotaClamp(info, clamp)
+		}
 	}
 
 	// 7. 预扣费（仅首次 — 重试时 info.Billing 已存在，跳过）
@@ -392,20 +459,35 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 		return nil, taskErr
 	}
 
-	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
+	// 11. 同步任务以成功响应的实际用量结算；失败交由控制器退款。
 	finalQuota := info.PriceData.Quota
-	var adjustedRatios map[string]float64
-	if !isPlugin {
-		adjustedRatios = adaptor.AdjustBillingOnSubmit(info, taskData)
-	}
-	if len(adjustedRatios) > 0 {
-		if adjustedQuota, ok := recalcQuotaFromRatios(info, adjustedRatios); ok {
-			// 基于调整后的 ratios 重新计算 quota
-			finalQuota = adjustedQuota
-			info.PriceData.ReplaceOtherRatios(adjustedRatios)
-			info.PriceData.Quota = finalQuota
+	if snap := info.TieredBillingSnapshot; snap != nil {
+		if pluginResponse == nil || pluginResponse.Immediate == nil ||
+			(pluginResponse.Immediate.Status != model.TaskStatusSuccess && pluginResponse.Immediate.Status != model.TaskStatusFailure) {
+			return nil, service.TaskErrorWrapperLocal(errors.New("同步用量计费要求上游返回终态"), "plugin_sync_result_required", http.StatusBadGateway)
+		}
+		if pluginResponse.Immediate.Status == model.TaskStatusFailure {
+			finalQuota = 0
+		} else if len(pluginResponse.Immediate.UsageFacts) > 0 {
+			settlement, facts, settleErr := service.EvaluateTaskCompletionUsage(snap, pluginResponse.Immediate.UsageFacts)
+			if settleErr != nil {
+				logger.LogWarn(c, "同步任务实际用量结算失败，保留预扣额度")
+			} else {
+				finalQuota = settlement.ActualQuotaAfterGroup
+				info.TaskBillingResult = &settlement
+				snap.UsageFacts = facts
+				noteTaskQuotaClamp(info, settlement.Clamp)
+			}
+		}
+	} else if !isPlugin {
+		if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 {
+			if adjustedQuota, ok := recalcQuotaFromRatios(info, adjustedRatios); ok {
+				finalQuota = adjustedQuota
+				info.PriceData.ReplaceOtherRatios(adjustedRatios)
+			}
 		}
 	}
+	info.PriceData.Quota = finalQuota
 
 	return &TaskSubmitResult{
 		PluginResponse: pluginResponse,

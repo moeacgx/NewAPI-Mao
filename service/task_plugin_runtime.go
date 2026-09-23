@@ -25,6 +25,7 @@ type BatchTaskResult struct {
 }
 
 var archivedTaskPlugins sync.Map
+var taskPluginRoutingMu sync.Mutex
 
 // InitTaskPlugins 归档内置源码，不覆盖已有版本、启停状态和原生渠道。
 func InitTaskPlugins() error {
@@ -46,7 +47,7 @@ func InitTaskPlugins() error {
 			return fmt.Errorf("内置插件 %s 版本源码冲突", meta.Key)
 		}
 	}
-	return nil
+	return RefreshTaskPluginRoutes()
 }
 
 func TaskPluginsEnabled() (bool, error) {
@@ -114,4 +115,54 @@ func ActiveTaskPlugin(key string) (*jsplugin.LoadedPlugin, *model.TaskPluginSnap
 	}
 	pin.Name = loaded.Meta.Name
 	return loaded, pin, nil
+}
+
+// RefreshTaskPluginRoutes 把数据库活动版本发布到官方路由代际，内置工厂仅作为源码归档。
+// 管理操作串行刷新；已获得旧代际的请求仍须重新校验数据库快照。
+func RefreshTaskPluginRoutes() error {
+	taskPluginRoutingMu.Lock()
+	defer taskPluginRoutingMu.Unlock()
+	registry := jsplugin.DefaultRegistry
+	factory := registry.Snapshot().Factory
+	disabled := make([]string, 0, len(factory))
+	for _, meta := range factory {
+		disabled = append(disabled, meta.Key)
+	}
+	registry.SetDisabledFactoryKeys(disabled)
+	enabled, err := TaskPluginsEnabled()
+	if err != nil {
+		registry.SetEnabled(false)
+		return err
+	}
+	if !enabled {
+		registry.SetEnabled(false)
+		return nil
+	}
+	rows, err := model.ListActiveTaskPlugins()
+	if err != nil {
+		return err
+	}
+	loaded := make([]*jsplugin.LoadedPlugin, 0, len(rows))
+	for _, row := range rows {
+		kind := row.SourceKind
+		if kind == "" {
+			kind = "builtin"
+		}
+		plugin, loadErr := LoadPinnedTaskPlugin(&model.TaskPluginSnapshot{Key: row.Key, Version: row.Version, APIVersion: row.APIVersion, SourceHash: row.SourceHash, SourceKind: kind})
+		if loadErr != nil {
+			return loadErr
+		}
+		loaded = append(loaded, plugin)
+	}
+	if err := registry.ReplaceOverrides(loaded); err != nil {
+		return err
+	}
+	registry.SetEnabled(true)
+	if err := registry.LastRebuildError(); err != "" {
+		return fmt.Errorf("任务插件路由刷新失败：%s", err)
+	}
+	if rejected := registry.RoutingErrors(); len(rejected) > 0 {
+		return fmt.Errorf("任务插件路由存在冲突，%d 个插件未能发布", len(rejected))
+	}
+	return nil
 }

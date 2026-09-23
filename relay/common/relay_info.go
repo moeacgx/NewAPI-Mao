@@ -177,7 +177,9 @@ type RelayInfo struct {
 	// Auto-group retries refresh its group-dependent fields before each attempt
 	// and again before settlement. Non-nil only when billing mode is "tiered_expr".
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
-	BillingRequestInput   *billingexpr.RequestInput
+	// TaskBillingResult 保存同步任务实际用量结算，供消费日志复用。
+	TaskBillingResult   *billingexpr.TieredResult
+	BillingRequestInput *billingexpr.RequestInput
 
 	Request dto.Request
 

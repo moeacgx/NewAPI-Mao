@@ -38,13 +38,14 @@ var (
 	indexCSSAssetPattern = regexp.MustCompile(`/assets/index-[^"']+\.css`)
 )
 
-func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
+func SetWebRouter(router *gin.Engine, assets ThemeAssets, pluginDispatcher ...gin.HandlerFunc) {
 	setThemeWebRouter(
 		router,
 		common.EmbedFolder(assets.DefaultBuildFS, "web/dist"),
 		assets.DefaultIndexPage,
 		common.EmbedFolder(assets.ClassicBuildFS, "web/classic/dist"),
 		assets.ClassicIndexPage,
+		pluginDispatcher...,
 	)
 }
 
@@ -52,7 +53,7 @@ func setWebRouter(router *gin.Engine, frontendFS static.ServeFileSystem, indexPa
 	setThemeWebRouter(router, frontendFS, indexPage, frontendFS, indexPage)
 }
 
-func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, defaultIndexPage []byte, classicFS static.ServeFileSystem, classicIndexPage []byte) {
+func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, defaultIndexPage []byte, classicFS static.ServeFileSystem, classicIndexPage []byte, pluginDispatcher ...gin.HandlerFunc) {
 	frontendFS := common.NewThemeAwareFS(defaultFS, classicFS)
 	currentAssets := currentWebAssetPaths{
 		defaultIndexJS:  findIndexAssetPath(defaultIndexPage, indexJSAssetPattern),
@@ -68,7 +69,8 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 	}))
 	router.Use(middleware.Cache())
 	router.Use(static.Serve("/", frontendFS))
-	router.NoRoute(pathAwareCORS(), func(c *gin.Context) {
+	handlers := append([]gin.HandlerFunc{pathAwareCORS()}, pluginDispatcher...)
+	router.NoRoute(append(handlers, func(c *gin.Context) {
 		c.Set(middleware.RouteTagKey, "web")
 		if serveCurrentIndexAssetFallback(c, frontendFS, currentAssets) {
 			return
@@ -83,7 +85,7 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 			return
 		}
 		c.Data(http.StatusOK, "text/html; charset=utf-8", defaultIndexPage)
-	})
+	})...)
 }
 
 func findIndexAssetPath(indexPage []byte, pattern *regexp.Regexp) string {

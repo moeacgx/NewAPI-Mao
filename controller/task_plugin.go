@@ -173,6 +173,10 @@ func SetTaskPluginRuntime(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "task_plugin.runtime", map[string]interface{}{"enabled": *request.Enabled})
+	if err := service.RefreshTaskPluginRoutes(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	GetTaskPluginRuntime(c)
 }
 
@@ -189,6 +193,10 @@ func SetTaskPluginStatus(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "task_plugin.status", map[string]interface{}{"key": c.Param("key"), "enabled": *request.Enabled})
+	if err := service.RefreshTaskPluginRoutes(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	common.ApiSuccess(c, nil)
 }
 
@@ -219,6 +227,10 @@ func ActivateTaskPlugin(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "task_plugin.activate", map[string]interface{}{"key": row.Key, "version": row.Version, "source_hash": row.SourceHash})
+	if err := service.RefreshTaskPluginRoutes(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	common.ApiSuccess(c, nil)
 }
 
@@ -381,6 +393,10 @@ func UploadTaskPlugin(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "task_plugin.upload", map[string]interface{}{"key": row.Key, "version": row.Version, "source_hash": row.SourceHash})
+	if err := service.RefreshTaskPluginRoutes(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	item, err := taskPluginManagementView(row, true)
 	if err != nil {
 		common.ApiError(c, err)

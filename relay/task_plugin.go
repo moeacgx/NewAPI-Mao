@@ -34,7 +34,7 @@ func GetPinnedTaskAdaptor(task *model.Task) (channel.TaskAdaptor, error) {
 
 // AuthorizePluginTaskAccess 同时用于源任务与查询/资源读取，复用本地分组规则。
 func AuthorizePluginTaskAccess(c *gin.Context, task *model.Task, key string) error {
-	if task == nil || task.UserId != c.GetInt("id") || string(task.Platform) != key || task.PrivateData.Execution == nil || task.PrivateData.Execution.TaskPlugin == nil || task.PrivateData.Execution.TaskPlugin.Key != key {
+	if task == nil || task.PrivateData.ResultDiscarded || task.UserId != c.GetInt("id") || string(task.Platform) != key || task.PrivateData.Execution == nil || task.PrivateData.Execution.TaskPlugin == nil || task.PrivateData.Execution.TaskPlugin.Key != key {
 		return errors.New("任务不存在或无权访问")
 	}
 	group, err := resolveAuthorizedOriginTaskGroup(c, task.Group)
