@@ -39,23 +39,20 @@ import {
   getModelPriceVariantRange,
   getModelPriceVariantRuleLabel,
 } from './modelPriceVariants';
+import { readStoredUser } from './auth-data';
 
 const HTMLToastContent = ({ htmlContent }) => {
   return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 };
 export default HTMLToastContent;
 export function isAdmin() {
-  let user = localStorage.getItem('user');
-  if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 10;
+  const user = readStoredUser();
+  return user?.role >= 10;
 }
 
 export function isRoot() {
-  let user = localStorage.getItem('user');
-  if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 100;
+  const user = readStoredUser();
+  return user?.role >= 100;
 }
 
 export function getSystemName() {
@@ -71,10 +68,7 @@ export function getLogo() {
 }
 
 export function getUserIdFromLocalStorage() {
-  let user = localStorage.getItem('user');
-  if (!user) return -1;
-  user = JSON.parse(user);
-  return user.id;
+  return readStoredUser()?.id ?? -1;
 }
 
 export function getFooterHTML() {
@@ -138,7 +132,8 @@ export function showError(error) {
       const status = error.response?.status;
       if (
         status === 401 ||
-        (status === 409 && error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
+        (status === 409 &&
+          error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
       ) {
         // 明确失效或会话身份不匹配时重新登录，临时故障保留用户状态。
         localStorage.removeItem('user');
