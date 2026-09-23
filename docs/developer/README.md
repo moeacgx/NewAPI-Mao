@@ -163,6 +163,7 @@
 - [用户搜索类型契约恢复](../workflows/2026-08/29_user_search_type_contract.md)：恢复 `/api/user/search` 的 ID 精确、用户名模糊及 all 综合搜索行为，并记录输入边界与回归测试。
 
 - [Classic 登录会话上限恢复路径修复](../workflows/2026-08/29_classic_login_session_limit_recovery.md)：2026-08-29 历史阶段记录，保留当时 v244 `AUTH_SESSION_LIMIT` 409 的恢复提示并修复 Classic 重复通用错误；普通满员当前行为已由[登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)工作流取代。
+- [Classic 启动用户缓存损坏容错](../workflows/2026-09/23_classic_startup_user_cache_recovery.md)：安全读取 Classic `localStorage.user`，清理损坏或非对象缓存并按未登录处理；429、503 和网络错误不触发清理。
 - [登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)：活跃会话达到上限时，按创建时间稳定选择并撤销同用户最早旧会话后继续签发；签发窗口限流默认关闭，同时保持 Redis deny fence 的 fail-closed 语义。
 - [登录签发次数恢复 v243 兼容默认](../workflows/2026-08/31_auth_session_v243_issuance_compat.md)：默认关闭签发窗口限流，保留正数配置的可选防护和当前服务端 Session 安全机制。
 - [密码登录失败限流隔离](../workflows/2026-09/23_password_login_failure_rate_limit.md)：密码登录使用短窗 IP 总失败桶、IP 与账号摘要失败桶和短期在途租约，避免共享 CT 与成功登录消耗失败额度。

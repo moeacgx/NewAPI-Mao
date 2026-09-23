@@ -33,6 +33,34 @@ export function normalizeAuthData(data) {
   };
 }
 
+export function readStoredUser(storage) {
+  let userStorage;
+  let rawUser;
+  try {
+    userStorage = storage ?? globalThis.localStorage;
+    rawUser = userStorage.getItem('user');
+  } catch (_) {
+    return null;
+  }
+
+  if (rawUser === null || rawUser === undefined) return null;
+
+  try {
+    const user = JSON.parse(rawUser);
+    if (!user || typeof user !== 'object' || Array.isArray(user)) {
+      throw new TypeError('Stored user must be an object');
+    }
+    return user;
+  } catch (_) {
+    try {
+      userStorage.removeItem('user');
+    } catch (_) {
+      // Storage 可能不可用，但调用方仍按未登录处理。
+    }
+    return null;
+  }
+}
+
 const authErrorMessageKeys = {
   AUTH_SESSION_LIMIT: 'AUTH_SESSION_LIMIT',
   AUTH_SESSION_ISSUANCE_LIMIT: 'AUTH_SESSION_ISSUANCE_LIMIT',

@@ -34,6 +34,7 @@ import {
   getSystemName,
   showError,
   setStatusData,
+  readStoredUser,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -119,10 +120,9 @@ const PageLayout = () => {
   }, [isMobile, drawerOpen, collapsed, setCollapsed]);
 
   const loadUser = () => {
-    let user = localStorage.getItem('user');
+    const user = readStoredUser();
     if (user) {
-      let data = JSON.parse(user);
-      userDispatch({ type: 'login', payload: data });
+      userDispatch({ type: 'login', payload: user });
     }
   };
 
