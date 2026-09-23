@@ -214,3 +214,10 @@ Default 使用 `web/src/features/invoices`，Classic 使用
 
 见 [官方任务插件后端](official-task-plugins.md)：内置与 Root 上传的自定义插件并存，默认关闭；
 生产资源签名和 S3 尚未验收。
+
+## 网站 SEO 设置
+
+- 文档：[网站 SEO 设置](site-seo-settings.md)。
+- 契约：复用 Root 保护的 `/api/option/` 更新 `SystemName` 与 `SystemDescription`；公开 `/api/status` 只读返回两者。描述缺省为空，最多 200 个 Unicode 码点，可清空。
+- HTML：Classic 与 Default 首屏按请求读取当前选项，输出标题、唯一 description、`og:title`、`og:site_name`、`og:description`；空描述保持空值，不回落到静态旧文案。保留静态资源、generator、版权及内嵌脚本。
+- 稳定性：不新增匿名写接口或数据库专用结构；通过现有 Option 持久化与多节点同步生效。双模板前端表单分别维护、API 契约共用。

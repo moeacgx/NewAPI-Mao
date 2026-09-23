@@ -1,10 +1,13 @@
 package router
 
 import (
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,7 +16,9 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	htmlparser "golang.org/x/net/html"
 )
 
 func TestIsRealStaticWebAssetRequest(t *testing.T) {
@@ -156,6 +161,125 @@ func TestSetWebRouterServesSelectedThemeIndexAndCachedAssetFallback(t *testing.T
 	engine.ServeHTTP(cachedClassicAsset, httptest.NewRequest(http.MethodGet, "/assets/index-classic.css", nil))
 	require.Equal(t, http.StatusOK, cachedClassicAsset.Code)
 	require.Equal(t, "default-css", cachedClassicAsset.Body.String())
+}
+
+func TestSetThemeWebRouterRendersCurrentSiteMetadataForEveryHtmlEntry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousTheme := common.GetTheme()
+	previousOptions := common.OptionMap
+	t.Cleanup(func() {
+		common.SetTheme(previousTheme)
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousOptions
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap = map[string]string{
+		"SystemName":        `门户 & <站点> "name"`,
+		"SystemDescription": `中文描述 & <script>alert("x")</script> 'quoted'`,
+	}
+	common.OptionMapRWMutex.Unlock()
+
+	defaultPage := `<!doctype html><html><head><title>Old title</title><meta name="title" content="Old title"><meta name="description" content="Static English description"><meta property="og:title" content="Old title"><meta property="og:site_name" content="Old title"><meta property="og:description" content="Static English description"><meta name="generator" content="NewAPI-Mao"></head><body><svg><title>SVG title</title></svg><script id="analytics">window.analyticsLoaded = true</script></body></html>`
+	classicPage := strings.Replace(defaultPage, "Old title", "Old Classic title", 1)
+	defaultRoot := t.TempDir()
+	classicRoot := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(defaultRoot, "index.html"), []byte(defaultPage), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(classicRoot, "index.html"), []byte(classicPage), 0o600))
+
+	engine := gin.New()
+	setThemeWebRouter(engine, static.LocalFile(defaultRoot, false), []byte(defaultPage), static.LocalFile(classicRoot, false), []byte(classicPage))
+	nameEscaped := html.EscapeString(`门户 & <站点> "name"`)
+	descriptionEscaped := html.EscapeString(`中文描述 & <script>alert("x")</script> 'quoted'`)
+	descriptionTag := regexp.MustCompile(`(?i)<meta\b[^>]*\bname="description"[^>]*>`)
+	ogDescriptionTag := regexp.MustCompile(`(?i)<meta\b[^>]*\bproperty="og:description"[^>]*>`)
+
+	for _, theme := range []string{"default", "classic"} {
+		common.SetTheme(theme)
+		for _, path := range []string{"/", "/index.html", "/console/log"} {
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+			body := recorder.Body.String()
+			require.Equal(t, http.StatusOK, recorder.Code, "%s %s", theme, path)
+			assert.Equal(t, "no-cache", recorder.Header().Get("Cache-Control"), "%s %s", theme, path)
+			assert.Equal(t, 1, strings.Count(strings.ToLower(body), "<!doctype html>"), "%s %s", theme, path)
+			assert.Equal(t, 1, strings.Count(strings.ToLower(body), "<html"), "%s %s", theme, path)
+			assert.Equal(t, 1, strings.Count(strings.ToLower(body), "<head"), "%s %s", theme, path)
+			document, parseErr := htmlparser.Parse(strings.NewReader(body))
+			require.NoError(t, parseErr)
+			head := findTestHTMLHead(document)
+			require.NotNil(t, head)
+			headTitleCount := 0
+			descriptionValues := []string{}
+			ogDescriptionValues := []string{}
+			for child := head.FirstChild; child != nil; child = child.NextSibling {
+				if child.Type == htmlparser.ElementNode && child.Data == "title" {
+					headTitleCount++
+				}
+				if child.Type == htmlparser.ElementNode && child.Data == "meta" {
+					attributes := map[string]string{}
+					for _, attribute := range child.Attr {
+						attributes[attribute.Key] = attribute.Val
+					}
+					if attributes["name"] == "description" {
+						descriptionValues = append(descriptionValues, attributes["content"])
+					}
+					if attributes["property"] == "og:description" {
+						ogDescriptionValues = append(ogDescriptionValues, attributes["content"])
+					}
+				}
+			}
+			assert.Equal(t, 1, headTitleCount, "%s %s", theme, path)
+			assert.Equal(t, []string{`中文描述 & <script>alert("x")</script> 'quoted'`}, descriptionValues, "%s %s", theme, path)
+			assert.Equal(t, descriptionValues, ogDescriptionValues, "%s %s", theme, path)
+			assert.Contains(t, body, "<title>"+nameEscaped+"</title>", "%s %s", theme, path)
+			assert.Contains(t, body, `name="title" content="`+nameEscaped+`"`, "%s %s", theme, path)
+			assert.Contains(t, body, `property="og:title" content="`+nameEscaped+`"`, "%s %s", theme, path)
+			assert.Contains(t, body, `property="og:site_name" content="`+nameEscaped+`"`, "%s %s", theme, path)
+			assert.Contains(t, body, `name="generator" content="NewAPI-Mao"`)
+			assert.Contains(t, body, `<title>SVG title</title>`)
+			assert.Contains(t, body, `<script id="analytics">window.analyticsLoaded = true</script>`)
+			assert.NotContains(t, body, `content="Static English description"`)
+			assert.NotContains(t, body, `<script>alert("x")</script>`)
+			assert.Contains(t, body, descriptionEscaped)
+			assert.Len(t, descriptionTag.FindAllString(body, -1), 1, "%s %s", theme, path)
+			assert.Len(t, ogDescriptionTag.FindAllString(body, -1), 1, "%s %s", theme, path)
+		}
+	}
+
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap["SystemName"] = `Updated & "safe"`
+	common.OptionMap["SystemDescription"] = "更新后的中文描述"
+	common.OptionMapRWMutex.Unlock()
+	common.SetTheme("classic")
+	updated := httptest.NewRecorder()
+	engine.ServeHTTP(updated, httptest.NewRequest(http.MethodGet, "/", nil))
+	assert.Contains(t, updated.Body.String(), `<title>Updated &amp; &#34;safe&#34;</title>`)
+	assert.Contains(t, updated.Body.String(), `content="更新后的中文描述"`)
+
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap["SystemDescription"] = ""
+	common.OptionMapRWMutex.Unlock()
+	cleared := httptest.NewRecorder()
+	engine.ServeHTTP(cleared, httptest.NewRequest(http.MethodGet, "/index.html", nil))
+	assert.Empty(t, descriptionTag.FindAllString(cleared.Body.String(), -1))
+	assert.Empty(t, ogDescriptionTag.FindAllString(cleared.Body.String(), -1))
+	assert.NotContains(t, cleared.Body.String(), "Static English description")
+	assert.Contains(t, cleared.Body.String(), "<title>Updated &amp; &#34;safe&#34;</title>")
+	assert.Equal(t, "no-cache", cleared.Header().Get("Cache-Control"))
+}
+
+func findTestHTMLHead(node *htmlparser.Node) *htmlparser.Node {
+	if node.Type == htmlparser.ElementNode && node.Data == "head" {
+		return node
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if head := findTestHTMLHead(child); head != nil {
+			return head
+		}
+	}
+	return nil
 }
 
 func TestSetRouterRedirectStatsBoundary(t *testing.T) {

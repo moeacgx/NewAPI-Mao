@@ -28,6 +28,7 @@ const defaultSiteSettings: SiteSettings = {
   'theme.frontend': 'default',
   Notice: '',
   SystemName: 'NewAPI-Mao',
+  SystemDescription: '',
   Logo: '',
   Footer: '',
   About: '',

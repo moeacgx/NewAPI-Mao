@@ -42,6 +42,9 @@ const LogsFilters = ({
 }) => {
   const [groupOptions, setGroupOptions] = useState([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
+  const [userSearchType, setUserSearchType] = useState(
+    formInitValues?.userSearchType || 'username',
+  );
 
   useEffect(() => {
     let active = true;
@@ -146,16 +149,6 @@ const LogsFilters = ({
 
           {isAdminUser && (
             <>
-              <Form.Select
-                field='userSearchType'
-                optionList={[
-                  { label: t('用户名'), value: 'username' },
-                  { label: t('用户 ID'), value: 'id' },
-                ]}
-                className='w-full'
-                pure
-                size='small'
-              />
               <Form.Input
                 field='channel'
                 prefix={<IconSearch />}
@@ -164,14 +157,39 @@ const LogsFilters = ({
                 pure
                 size='small'
               />
-              <Form.Input
-                field='username'
-                prefix={<IconSearch />}
-                placeholder={t('请输入搜索内容')}
-                showClear
-                pure
-                size='small'
-              />
+              <div
+                role='group'
+                aria-label={t('User filter')}
+                className='col-span-1 flex min-w-0 flex-col gap-2 sm:flex-row lg:col-span-2'
+              >
+                <span id='userSearchType-label' className='sr-only'>
+                  {t('User filter type')}
+                </span>
+                <Form.Select
+                  field='userSearchType'
+                  optionList={[
+                    { label: t('用户名'), value: 'username' },
+                    { label: t('用户 ID'), value: 'id' },
+                  ]}
+                  onChange={(value) => {
+                    setUserSearchType(value);
+                  }}
+                  className='w-full sm:min-w-0 sm:flex-1'
+                  pure
+                  size='small'
+                />
+                <Form.Input
+                  field='username'
+                  prefix={<IconSearch />}
+                  placeholder={t(
+                    userSearchType === 'id' ? '用户 ID' : '用户名',
+                  )}
+                  showClear
+                  pure
+                  size='small'
+                  className='w-full sm:min-w-0 sm:flex-1'
+                />
+              </div>
             </>
           )}
         </div>
@@ -219,6 +237,9 @@ const LogsFilters = ({
               onClick={() => {
                 if (formApi) {
                   formApi.reset();
+                  setUserSearchType(
+                    formInitValues?.userSearchType || 'username',
+                  );
                   setLogType(0);
                   setTimeout(() => {
                     refresh();
