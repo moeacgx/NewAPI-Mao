@@ -131,12 +131,43 @@ func InitEnv() {
 	CriticalRateLimitEnable = GetEnvOrDefaultBool("CRITICAL_RATE_LIMIT_ENABLE", true)
 	CriticalRateLimitNum = GetEnvOrDefault("CRITICAL_RATE_LIMIT", 20)
 	CriticalRateLimitDuration = int64(GetEnvOrDefault("CRITICAL_RATE_LIMIT_DURATION", 20*60))
+	initLoginFailureRateLimitConfig()
 	initTokenKeyReadRateLimitConfig()
 
 	SearchRateLimitEnable = GetEnvOrDefaultBool("SEARCH_RATE_LIMIT_ENABLE", true)
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+func initLoginFailureRateLimitConfig() {
+	LoginFailureRateLimitEnable = GetEnvOrDefaultBool("LOGIN_FAILURE_RATE_LIMIT_ENABLE", true)
+	LoginFailureRateLimitNum = GetEnvOrDefault("LOGIN_FAILURE_RATE_LIMIT", 5)
+	if LoginFailureRateLimitNum <= 0 {
+		SysError("LOGIN_FAILURE_RATE_LIMIT must be positive, using default 5")
+		LoginFailureRateLimitNum = 5
+	}
+	LoginFailureIPRateLimitNum = GetEnvOrDefault("LOGIN_FAILURE_IP_RATE_LIMIT", 30)
+	if LoginFailureIPRateLimitNum <= 0 {
+		SysError("LOGIN_FAILURE_IP_RATE_LIMIT must be positive, using default 30")
+		LoginFailureIPRateLimitNum = 30
+	}
+	LoginFailureRateLimitDuration = int64(GetEnvOrDefault("LOGIN_FAILURE_RATE_LIMIT_DURATION", 60))
+	maxDuration := int64(RateLimitKeyExpirationDuration / time.Second)
+	if LoginFailureRateLimitDuration <= 0 || LoginFailureRateLimitDuration > maxDuration {
+		SysError(fmt.Sprintf("LOGIN_FAILURE_RATE_LIMIT_DURATION must be between 1 and %d seconds, using default 60", maxDuration))
+		LoginFailureRateLimitDuration = 60
+	}
+	LoginInflightIPLimit = GetEnvOrDefault("LOGIN_INFLIGHT_IP_LIMIT", 8)
+	if LoginInflightIPLimit <= 0 {
+		SysError("LOGIN_INFLIGHT_IP_LIMIT must be positive, using default 8")
+		LoginInflightIPLimit = 8
+	}
+	LoginInflightLeaseDuration = int64(GetEnvOrDefault("LOGIN_INFLIGHT_LEASE_DURATION", 10))
+	if LoginInflightLeaseDuration <= 0 || LoginInflightLeaseDuration > 60 {
+		SysError("LOGIN_INFLIGHT_LEASE_DURATION must be between 1 and 60 seconds, using default 10")
+		LoginInflightLeaseDuration = 10
+	}
 }
 
 func initTokenKeyReadRateLimitConfig() {

@@ -256,6 +256,13 @@ var (
 	CriticalRateLimitNum            = 20
 	CriticalRateLimitDuration int64 = 20 * 60
 
+	LoginFailureRateLimitEnable         = true
+	LoginFailureRateLimitNum            = 5
+	LoginFailureIPRateLimitNum          = 30
+	LoginFailureRateLimitDuration int64 = 60
+	LoginInflightIPLimit                = 8
+	LoginInflightLeaseDuration    int64 = 10
+
 	// 读取密钥按已认证用户独立计数，避免同出口的关键操作互相影响。
 	TokenKeyReadRateLimitEnable         = true
 	TokenKeyReadRateLimitNum            = 60

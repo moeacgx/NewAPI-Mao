@@ -44,13 +44,28 @@ func Login(c *gin.Context) {
 	}
 	var loginRequest LoginRequest
 	err := common.DecodeJson(c.Request.Body, &loginRequest)
+	loginIdentity := loginRequest.Username
 	if err != nil {
+		loginIdentity = ""
+	}
+	loginAttempt, admitted := middleware.BeginPasswordLoginAttempt(c, loginIdentity)
+	if !admitted {
+		return
+	}
+	defer loginAttempt.Release()
+	if err != nil {
+		if !loginAttempt.RecordFailure(c) {
+			return
+		}
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
 	username := loginRequest.Username
 	password := loginRequest.Password
 	if username == "" || password == "" {
+		if !loginAttempt.RecordFailure(c) {
+			return
+		}
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
@@ -65,8 +80,14 @@ func Login(c *gin.Context) {
 			common.SysLog(fmt.Sprintf("Login database error for user %s: %v", username, err))
 			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
 		case errors.Is(err, model.ErrUserEmptyCredentials):
+			if !loginAttempt.RecordFailure(c) {
+				return
+			}
 			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		default:
+			if !loginAttempt.RecordFailure(c) {
+				return
+			}
 			common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
 		}
 		return
