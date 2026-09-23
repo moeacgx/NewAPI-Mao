@@ -18,7 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { authHeader } from '../auth';
+import { AdminRoute, AuthRedirect, PrivateRoute, RootRoute } from '../auth';
 import { getUserIdFromLocalStorage } from '../utils';
 import { readStoredUser } from '../auth-data';
 
@@ -40,6 +43,11 @@ describe('Classic 用户缓存读取', () => {
     ['损坏 JSON', '{'],
     ['null', 'null'],
     ['数组', '[]'],
+    ['空对象', '{}'],
+    ['缺少 role', '{"id":7}'],
+    ['id 非正整数', '{"id":0,"role":100}'],
+    ['id 非整数', '{"id":1.5,"role":100}'],
+    ['role 非数字', '{"id":7,"role":"100"}'],
   ])('清理 %s 缓存并返回未登录', (_name, rawValue) => {
     localStorage.setItem('user', rawValue);
 
@@ -92,5 +100,41 @@ describe('Classic 用户缓存读取', () => {
     expect(getUserIdFromLocalStorage()).toBe(-1);
     expect(authHeader()).toEqual({});
     expect(localStorage.getItem('user')).toBeNull();
+  });
+
+  it('storage getter 被拒绝时四个路由守卫均按未登录处理', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'localStorage',
+    );
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('storage denied', 'SecurityError');
+      },
+    });
+
+    try {
+      const routes = [
+        ['auth redirect', '/login', <AuthRedirect>login</AuthRedirect>],
+        ['private route', '/console', <PrivateRoute>private</PrivateRoute>],
+        ['admin route', '/admin', <AdminRoute>admin</AdminRoute>],
+        ['root route', '/root', <RootRoute>root</RootRoute>],
+      ];
+
+      for (const [_name, path, element] of routes) {
+        render(
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route path={path} element={element} />
+              <Route path='/login' element={<span>login</span>} />
+            </Routes>
+          </MemoryRouter>,
+        );
+        expect(screen.getAllByText('login').length).toBeGreaterThan(0);
+      }
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', descriptor);
+    }
   });
 });
