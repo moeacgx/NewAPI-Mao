@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md)：复用图标字段支持图片直链，保留内置图标兼容与加载失败兜底。
+
 - [zzapi 使用日志筛选 .334 发布](../workflows/2026-09/23_zzapi_334_usage_log_release.md)：记录 MAO-4 发布、zzapi 三节点串行更新、备份与验收边界。
 
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
