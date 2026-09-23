@@ -16,6 +16,7 @@
 - [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。
 - [原生同步任务 Token 统计修复](../workflows/2026-09/24_task_token_usage.md)：实际输入输出用量进入消费日志与渠道指标，保持计费规则。
 - [同步任务模型广场性能采样与结果留存](../workflows/2026-09/24_sync_task_performance.md)：同步插件接入独立性能统计、失败隔离、耗时及 Classic 结果说明。
+- [Classic 零价格编辑与回填](../workflows/2026-09/24_classic_zero_price.md)：零价格保存、同名模型刷新与编辑草稿保留。
 
 - [maolaoapi .335 逐节点更新](../workflows/2026-09/24_maolaoapi_335_deployment.md)：固定镜像、备份、主节点优先逐节点健康门禁与独立插件边界。
 
