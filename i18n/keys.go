@@ -38,6 +38,9 @@ const (
 	MsgAuthUserIdMismatch        = "auth.user_id_mismatch"
 	MsgAuthUserBanned            = "auth.user_banned"
 	MsgAuthInsufficientPrivilege = "auth.insufficient_privilege"
+	MsgAuthLoginRateLimited      = "auth.login_rate_limited"
+	MsgAuthLoginBusy             = "auth.login_busy"
+	MsgAuthLoginUnavailable      = "auth.login_unavailable"
 )
 
 // Token related messages

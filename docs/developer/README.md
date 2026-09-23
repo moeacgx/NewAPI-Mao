@@ -163,8 +163,10 @@
 - [用户搜索类型契约恢复](../workflows/2026-08/29_user_search_type_contract.md)：恢复 `/api/user/search` 的 ID 精确、用户名模糊及 all 综合搜索行为，并记录输入边界与回归测试。
 
 - [Classic 登录会话上限恢复路径修复](../workflows/2026-08/29_classic_login_session_limit_recovery.md)：2026-08-29 历史阶段记录，保留当时 v244 `AUTH_SESSION_LIMIT` 409 的恢复提示并修复 Classic 重复通用错误；普通满员当前行为已由[登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)工作流取代。
+- [Classic 启动用户缓存损坏容错](../workflows/2026-09/23_classic_startup_user_cache_recovery.md)：安全读取 Classic `localStorage.user`，清理损坏或非对象缓存并按未登录处理；429、503 和网络错误不触发清理。
 - [登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)：活跃会话达到上限时，按创建时间稳定选择并撤销同用户最早旧会话后继续签发；签发窗口限流默认关闭，同时保持 Redis deny fence 的 fail-closed 语义。
 - [登录签发次数恢复 v243 兼容默认](../workflows/2026-08/31_auth_session_v243_issuance_compat.md)：默认关闭签发窗口限流，保留正数配置的可选防护和当前服务端 Session 安全机制。
+- [密码登录失败限流隔离](../workflows/2026-09/23_password_login_failure_rate_limit.md)：密码登录使用短窗 IP 总失败桶、IP 与账号摘要失败桶和短期在途租约，避免共享 CT 与成功登录消耗失败额度。
 - [密码重置会话撤销缓存故障修复](../workflows/2026-08/29_auth_session_revoke_cache_failure.md)：Redis deny fence 写入失败时仍完成数据库会话撤销，返回可审计错误并保持批量累计进度。
 - [登录会话上限原子准入](../workflows/2026-08/29_auth_session_atomic_admission.md)：将活动会话与签发窗口检查和新会话写入置于用户级事务锁内，防止并发登录突破硬上限。
 - [Classic 计费说明折扣优先展示](../workflows/2026-09/04_billing_guide_recharge_formula.md)：首屏直接解释“充值优惠 × 分组倍率 = 综合折扣”，完整汇率换算收进详情，实际 token 花费改为次级入口。
@@ -243,6 +245,7 @@
 - [Classic 动态分块静态资源兜底边界](../workflows/2026-07/28_classic_dynamic_chunk_asset_fallback.md)
 - [分组特殊倍率镜像同步修复记录](../workflows/2026-07/24_group_group_ratio_mirror_sync.md)
 - [全局网页限流与静态资源边界](../workflows/2026-07/24_global_web_rate_limit_static_assets.md)
+- [下划线静态资产嵌入与 404 缓存修复](../workflows/2026-09/23_embedded_underscore_assets.md)：两套前端构建目录使用 Go `all:` 嵌入下划线分块，并禁止缺失资产 404 继承一周缓存。
 - [上游流式断开错误中文说明](../workflows/2026-07/24_upstream_stream_disconnect_chinese_hint.md)
 - [客户端取消流式请求的 500 展示修复](../workflows/2026-08/09_client_stream_cancel_error.md)
 - [单 Key 渠道 429 重试去重](../workflows/2026-07/24_single_key_429_retry_dedup.md)

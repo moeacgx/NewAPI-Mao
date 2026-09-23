@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,6 +51,31 @@ func TestIsRealStaticWebAssetRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWebRouterCachesExistingUnderscoreAssetButNotMissingAsset(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousGlobalWebRateLimit := common.GlobalWebRateLimitEnable
+	common.GlobalWebRateLimitEnable = false
+	t.Cleanup(func() { common.GlobalWebRateLimitEnable = previousGlobalWebRateLimit })
+
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "assets"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "assets", "_baseUniq-hash.js"), []byte("underscore chunk"), 0o600))
+
+	engine := gin.New()
+	setWebRouter(engine, static.LocalFile(root, false), []byte("index"))
+
+	existing := httptest.NewRecorder()
+	engine.ServeHTTP(existing, httptest.NewRequest(http.MethodGet, "/assets/_baseUniq-hash.js", nil))
+	require.Equal(t, http.StatusOK, existing.Code)
+	assert.Equal(t, "underscore chunk", existing.Body.String())
+	assert.Equal(t, "max-age=604800", existing.Result().Header.Get("Cache-Control"))
+
+	missing := httptest.NewRecorder()
+	engine.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/assets/_missing-hash.js", nil))
+	require.Equal(t, http.StatusNotFound, missing.Code)
+	assert.Equal(t, "no-store", missing.Result().Header.Get("Cache-Control"))
 }
 
 func TestSetWebRouterStatsBoundary(t *testing.T) {
