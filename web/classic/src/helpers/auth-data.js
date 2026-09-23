@@ -47,7 +47,15 @@ export function readStoredUser(storage) {
 
   try {
     const user = JSON.parse(rawUser);
-    if (!user || typeof user !== 'object' || Array.isArray(user)) {
+    if (
+      !user ||
+      typeof user !== 'object' ||
+      Array.isArray(user) ||
+      !Number.isInteger(user.id) ||
+      user.id <= 0 ||
+      typeof user.role !== 'number' ||
+      !Number.isFinite(user.role)
+    ) {
       throw new TypeError('Stored user must be an object');
     }
     return user;
