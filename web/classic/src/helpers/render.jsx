@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { Modal, Tag, Typography, Avatar } from '@douyinfe/semi-ui'
+import { useState } from 'react'
 import { MODEL_PROVIDER_RULES, resolveModelProvider } from './modelProvider';
 import wanIcon from '../assets/wan.png';
 import * as LobeIcons from '@lobehub/icons'
@@ -315,8 +316,31 @@ export function getChannelIcon(channelType) {
   }
 }
 
+function CustomLogo(props) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return <Avatar size='extra-extra-small'>?</Avatar>
+
+  return (
+    <img
+      src={props.src}
+      alt=''
+      width={props.size}
+      height={props.size}
+      loading='lazy'
+      referrerPolicy='no-referrer'
+      style={{
+        width: props.size,
+        height: props.size,
+        objectFit: 'contain',
+        flexShrink: 0,
+      }}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 /**
- * 根据图标名称动态获取 LobeHub 图标组件
+ * 根据图标名称或 HTTP/HTTPS 图片地址获取供应商、模型图标。
  * 支持：
  * - 基础："OpenAI"、"OpenAI.Color" 等
  * - 额外属性（点号链式）："OpenAI.Avatar.type={'platform'}"、"OpenRouter.Avatar.shape={'square'}"
@@ -330,6 +354,18 @@ export function getLobeHubIcon(iconName, size = 14) {
   // 如果没有图标名称，返回 Avatar
   if (!iconName) {
     return <Avatar size='extra-extra-small'>?</Avatar>
+  }
+
+  if (typeof iconName === 'string' && /^https?:\/\//i.test(iconName)) {
+    try {
+      const url = new URL(iconName)
+      if (!url.username && !url.password) {
+        // 地址变化时重置加载失败状态，避免旧图片错误影响新配置。
+        return <CustomLogo key={iconName} src={iconName} size={size} />
+      }
+    } catch {
+      // 非法地址沿用原有图标兜底，不发起图片请求。
+    }
   }
 
   // 解析组件路径与点号链式属性

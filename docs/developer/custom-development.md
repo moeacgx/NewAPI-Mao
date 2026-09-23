@@ -2,6 +2,13 @@
 
 项目名称、默认仓库和镜像规则见[项目身份与发布兼容](project-identity.md)。本次更名无新增业务功能或数据迁移；旧版自更新资产名和配套仓库保持兼容，首次新镜像发布仍须验收。
 
+## Classic 供应商自定义 Logo
+
+- 在供应商图标字段填写 HTTP/HTTPS 图片直链，或继续使用 LobeHub 图标名和链式参数。
+- 覆盖 Classic 供应商、模型、渠道选择和模型广场；图片加载失败时显示默认图标。
+- 复用现有 `icon` 字段，最长 128 字符，无数据迁移；Default 未实现 URL 图标渲染。
+- 实现与验证边界见 [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md)。
+
 ## xAI 渠道 Messages 兼容
 
 - `/v1/messages` 经 xAI 渠道转为 Chat Completions，上游返回转换回 Anthropic JSON/SSE，保留 Grok 缓存用量和现有结算口径。
