@@ -28,11 +28,18 @@ import {
   Space,
   Card,
 } from '@douyinfe/semi-ui';
-import { API, showError, showSuccess, timestamp2string } from '../../helpers';
+import {
+  API,
+  setStatusData,
+  showError,
+  showSuccess,
+  timestamp2string,
+} from '../../helpers';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
+import { applySiteMetadataFromStatus } from '../../helpers/siteMetadata';
 
 const LEGAL_USER_AGREEMENT_KEY = 'legal.user_agreement';
 const LEGAL_PRIVACY_POLICY_KEY = 'legal.privacy_policy';
@@ -44,6 +51,7 @@ const OtherSetting = () => {
     [LEGAL_USER_AGREEMENT_KEY]: '',
     [LEGAL_PRIVACY_POLICY_KEY]: '',
     SystemName: '',
+    SystemDescription: '',
     Logo: '',
     Footer: '',
     About: '',
@@ -52,6 +60,10 @@ const OtherSetting = () => {
   let [loading, setLoading] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [statusState, statusDispatch] = useContext(StatusContext);
+  const latestStatus = useRef(statusState?.status);
+  useEffect(() => {
+    latestStatus.current = statusState?.status;
+  }, [statusState?.status]);
   const [updateData, setUpdateData] = useState({
     tag_name: '',
     content: '',
@@ -67,10 +79,25 @@ const OtherSetting = () => {
     const { success, message } = res.data;
     if (success) {
       setInputs((inputs) => ({ ...inputs, [key]: value }));
+      if (key === 'SystemName' || key === 'SystemDescription') {
+        const statusKey =
+          key === 'SystemName' ? 'system_name' : 'system_description';
+        const nextStatus = { ...latestStatus.current, [statusKey]: value };
+        latestStatus.current = nextStatus;
+        // 页头读取本地缓存，先同步缓存再通知状态消费者。
+        try {
+          setStatusData(nextStatus);
+        } catch {
+          // 存储不可用不应把已成功的服务端保存报告为失败。
+        }
+        statusDispatch({ type: 'set', payload: nextStatus });
+        applySiteMetadataFromStatus({ [statusKey]: value });
+      }
     } else {
       showError(message);
     }
     setLoading(false);
+    return success;
   };
 
   const [loadingInput, setLoadingInput] = useState({
@@ -78,6 +105,7 @@ const OtherSetting = () => {
     [LEGAL_USER_AGREEMENT_KEY]: false,
     [LEGAL_PRIVACY_POLICY_KEY]: false,
     SystemName: false,
+    SystemDescription: false,
     Logo: false,
     HomePageContent: false,
     About: false,
@@ -159,8 +187,9 @@ const OtherSetting = () => {
         ...loadingInput,
         SystemName: true,
       }));
-      await updateOption('SystemName', inputs.SystemName);
-      showSuccess(t('系统名称已更新'));
+      if (await updateOption('SystemName', inputs.SystemName)) {
+        showSuccess(t('系统名称已更新'));
+      }
     } catch (error) {
       console.error(t('系统名称更新失败'), error);
       showError(t('系统名称更新失败'));
@@ -168,6 +197,32 @@ const OtherSetting = () => {
       setLoadingInput((loadingInput) => ({
         ...loadingInput,
         SystemName: false,
+      }));
+    }
+  };
+
+  const submitSystemDescription = async () => {
+    if (Array.from(inputs.SystemDescription || '').length > 200) {
+      showError(t('Website description must be 200 characters or fewer.'));
+      return;
+    }
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SystemDescription: true,
+      }));
+      if (
+        await updateOption('SystemDescription', inputs.SystemDescription || '')
+      ) {
+        showSuccess(t('Website description saved'));
+      }
+    } catch (error) {
+      console.error(t('Website description save failed'), error);
+      showError(t('Website description save failed'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SystemDescription: false,
       }));
     }
   };
@@ -299,7 +354,11 @@ const OtherSetting = () => {
           );
           setShowUpdateModal(false);
         } catch (error) {
-          showError(error?.response?.data?.message || error.message || t('一键更新失败'));
+          showError(
+            error?.response?.data?.message ||
+              error.message ||
+              t('一键更新失败'),
+          );
         } finally {
           setLoadingInput((loadingInput) => ({
             ...loadingInput,
@@ -510,6 +569,24 @@ const OtherSetting = () => {
                 loading={loadingInput['SystemName']}
               >
                 {t('设置系统名称')}
+              </Button>
+              <Form.TextArea
+                label={t('Website Description')}
+                placeholder={t(
+                  'A short description for search results and link previews. Leave blank to omit it.',
+                )}
+                field='SystemDescription'
+                onChange={handleInputChange}
+                autosize={{ minRows: 2, maxRows: 4 }}
+              />
+              <Text type='tertiary'>
+                {t('Website description must be 200 characters or fewer.')}
+              </Text>
+              <Button
+                onClick={submitSystemDescription}
+                loading={loadingInput.SystemDescription}
+              >
+                {t('Save website description')}
               </Button>
               <Form.Input
                 label={t('Logo 图片地址')}

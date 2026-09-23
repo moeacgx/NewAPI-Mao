@@ -236,6 +236,7 @@ export type SiteSettings = {
   "theme.frontend": string;
   Notice: string;
   SystemName: string;
+  SystemDescription: string;
   Logo: string;
   Footer: string;
   About: string;

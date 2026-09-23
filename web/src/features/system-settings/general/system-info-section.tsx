@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { applySiteMetadataFromStatus } from '@/lib/site-metadata'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
@@ -58,6 +59,7 @@ const _systemInfoSchema = z.object({
     frontend: z.enum(['default', 'classic']),
   }),
   SystemName: z.string().min(1),
+  SystemDescription: z.string(),
   ServerAddress: z.string().optional(),
   Logo: z.string().url().optional().or(z.literal('')),
   Footer: z.string().optional(),
@@ -90,6 +92,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
         defaultValues.theme?.frontend === 'classic' ? 'classic' : 'default',
     },
     SystemName: normalizeValue(defaultValues.SystemName),
+    SystemDescription: normalizeValue(defaultValues.SystemDescription),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
     Logo: normalizeValue(defaultValues.Logo),
     Footer: normalizeValue(defaultValues.Footer),
@@ -107,6 +110,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     }),
     SystemName: z.string().min(1, {
       error: () => t('System name is required'),
+    }),
+    SystemDescription: z.string().refine((value) => [...value].length <= 200, {
+      error: () => t('Website description must be 200 characters or fewer.'),
     }),
     ServerAddress: z.string().optional(),
     Logo: z.string().url().optional().or(z.literal('')),
@@ -134,10 +140,16 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
           if (key === 'ServerAddress') {
             v = v.replace(/\/+$/, '')
           }
-          await updateOption.mutateAsync({
+          const response = await updateOption.mutateAsync({
             key,
             value: v,
           })
+          if (!response.success) return false
+          if (key === 'SystemName') {
+            applySiteMetadataFromStatus({ system_name: v })
+          } else if (key === 'SystemDescription') {
+            applySiteMetadataFromStatus({ system_description: v })
+          }
           if (key === 'theme.frontend') {
             shouldReloadFrontend = true
           }
@@ -226,6 +238,33 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   </FormItem>
                 )}
               />
+
+              <SettingsFormGridItem span='full'>
+                <FormField
+                  control={form.control}
+                  name='SystemDescription'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Website Description')}</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder={t(
+                            'A short description for search results and link previews. Leave blank to omit it.'
+                          )}
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Website description must be 200 characters or fewer.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </SettingsFormGridItem>
 
               <FormField
                 control={form.control}

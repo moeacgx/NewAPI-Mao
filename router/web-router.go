@@ -55,6 +55,8 @@ func setWebRouter(router *gin.Engine, frontendFS static.ServeFileSystem, indexPa
 
 func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, defaultIndexPage []byte, classicFS static.ServeFileSystem, classicIndexPage []byte, pluginDispatcher ...gin.HandlerFunc) {
 	frontendFS := common.NewThemeAwareFS(defaultFS, classicFS)
+	defaultIndexPage = prepareSiteIndexPage(defaultIndexPage)
+	classicIndexPage = prepareSiteIndexPage(classicIndexPage)
 	currentAssets := currentWebAssetPaths{
 		defaultIndexJS:  findIndexAssetPath(defaultIndexPage, indexJSAssetPattern),
 		defaultIndexCSS: findIndexAssetPath(defaultIndexPage, indexCSSAssetPattern),
@@ -68,6 +70,7 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 		return isRealStaticWebAssetRequest(request, frontendFS)
 	}))
 	router.Use(middleware.Cache())
+	router.Use(serveSiteIndexForRoot(defaultIndexPage, classicIndexPage))
 	router.Use(static.Serve("/", frontendFS))
 	handlers := append([]gin.HandlerFunc{pathAwareCORS()}, pluginDispatcher...)
 	router.NoRoute(append(handlers, func(c *gin.Context) {
@@ -81,11 +84,32 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 		}
 		c.Header("Cache-Control", "no-cache")
 		if common.GetTheme() == "classic" {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", classicIndexPage)
+			c.Data(http.StatusOK, "text/html; charset=utf-8", renderSiteIndexPage(classicIndexPage))
 			return
 		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8", defaultIndexPage)
+		c.Data(http.StatusOK, "text/html; charset=utf-8", renderSiteIndexPage(defaultIndexPage))
 	})...)
+}
+
+func serveSiteIndexForRoot(defaultIndexPage, classicIndexPage []byte) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Request.URL.Path
+		if (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) ||
+			(requestPath != "/" && requestPath != "/index.html") {
+			c.Next()
+			return
+		}
+
+		c.Set(middleware.RouteTagKey, "web")
+		c.Header("Cache-Control", "no-cache")
+		if common.GetTheme() == "classic" {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", renderSiteIndexPage(classicIndexPage))
+			c.Abort()
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", renderSiteIndexPage(defaultIndexPage))
+		c.Abort()
+	}
 }
 
 func findIndexAssetPath(indexPage []byte, pattern *regexp.Regexp) string {

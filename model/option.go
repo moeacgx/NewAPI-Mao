@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
@@ -145,6 +146,7 @@ func InitOptionMap() {
 	common.OptionMap["HomePageContent"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
+	common.OptionMap["SystemDescription"] = ""
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["ServerAddress"] = ""
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
@@ -346,6 +348,11 @@ func SyncOptions(frequency int) {
 
 func validateOptionValue(key string, value string) error {
 	switch key {
+	case "SystemDescription":
+		if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 200 {
+			return errors.New("网站描述不能超过 200 个字符")
+		}
+		return nil
 	case setting.TaskPluginMarketplaceSourcesKey:
 		var sources []setting.TaskPluginMarketplaceSource
 		if err := common.UnmarshalJsonStr(value, &sources); err != nil {

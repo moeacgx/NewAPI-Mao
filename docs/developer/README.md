@@ -4,6 +4,8 @@
 - [官方任务插件原生同步链路对齐](../workflows/2026-09/23_task_plugin_native_sync.md)：固定上游来源、历史阶段边界、Jev 同步端点及验证范围。
 - [原生同步任务用量计费](../workflows/2026-09/23_task_plugin_usage_billing.md)：官方 `u()`、任务美元单位、预扣及实际输入用量结算。
 
+- [网站 SEO 设置](site-seo-settings.md)：浏览器标题、网站描述与分享元数据的配置、公开读取和 HTML 输出安全边界。
+
 - [zzapi 使用日志筛选 .334 发布](../workflows/2026-09/23_zzapi_334_usage_log_release.md)：记录 MAO-4 发布、zzapi 三节点串行更新、备份与验收边界。
 
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。

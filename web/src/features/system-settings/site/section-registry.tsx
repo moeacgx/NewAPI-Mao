@@ -40,6 +40,7 @@ const SITE_SECTIONS = [
             frontend: settings['theme.frontend'] as 'default' | 'classic',
           },
           SystemName: settings.SystemName,
+          SystemDescription: settings.SystemDescription,
           Logo: settings.Logo,
           Footer: settings.Footer,
           About: settings.About,

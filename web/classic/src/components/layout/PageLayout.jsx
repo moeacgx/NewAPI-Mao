@@ -28,18 +28,13 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useTranslation } from 'react-i18next';
-import {
-  API,
-  getLogo,
-  getSystemName,
-  showError,
-  setStatusData,
-} from '../../helpers';
+import { API, getLogo, showError, setStatusData } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
 import { normalizeLanguage } from '../../i18n/language';
 import { isConsolePath } from './headerbar/consoleHeaderBehavior';
+import { applySiteMetadataFromStatus } from '../../helpers/siteMetadata';
 const { Sider, Content, Header } = Layout;
 
 const CLASSIC_FRONTEND_VERSION_KEY = 'classic_frontend_version';
@@ -134,6 +129,7 @@ const PageLayout = () => {
         if (syncClassicFrontendVersion(data?.version)) {
           return;
         }
+        applySiteMetadataFromStatus(data);
         statusDispatch({ type: 'set', payload: data });
         setStatusData(data);
       } else {
@@ -147,10 +143,6 @@ const PageLayout = () => {
   useEffect(() => {
     loadUser();
     loadStatus().catch(console.error);
-    let systemName = getSystemName();
-    if (systemName) {
-      document.title = systemName;
-    }
     let logo = getLogo();
     if (logo) {
       let linkElement = document.querySelector("link[rel~='icon']");
