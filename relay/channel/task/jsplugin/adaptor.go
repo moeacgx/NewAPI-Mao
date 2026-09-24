@@ -586,6 +586,20 @@ func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *r
 	}
 	if err := a.applyCompletionUsageFacts(immediate, facts, cmp.Or(info.UpstreamModelName, info.OriginModelName)); err != nil {
 		logger.LogWarn(c, fmt.Sprintf("task plugin %s completion usage rejected; retaining reserved quota", a.plugin.Meta.Key))
+		return response, nil
+	}
+	// 统计读取未经额度饱和的原始事实，不能把计费的截断值当作真实 Token。
+	if rawFacts, ok := facts.(map[string]any); ok {
+		actualFacts := make(map[string]any, 2)
+		for _, field := range []string{"input_tokens", "output_tokens"} {
+			if value, exists := rawFacts[field]; exists {
+				actualFacts[field] = value
+				if number, numeric := usageNumber(value, false); numeric {
+					actualFacts[field] = number
+				}
+			}
+		}
+		response.ActualTokenUsage = service.TaskTokenUsage(actualFacts)
 	}
 	return response, nil
 }

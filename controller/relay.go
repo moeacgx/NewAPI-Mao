@@ -484,6 +484,7 @@ func RelayTask(c *gin.Context) {
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
 		var nativeBody any
+		var taskUsage *dto.Usage
 		_, nativeRoute := c.Get(pluginruntime.ContextKeyPinnedRoute)
 		if result.PluginResponse != nil {
 			if nativeRoute {
@@ -494,6 +495,10 @@ func RelayTask(c *gin.Context) {
 					taskErr.NoRetry = true
 					respondTaskError(c, taskErr)
 					return
+				}
+				// 只记录成功同步结果的实际用量，不把预扣估算或供应商计费单位当作 Token。
+				if immediate := result.PluginResponse.Immediate; immediate != nil && immediate.Status == model.TaskStatusSuccess {
+					taskUsage = result.PluginResponse.ActualTokenUsage
 				}
 				// 上游任务提交后若费用上涨，先补足预留再越过持久化边界。
 				if relayInfo.Billing != nil {
@@ -519,7 +524,12 @@ func RelayTask(c *gin.Context) {
 			nativeTaskDurable = nativeRoute
 		}
 		settleErr := service.SettleBilling(c, relayInfo, result.Quota)
-		service.AttachChannelMetricUsageAfterSettlement(c, service.ChannelMetricUsage{}, result.Quota, settleErr)
+		metricUsage := service.ChannelMetricUsage{}
+		if taskUsage != nil {
+			metricUsage.InputTokensTotal = int64(taskUsage.PromptTokens)
+			metricUsage.OutputTokens = int64(taskUsage.CompletionTokens)
+		}
+		service.AttachChannelMetricUsageAfterSettlement(c, metricUsage, result.Quota, settleErr)
 		service.FinishChannelMetricAttempt(c, relayInfo, nil, false, "")
 		if settleErr != nil {
 			common.SysError("settle task billing error: " + settleErr.Error())
@@ -529,7 +539,7 @@ func RelayTask(c *gin.Context) {
 				return
 			}
 		}
-		service.LogTaskConsumption(c, relayInfo)
+		service.LogTaskConsumption(c, relayInfo, taskUsage)
 		if result.PluginResponse != nil {
 			if nativeRoute {
 				c.JSON(http.StatusOK, nativeBody)

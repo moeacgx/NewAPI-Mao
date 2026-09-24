@@ -39,13 +39,13 @@ func TestJevNativeIntegration(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.PromptAuditConfig{}, &model.RequestArchiveConfig{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.PromptAuditConfig{}, &model.PromptAuditEndpoint{}, &model.RequestArchiveConfig{}, &model.RequestArchiveTarget{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
 	oldRegistry, oldLogDB := jsplugin.DefaultRegistry, model.LOG_DB
 	oldCache, oldBatch, oldLog := common.MemoryCacheEnabled, common.BatchUpdateEnabled, common.LogConsumeEnabled
 	oldQuotaPerUnit := common.QuotaPerUnit
 	jsplugin.DefaultRegistry = jsplugin.NewRegistry()
 	model.LOG_DB = db
-	common.MemoryCacheEnabled, common.BatchUpdateEnabled, common.LogConsumeEnabled = false, false, false
+	common.MemoryCacheEnabled, common.BatchUpdateEnabled, common.LogConsumeEnabled = false, false, true
 	common.QuotaPerUnit = 500000
 	t.Cleanup(func() {
 		jsplugin.DefaultRegistry = oldRegistry
@@ -155,6 +155,11 @@ func TestJevNativeIntegration(t *testing.T) {
 		assert.EqualValues(t, 1000000-21, actualUser.Quota)
 		assert.EqualValues(t, 1000000-21, actualToken.RemainQuota)
 		assert.EqualValues(t, 21, actualToken.UsedQuota)
+		var consume model.Log
+		require.NoError(t, db.Where("type = ?", model.LogTypeConsume).First(&consume).Error)
+		assert.Equal(t, 1000, consume.PromptTokens)
+		assert.Zero(t, consume.CompletionTokens, "官方旧插件未上报输出量，不能从响应正文推测")
+		assert.Equal(t, 21, consume.Quota)
 	})
 	t.Run("不保留结果但保留账务及版本归因", func(t *testing.T) {
 		require.NotEmpty(t, successTask.TaskID)
