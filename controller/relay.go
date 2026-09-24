@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -406,9 +407,35 @@ func RelayTask(c *gin.Context) {
 	var result *relay.TaskSubmitResult
 	var taskErr *taskdto.TaskError
 	nativeTaskDurable := false
+	pinnedValue, _ := c.Get(pluginruntime.ContextKeyPinnedRoute)
+	pinned, pinnedRoute := pinnedValue.(pluginruntime.PinnedRoute)
+	synchronousPlugin := pinnedRoute && pinned.Route.RetainResult != nil && !*pinned.Route.RetainResult
 	defer func() {
 		if taskErr != nil && !nativeTaskDurable && relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
+		}
+		// 模型广场有独立采样链；只计真正调用供应商的同步终态，排除本地错误和取消。
+		if !synchronousPlugin || relayInfo.IsChannelTest || relayInfo.TaskRelayInfo == nil ||
+			!relayInfo.UpstreamRequestSent || c.Request.Context().Err() != nil {
+			return
+		}
+		if result != nil && result.PluginResponse != nil && result.PluginResponse.Immediate != nil &&
+			result.PluginResponse.Immediate.Status == model.TaskStatusFailure {
+			code := types.ErrorCode("plugin_task_failed")
+			if result.PluginResponse.Immediate.Code != 0 {
+				code = types.ErrorCode(strconv.Itoa(result.PluginResponse.Immediate.Code))
+			}
+			perfmetrics.RecordRelayFailure(relayInfo, types.NewErrorWithStatusCode(errors.New(result.PluginResponse.Immediate.Reason), code, http.StatusBadGateway))
+		} else if taskErr != nil && !taskErr.LocalError {
+			code := taskErr.PerfErrorCode
+			if code == "" {
+				code = taskErr.Code
+			}
+			message := taskErr.Error
+			if taskErr.PerfErrorMessage != "" {
+				message = errors.New(taskErr.PerfErrorMessage)
+			}
+			perfmetrics.RecordRelayFailure(relayInfo, types.NewErrorWithStatusCode(message, types.ErrorCode(code), taskErr.StatusCode))
 		}
 	}()
 
@@ -542,6 +569,14 @@ func RelayTask(c *gin.Context) {
 		service.LogTaskConsumption(c, relayInfo, taskUsage)
 		if result.PluginResponse != nil {
 			if nativeRoute {
+				if synchronousPlugin && !relayInfo.IsChannelTest && result.PluginResponse.Immediate != nil &&
+					result.PluginResponse.Immediate.Status == model.TaskStatusSuccess && c.Request.Context().Err() == nil {
+					var outputTokens int64
+					if taskUsage != nil {
+						outputTokens = int64(taskUsage.CompletionTokens)
+					}
+					perfmetrics.RecordRelaySample(relayInfo, true, outputTokens)
+				}
 				c.JSON(http.StatusOK, nativeBody)
 				return
 			}
