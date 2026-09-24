@@ -97,6 +97,11 @@ buildSubmitRequest → HTTP/业务状态 → parseSubmitResponse
   计费沿用既定饱和安全规则；统计在饱和前检查原始数量，异常统计不得反向修改费用。
 - 响应中的 `usage`、完成 facts、数据库 `prompt_tokens/completion_tokens` 和渠道指标是不同出口。
   需要 Token 统计的插件必须核对整个链路，包含按次收费和输出价格为 0 的配置。
+- 消费日志、渠道指标和模型广场 `pkg/perf_metrics` 是三条独立链路；渠道 collector 或 Token 日志通过
+  不代表模型广场已采样。对 `retainResult:false` 原生同步任务，分别验证成功、上游失败、策略过滤、
+  客户端取消、宿主本地失败和异步 pending 的样本边界。非流式任务的整体延迟/TPS 与 TTFT=0 要写入验收记录。
+- 任务记录是账务及插件版本留痕。`retainResult:false` 仍保留任务账务行，只清理私有结果；Classic 可显示
+  “结果未保留”，不要通过前端分页过滤或删除任务行来隐藏它。
 
 ## 验证与交付门禁
 

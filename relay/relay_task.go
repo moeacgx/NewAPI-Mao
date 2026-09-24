@@ -212,6 +212,9 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 // 构建/发送/解析上游请求 → 提交后计费调整(AdjustBillingOnSubmit)。
 // 控制器负责 defer Refund 和成功后 Settle。
 func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult *TaskSubmitResult, returnedErr *dto.TaskError) {
+	if info.TaskRelayInfo != nil {
+		info.UpstreamRequestSent = false
+	}
 	defer func() {
 		if _, ok := c.Get("official_task_plugin"); ok && returnedErr != nil {
 			returnedErr.Message = "官方任务插件请求失败（" + returnedErr.Code + "）"
@@ -426,7 +429,12 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 	if resp != nil && ((!isPlugin && resp.StatusCode != http.StatusOK) || (isPlugin && (resp.StatusCode < 200 || resp.StatusCode >= 300))) {
 		defer resp.Body.Close()
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		var payload map[string]any
+		if common.Unmarshal(responseBody, &payload) == nil {
+			taskErr.PerfErrorCode, taskErr.PerfErrorMessage = upstreamTaskErrorClassification(payload)
+		}
+		return nil, taskErr
 	}
 
 	// 10. 返回 OtherRatios 给下游（header 必须在 DoResponse 写 body 之前设置）
@@ -496,6 +504,33 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 		Platform:       platform,
 		Quota:          finalQuota,
 	}, nil
+}
+
+func upstreamTaskErrorClassification(payload map[string]any) (string, string) {
+	if payload == nil {
+		return "", ""
+	}
+	if nested, ok := payload["error"].(map[string]any); ok {
+		code, message := upstreamTaskErrorClassification(nested)
+		if code != "" || message != "" {
+			return code, message
+		}
+	}
+	var code string
+	for _, key := range []string{"error_code", "code", "type"} {
+		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
+			code = strings.TrimSpace(value)
+			break
+		}
+	}
+	var message string
+	for _, key := range []string{"message", "error_message", "description"} {
+		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
+			message = strings.TrimSpace(value)
+			break
+		}
+	}
+	return code, message
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。

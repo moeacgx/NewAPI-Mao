@@ -12,6 +12,10 @@ type TaskError struct {
 	StatusCode int    `json:"-"`
 	LocalError bool   `json:"-"`
 	Error      error  `json:"-"`
+	// PerfErrorCode/PerfErrorMessage 保留上游错误的安全分类信息，供性能统计过滤使用。
+	// 它们不参与对客户端的错误响应。
+	PerfErrorCode    string `json:"-"`
+	PerfErrorMessage string `json:"-"`
 }
 
 type TaskData interface {
@@ -55,6 +59,8 @@ type TaskDto struct {
 	Data            json.RawMessage `json:"data"`
 	ImageURLs       []string        `json:"image_urls,omitempty"`
 	ResultExpired   bool            `json:"result_expired,omitempty"`
+	// ResultDiscarded 标记已直接返回但未保存的同步结果，账务任务仍保留。
+	ResultDiscarded bool `json:"result_discarded,omitempty"`
 }
 
 type FetchReq struct {

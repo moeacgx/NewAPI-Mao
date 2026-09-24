@@ -462,6 +462,9 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, bod
 	bounded := *client
 	bounded.Timeout = 60 * time.Second
 	bounded.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	if info.TaskRelayInfo != nil {
+		info.UpstreamRequestSent = true
+	}
 	return bounded.Do(req)
 }
 
@@ -478,7 +481,7 @@ func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *r
 		}
 	}()
 	if !streaming && acceptedStream {
-		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("unexpected SSE response for a JSON submission"), "plugin_submit_response_invalid", http.StatusBadGateway)
+		return nil, service.TaskErrorWrapper(fmt.Errorf("unexpected SSE response for a JSON submission"), "plugin_submit_response_invalid", http.StatusBadGateway)
 	}
 	if streaming {
 		// Every failure after accepting this stream is non-retryable: the

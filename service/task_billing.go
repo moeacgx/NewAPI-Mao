@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -113,7 +114,12 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo, usage *kitd
 	}
 	attachQuotaSaturation(c, info, other)
 	AppendTaskPluginContextAuditInfo(c, other)
+	var useTimeSeconds int
+	if !info.StartTime.IsZero() {
+		useTimeSeconds = max(0, int(time.Since(info.StartTime)/time.Second))
+	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
+		UseTimeSeconds:   useTimeSeconds,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		ChannelId:        info.ChannelId,

@@ -118,6 +118,7 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			item = relay.TaskModel2DtoForUser(task)
 		}
 		item.GroupName = taskGroupDisplayName(task.Group, groupNames)
+		item.ResultDiscarded = task.PrivateData.ResultDiscarded
 		prepareImageTaskLog(item, task)
 		result[i] = item
 	}

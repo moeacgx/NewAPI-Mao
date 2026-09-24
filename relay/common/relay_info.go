@@ -931,9 +931,11 @@ type OriginTaskRef struct {
 }
 
 type TaskRelayInfo struct {
-	OriginTasks  []OriginTaskRef
-	Action       string
-	OriginTaskID string
+	// UpstreamRequestSent 区分本地配置/预扣失败与真正进入供应商传输阶段的请求。
+	UpstreamRequestSent bool
+	OriginTasks         []OriginTaskRef
+	Action              string
+	OriginTaskID        string
 	// 保存已授权源任务的倍率快照，供每次价格重建后恢复，避免重试累乘。
 	OriginTaskOtherRatios map[string]float64
 	// PublicTaskID 是提交时预生成的 task_xxxx 格式公开 ID，

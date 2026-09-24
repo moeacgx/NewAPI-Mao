@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -125,7 +126,8 @@ func TestLogTaskConsumptionRecordsActualTokens(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/systemone", nil)
 	c.Set(common.RequestIdKey, "task-token-usage")
 	info := &relaycommon.RelayInfo{
-		UserId: user.Id, OriginModelName: "Typesafe-jev", UsingGroup: "default",
+		StartTime: time.Now().Add(-3 * time.Second),
+		UserId:    user.Id, OriginModelName: "Typesafe-jev", UsingGroup: "default",
 		ChannelMeta:   &relaycommon.ChannelMeta{ChannelId: channel.Id},
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
 		PriceData:     types.PriceData{Quota: 500, ModelPrice: 0.001},
@@ -136,6 +138,7 @@ func TestLogTaskConsumptionRecordsActualTokens(t *testing.T) {
 	assert.Equal(t, 486, log.PromptTokens)
 	assert.Equal(t, 70, log.CompletionTokens)
 	assert.Equal(t, 500, log.Quota)
+	assert.Equal(t, 3, log.UseTime)
 	var other map[string]any
 	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
 	assert.Equal(t, map[string]any{"input_tokens": 486.0, "output_tokens": 70.0}, other["task_token_usage"])
