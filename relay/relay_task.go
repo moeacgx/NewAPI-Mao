@@ -430,9 +430,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (submitResult 
 		defer resp.Body.Close()
 		responseBody, _ := io.ReadAll(resp.Body)
 		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		// 对客户端仍统一脱敏；内部过滤保留纯文本及未识别包裹的安全消息。
+		taskErr.PerfErrorMessage = common.MaskSensitiveInfo(string(responseBody))
 		var payload map[string]any
 		if common.Unmarshal(responseBody, &payload) == nil {
-			taskErr.PerfErrorCode, taskErr.PerfErrorMessage = upstreamTaskErrorClassification(payload)
+			code, message := upstreamTaskErrorClassification(payload)
+			taskErr.PerfErrorCode = code
+			if message != "" {
+				taskErr.PerfErrorMessage = common.MaskSensitiveInfo(message)
+			}
 		}
 		return nil, taskErr
 	}
@@ -511,20 +517,26 @@ func upstreamTaskErrorClassification(payload map[string]any) (string, string) {
 		return "", ""
 	}
 	if nested, ok := payload["error"].(map[string]any); ok {
-		code, message := upstreamTaskErrorClassification(nested)
-		if code != "" || message != "" {
-			return code, message
+		payload = nested
+	} else if entries, ok := payload["errors"].([]any); ok && len(entries) > 0 {
+		if first, ok := entries[0].(map[string]any); ok {
+			payload = first
 		}
 	}
 	var code string
 	for _, key := range []string{"error_code", "code", "type"} {
-		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
+		switch value := payload[key].(type) {
+		case string:
 			code = strings.TrimSpace(value)
+		case float64:
+			code = strconv.FormatFloat(value, 'f', -1, 64)
+		}
+		if code != "" {
 			break
 		}
 	}
 	var message string
-	for _, key := range []string{"message", "error_message", "description"} {
+	for _, key := range []string{"message", "error_message", "description", "error"} {
 		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
 			message = strings.TrimSpace(value)
 			break

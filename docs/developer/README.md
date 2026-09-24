@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [zzapi 同步任务性能 .337 发布](../workflows/2026-09/24_zzapi_337_release.md)：同步任务性能采样修复、固定版本发布和三应用逐节点更新。
+
 - [Jev .336 发布与主站滚动更新](../workflows/2026-09/24_jev_336_release.md)：插件0.2.3与实际Token日志修复的发布、逐节点验证和回退。
 
 - [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。

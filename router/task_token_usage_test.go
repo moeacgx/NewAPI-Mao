@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -114,11 +115,12 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 			require.NoError(t, db.Create(&token).Error)
 			var upstreamBody string
 			upstreamStatus := http.StatusOK
+			upstreamContentType := "application/json"
 			upstreamCalls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				upstreamCalls++
 				assert.Equal(t, "/run", r.URL.Path)
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Type", upstreamContentType)
 				w.WriteHeader(upstreamStatus)
 				_, _ = io.WriteString(w, upstreamBody)
 			}))
@@ -137,9 +139,14 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 			before, err := perfmetrics.QuerySummaryAll(24, []string{group.Code})
 			require.NoError(t, err)
 			var baselineCount int64
+			var baselineSuccess int64
 			for _, metric := range before.Models {
 				if metric.ModelName == "token-model" {
 					baselineCount = metric.RequestCount
+					detail, queryErr := perfmetrics.Query(perfmetrics.QueryParams{Model: "token-model", Group: group.Code, Hours: 24})
+					require.NoError(t, queryErr)
+					require.Len(t, detail.Groups, 1)
+					baselineSuccess = int64(math.Round(detail.Groups[0].SuccessRate * float64(baselineCount) / 100))
 				}
 			}
 			assertCount := func(want int64) {
@@ -150,6 +157,8 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 				for _, metric := range summary.Models {
 					if metric.ModelName == "token-model" {
 						count = metric.RequestCount
+						wantRate := float64(baselineSuccess+min(want, 4)) / float64(baselineCount+want) * 100
+						assert.Equal(t, math.Round(wantRate*100)/100, metric.SuccessRate)
 					}
 				}
 				assert.Equal(t, baselineCount+want, count)
@@ -209,31 +218,60 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 			upstreamBody = `{"error":{"code":"cyber_policy","message":"blocked"}}`
 			assert.Equal(t, http.StatusBadGateway, send(`{"model":"token-model"}`).Code)
 			assertCount(5)
+			upstreamStatus = http.StatusInternalServerError
+			upstreamBody = "flagged for possible biological risk"
+			policyResponse := send(`{"model":"token-model"}`)
+			assert.Equal(t, http.StatusInternalServerError, policyResponse.Code)
+			assert.NotContains(t, policyResponse.Body.String(), upstreamBody)
+			assertCount(5)
+			upstreamBody = `{"success":false,"errors":[{"code":"cyber_policy","message":"blocked"}]}`
+			assert.Equal(t, http.StatusInternalServerError, send(`{"model":"token-model"}`).Code)
+			assertCount(5)
+			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.failure_filter_rules": `[{"id":"task-message","name":"task-message","enabled":true,"field":"message","mode":"contains","value":"provider policy blocked"}]`}))
+			for _, body := range []string{"provider policy blocked", `{"error":"provider policy blocked"}`, `{"errors":[{"code":1001,"message":"provider policy blocked"}]}`} {
+				upstreamBody = body
+				response := send(`{"model":"token-model"}`)
+				assert.Equal(t, http.StatusInternalServerError, response.Code)
+				assert.NotContains(t, response.Body.String(), "provider policy blocked")
+				assertCount(5)
+			}
+			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.failure_filter_rules": "[]"}))
+			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.failure_filter_rules": `[{"id":"task-code","name":"task-code","enabled":true,"field":"error_code","mode":"exact","value":"1001"}]`}))
+			upstreamBody = `{"errors":[{"code":1001,"message":"numeric provider policy"}]}`
+			assert.Equal(t, http.StatusInternalServerError, send(`{"model":"token-model"}`).Code)
+			assertCount(5)
+			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.failure_filter_rules": "[]"}))
 			upstreamStatus = http.StatusOK
 			upstreamBody = `{"invalid":true}`
 			assert.Equal(t, http.StatusBadGateway, send(`{"model":"token-model"}`).Code)
 			assertCount(6)
+			upstreamContentType = "text/event-stream"
+			upstreamBody = "data: {}\n\n"
+			assert.Equal(t, http.StatusBadGateway, send(`{"model":"token-model"}`).Code)
+			assertCount(7)
+			upstreamContentType = "application/json"
+			upstreamBody = `{"invalid":true}`
 			// 配置过滤排除上游状态错误，但不应影响计费失败退款链。
 			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.failure_filter_rules": `[{"id":"task-http","name":"task-http","enabled":true,"field":"error_code","mode":"exact","value":"fail_to_fetch_task"}]`}))
 			upstreamStatus = http.StatusBadGateway
 			assert.Equal(t, http.StatusBadGateway, send(`{"model":"token-model"}`).Code)
-			assertCount(6)
+			assertCount(7)
 			callsBefore := upstreamCalls
 			assert.Equal(t, http.StatusBadRequest, send(`{}`).Code)
 			assert.Equal(t, callsBefore, upstreamCalls)
-			assertCount(6)
+			assertCount(7)
 			// 未发供应商请求的余额不足不能污染模型可靠性。
 			require.NoError(t, db.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", 0).Error)
 			balance = 0
 			assert.Equal(t, http.StatusForbidden, send(`{"model":"token-model"}`).Code)
 			assert.Equal(t, callsBefore, upstreamCalls)
-			assertCount(6)
+			assertCount(7)
 			balance = 1000000
 			require.NoError(t, db.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", balance).Error)
 			upstreamStatus = http.StatusOK
 			upstreamBody = `{"failed":true}`
 			assert.Equal(t, http.StatusBadGateway, send(`{"model":"token-model"}`).Code)
-			assertCount(7)
+			assertCount(8)
 			upstreamBody = `{"usage":{"input_tokens":486,"output_tokens":70}}`
 			// 客户端取消即便发生于供应商调用阶段也不计入失败率。
 			client := service.GetHttpClient()
@@ -250,7 +288,7 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 				var charged model.User
 				return db.First(&charged, user.Id).Error == nil && charged.Quota == balance
 			}, 2*time.Second, 10*time.Millisecond)
-			assertCount(7)
+			assertCount(8)
 			// 广场的两个公开查询面都必须能读取同步任务样本。
 			for _, path := range []string{"/api/perf-metrics/summary?hours=24", "/api/perf-metrics?model=token-model&hours=24"} {
 				response := httptest.NewRecorder()
@@ -263,7 +301,7 @@ func TestNativeTaskActualTokenLogs(t *testing.T) {
 				// retainResult:false 下偶然返回异步任务也不能把提交成功算成推理成功。
 				upstreamBody = `{"pending":true}`
 				assert.Equal(t, http.StatusOK, send(`{"model":"token-model"}`).Code)
-				assertCount(7)
+				assertCount(8)
 			}
 		})
 	}
