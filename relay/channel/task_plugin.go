@@ -4,6 +4,7 @@ import (
 	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -14,6 +15,8 @@ type TaskSubmitResponse struct {
 	ClientResponse any
 	Immediate      *relaycommon.TaskInfo
 	PluginState    []byte
+	// ActualTokenUsage 只用于本次同步请求的统计，不持久化或参与计费。
+	ActualTokenUsage *dto.Usage `json:"-"`
 }
 
 type TaskArtifact struct {

@@ -248,7 +248,7 @@ func TestTaskPluginSubmitPinnedPollingAndRefund(t *testing.T) {
 	assert.Equal(t, 5000, result.Quota, "8 秒用量不得被错误当作按次价格的倍率")
 	require.NoError(t, persistOfficialPluginTask(c, info, result))
 	require.NoError(t, service.SettleBilling(c, info, result.Quota))
-	service.LogTaskConsumption(c, info)
+	service.LogTaskConsumption(c, info, nil)
 	var task model.Task
 	require.NoError(t, model.DB.Where("task_id = ?", info.PublicTaskID).First(&task).Error)
 	assert.Equal(t, pin.SourceHash, task.PrivateData.Execution.TaskPlugin.SourceHash)

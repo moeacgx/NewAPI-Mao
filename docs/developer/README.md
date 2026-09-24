@@ -1,6 +1,7 @@
 # NewAPI-Mao 开发文档
 
 - [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。
+- [原生同步任务 Token 统计修复](../workflows/2026-09/24_task_token_usage.md)：实际输入输出用量进入消费日志与渠道指标，保持计费规则。
 
 - [zzapi 原生任务插件 .335 发布](../workflows/2026-09/24_zzapi_335_release.md)：版本、固定镜像、逐节点部署与回滚边界。
 

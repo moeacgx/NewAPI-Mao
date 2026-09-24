@@ -14,15 +14,49 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
+// TaskTokenUsage 只转换同步成功响应的实际 token 事实，不使用预估量或任务计费单位。
+func TaskTokenUsage(facts map[string]any) *kitdto.Usage {
+	usage := &kitdto.Usage{}
+	for _, field := range []string{"input_tokens", "output_tokens"} {
+		value, exists := facts[field]
+		if !exists {
+			continue
+		}
+		number, ok := value.(float64)
+		if !ok || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 || number > math.MaxInt32 || math.Trunc(number) != number {
+			common.SysError("忽略同步任务的非法实际 token 用量字段：" + field)
+			continue
+		}
+		// 已验证为非负 int32 整数，不能用额度饱和值冒充上游真实 token 数。
+		if field == "input_tokens" {
+			usage.PromptTokens = int(number)
+			usage.HasPromptTokens = true
+		} else {
+			usage.CompletionTokens = int(number)
+			usage.HasCompletionTokens = true
+		}
+	}
+	if !usage.HasPromptTokens && !usage.HasCompletionTokens {
+		return nil
+	}
+	// 导出统计仍以 int 相加；统一限制整组用量，避免 32 位主机得到负数。
+	if int64(usage.PromptTokens)+int64(usage.CompletionTokens) > math.MaxInt32 {
+		common.SysError("忽略同步任务的实际 token 用量：输入与输出总和超出日志整数上限")
+		return nil
+	}
+	return usage
+}
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
-func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
+func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo, usage *kitdto.Usage) {
 	tokenName := c.GetString("token_name")
 	logContent := fmt.Sprintf("操作 %s", info.Action)
 	// 支持任务仅按次计费
@@ -61,17 +95,35 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["task_usage_billing"] = true
 		other["usage_facts"] = snap.UsageFacts
 	}
+	var promptTokens, completionTokens int
+	if usage != nil {
+		actualTokens := make(map[string]int, 2)
+		if usage.HasPromptTokens {
+			promptTokens = usage.PromptTokens
+			actualTokens["input_tokens"] = promptTokens
+		}
+		if usage.HasCompletionTokens {
+			completionTokens = usage.CompletionTokens
+			actualTokens["output_tokens"] = completionTokens
+		}
+		if len(actualTokens) > 0 {
+			// 只记录存在的字段，保留显式零值与缺失用量的区别。
+			other["task_token_usage"] = actualTokens
+		}
+	}
 	attachQuotaSaturation(c, info, other)
 	AppendTaskPluginContextAuditInfo(c, other)
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-		ChannelId: info.ChannelId,
-		ModelName: info.OriginModelName,
-		TokenName: tokenName,
-		Quota:     info.PriceData.Quota,
-		Content:   logContent,
-		TokenId:   info.TokenId,
-		Group:     info.UsingGroup,
-		Other:     other,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		ChannelId:        info.ChannelId,
+		ModelName:        info.OriginModelName,
+		TokenName:        tokenName,
+		Quota:            info.PriceData.Quota,
+		Content:          logContent,
+		TokenId:          info.TokenId,
+		Group:            info.UsingGroup,
+		Other:            other,
 	})
 	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.PriceData.Quota)
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
