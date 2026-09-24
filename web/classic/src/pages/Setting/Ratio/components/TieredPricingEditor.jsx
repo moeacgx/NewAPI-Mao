@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Banner,
   Button,
@@ -340,13 +340,13 @@ function ConditionRow({ cond, onChange, onRemove, t }) {
 
 function PriceInput({ unitCost, field, index, onUpdate, placeholder }) {
   const priceFromModel = unitCostToPrice(unitCost);
-  const [text, setText] = useState(priceFromModel === 0 ? '' : String(priceFromModel));
+  const [text, setText] = useState(String(priceFromModel));
 
   useEffect(() => {
     const current = Number(text);
     if (text === '' && priceFromModel === 0) return;
     if (!Number.isNaN(current) && current === priceFromModel) return;
-    setText(priceFromModel === 0 ? '' : String(priceFromModel));
+    setText(String(priceFromModel));
   }, [priceFromModel]);
 
   const handleChange = (val) => {
@@ -1388,6 +1388,12 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
   const [audioOutputTokens, setAudioOutputTokens] = useState(0);
 
   const currentRequestRuleExpr = requestRuleExpr || '';
+  // 区分本地编辑的回传与保存后的外部回填，避免重置小数草稿和编辑模式。
+  const syncedConfig = useRef({
+    name: model?.name,
+    expr: currentExpr,
+    rules: currentRequestRuleExpr,
+  });
   const parsedRequestRuleGroups = useMemo(
     () => tryParseRequestRuleExpr(currentRequestRuleExpr),
     [currentRequestRuleExpr],
@@ -1405,10 +1411,23 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
 
   const handleRequestRuleGroupsChange = useCallback((nextGroups) => {
     setRequestRuleGroups(nextGroups);
-    onRequestRuleExprChange(buildRequestRuleExpr(nextGroups));
+    const rules = buildRequestRuleExpr(nextGroups);
+    syncedConfig.current.rules = rules;
+    onRequestRuleExprChange(rules);
   }, [onRequestRuleExprChange]);
 
   useEffect(() => {
+    const previous = syncedConfig.current;
+    if (
+      previous.name === model?.name &&
+      previous.expr === currentExpr &&
+      previous.rules === currentRequestRuleExpr
+    ) return;
+    syncedConfig.current = {
+      name: model?.name,
+      expr: currentExpr,
+      rules: currentRequestRuleExpr,
+    };
     const parsed = tryParseVisualConfig(currentExpr);
     if (parsed) {
       setEditorMode('visual');
@@ -1423,7 +1442,7 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
       setVisualConfig(createDefaultVisualConfig());
       setRawExpr('');
     }
-  }, [model?.name]);
+  }, [model?.name, currentExpr, currentRequestRuleExpr]);
 
   const effectiveExpr = useMemo(() => {
     if (editorMode === 'visual') {
@@ -1435,12 +1454,16 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
 
   const handleVisualChange = useCallback((newConfig) => {
     setVisualConfig(newConfig);
-    onExprChange(generateExprFromVisualConfig(newConfig));
+    const expr = generateExprFromVisualConfig(newConfig);
+    syncedConfig.current.expr = expr;
+    onExprChange(expr);
   }, [onExprChange]);
 
   const handleRawChange = useCallback((val) => {
     setRawExpr(val);
     const { billingExpr, requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(val);
+    syncedConfig.current.expr = billingExpr;
+    syncedConfig.current.rules = ruleStr;
     onExprChange(billingExpr);
     onRequestRuleExprChange(ruleStr);
   }, [onExprChange, onRequestRuleExprChange]);
@@ -1462,6 +1485,7 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
         }
         const parsedGroups = tryParseRequestRuleExpr(ruleStr);
         setRequestRuleGroups(parsedGroups || []);
+        syncedConfig.current.rules = ruleStr;
         onRequestRuleExprChange(ruleStr);
       } else {
         const expr = currentExpr || generateExprFromVisualConfig(visualConfig);
@@ -1487,6 +1511,8 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
         setVisualConfig(null);
       }
       setRequestRuleGroups(presetGroups);
+      syncedConfig.current.expr = preset.expr;
+      syncedConfig.current.rules = ruleExpr;
       onExprChange(preset.expr);
       onRequestRuleExprChange(ruleExpr);
     },

@@ -1,13 +1,16 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
@@ -16,6 +19,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+var securityAuditClientSequence atomic.Uint64
 
 type securityAuditPermissionResponse struct {
 	Success bool   `json:"success"`
@@ -215,8 +220,9 @@ func TestSecurityAuditRoutesApplyNoStoreBeforeGlobalRateLimitAndRootAuth(t *test
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
+	engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true) })
 	SetApiRouter(engine)
-	const clientAddress = "203.0.113.77:12345"
+	clientAddress := fmt.Sprintf("[2001:db8:4::%x]:12345", securityAuditClientSequence.Add(1))
 
 	unauthorized := httptest.NewRequest(http.MethodPut, "/api/security-audit/config", nil)
 	unauthorized.RemoteAddr = clientAddress
@@ -228,13 +234,21 @@ func TestSecurityAuditRoutesApplyNoStoreBeforeGlobalRateLimitAndRootAuth(t *test
 
 	rateLimited := httptest.NewRequest(http.MethodPut, "/api/security-audit/config", nil)
 	rateLimited.RemoteAddr = clientAddress
-	rateLimited.Header.Set("Authorization", securityAuditAuthorization(t, root.Id))
 	rateLimitedRecorder := httptest.NewRecorder()
 	engine.ServeHTTP(rateLimitedRecorder, rateLimited)
 	require.Equal(t, http.StatusTooManyRequests, rateLimitedRecorder.Code,
 		"the audit subtree must invoke the global API limiter exactly once per request")
 	require.Contains(t, rateLimitedRecorder.Header().Get("Cache-Control"), "no-store")
 	require.NotEmpty(t, rateLimitedRecorder.Header().Get("Retry-After"))
+
+	// Root 管理请求绕过已耗尽的 GA，仍执行业务校验并禁止缓存响应。
+	rootRequest := httptest.NewRequest(http.MethodPut, "/api/security-audit/config", nil)
+	rootRequest.RemoteAddr = clientAddress
+	rootRequest.Header.Set("Authorization", securityAuditAuthorization(t, root.Id))
+	rootRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(rootRecorder, rootRequest)
+	require.Equal(t, http.StatusBadRequest, rootRecorder.Code)
+	require.Contains(t, rootRecorder.Header().Get("Cache-Control"), "no-store")
 }
 
 func TestSecurityAuditChannelOptionsContainOnlyRealChannels(t *testing.T) {

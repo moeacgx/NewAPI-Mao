@@ -8,6 +8,13 @@
 负载中的额外 `detection_source` 尚未在旧模块清单中声明为模板变量；自定义模板仍使用已有
 `reason` 或 `comparison`。详见[模型校验扩展](upstream-model-guard.md)。
 
+## 管理请求限流
+
+`/api/notification/*` 与 `/api/extensions/:id/notification-events` 继续要求 Root；
+有效后台会话或管理 PAT 豁免这些管理请求的 GA/CT，保留权限、请求体上限和业务校验。
+这不改变 Telegram 投递限速或 429 退避。完整边界见
+[管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)。
+
 ## 内置事件
 
 内置事件定义必须同时提供事件值、显示名称、默认模板、变量白名单和示例负载。当前核心事件包括：

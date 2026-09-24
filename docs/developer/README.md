@@ -1,6 +1,13 @@
 # NewAPI-Mao 开发文档
 
+- [本地待交付修复 .338 整合与 maolaoapi 发布](../workflows/2026-09/25_pending_fixes_338_release.md)：零价、缓存恢复、用量与思考日志、管理员限流、插件探测及逐节点部署。
+
+- [管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)：后台管理员限流豁免及个人安全流程边界。
+- [任务插件渠道测试能力判断](../workflows/2026-09/24_task_plugin_channel_test_guard.md)：通用测试返回不支持，Jev 使用 `/v1/systemone`。
+
 - [充值日志不记录或返回 IP](../workflows/2026-09/25_topup_logs_without_ip.md)：停止新充值日志 IP 写入，并在共用查询出口清理历史充值 IP，保留金额审计。
+
+- [Claude 思考参数日志恢复](../workflows/2026-09/24_claude_thinking_usage_logs.md)：独立日志快照、最终出站参数与入站计费条件隔离。
 
 - [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
 
@@ -11,6 +18,9 @@
 - [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。
 - [原生同步任务 Token 统计修复](../workflows/2026-09/24_task_token_usage.md)：实际输入输出用量进入消费日志与渠道指标，保持计费规则。
 - [同步任务模型广场性能采样与结果留存](../workflows/2026-09/24_sync_task_performance.md)：同步插件接入独立性能统计、失败隔离、耗时及 Classic 结果说明。
+- [Classic 零价格编辑与回填](../workflows/2026-09/24_classic_zero_price.md)：零价格保存、同名模型刷新与编辑草稿保留。
+
+- [maolaoapi .335 逐节点更新](../workflows/2026-09/24_maolaoapi_335_deployment.md)：固定镜像、备份、主节点优先逐节点健康门禁与独立插件边界。
 
 - [zzapi 原生任务插件 .335 发布](../workflows/2026-09/24_zzapi_335_release.md)：版本、固定镜像、逐节点部署与回滚边界。
 
@@ -21,6 +31,7 @@
 - [网站 SEO 设置](site-seo-settings.md)：浏览器标题、网站描述与分享元数据的配置、公开读取和 HTML 输出安全边界。
 
 - [zzapi 使用日志筛选 .334 发布](../workflows/2026-09/23_zzapi_334_usage_log_release.md)：记录 MAO-4 发布、zzapi 三节点串行更新、备份与验收边界。
+- [xAI 分段缓存用量一致性](../workflows/2026-09/21_xai_cache_usage_merge.md)：字段来源、分片合并和 Claude 回包与结算一致性，含低缓存现场证据边界。
 
 - [maolaoapi Grok Messages .332 发布](../workflows/2026-09/21_maolaoapi_grok_332_deployment.md)：固定发布、镜像路径切换、备份和三节点逐个更新验收。
 
@@ -185,6 +196,7 @@
 - [用户搜索类型契约恢复](../workflows/2026-08/29_user_search_type_contract.md)：恢复 `/api/user/search` 的 ID 精确、用户名模糊及 all 综合搜索行为，并记录输入边界与回归测试。
 
 - [Classic 登录会话上限恢复路径修复](../workflows/2026-08/29_classic_login_session_limit_recovery.md)：2026-08-29 历史阶段记录，保留当时 v244 `AUTH_SESSION_LIMIT` 409 的恢复提示并修复 Classic 重复通用错误；普通满员当前行为已由[登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)工作流取代。
+- [Classic 启动用户缓存损坏容错](../workflows/2026-09/23_classic_startup_user_cache_recovery.md)：安全读取 Classic `localStorage.user`，清理损坏或非对象缓存并按未登录处理；429、503 和网络错误不触发清理。
 - [登录会话满员自动撤销最早会话](../workflows/2026-08/30_auth_session_auto_evict_oldest.md)：活跃会话达到上限时，按创建时间稳定选择并撤销同用户最早旧会话后继续签发；签发窗口限流默认关闭，同时保持 Redis deny fence 的 fail-closed 语义。
 - [登录签发次数恢复 v243 兼容默认](../workflows/2026-08/31_auth_session_v243_issuance_compat.md)：默认关闭签发窗口限流，保留正数配置的可选防护和当前服务端 Session 安全机制。
 - [密码重置会话撤销缓存故障修复](../workflows/2026-08/29_auth_session_revoke_cache_failure.md)：Redis deny fence 写入失败时仍完成数据库会话撤销，返回可审计错误并保持批量累计进度。

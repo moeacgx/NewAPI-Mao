@@ -11,6 +11,7 @@
 
 ## xAI 渠道 Messages 兼容
 
+- 缓存分片合并及回包/账单一致性见[缓存工作记录](../workflows/2026-09/21_xai_cache_usage_merge.md)；解析修复不能保证供应商实际缓存命中。
 - `/v1/messages` 经 xAI 渠道转为 Chat Completions，上游返回转换回 Anthropic JSON/SSE，保留 Grok 缓存用量和现有结算口径。
 - 强制 Responses、请求体透传及原生端点沿用既有优先级；无需新增开关或数据库迁移。
 - 实施与验证状态见[工作记录](../workflows/2026-09/21_xai_messages_compat.md)，实际供应商兼容性和上线需单独验收。
@@ -44,6 +45,13 @@
 - 能力：支持 OpenAI、Azure、xAI、Codex、Sub2API、NewAPI 渠道，将 Chat/Claude/Gemini 对话转为 Responses，客户端返回协议不变。
 - 边界：开启后优先于透传与 Responses 转 Chat；其他业务端点不改路由，无数据库迁移。
 - 稳定性：复用既有协议转换和结算链路；供应商实际兼容性与线上部署需单独验证。
+
+## 管理员管理请求豁免与令牌取密钥限流隔离
+
+- 文档：[管理员管理请求豁免与令牌取密钥限流隔离](../workflows/2026-09/19_token_key_read_rate_limit.md)。
+- 能力：有效 Admin/Root 的管理 Session/PAT 豁免后台 GA、搜索、取密钥及管理路由 CT/UC；普通用户取密钥按用户共用 60 次 / 60 秒额度，与登录 CT 隔离。
+- 边界：保留登录等独立限流及个人 2FA/Passkey、账号自身、会话管理和个人返佣接口的 GA，模型调用不变；管理员仍只能读取自己的令牌，RootAuth、权限、渠道密钥二次验证、批量 100 条上限与无缓存响应不变。纯 Cookie 扩展资源仍经过 GA。
+- 稳定性：已实现后端，部署状态以交付为准；多节点共享计数需要 Redis，客户端遇 429 仍须退避并禁止使用空密钥。
 
 ## 认证上游兼容阶段
 
