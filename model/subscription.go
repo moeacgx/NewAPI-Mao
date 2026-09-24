@@ -938,7 +938,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
-	var logRequestIP string
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
@@ -1004,7 +1003,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
-		logRequestIP = order.RequestIP
 		return nil
 	})
 	if err != nil {
@@ -1015,7 +1013,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
-		RecordTopupLog(logUserId, msg, logRequestIP, logPaymentMethod, expectedPaymentProvider)
+		RecordTopupLog(logUserId, msg, logPaymentMethod, expectedPaymentProvider)
 	}
 	return nil
 }
@@ -1032,7 +1030,6 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
-	var logRequestIP string
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
@@ -1090,7 +1087,6 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
-		logRequestIP = order.RequestIP
 		return nil
 	})
 	if err != nil {
@@ -1104,7 +1100,7 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
-		RecordTopupLog(logUserId, msg, logRequestIP, logPaymentMethod, expectedPaymentProvider)
+		RecordTopupLog(logUserId, msg, logPaymentMethod, expectedPaymentProvider)
 	}
 	return nil
 }
@@ -1407,7 +1403,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, promoCode string, r
 		refreshSubscriptionUserGroupCache(userId, "subscription balance purchase")
 	}
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
-	RecordTopupLog(userId, msg, requestIP, PaymentMethodBalance, PaymentProviderBalance)
+	RecordTopupLog(userId, msg, PaymentMethodBalance, PaymentProviderBalance)
 	return nil
 }
 
