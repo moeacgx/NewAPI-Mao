@@ -126,6 +126,7 @@ type RelayInfo struct {
 	IsFirstRequest         bool
 	AudioUsage             bool
 	ReasoningEffort        string
+	ThinkingLog            *ThinkingLogSnapshot
 	UserSetting            dto.UserSetting
 	UserEmail              string
 	UserQuota              int64
@@ -277,6 +278,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// Channel identity feeds the converter options snapshot (e.g.
 	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
+	info.ThinkingLog = thinkingLogFromRequest(info.Request)
 	if !info.ShouldForceResponses() && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled) {
 		info.ReasoningEffort = ""
 	} else {
@@ -556,6 +558,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request:         request,
 		ReasoningEffort: reasoningEffort,
+		ThinkingLog:     thinkingLogFromRequest(request),
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),

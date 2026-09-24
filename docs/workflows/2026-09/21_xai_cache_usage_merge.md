@@ -47,3 +47,14 @@ Messages 文本/推理/工具和 Responses 桥接既有回归。
 取消/错误早退前规范已接收到的缓存，避免因缓存别名未映射导致多算普通输入，且不伪造结束事件。
 xAI 全包、relay 全部渠道与 service 测试、xAI vet 通过（单次测试超时 60 秒）；
 无 relaykit 改动，无数据库迁移。尚未发版或变更线上渠道配置。
+
+## 2026-09-25 集成复核
+
+- PR #259 中的 `b368e7636`、`3a7eec819` 与本地 `f69968e85`、`b0cd1a59c`
+  在 xAI 目录内容一致；合并交付应视为同一修复，不能重复计入新增能力。
+- 本次从 `origin/custom-main` 的 `ca5d5ebbd` 精确移植两个实现提交及配套文档，
+  同时验证 Claude 思考日志恢复后的组合行为，不修改生产亲和规则。
+- 提交前同步至 `512910188`，保留 PR #277 的充值日志隐私过滤。
+- 同步后 `go test ./relay/... ./service -count=1 -timeout 60s`、
+  `go vet ./relay/... ./service`、`go build ./relay/... ./service` 均通过，
+  Markdown 格式、新增链接与 `git diff --check` 通过。

@@ -5,6 +5,8 @@
 
 - [充值日志不记录或返回 IP](../workflows/2026-09/25_topup_logs_without_ip.md)：停止新充值日志 IP 写入，并在共用查询出口清理历史充值 IP，保留金额审计。
 
+- [Claude 思考参数日志恢复](../workflows/2026-09/24_claude_thinking_usage_logs.md)：独立日志快照、最终出站参数与入站计费条件隔离。
+
 - [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
 
 - [zzapi 同步任务性能 .337 发布](../workflows/2026-09/24_zzapi_337_release.md)：同步任务性能采样修复、固定版本发布和三应用逐节点更新。

@@ -80,8 +80,18 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["model_price"] = modelPrice
 	other["user_group_ratio"] = userGroupRatio
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
-	if relayInfo.ReasoningEffort != "" {
-		other["reasoning_effort"] = relayInfo.ReasoningEffort
+	logEffort := relayInfo.ReasoningEffort
+	if thinking := relayInfo.ThinkingLog; thinking != nil {
+		logEffort = thinking.DisplayEffort()
+		if thinking.Type != "" {
+			other["thinking_type"] = thinking.Type
+		}
+		if thinking.BudgetTokens != nil {
+			other["thinking_budget_tokens"] = *thinking.BudgetTokens
+		}
+	}
+	if logEffort != "" {
+		other["reasoning_effort"] = logEffort
 	}
 	if relayInfo.IsModelMapped {
 		other["is_model_mapped"] = true
