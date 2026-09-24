@@ -56,5 +56,56 @@ Classic 构建均通过。relay 全渠道和 service 的完整测试、vet、bui
 
 最终组合验证：`go test -mod=readonly ./model ./controller ./service ./middleware ./router ./relay/... -count=1 -timeout=60s`
 及同范围 `go vet` 均通过；Classic 零价、缓存和刷新组合 34 项、时间规则 6 项通过，
-修改组件和测试的 ESLint 通过。发布和逐节点结果待执行后补充。已知格式/文档限制：零价编辑器存在
+修改组件和测试的 ESLint、最终集成 Classic 生产构建（50.35 秒）通过。已知格式/文档限制：零价编辑器存在
 基线已有整文件格式告警；开发索引有历史失效链接，本次修改的文档链接单独核验。
+
+## 合并与发布结果
+
+PR #277 合并提交 `512910188c482437c0caa1ab278a2f7800295068`。
+组合发布 PR #278 合并提交及 `.338` 标签为 `ef3677aa23aeea7f68739dd5803f411fff6affcf`。
+PR CI `36046288011` 全部成功。合并后 CI `36047411164` 首次在两个既有测试清理
+临时目录时失败（`directory not empty`，无业务断言失败），重跑失败任务后全部通过。
+xAI 重复 PR #259 已关闭；PR #262 保留其额外密码和资源修复，缓存部分已被本轮覆盖。
+
+- Linux Release `36047419770` 成功，两架构二进制下载后与 checksums-linux.txt 一致。
+- AMD64 二进制 SHA-256 `d2f9c48c58aa7985f835834f38cacbbf6faf3202e6a4a41eae232d3c4c528720`。
+- ARM64 二进制 SHA-256 `ce6a0cd0bd135ec9397d69750394178c0bf79ee8cfda0ee96410c823c1b70a33`。
+- 多架构镜像工作流 `36047419876` 成功，manifest 摘要
+  `sha256:206f32d96f8cac13f1290b22912a38fdb1d2e94567288865970ff829a2ad0498`。
+- AMD64 image ID `sha256:d266d66f69eaadc653779a6abad560fefe3b80f8722490af94b1b83ead9ed55c`，
+  OCI revision 与标签一致。镜像内二进制 SHA-256
+  `6723d150a972d0102d9583c62d017aa4e24814aa5798f8123079aa6b7831cd50`。
+- 镜像准备作业 `4e1be484-68b7-49da-8bb7-5897d8f20fca` 确认仅三个应用镜像引用改变。
+
+## 逐节点部署结果
+
+主节点作业 `b6e529a0-de54-44a0-a452-cef97cc8b086` 成功、exitCode=0。
+`maolaoapi` / 18095 已为 `.338`、healthy、restart=0，环境/端口/挂载/命令保持。
+实际进程与镜像二进制一致；匿名 user/extensions/plugin/models 接口为 401，Classic 为 200。
+数据库、Redis 身份及启动时间保持，模型校验配置和原有 245 条记录保持。
+
+从节点 1 作业 `4f7e1edd-47cc-4968-99de-2bc299a5ed0c`、从节点 2 作业
+`139086bf-db6c-4e74-8596-70ad8b6812c6` 均成功、exitCode=0。
+顺序严格为主节点 → 从节点 1 → 从节点 2，每一步完成前述门禁后才重建下一节点。
+
+最终验收作业 `a5b3db06-099f-4818-b8a3-8c3a28284fdf` 成功：
+
+- 三节点均为 `.338`、healthy、restart=0；实际运行二进制与固定镜像一致。
+- 环境、端口、挂载、启动参数保持；数据库、Redis 身份/启动时间/重启次数未变。
+- 29 个模块文件 hash、模型校验配置、历史 245 条记录保持。
+- 每节点只读查询 5 条历史充值日志，全部 `ip` 为空，`admin_info` 均无请求、回调、
+  调用方或服务器 IP 键。凭据只在目标主机内存使用，没有创建新令牌或真实充值。
+- 三节点 Classic 资源 `/assets/index-Cf1ZhEJO.js` 均为 11,825,912 字节，SHA-256
+  `2c864c21bbfdc00408567c228999a90b164e76a90a02ce8e1dad8f732c2f2d93`。
+- 主机访问公网仍被 Cloudflare 返回 403；操作端独立访问公网 `/api/status` 成功，
+  `success=true`、版本 `.338`。
+
+没有执行回滚，没有更新 zzapi，没有改变插件活动版本、线上价格或渠道。
+新请求写入与计费边界由离线真实路由和数据库回归覆盖，未进行真实收费模型推理或
+充值验收。部署及单节点回退脚本在 `/home/docker/maolaoapi/releases/338/deploy.py`，
+`rollback <应用名>` 恢复该应用 `.336`，不恢复在线数据库。
+
+共享契约影响：充值日志不返回 IP；有效管理员后台业务请求限流豁免；用量日志更准确，
+模型请求、认证、价格存储和账务接口语义保持。兄弟项目 NewAPIForDouDi、
+NewAPIModifyByGang 可按是否存在同一问题评估零价、缓存和用量修复；管理员限流及充值
+日志策略需结合各自业务决定，不直接照搬。本次未向其他仓库发送消息或创建 Issue。
