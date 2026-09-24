@@ -1,5 +1,8 @@
 # NewAPI-Mao 开发文档
 
+- [管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)：后台管理员限流豁免及个人安全流程边界。
+- [任务插件渠道测试能力判断](../workflows/2026-09/24_task_plugin_channel_test_guard.md)：通用测试返回不支持，Jev 使用 `/v1/systemone`。
+
 - [充值日志不记录或返回 IP](../workflows/2026-09/25_topup_logs_without_ip.md)：停止新充值日志 IP 写入，并在共用查询出口清理历史充值 IP，保留金额审计。
 
 - [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
