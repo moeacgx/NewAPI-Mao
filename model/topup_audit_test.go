@@ -161,7 +161,7 @@ func TestWaffoPancakeTopUpRecordsBalanceAuditOnce(t *testing.T) {
 	assert.Equal(t, float64(10), audit["balance_after"])
 }
 
-func TestTopUpCompletionUsesStoredRequestIP(t *testing.T) {
+func TestTopUpCompletionOmitsLogIP(t *testing.T) {
 	tests := []struct {
 		name            string
 		tradeNo         string
@@ -270,10 +270,11 @@ func TestTopUpCompletionUsesStoredRequestIP(t *testing.T) {
 
 					var log Log
 					require.NoError(t, LOG_DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).First(&log).Error)
-					assert.Equal(t, requestIP.ip, log.Ip)
+					assert.Empty(t, log.Ip)
 					adminInfo := readTopUpAuditInfo(t, topUp.TradeNo)
-					assert.Equal(t, requestIP.ip, adminInfo["caller_ip"])
-					assert.Equal(t, requestIP.ip, adminInfo["request_ip"])
+					assert.NotContains(t, adminInfo, "caller_ip")
+					assert.NotContains(t, adminInfo, "request_ip")
+					assert.NotContains(t, adminInfo, "server_ip")
 					assert.NotContains(t, adminInfo, "callback_ip")
 				})
 			}

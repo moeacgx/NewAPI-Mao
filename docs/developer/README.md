@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [充值日志不记录或返回 IP](../workflows/2026-09/25_topup_logs_without_ip.md)：停止新充值日志 IP 写入，并在共用查询出口清理历史充值 IP，保留金额审计。
+
 - [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
 
 - [zzapi 同步任务性能 .337 发布](../workflows/2026-09/24_zzapi_337_release.md)：同步任务性能采样修复、固定版本发布和三应用逐节点更新。
@@ -160,7 +162,7 @@
 - [Classic 发票中心玻璃卡片与全宽表格](../workflows/2026-09/02_classic_invoice_glass_flat_layout.md)：恢复发票业务模块的透明玻璃卡片边界，并让表格与操作列随页面宽度铺开。
 - [zzapi 福利与发票 UI 修复发布](../workflows/2026-09/02_zzapi_benefits_invoice_ui_release.md)：发布移除福利券流水入口、固定 Classic 操作列并恢复发票玻璃卡片的 `.295` 版本。
 - [maolaoapi 福利与发票 UI 修复发布](../workflows/2026-09/02_maolaoapi_benefits_invoice_ui_release.md)：将同一 `.295` 版本按单实例顺序更新到 maolaoapi 生产集群。
-- [充值日志保留订单请求 IP](../workflows/2026-08/30_topup_request_ip_preservation.md)：历史充值订单缺少请求 IP 时不再使用支付 webhook 或管理员请求 IP 回填，同时保留余额快照和重复回调幂等审计。
+- [充值日志订单请求 IP 历史规则](../workflows/2026-08/30_topup_request_ip_preservation.md)：记录旧版回调 IP 隔离方案；充值日志 IP 保留规则已由 2026-09-25 的不记录、不返回契约替代。
 - [福利营销时效额度券设计](../plans/2026-08-31-benefit-voucher-design.md)：定义绑定稳定分组的一次性福利券、组合计费、分组单用户并发、双前端和跨数据库契约。
 - [福利营销时效额度券实现](benefit-vouchers.md)：记录实际 API、状态机、数据迁移、组合扣费、日志、前端入口、软关闭和回滚边界。
 - [Classic 登录审计日志类型展示修复](../workflows/2026-08/30_classic_login_log_type_display.md)：补齐 Classic 使用日志 `LogTypeLogin=7` 的类型标签、筛选项、登录详情摘要和展开信息。
