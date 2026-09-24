@@ -102,7 +102,12 @@ describe('Classic 用户缓存读取', () => {
     expect(localStorage.getItem('user')).toBeNull();
   });
 
-  it('storage getter 被拒绝时四个路由守卫均按未登录处理', () => {
+  it.each([
+    ['登录页', '/login', <AuthRedirect>login</AuthRedirect>],
+    ['普通用户', '/console', <PrivateRoute>private</PrivateRoute>],
+    ['管理员', '/admin', <AdminRoute>admin</AdminRoute>],
+    ['Root', '/root', <RootRoute>root</RootRoute>],
+  ])('storage getter 被拒绝时%s路由按未登录处理', (_name, path, element) => {
     const descriptor = Object.getOwnPropertyDescriptor(
       globalThis,
       'localStorage',
@@ -115,24 +120,17 @@ describe('Classic 用户缓存读取', () => {
     });
 
     try {
-      const routes = [
-        ['auth redirect', '/login', <AuthRedirect>login</AuthRedirect>],
-        ['private route', '/console', <PrivateRoute>private</PrivateRoute>],
-        ['admin route', '/admin', <AdminRoute>admin</AdminRoute>],
-        ['root route', '/root', <RootRoute>root</RootRoute>],
-      ];
-
-      for (const [_name, path, element] of routes) {
-        render(
-          <MemoryRouter initialEntries={[path]}>
-            <Routes>
-              <Route path={path} element={element} />
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path={path} element={element} />
+            {path !== '/login' && (
               <Route path='/login' element={<span>login</span>} />
-            </Routes>
-          </MemoryRouter>,
-        );
-        expect(screen.getAllByText('login').length).toBeGreaterThan(0);
-      }
+            )}
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByText('login')).toBeTruthy();
     } finally {
       Object.defineProperty(globalThis, 'localStorage', descriptor);
     }

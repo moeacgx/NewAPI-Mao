@@ -28,7 +28,13 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useTranslation } from 'react-i18next';
-import { API, getLogo, showError, setStatusData, readStoredUser } from '../../helpers';
+import {
+  API,
+  getLogo,
+  showError,
+  setStatusData,
+  readStoredUser,
+} from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
