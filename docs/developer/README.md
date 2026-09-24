@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Jev .336 发布与主站滚动更新](../workflows/2026-09/24_jev_336_release.md)：插件0.2.3与实际Token日志修复的发布、逐节点验证和回退。
+
 - [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。
 - [原生同步任务 Token 统计修复](../workflows/2026-09/24_task_token_usage.md)：实际输入输出用量进入消费日志与渠道指标，保持计费规则。
 
