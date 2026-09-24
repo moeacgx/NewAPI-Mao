@@ -48,7 +48,10 @@ Root 配置多条规则，每条可选择多个分组、一个请求模型及多
 
 ## 配置与接口
 
-接口前缀为 `/api/extensions/upstream-model-guard`，要求 Root 权限、禁缓存与限流。
+接口前缀为 `/api/extensions/upstream-model-guard`，要求 Root 权限与禁缓存。
+有效 Root 后台会话或管理 PAT 豁免 GA 和配置写入的 CT，其他请求保留 GA；
+配置校验及版本冲突检查不变。完整边界见
+[管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)。
 
 - `GET /config`：返回 `config_version`、`enabled`、`rules`、`failure_threshold`、`excluded_channel_ids` 和精简 `excluded_channels`。
 - `PUT /config`：提交 `expected_version`、`enabled`、`rules`、`failure_threshold`、`excluded_channel_ids`，版本冲突返回 409。省略新增字段时保留已保存值；空白名单数组表示清空。

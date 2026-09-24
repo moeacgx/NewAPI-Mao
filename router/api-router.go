@@ -21,7 +21,7 @@ func SetApiRouter(router *gin.Engine) {
 	securityAuditRoute := apiRouter.Group("/security-audit")
 	// Apply no-store before Root authentication so unauthorized and error
 	// responses cannot be retained by browsers or intermediary caches.
-	securityAuditRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.RootAuth())
+	securityAuditRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimitWithAdminBypass(), middleware.RootAuth())
 	{
 		securityAuditRoute.GET("/config", controller.GetPromptAuditConfig)
 		securityAuditRoute.PUT("/config", controller.UpdatePromptAuditConfig)
@@ -41,7 +41,7 @@ func SetApiRouter(router *gin.Engine) {
 	}
 
 	requestArchiveRoute := apiRouter.Group("/security-audit/request-archive")
-	requestArchiveRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.RootAuth())
+	requestArchiveRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimitWithAdminBypass(), middleware.RootAuth())
 	{
 		requestArchiveRoute.GET("/config", controller.GetRequestArchiveConfig)
 		requestArchiveRoute.PUT("/config", controller.UpdateRequestArchiveConfig)
@@ -50,27 +50,27 @@ func SetApiRouter(router *gin.Engine) {
 	}
 
 	conversationArchiveRoute := apiRouter.Group("/extensions/conversation-archive")
-	conversationArchiveRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.RootAuth())
+	conversationArchiveRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimitWithAdminBypass(), middleware.RootAuth())
 	{
 		conversationArchiveRoute.GET("/config", controller.GetConversationArchiveConfig)
 		conversationArchiveRoute.PUT("/config", controller.UpdateConversationArchiveConfig)
 		conversationArchiveRoute.GET("/groups", controller.GetConversationArchiveGroups)
 		conversationArchiveRoute.GET("/conversations", controller.ListConversationArchives)
 		conversationArchiveRoute.GET("/conversations/:id", controller.GetConversationArchive)
-		conversationArchiveRoute.POST("/conversations/clear", middleware.CriticalRateLimit(), controller.ClearConversationArchives)
+		conversationArchiveRoute.POST("/conversations/clear", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.ClearConversationArchives)
 	}
 
 	upstreamModelGuardRoute := apiRouter.Group("/extensions/upstream-model-guard")
-	upstreamModelGuardRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimit(), middleware.RootAuth())
+	upstreamModelGuardRoute.Use(middleware.DisableCache(), middleware.GlobalAPIRateLimitWithAdminBypass(), middleware.RootAuth())
 	{
 		upstreamModelGuardRoute.GET("/config", controller.GetUpstreamModelGuardConfig)
-		upstreamModelGuardRoute.PUT("/config", middleware.CriticalRateLimit(), controller.UpdateUpstreamModelGuardConfig)
+		upstreamModelGuardRoute.PUT("/config", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.UpdateUpstreamModelGuardConfig)
 		upstreamModelGuardRoute.GET("/groups", controller.GetConversationArchiveGroups)
 		upstreamModelGuardRoute.GET("/channels", controller.ListUpstreamModelGuardChannels)
 		upstreamModelGuardRoute.GET("/records", controller.ListUpstreamModelGuardRecords)
 	}
 
-	apiRouter.Use(middleware.GlobalAPIRateLimitWithChannelAdminBypass())
+	apiRouter.Use(middleware.GlobalAPIRateLimitWithAdminBypass())
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{
 		apiRouter.GET("/setup", controller.GetSetup)
@@ -405,10 +405,10 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.GET("/search", controller.SearchRedemptions)
 			redemptionRoute.POST("/", controller.AddRedemption)
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
-			redemptionRoute.DELETE("/invalid", middleware.CriticalRateLimit(), controller.DeleteInvalidRedemption)
-			redemptionRoute.DELETE("/batch", middleware.CriticalRateLimit(), controller.BatchDeleteRedemptions)
+			redemptionRoute.DELETE("/invalid", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DeleteInvalidRedemption)
+			redemptionRoute.DELETE("/batch", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.BatchDeleteRedemptions)
 			redemptionRoute.GET("/:id", controller.GetRedemption)
-			redemptionRoute.DELETE("/:id", middleware.CriticalRateLimit(), controller.DeleteRedemption)
+			redemptionRoute.DELETE("/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DeleteRedemption)
 		}
 		promoCodeRoute := apiRouter.Group("/promo_code")
 		promoCodeRoute.Use(middleware.AdminAuth())
@@ -417,10 +417,10 @@ func SetApiRouter(router *gin.Engine) {
 			promoCodeRoute.GET("/search", controller.SearchPromoCodes)
 			promoCodeRoute.POST("/", controller.AddPromoCode)
 			promoCodeRoute.PUT("/", controller.UpdatePromoCode)
-			promoCodeRoute.DELETE("/invalid", middleware.CriticalRateLimit(), controller.DeleteInvalidPromoCodes)
-			promoCodeRoute.DELETE("/batch", middleware.CriticalRateLimit(), controller.BatchDeletePromoCodes)
+			promoCodeRoute.DELETE("/invalid", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DeleteInvalidPromoCodes)
+			promoCodeRoute.DELETE("/batch", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.BatchDeletePromoCodes)
 			promoCodeRoute.GET("/:id", controller.GetPromoCode)
-			promoCodeRoute.DELETE("/:id", middleware.CriticalRateLimit(), controller.DeletePromoCode)
+			promoCodeRoute.DELETE("/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DeletePromoCode)
 		}
 		benefitRoute := apiRouter.Group("/benefit")
 		{
@@ -435,8 +435,8 @@ func SetApiRouter(router *gin.Engine) {
 			adminBenefitRoute.Use(middleware.AdminAuth())
 			adminBenefitRoute.GET("/activities", controller.GetBenefitAdminActivities)
 			adminBenefitRoute.POST("/activities", controller.CreateBenefitAdminActivity)
-			adminBenefitRoute.DELETE("/activities/batch", middleware.CriticalRateLimit(), controller.BatchDeleteBenefitAdminActivities)
-			adminBenefitRoute.DELETE("/activities/:id", middleware.CriticalRateLimit(), controller.DeleteBenefitAdminActivity)
+			adminBenefitRoute.DELETE("/activities/batch", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.BatchDeleteBenefitAdminActivities)
+			adminBenefitRoute.DELETE("/activities/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DeleteBenefitAdminActivity)
 			adminBenefitRoute.GET("/activities/:id", controller.GetBenefitAdminActivity)
 			adminBenefitRoute.PUT("/activities/:id", controller.UpdateBenefitAdminActivity)
 			adminBenefitRoute.POST("/activities/:id/publish", controller.PublishBenefitAdminActivity)
@@ -447,7 +447,7 @@ func SetApiRouter(router *gin.Engine) {
 			adminBenefitRoute.GET("/activities/:id/report", controller.GetBenefitAdminReport)
 			adminBenefitRoute.GET("/activities/:id/vouchers", controller.GetBenefitAdminVouchers)
 			adminBenefitRoute.GET("/vouchers/:id/ledger", controller.GetBenefitAdminVoucherLedger)
-			adminBenefitRoute.POST("/vouchers/batch-void", middleware.CriticalRateLimit(), controller.BatchVoidBenefitAdminVouchers)
+			adminBenefitRoute.POST("/vouchers/batch-void", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.BatchVoidBenefitAdminVouchers)
 			adminBenefitRoute.POST("/vouchers/:id/void", controller.VoidBenefitAdminVoucher)
 		}
 

@@ -6,6 +6,14 @@
 权限校验和宿主 API 调用都必须由 NewAPI 统一收口，避免扩展页面自行保存或读取
 用户访问令牌。
 
+## 管理请求限流
+
+有效 Admin/Root 的后台 Authorization 会话或管理 PAT 豁免管理 API 的共享 GA；
+Root 扩展安装、刷新、启停、配置及通知事件发布同时豁免管理 CT。RootAuth、能力校验、
+请求体和安装包大小上限、审计及无缓存约束继续执行。仅携带扩展 Cookie 的原生资源和
+代理请求仍经过 GA；管理 PAT 不能替代要求浏览器会话的扩展资源认证。
+完整边界见[管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)。
+
 ## 模块清单
 
 模块源码和版本安装包集中发布在 [maolaonewapi-extensions](https://github.com/moeacgx/maolaonewapi-extensions)，
@@ -113,7 +121,7 @@ Classic 通过 `../../helpers.getAPI()` 取得刷新登录态后的当前客户�
 
 清洗载荷只保留 `messages[].role` 与纯文本 `messages[].text`，以及模型、协议、请求 ID、用户和分组等必要元数据；媒体、base64、工具 schema、请求头、Cookie、Authorization 和 URL 查询均丢弃。未知协议仅在能提取到有限文本时保存，协议字段保留调用链提供的标识；无可识别文本时跳过。单条消息、消息数和总字节数均有硬上限。OpenAI Realtime 会合并客户端和上游增量文本，忽略音频与完成事件重复正文。
 
-列表接口仅返回元数据，详情接口才返回清洗后的消息。所有接口使用 `RootAuth`、禁缓存和限流，详情按纯文本渲染，防止扩展页面执行 HTML 或再次加载超大 JSON。配置在进程内使用 2 秒 TTL 快照，更新通过版本 CAS 后立即失效本地快照。
+列表接口仅返回元数据，详情接口才返回清洗后的消息。所有接口使用 `RootAuth` 与禁缓存，有效 Root 管理凭证豁免 GA/管理 CT，其他请求保留 GA。详情按纯文本渲染，防止扩展页面执行 HTML 或再次加载超大 JSON。配置在进程内使用 2 秒 TTL 快照，更新通过版本 CAS 后立即失效本地快照。
 
 Default 使用 Default 原生 SDK 与 `@/lib/api`；Classic 使用 Classic 原生 SDK 与
 `../../helpers.API`，并分别维护入口和样式。两套入口不能互相复制宿主组件依赖。
@@ -130,5 +138,5 @@ Default 使用 Default 原生 SDK 与 `@/lib/api`；Classic 使用 Classic 原�
 `{"confirm":true}` 清空全部归档；采集未关闭时，后续命中的请求仍会再次归档。
 当前实现没有外部对象存储，配置更新使用 `config_version` 乐观锁。升级前确认数据库
 迁移已执行，回滚时先停用扩展再处理新增表。定时过期清理与写入、数量裁剪、手动
-清空使用同一配置行锁，避免并发操作删除同一批归档。手动清空还要求显式确认并
-使用关键操作限流。
+清空使用同一配置行锁，避免并发操作删除同一批归档。手动清空还要求显式确认，
+有效 Root 管理凭证豁免关键操作限流。
