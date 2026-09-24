@@ -116,13 +116,6 @@ func TestAdminManagementDoesNotExemptSecurityOrInvalidIdentity(t *testing.T) {
 	}
 	common.GlobalApiRateLimitNum = 1
 	fixture.engine = newManagementRouter(t)
-	for index, path := range []string{"/api/user/2fa/enable", "/api/user/passkey/verify/finish"} {
-		ip := fmt.Sprintf("192.0.2.%d", 190+index)
-		// 先耗尽匿名 GA，管理员个人安全流程仍须遵守这个桶。
-		managementRequest(fixture.engine, http.MethodGet, "/api/status", "", ip, "")
-		response := managementRequest(fixture.engine, http.MethodPost, path, fixture.owner.pat, ip, "{")
-		assert.Equal(t, http.StatusTooManyRequests, response.Code, path)
-	}
 	disabled := newTokenKeyAccount(t, fixture.db, common.RoleAdminUser)
 	require.NoError(t, fixture.db.Model(&model.User{}).Where("id = ?", disabled.user.Id).Update("status", common.UserStatusDisabled).Error)
 	revoked := newTokenKeyAccount(t, fixture.db, common.RoleAdminUser)
@@ -140,6 +133,43 @@ func TestAdminManagementDoesNotExemptSecurityOrInvalidIdentity(t *testing.T) {
 		response := httptest.NewRecorder()
 		fixture.engine.ServeHTTP(response, request)
 		assert.Equal(t, http.StatusTooManyRequests, response.Code, "credential case %d", index)
+	}
+}
+
+func TestAdminPersonalSecurityAndFundsRetainGlobalLimit(t *testing.T) {
+	for _, role := range []int{common.RoleAdminUser, common.RoleRootUser} {
+		t.Run(fmt.Sprintf("role=%d", role), func(t *testing.T) {
+			fixture := setupTokenKeyFixture(t, true, role, 1)
+			common.GlobalApiRateLimitNum = 1
+			fixture.engine = newManagementRouter(t)
+			for _, route := range []struct{ method, path string }{
+				{http.MethodPost, "/api/user/2fa/enable"},
+				{http.MethodPost, "/api/user/passkey/verify/finish"},
+				{http.MethodPost, "/api/affiliate/withdraw"},
+				{http.MethodPost, "/api/affiliate/transfer-to-balance"},
+				{http.MethodPut, "/api/affiliate/payout-account"},
+				{http.MethodDelete, "/api/user/self"},
+				{http.MethodDelete, "/api/user/sessions/missing-session"},
+				{http.MethodPost, "/api/user/sessions/revoke-others"},
+			} {
+				for _, credentialKind := range []string{"PAT", "Session"} {
+					t.Run(route.method+route.path+"/"+credentialKind, func(t *testing.T) {
+						// 每个用例使用独立测试账号，防止注销或撤销会话影响后续身份判断。
+						account := newTokenKeyAccount(t, fixture.db, role)
+						credential := account.pat
+						if credentialKind == "Session" {
+							credential = account.session
+						}
+						ip := fmt.Sprintf("2001:db8:4::%x:%x", account.user.Id>>16, account.user.Id&0xffff)
+						response := managementRequest(fixture.engine, http.MethodGet, "/api/status", "", ip, "")
+						require.Equal(t, http.StatusOK, response.Code)
+						response = managementRequest(fixture.engine, route.method, route.path, credential, ip, "{")
+						assert.Equal(t, http.StatusTooManyRequests, response.Code)
+						assert.NotEmpty(t, response.Header().Get("Retry-After"))
+					})
+				}
+			}
+		})
 	}
 }
 

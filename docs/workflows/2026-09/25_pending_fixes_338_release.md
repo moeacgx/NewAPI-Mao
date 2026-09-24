@@ -40,4 +40,21 @@ CloudSSH「API中转站」，serverId=38、hostId=11；部署目录 `/home/docke
 
 ## 验证与实际结果
 
-待最终集成验证、发布及逐节点执行后记录。
+独立工作区验证：Classic 缓存恢复 27 项、零价 9 项、时间规则 6 项通过；两项
+Classic 构建均通过。relay 全渠道和 service 的完整测试、vet、build 通过。
+管理员豁免复审发现个人资金和会话操作的唯一 GA 保护被绕过，新增 32 项真实路由
+矩阵先复现 24 项失败，再补齐个人接口排除；common、middleware、router 全量回归通过。
+缓存、任务探测、管理员保护边界的独立交叉复审均通过。
+
+预检作业 `0b02bb59-445c-45b3-8c09-87220d0d1961` 确认三节点为 `.336`。
+备份作业 `714ee079-ef0d-4386-bf7f-35603f7bc837` 成功、exitCode=0：
+
+- 目录 `/home/docker/maolaoapi/backups/pre-338-20260924T185354Z`（UTC）。
+- 数据库 2,182,787,324 字节，SHA-256 `6d470dd597bce68b5e6fb0af4f8b0ee489966f969bbee2cb3f25603050183fa5`。
+- `pg_restore --list` 通过，未执行完整恢复演练。
+- Compose、环境、29 个模块文件与运行参数摘要已保存；数据库、Redis 未重启。
+
+最终组合验证：`go test -mod=readonly ./model ./controller ./service ./middleware ./router ./relay/... -count=1 -timeout=60s`
+及同范围 `go vet` 均通过；Classic 零价、缓存和刷新组合 34 项、时间规则 6 项通过，
+修改组件和测试的 ESLint 通过。发布和逐节点结果待执行后补充。已知格式/文档限制：零价编辑器存在
+基线已有整文件格式告警；开发索引有历史失效链接，本次修改的文档链接单独核验。

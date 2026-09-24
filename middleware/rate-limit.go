@@ -199,7 +199,9 @@ func GlobalAPIRateLimitWithAdminBypass() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		path := c.FullPath()
 		securityPath := strings.HasPrefix(path, "/api/user/passkey") ||
-			(strings.HasPrefix(path, "/api/user/2fa/") && path != "/api/user/2fa/stats")
+			(strings.HasPrefix(path, "/api/user/2fa/") && path != "/api/user/2fa/stats") ||
+			strings.HasPrefix(path, "/api/user/sessions") || path == "/api/user/self" ||
+			(strings.HasPrefix(path, "/api/affiliate/") && !strings.HasPrefix(path, "/api/affiliate/admin/"))
 		if !securityPath {
 			if user, _, _, err := classifyDashboardCredentialForRateLimit(c); err == nil && user != nil && user.Status == common.UserStatusEnabled && validUserInfo(user.Username, user.Role) && user.Role >= common.RoleAdminUser {
 				c.Next()

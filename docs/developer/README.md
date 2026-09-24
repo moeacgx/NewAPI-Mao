@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [本地待交付修复 .338 整合与 maolaoapi 发布](../workflows/2026-09/25_pending_fixes_338_release.md)：零价、缓存恢复、用量与思考日志、管理员限流、插件探测及逐节点部署。
+
 - [管理员管理请求豁免](../workflows/2026-09/19_token_key_read_rate_limit.md)：后台管理员限流豁免及个人安全流程边界。
 - [任务插件渠道测试能力判断](../workflows/2026-09/24_task_plugin_channel_test_guard.md)：通用测试返回不支持，Jev 使用 `/v1/systemone`。
 
