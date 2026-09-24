@@ -35,7 +35,7 @@ export function parseTaskResult(){return {};}
 export const native={decode:function(ctx){return {kind:"submit",model:ctx.body.value.model,requestBody:ctx.body.value};},render:function(ctx,task){return task;}};
 `
 
-func TestCloudflareJevWrongPathDoesNotWriteUsageErrorLog(t *testing.T) {
+func TestCloudflareJevWrongPathKeepsLogsWithoutPerformanceSamples(t *testing.T) {
 	for _, memory := range []bool{false, true} {
 		t.Run(fmt.Sprint(memory), func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
@@ -122,15 +122,15 @@ func TestCloudflareJevWrongPathDoesNotWriteUsageErrorLog(t *testing.T) {
 				require.NoError(t, db.Model(&model.Log{}).Count(&count).Error)
 				assert.Equal(t, beforeLogs+wantLogs, count, name)
 			}
-			testRequest("responses", "/v1/responses", "decision-alias", "", 503, 0)
-			testRequest("chat", "/v1/chat/completions", "decision-alias", "", 503, 0)
-			testRequest("forced", "/v1/responses", "decision-alias", "98601", 503, 0)
+			testRequest("responses", "/v1/responses", "decision-alias", "", 503, 1)
+			testRequest("chat", "/v1/chat/completions", "decision-alias", "", 503, 1)
+			testRequest("forced", "/v1/responses", "decision-alias", "98601", 503, 1)
 			assert.Zero(t, called)
 			usingGroup = "empty," + group.Code
 			tokenGroups = []string{"empty", group.Code}
-			testRequest("ordered", "/v1/responses", "decision-alias", "", 503, 0)
+			testRequest("ordered", "/v1/responses", "decision-alias", "", 503, 1)
 			usingGroup = "auto"
-			testRequest("auto", "/v1/responses", "decision-alias", "", 503, 0)
+			testRequest("auto", "/v1/responses", "decision-alias", "", 503, 1)
 			usingGroup = group.Code
 			tokenGroups = nil
 			testRequest("unknown-model", "/v1/responses", "unknown-alias", "", 503, 1)

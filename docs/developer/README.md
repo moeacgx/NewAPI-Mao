@@ -1,6 +1,6 @@
 # NewAPI-Mao 开发文档
 
-- [Cloudflare Jev 错路径日志隔离](../workflows/2026-09/24_jev_invalid_path_logs.md)：仅跳过可明确归因于插件路径误用的分发错误日志，保留真实调用和配置故障。
+- [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
 
 - [zzapi 同步任务性能 .337 发布](../workflows/2026-09/24_zzapi_337_release.md)：同步任务性能采样修复、固定版本发布和三应用逐节点更新。
 

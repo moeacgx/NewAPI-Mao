@@ -419,13 +419,16 @@ func RelayTask(c *gin.Context) {
 			!relayInfo.UpstreamRequestSent || c.Request.Context().Err() != nil {
 			return
 		}
+		var failure *types.NewAPIError
+		stage := "parse"
 		if result != nil && result.PluginResponse != nil && result.PluginResponse.Immediate != nil &&
 			result.PluginResponse.Immediate.Status == model.TaskStatusFailure {
 			code := types.ErrorCode("plugin_task_failed")
 			if result.PluginResponse.Immediate.Code != 0 {
 				code = types.ErrorCode(strconv.Itoa(result.PluginResponse.Immediate.Code))
 			}
-			perfmetrics.RecordRelayFailure(relayInfo, types.NewErrorWithStatusCode(errors.New(result.PluginResponse.Immediate.Reason), code, http.StatusBadGateway))
+			failure = types.NewErrorWithStatusCode(errors.New(result.PluginResponse.Immediate.Reason), code, http.StatusBadGateway)
+			stage = "immediate"
 		} else if taskErr != nil && !taskErr.LocalError {
 			code := taskErr.PerfErrorCode
 			if code == "" {
@@ -435,7 +438,26 @@ func RelayTask(c *gin.Context) {
 			if taskErr.PerfErrorMessage != "" {
 				message = errors.New(taskErr.PerfErrorMessage)
 			}
-			perfmetrics.RecordRelayFailure(relayInfo, types.NewErrorWithStatusCode(message, types.ErrorCode(code), taskErr.StatusCode))
+			failure = types.NewErrorWithStatusCode(message, types.ErrorCode(code), taskErr.StatusCode)
+			switch taskErr.Code {
+			case "do_request_failed":
+				stage = "transport"
+			case "fail_to_fetch_task":
+				stage = "http"
+			}
+		}
+		if failure == nil {
+			return
+		}
+		// 仅把白名单分类字段交给本次固定插件；日志和账务已按原链路处理。
+		if !pinned.Plugin.ShouldRecordPerformanceFailure(c.Request.Context(), pluginruntime.PerformanceFailureInput{
+			Model: relayInfo.OriginModelName, UpstreamModel: relayInfo.UpstreamModelName,
+			RequestPath: c.Request.URL.Path, Method: c.Request.Method,
+		}, pluginruntime.PerformanceFailure{Stage: stage, HTTPStatus: failure.StatusCode, ErrorCode: string(failure.GetErrorCode())}) {
+			return
+		}
+		if c.Request.Context().Err() == nil {
+			perfmetrics.RecordRelayFailure(relayInfo, failure)
 		}
 	}()
 

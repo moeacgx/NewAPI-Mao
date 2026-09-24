@@ -215,6 +215,11 @@ Default 使用 `web/src/features/invoices`，Classic 使用
 见 [官方任务插件后端](official-task-plugins.md)：内置与 Root 上传的自定义插件并存，默认关闭；
 生产资源签名和 S3 尚未验收。
 
+- 性能过滤：`task-performance-filter@1` 为原生同步任务提供可选失败样本过滤钩子，
+  日志、成功用量和账务保持；参数白名单、固定插件版本及 100ms 排队/执行预算由宿主控制。
+- 稳定性：本地引擎及 Gin 路由回归验证；尚未发版/部署。不包含异步轮询性能、
+  未选渠请求插件回调或历史数据修正。依赖该能力的插件必须先升级宿主。
+
 ## 网站 SEO 设置
 
 - 文档：[网站 SEO 设置](site-seo-settings.md)。

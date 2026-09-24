@@ -88,11 +88,41 @@ Admin 读取源和索引，Root 管理源、预览并安装；浏览器不携带
 提交处理到返回前的整体耗时，TTFT 固定为 0，TPS 使用输出 Token 除以该耗时；渠道指标仍单独记录。
 上游错误的稳定分类码会保留给性能过滤，但不会进入客户端错误响应。
 
-Cloudflare Jev 的路径误用仅在可确定归因时跳过分发阶段的使用错误日志：
-活动插件存在，当前授权分组和模型的启用候选全部为 cloudflare-jev，且请求不属于插件声明或通用入口。
-此规则支持渠道模型别名，HTTP 错误仍返回；正确入口故障、无候选、权限/并发失败、混合同名普通渠道、
-插件停用和查询失败均保留记录。它不是全局日志关闭开关，不删除历史日志。
-首轮分发拒绝本来就不产生模型广场性能样本，详见[错路径日志隔离](../workflows/2026-09/24_jev_invalid_path_logs.md)。
+### 可选性能失败过滤钩子
+
+宿主提供 `task-performance-filter@1` 能力。插件需要在 `meta.requiredCapabilities`
+中声明该能力，并导出 `shouldRecordPerformanceFailure(ctx, failure)`；能力与函数必须同时存在，
+函数类型不正确时安装校验失败。旧插件不声明、不导出时保持原统计规则。
+
+`ctx` 仅含 `pluginKey/pluginVersion/model/upstreamModel/requestPath/method`；
+`failure` 仅含 `stage/httpStatus/errorCode`，无密钥、请求头、query、用户信息或响应正文。
+错误码只接受不超过 128 字节的 ASCII 标识符（字母、数字、`_-.:`），其余替换为
+`invalid_error_code`。阶段是 `transport/http/parse/immediate`，状态码是宿主对该失败的映射状态，
+不保证是供应商原始响应码。
+
+仅严格返回 `false` 会跳过这个失败性能样本；`true/null/undefined` 沿用宿主过滤。
+返回其他类型、异常或超时都回退到原统计，故障日志不输出异常正文。总预算 100ms，包含并发槽排队；
+使用本次固定的插件版本，结束后再次排除客户端取消。钩子必须只根据参数判断，
+不能依赖其他 hook 写入的 JS 全局变量，运行时池不承诺相同实例。
+
+以下示例用于已确认供应商返回稳定错误码 `invalid_request` 的插件，不是 Jev/Cloudflare 错误码承诺：
+
+```javascript
+// 在现有 meta 中加入 requiredCapabilities: ["task-performance-filter@1"]。
+export function shouldRecordPerformanceFailure(ctx, failure) {
+  return !(
+    failure.stage === "http" &&
+    failure.httpStatus === 400 &&
+    failure.errorCode === "invalid_request"
+  );
+}
+```
+
+钩子只作用于已进入上游的原生同步失败，不覆盖成功、本地失败或异步轮询，不改变日志、计费、退款、
+渠道指标、客户端响应和现有策略/管理员过滤。调用到错误路径且尚未选到渠道的请求继续保留错误日志，
+本来不产生模型广场样本，也不执行插件钩子。没有任何按 Jev 名称识别的日志例外。
+需要部署新宿主后才能安装声明此能力的插件；不支持该能力的旧宿主拒绝安装。
+详细证据见[性能钩子工作记录](../workflows/2026-09/24_task_plugin_performance_hook.md)。
 
 数据库和缓存选渠都在优先级、权重及并发选择前隔离 62 与目标 key；亲和性和指定渠道复查同一规则。
 常规 HTTP 和原生 Go 入口排除 62；插件原生路径仅选择绑定目标 key 的 62 类渠道。
