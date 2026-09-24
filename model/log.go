@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -159,16 +160,58 @@ func ensureLogRequestId(log *Log) {
 }
 
 func createLog(log *Log) error {
+	stripTopupLogIP(log)
 	ensureLogRequestId(log)
 	return LOG_DB.Create(log).Error
 }
 
 func createLogWithID(log *Log) (int, error) {
+	stripTopupLogIP(log)
 	ensureLogRequestId(log)
 	if err := LOG_DB.Create(log).Error; err != nil {
 		return 0, err
 	}
 	return log.Id, nil
+}
+
+// stripTopupLogIP 统一去除充值日志的 IP，兼顾新写入与历史查询，保留金额审计。
+func stripTopupLogIP(log *Log) {
+	if log == nil || log.Type != LogTypeTopup {
+		return
+	}
+	log.Ip = ""
+	if log.Other == "" {
+		return
+	}
+	// 保留金额的原始 JSON 数值，避免 int64 余额经 float64 转换丢失精度。
+	var other map[string]json.RawMessage
+	if err := common.UnmarshalJsonStr(log.Other, &other); err != nil {
+		// 无法解析的历史审计不原样返回，避免通过损坏的 JSON 泄露旧 IP。
+		log.Other = ""
+		return
+	}
+	rawAdminInfo, ok := other["admin_info"]
+	if !ok {
+		return
+	}
+	var adminInfo map[string]json.RawMessage
+	if err := common.Unmarshal(rawAdminInfo, &adminInfo); err != nil {
+		delete(other, "admin_info")
+	} else {
+		changed := false
+		for _, key := range []string{"caller_ip", "request_ip", "callback_ip", "server_ip"} {
+			if _, exists := adminInfo[key]; exists {
+				delete(adminInfo, key)
+				changed = true
+			}
+		}
+		if !changed {
+			return
+		}
+		other["admin_info"], _ = common.Marshal(adminInfo)
+	}
+	data, _ := common.Marshal(other)
+	log.Other = string(data)
 }
 
 func clickHouseLogOrder(prefix string) string {
@@ -184,6 +227,7 @@ func assignDisplayLogIds(logs []*Log, startIdx int) {
 func formatUserLogs(logs []*Log, startIdx int) {
 	hydrateLogGroupNames(logs)
 	for i := range logs {
+		stripTopupLogIP(logs[i])
 		logs[i].ChannelName = ""
 		if logs[i].Type == LogTypeManage {
 			logs[i].Ip = ""
@@ -336,7 +380,6 @@ func RecordOperationAuditLog(logUserId int, content string, ip string, action st
 // TopupLogDetails 是充值成功审计日志的稳定字段契约。
 // 余额快照只允许由同一充值事务在完成额度更新后显式标记，避免失败或重复回调伪造快照。
 type TopupLogDetails struct {
-	RequestIP             string
 	PaymentMethod         string
 	CallbackPaymentMethod string
 	TradeNo               string
@@ -351,12 +394,8 @@ type TopupLogDetails struct {
 // RecordTopupLogWithDetails 记录充值成功日志及管理员专用审计字段。
 func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetails) {
 	username, _ := GetUsernameById(userId, false)
-	requestIp := strings.TrimSpace(details.RequestIP)
 	adminInfo := map[string]interface{}{
-		"server_ip":               common.GetIp(),
 		"node_name":               common.NodeName,
-		"caller_ip":               requestIp,
-		"request_ip":              requestIp,
 		"payment_method":          details.PaymentMethod,
 		"callback_payment_method": details.CallbackPaymentMethod,
 		"version":                 common.Version,
@@ -381,7 +420,6 @@ func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetai
 		CreatedAt: common.GetTimestamp(),
 		Type:      LogTypeTopup,
 		Content:   content,
-		Ip:        requestIp,
 		Other:     common.MapToJsonStr(other),
 	}
 	if err := createLog(log); err != nil {
@@ -390,9 +428,8 @@ func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetai
 }
 
 // RecordTopupLog 保留非订单充值日志调用方的基础审计行为。
-func RecordTopupLog(userId int, content string, callerIp string, paymentMethod string, callbackPaymentMethod string) {
+func RecordTopupLog(userId int, content string, paymentMethod string, callbackPaymentMethod string) {
 	RecordTopupLogWithDetails(userId, content, TopupLogDetails{
-		RequestIP:             callerIp,
 		PaymentMethod:         paymentMethod,
 		CallbackPaymentMethod: callbackPaymentMethod,
 	})
@@ -410,7 +447,6 @@ func RecordTopupOrderLog(topUp *TopUp, content string, callbackPaymentMethod str
 		paidAmountCNY = invoiceOrderAmountCNY(paidAmount, provider)
 	}
 	RecordTopupLogWithDetails(topUp.UserId, content, TopupLogDetails{
-		RequestIP:             topUp.RequestIP,
 		PaymentMethod:         topUp.PaymentMethod,
 		CallbackPaymentMethod: callbackPaymentMethod,
 		TradeNo:               topUp.TradeNo,
@@ -694,6 +730,7 @@ func GetAllLogsByUserID(logType int, startTimestamp int64, endTimestamp int64, m
 
 	channelIds := types.NewSet[int]()
 	for _, log := range logs {
+		stripTopupLogIP(log)
 		if log.ChannelId != 0 {
 			channelIds.Add(log.ChannelId)
 		}
