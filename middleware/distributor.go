@@ -267,7 +267,12 @@ func Distribute() func(c *gin.Context) {
 						return
 					}
 					if channel == nil {
-						abortDistributorError(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": distributorGroupForMessage(usingGroup, selectGroup), "Model": modelRequest.Model}), modelRequest.Model, usingGroup, types.ErrorCodeModelNotFound)
+						message := i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": distributorGroupForMessage(usingGroup, selectGroup), "Model": modelRequest.Model})
+						if isCloudflareJevWrongPath(c, modelRequest.Model, usingGroup) {
+							abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, types.ErrorCodeModelNotFound)
+						} else {
+							abortDistributorError(c, http.StatusServiceUnavailable, message, modelRequest.Model, usingGroup, types.ErrorCodeModelNotFound)
+						}
 						return
 					}
 				}
@@ -319,7 +324,11 @@ func Distribute() func(c *gin.Context) {
 				httpStatus = http.StatusTooManyRequests
 				statusCode = types.ErrorCodeChannelConcurrencyLimit
 			}
-			abortDistributorError(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), modelRequest.Model, usingGroup, statusCode)
+			if types.IsRecordErrorLog(newAPIError) {
+				abortDistributorError(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), modelRequest.Model, usingGroup, statusCode)
+			} else {
+				abortWithOpenAiMessage(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), statusCode)
+			}
 			return
 		}
 		service.RecordSystemInstanceRequestStart()
@@ -331,6 +340,19 @@ func Distribute() func(c *gin.Context) {
 			service.RecordChannelAffinity(c, channel.Id)
 		}
 	}
+}
+
+func isCloudflareJevWrongPath(c *gin.Context, modelName, usingGroup string) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	groups := service.GetRequestTokenGroups(c, usingGroup)
+	if usingGroup == "auto" {
+		groups = service.GetRequestAutoGroups(c, common.GetContextKeyString(c, constant.ContextKeyUserGroup))
+	} else if len(groups) == 0 {
+		groups = []string{usingGroup}
+	}
+	return model.IsExclusiveTaskPluginPathMismatch(groups, modelName, c.Request.URL.Path, "cloudflare-jev")
 }
 
 func channelSelectionErrorMessage(c *gin.Context, err error) string {
@@ -658,7 +680,13 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		requestPath = c.Request.URL.Path
 	}
 	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
-		return types.NewError(errors.New("渠道与官方插件入口不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		newAPIError = types.NewError(errors.New("渠道与官方插件入口不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		if _, specified := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId); specified &&
+			channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == "cloudflare-jev" &&
+			isCloudflareJevWrongPath(c, modelName, common.GetContextKeyString(c, constant.ContextKeyUsingGroup)) {
+			types.ErrOptionWithNoRecordErrorLog()(newAPIError)
+		}
+		return newAPIError
 	}
 	if key := c.GetString("expected_task_plugin_key"); key != "" && (channel.Type != constant.ChannelTypeTaskPlugin || channel.GetSetting().TaskPluginKey != key) {
 		return types.NewError(errors.New("渠道与已固定插件身份不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())

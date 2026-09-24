@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -34,6 +35,71 @@ func TaskPluginChannelMatchesPath(channel *Channel, requestPath string) bool {
 		return channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == binding.Plugin.Meta.Key
 	}
 	return channel.Type != constant.ChannelTypeTaskPlugin
+}
+
+// IsExclusiveTaskPluginPathMismatch 仅当授权范围内的模型候选全部因同一插件的路径不匹配而被排除时返回真。
+// 查询失败、候选缺失、混合供应商或插件停用均保留错误日志，不能将配置故障误判成客户端误用。
+func IsExclusiveTaskPluginPathMismatch(groups []string, modelName, requestPath, pluginKey string) bool {
+	if len(groups) == 0 || modelName == "" || requestPath == "" {
+		return false
+	}
+	generation := jsplugin.DefaultRegistry.Generation()
+	plugin, active := generation.Get(pluginKey)
+	if !active || len(plugin.Meta.Routes) == 0 {
+		return false
+	}
+	if suffix, ok := strings.CutPrefix(requestPath, "/v1/task/plugins/"); ok {
+		key, _, _ := strings.Cut(suffix, "/")
+		if key == pluginKey {
+			return false
+		}
+	}
+	if binding, ok := generation.LookupDeclaredRoute("POST", requestPath); ok && binding.Plugin != nil && binding.Plugin.Meta.Key == pluginKey {
+		return false
+	}
+
+	var candidates []*Channel
+	if common.MemoryCacheEnabled {
+		channelSyncLock.RLock()
+		defer channelSyncLock.RUnlock()
+		ids := make(map[int]struct{})
+		for _, group := range groups {
+			for _, name := range []string{modelName, ratio_setting.FormatMatchingModelName(modelName)} {
+				for _, id := range group2model2channels[group][name] {
+					ids[id] = struct{}{}
+				}
+			}
+		}
+		for id := range ids {
+			channel := channelsIDM[id]
+			if channel == nil {
+				return false
+			}
+			candidates = append(candidates, channel)
+		}
+	} else {
+		if DB == nil {
+			return false
+		}
+		var ids []int
+		if err := DB.Model(&Ability{}).Where(commonGroupCol+" IN ? AND model = ? AND enabled = ?", groups, modelName, true).
+			Distinct("channel_id").Pluck("channel_id", &ids).Error; err != nil || len(ids) == 0 {
+			return false
+		}
+		// 日志判定不需要渠道密钥，不加载该字段。
+		if err := DB.Select("id", "type", "status", "setting").Where("id IN ?", ids).Find(&candidates).Error; err != nil || len(candidates) != len(ids) {
+			return false
+		}
+	}
+	if len(candidates) == 0 {
+		return false
+	}
+	for _, channel := range candidates {
+		if channel.Status != common.ChannelStatusEnabled || channel.Type != constant.ChannelTypeTaskPlugin || channel.GetSetting().TaskPluginKey != pluginKey {
+			return false
+		}
+	}
+	return true
 }
 
 func GetTaskPluginUsage(key string) ([]TaskPluginChannelRef, int64, error) {
