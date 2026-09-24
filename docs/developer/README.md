@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [任务插件开发与验收技能](../../.agents/skills/task-plugin-development/SKILL.md)：官方模式参考、宿主合同检查、计费与统计验收；[提炼及验证记录](../workflows/2026-09/24_task_plugin_development_skill.md)。
+
 - [zzapi 原生任务插件 .335 发布](../workflows/2026-09/24_zzapi_335_release.md)：版本、固定镜像、逐节点部署与回滚边界。
 
 - [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md)：复用图标字段支持图片直链，保留内置图标兼容与加载失败兜底。

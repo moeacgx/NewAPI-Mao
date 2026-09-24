@@ -56,6 +56,14 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 
 ## Rules
 
+### Task Plugin Development Skill
+
+开发、同步、修复或审查 JS 任务插件及其宿主接入时，先读取
+[任务插件开发与验收技能](.agents/skills/task-plugin-development/SKILL.md)。
+按实际协议选择官方参考，核对目标宿主能力，并将权限、计费、实际用量日志、统计、
+生命周期和版本兼容纳入验收；不能仅凭调用成功或插件脚本测试通过宣称完成。
+普通兼容渠道与扩展模块 ZIP 不属于该技能范围。
+
 ### Common Code Quality
 
 - New code should stay direct and readable. Prefer early returns, clear branches, and well-named local variables to deep nesting or layered control flow.
