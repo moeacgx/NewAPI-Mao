@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [任务插件性能失败过滤钩子](../workflows/2026-09/24_task_plugin_performance_hook.md)：保留日志与账务，通过可选钩子排除模型广场失败样本。
+
 - [zzapi 同步任务性能 .337 发布](../workflows/2026-09/24_zzapi_337_release.md)：同步任务性能采样修复、固定版本发布和三应用逐节点更新。
 
 - [Jev .336 发布与主站滚动更新](../workflows/2026-09/24_jev_336_release.md)：插件0.2.3与实际Token日志修复的发布、逐节点验证和回退。

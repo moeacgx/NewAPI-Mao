@@ -100,6 +100,10 @@ buildSubmitRequest → HTTP/业务状态 → parseSubmitResponse
 - 消费日志、渠道指标和模型广场 `pkg/perf_metrics` 是三条独立链路；渠道 collector 或 Token 日志通过
   不代表模型广场已采样。对 `retainResult:false` 原生同步任务，分别验证成功、上游失败、策略过滤、
   客户端取消、宿主本地失败和异步 pending 的样本边界。非流式任务的整体延迟/TPS 与 TTFT=0 要写入验收记录。
+- 插件需要排除性能失败时，使用 `task-performance-filter@1` 与
+  `shouldRecordPerformanceFailure(ctx, failure)`，不要靠停止写日志来改变成功率。
+  仅 `false` 排除样本；验证异常/非法结果/超时回退、固定版本、客户端取消及日志/资金不变。
+  错路径未选到渠道时不执行插件且本来不采样，不要为其伪造插件身份或添加供应商专用日志开关。
 - 任务记录是账务及插件版本留痕。`retainResult:false` 仍保留任务账务行，只清理私有结果；Classic 可显示
   “结果未保留”，不要通过前端分页过滤或删除任务行来隐藏它。
 

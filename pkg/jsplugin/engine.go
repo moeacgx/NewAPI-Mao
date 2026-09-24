@@ -296,19 +296,24 @@ func (e *Engine) HasCallablePath(ctx context.Context, exportName string, members
 
 // Call invokes one named module export and returns its JSON-compatible value.
 func (e *Engine) Call(ctx context.Context, exportName string, args ...any) (result any, err error) {
-	return e.call(ctx, 0, exportName, nil, args...)
+	return e.call(ctx, 0, false, exportName, nil, args...)
+}
+
+// CallBoolean 只接受原始布尔或空值，不解包Boolean对象，也不遍历任意返回对象。
+func (e *Engine) CallBoolean(ctx context.Context, exportName string, args ...any) (result any, err error) {
+	return e.call(ctx, 0, true, exportName, nil, args...)
 }
 
 // CallMember invokes a function stored on an exported object, such as a
 // renderer in the renderers export.
 func (e *Engine) CallMember(ctx context.Context, exportName, memberName string, args ...any) (result any, err error) {
-	return e.call(ctx, 0, exportName, []string{memberName}, args...)
+	return e.call(ctx, 0, false, exportName, []string{memberName}, args...)
 }
 
 // CallPath invokes a function nested below an exported object. It is used for
 // protocol hooks such as protocols.openai_responses.renderEvents.
 func (e *Engine) CallPath(ctx context.Context, exportName string, members []string, args ...any) (result any, err error) {
-	return e.call(ctx, 0, exportName, members, args...)
+	return e.call(ctx, 0, false, exportName, members, args...)
 }
 
 // CallPathWithAdmissionTimeout gives long-lived observers a separate bound for
@@ -322,12 +327,13 @@ func (e *Engine) CallPathWithAdmissionTimeout(
 	members []string,
 	args ...any,
 ) (result any, err error) {
-	return e.call(ctx, admissionTimeout, exportName, members, args...)
+	return e.call(ctx, admissionTimeout, false, exportName, members, args...)
 }
 
 func (e *Engine) call(
 	ctx context.Context,
 	admissionTimeout time.Duration,
+	booleanOnly bool,
 	exportName string,
 	members []string,
 	args ...any,
@@ -403,6 +409,18 @@ func (e *Engine) call(
 			return nil, hookErrorFromException(hookName, exc, wrapped)
 		}
 		return nil, wrapped
+	}
+	if booleanOnly {
+		if sobek.IsUndefined(value) || sobek.IsNull(value) {
+			return nil, nil
+		}
+		if _, object := value.(*sobek.Object); object {
+			return nil, errors.New("plugin boolean hook returned an invalid type")
+		}
+		if result, valid := value.Export().(bool); valid {
+			return result, nil
+		}
+		return nil, errors.New("plugin boolean hook returned an invalid type")
 	}
 	return value.Export(), nil
 }

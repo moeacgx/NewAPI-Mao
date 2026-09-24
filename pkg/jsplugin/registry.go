@@ -182,6 +182,8 @@ type UsageFieldSchema struct {
 type LoadedPlugin struct {
 	Meta   Meta
 	Engine *Engine
+	// PerformanceFailureFilter 在编译时确认，避免每次请求额外执行导出探测。
+	PerformanceFailureFilter bool
 }
 
 // RegistrySnapshot is a read-only copy of the metadata currently stored in
@@ -305,6 +307,23 @@ func CompilePlugin(source string, options Options) (*LoadedPlugin, error) {
 	}
 	engine.key = meta.Key
 	engine.version = meta.Version
+	performanceFilter, err := engine.HasExport(context.Background(), "shouldRecordPerformanceFailure")
+	if err != nil {
+		return nil, err
+	}
+	performanceCapability := slices.Contains(meta.RequiredCapabilities, CapabilityTaskPerformanceFilter)
+	if performanceFilter && !performanceCapability {
+		return nil, fmt.Errorf("plugin %s performance filter requires capability %q", meta.Key, CapabilityTaskPerformanceFilter)
+	}
+	if performanceCapability {
+		callable, err := engine.HasCallablePath(context.Background(), "shouldRecordPerformanceFailure")
+		if err != nil {
+			return nil, err
+		}
+		if !callable {
+			return nil, fmt.Errorf("plugin %s capability %s requires function shouldRecordPerformanceFailure", meta.Key, CapabilityTaskPerformanceFilter)
+		}
+	}
 	requiredHooks := []string{"buildSubmitRequest", "parseSubmitResponse", "parseTaskResult"}
 	if slices.Contains(meta.SubmitResponseTypes, "sse") {
 		if slices.Contains(meta.RequiredCapabilities, CapabilitySubmitSSEDelta) {
@@ -489,7 +508,7 @@ func CompilePlugin(source string, options Options) (*LoadedPlugin, error) {
 			return nil, fmt.Errorf("plugin %s export %q is no longer supported", meta.Key, removed)
 		}
 	}
-	return &LoadedPlugin{Meta: meta, Engine: engine}, nil
+	return &LoadedPlugin{Meta: meta, Engine: engine, PerformanceFailureFilter: performanceFilter}, nil
 }
 
 func (r *Registry) Get(platform string) (*LoadedPlugin, bool) {
