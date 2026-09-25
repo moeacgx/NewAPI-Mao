@@ -53,6 +53,13 @@ type BenefitVoucherFunding struct {
 	activityID int
 }
 
+func (f *BenefitVoucherFunding) Allocations() ([]model.BenefitVoucherRequestAllocation, error) {
+	if f == nil {
+		return nil, errors.New("福利券资金来源为空")
+	}
+	return model.GetBenefitVoucherRequestAllocations(f.requestID)
+}
+
 func NewBenefitVoucherFunding(requestID string, userID, groupID int) *BenefitVoucherFunding {
 	return &BenefitVoucherFunding{requestID: requestID, userID: userID, groupID: groupID, now: func() int64 { return time.Now().Unix() }}
 }
@@ -363,13 +370,37 @@ func (f *CompositeFunding) Settle(delta int) error {
 			return errors.New("benefit composite funding settlement capacity insufficient")
 		}
 		applied := make([]compositeSettlementAdjustment, 0, len(f.sources))
+		addedReservations := make([]compositeSettlementAdjustment, 0, len(f.sources))
 		for index, source := range f.sources {
 			settleDelta := adjustments[index]
 			if settleDelta == 0 && (f.consumed[index] <= 0 || source.Source() != BillingSourceBenefitVoucher) {
 				continue
 			}
+			if settleDelta > 0 && f.consumed[index] == 0 && source.Source() == BillingSourceBenefitVoucher {
+				reserver, ok := source.(fundingAdditionalReservation)
+				if !ok {
+					return rollbackCompositeSettlement(f.sources, f.consumed, applied, fmt.Errorf("funding source %s cannot reserve settlement quota", source.Source()))
+				}
+				if err := reserver.ReserveAdditional(settleDelta); err != nil {
+					return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+				}
+				f.consumed[index] += settleDelta
+				addedReservations = append(addedReservations, compositeSettlementAdjustment{index: index, delta: settleDelta})
+				settleDelta = 0
+			}
 			if err := source.Settle(settleDelta); err != nil {
-				return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+				err = rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+				for i := len(addedReservations) - 1; i >= 0; i-- {
+					adjustment := addedReservations[i]
+					if refunder, ok := f.sources[adjustment.index].(fundingAdditionalRefund); ok {
+						if refundErr := refunder.RefundAdditional(adjustment.delta); refundErr == nil {
+							f.consumed[adjustment.index] -= adjustment.delta
+						} else {
+							err = errors.Join(err, refundErr)
+						}
+					}
+				}
+				return err
 			}
 			f.consumed[index] += settleDelta
 			f.lastSettleDeltas[index] = settleDelta

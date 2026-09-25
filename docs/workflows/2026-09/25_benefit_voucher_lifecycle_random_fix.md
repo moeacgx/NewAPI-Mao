@@ -46,3 +46,13 @@ original_quota` 和孤儿券均为 0。历史查询中 `expires_at` 未来但状
 流水类型计数为：`pre_consume=15617`、`refund=299`、`expire=81`、`settle_delta=15299`、
 `settle_rollback=3`、`refund_additional=0`。实现必须兼容这些历史单券流水，不把现场统计推断为
 线上已部署或历史账务完全正常。
+
+## 第二轮账务闭合
+
+- `preConsumedQuota=0` 的真实福利券会话在正差额结算时，先按差额追加目标预扣，再以
+  `Settle(0)` 建立完整的 `pre_consume`/`settle_delta` 账务；组合结算失败时沿原结算补偿路径回滚。
+- 同一请求已有 `settle_delta` 或 `settle_rollback` 后，Reserve 只接受与已有目标总预扣严格相等的
+  只读重放；任何更大目标都明确拒绝，正常结算前的 Reserve 追加不受影响。
+- 多券 breakdown 以请求流水计算每券 `pre_reserved + sum(-settle_delta)`，只保留正数分配；单券继续
+  输出兼容的 activity/voucher 字段，多券将其置零并输出完整 `voucher_allocations`。流水查询失败不得
+  静默伪造逐券归属。

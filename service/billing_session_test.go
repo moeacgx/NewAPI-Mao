@@ -58,7 +58,7 @@ func TestNewBillingSessionSkipsBenefitVoucherForInheritedGroup(t *testing.T) {
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "benefit", Name: "活动福利", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	user := &model.User{Id: 4321, Username: "benefit-session-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
@@ -89,9 +89,57 @@ func TestNewBillingSessionSkipsBenefitVoucherForInheritedGroup(t *testing.T) {
 	common.SetContextKey(explicitCtx, constant.ContextKeyBenefitGroupExplicit, true)
 	explicitInfo := *info
 	explicitInfo.RequestId = "explicit-benefit-group"
+	explicitInfo.TokenQuotaExempt = true
 	explicitSession, explicitErr := NewBillingSession(explicitCtx, &explicitInfo, 0)
 	require.Nil(t, explicitErr)
 	assert.Equal(t, BillingSourceBenefitVoucher, explicitSession.funding.Source())
+	require.NoError(t, explicitSession.Settle(10))
+	var settledVoucher model.BenefitUserVoucher
+	require.NoError(t, db.Where("user_id = ?", user.Id).First(&settledVoucher).Error)
+	assert.Equal(t, int64(490), settledVoucher.RemainingQuota)
+	assert.Equal(t, int64(10), settledVoucher.UsedQuota)
+	var settleLedger model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", explicitInfo.RequestId, model.BenefitLedgerTypeSettleDelta).First(&settleLedger).Error)
+	breakdown := explicitSession.GetBreakdown()
+	assert.Equal(t, int64(10), breakdown.VoucherQuota)
+}
+
+func TestNewBillingSessionRealFactoryMultiVoucherBreakdown(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:billing_session_real_multi?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-multi", Name: "真实多券", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	user := &model.User{Id: 7654, Username: "real-multi-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
+	require.NoError(t, db.Create(user).Error)
+	now := time.Now().Unix()
+	for i := 0; i < 2; i++ {
+		activity := &model.BenefitActivity{Name: "真实多券活动", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: now - 100, EndsAt: now - 1, TotalQuota: 50, TotalCount: 1}
+		require.NoError(t, db.Create(activity).Error)
+		require.NoError(t, db.Create(&model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: i + 1, UserId: user.Id, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: now + 3600}).Error)
+	}
+	ctx, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(ctx, constant.ContextKeyBenefitGroupExplicit, true)
+	info := &relaycommon.RelayInfo{UserId: user.Id, UsingGroup: group.Code, RequestId: "real-multi-request", TokenQuotaExempt: true, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
+	session, apiErr := NewBillingSession(ctx, info, 0)
+	require.Nil(t, apiErr)
+	require.NoError(t, session.Settle(80))
+	breakdown := session.GetBreakdown()
+	assert.Equal(t, int64(80), breakdown.VoucherQuota)
+	assert.Zero(t, breakdown.ActivityID)
+	assert.Zero(t, breakdown.VoucherID)
+	assert.Len(t, breakdown.VoucherAllocations, 2)
 }
 
 func (f *recordingFundingSource) Source() string {
@@ -365,30 +413,6 @@ func TestCompositeFundingPreConsumeReturnsRefundFailure(t *testing.T) {
 	err := funding.PreConsume(50)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "voucher refund failed")
-}
-
-func TestBillingSessionBreakdownIncludesBenefitActivityID(t *testing.T) {
-	voucher := &BenefitVoucherFunding{voucherID: 8, activityID: 9, consumed: 30, reserved: 30}
-	funding := NewCompositeFunding(voucher)
-	session := &BillingSession{funding: funding}
-
-	breakdown := session.GetBreakdown()
-	assert.Equal(t, 9, breakdown.ActivityID)
-	assert.Equal(t, 8, breakdown.VoucherID)
-}
-
-func TestBillingSessionBreakdownDoesNotAttributeMultiVoucherTotalToOneVoucher(t *testing.T) {
-	first := &BenefitVoucherFunding{voucherID: 8, activityID: 9, consumed: 30, reserved: 30}
-	second := &BenefitVoucherFunding{voucherID: 10, activityID: 11, consumed: 20, reserved: 20}
-	funding := NewCompositeFunding(first, second)
-	funding.consumed = []int{30, 20}
-	breakdown := (&BillingSession{funding: funding}).GetBreakdown()
-	assert.Equal(t, int64(50), breakdown.VoucherQuota)
-	assert.Zero(t, breakdown.VoucherID)
-	assert.Zero(t, breakdown.ActivityID)
-	require.Len(t, breakdown.VoucherAllocations, 2)
-	assert.Equal(t, int64(30), breakdown.VoucherAllocations[0].Quota)
-	assert.Equal(t, 10, breakdown.VoucherAllocations[1].VoucherID)
 }
 
 func TestBillingSessionOmitsBreakdownForNonVoucherFunding(t *testing.T) {

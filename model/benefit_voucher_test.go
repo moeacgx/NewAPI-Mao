@@ -1296,6 +1296,28 @@ func TestBenefitVoucherReservationSettlementAndRefundAreIdempotent(t *testing.T)
 	assert.Equal(t, voucher.OriginalQuota-400, refunded.RemainingQuota)
 }
 
+func TestReserveBenefitVoucherQuotaRejectsAdditionalTargetAfterSettlement(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	now := int64(1000)
+	activity := &BenefitActivity{Name: "结算后禁止追加", GroupId: group.Id, Status: BenefitActivityStatusPublished, StartsAt: now - 1, EndsAt: now + 1000, TotalQuota: 100, TotalCount: 1}
+	require.NoError(t, DB.Create(activity).Error)
+	voucher := &BenefitUserVoucher{ActivityId: activity.Id, UserId: 44, OriginalQuota: 100, RemainingQuota: 100, Status: BenefitVoucherStatusActive, ExpiresAt: now + 1000}
+	require.NoError(t, DB.Create(voucher).Error)
+	_, err := ReserveBenefitVoucherQuota("settled-reserve", 44, group.Id, 50, now)
+	require.NoError(t, err)
+	require.NoError(t, SettleBenefitVoucherQuota("settled-reserve", 0, now+1))
+	_, err = ReserveBenefitVoucherQuota("settled-reserve", 44, group.Id, 50, now+2)
+	require.NoError(t, err)
+	_, err = ReserveBenefitVoucherQuota("settled-reserve", 44, group.Id, 80, now+3)
+	require.Error(t, err)
+	_, err = ReserveBenefitVoucherQuota("rollback-reserve", 44, group.Id, 50, now)
+	require.NoError(t, err)
+	require.NoError(t, SettleBenefitVoucherQuota("rollback-reserve", 0, now+1))
+	require.NoError(t, RollbackBenefitVoucherSettlement("rollback-reserve", 0, now+2))
+	_, err = ReserveBenefitVoucherQuota("rollback-reserve", 44, group.Id, 80, now+3)
+	require.Error(t, err)
+}
+
 func TestRefundBenefitVoucherQuotaDoesNotRestoreVoidedVoucher(t *testing.T) {
 	group := setupBenefitVoucherTestDB(t)
 	now := int64(1000)

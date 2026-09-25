@@ -168,6 +168,49 @@ type BenefitVoucherLedger struct {
 
 func (BenefitVoucherLedger) TableName() string { return "benefit_voucher_ledger" }
 
+type BenefitVoucherRequestAllocation struct {
+	ActivityID int
+	VoucherID  int
+	Quota      int64
+}
+
+// GetBenefitVoucherRequestAllocations 按请求流水计算最终逐券已消费额度。
+func GetBenefitVoucherRequestAllocations(requestID string) ([]BenefitVoucherRequestAllocation, error) {
+	if strings.TrimSpace(requestID) == "" || DB == nil {
+		return nil, errors.New("福利券请求流水参数无效")
+	}
+	var ledgers []BenefitVoucherLedger
+	if err := DB.Where("request_id = ? AND type IN ?", requestID, []string{BenefitLedgerTypePreConsume, BenefitLedgerTypeSettleDelta, BenefitLedgerTypeSettleRollback}).Order("id ASC").Find(&ledgers).Error; err != nil {
+		return nil, err
+	}
+	var refunds int64
+	if err := DB.Model(&BenefitVoucherLedger{}).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefund).Count(&refunds).Error; err != nil {
+		return nil, err
+	}
+	if refunds > 0 {
+		return []BenefitVoucherRequestAllocation{}, nil
+	}
+	type allocation struct {
+		activityID int
+		quota      int64
+	}
+	byVoucher := make(map[int]allocation)
+	for _, ledger := range ledgers {
+		entry := byVoucher[ledger.VoucherId]
+		entry.activityID = ledger.ActivityId
+		entry.quota -= ledger.QuotaDelta
+		byVoucher[ledger.VoucherId] = entry
+	}
+	result := make([]BenefitVoucherRequestAllocation, 0, len(byVoucher))
+	for voucherID, entry := range byVoucher {
+		if entry.quota > 0 {
+			result = append(result, BenefitVoucherRequestAllocation{ActivityID: entry.activityID, VoucherID: voucherID, Quota: entry.quota})
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].VoucherID < result[j].VoucherID })
+	return result, nil
+}
+
 type BenefitShareSplitInput struct {
 	Mode             string
 	TotalAmountCents int64
@@ -462,6 +505,21 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 			return errors.New("福利券请求已退款终态，不能重复预扣")
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+		var settledCount, rollbackCount int64
+		if err := tx.Model(&BenefitVoucherLedger{}).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).Count(&settledCount).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&BenefitVoucherLedger{}).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleRollback).Count(&rollbackCount).Error; err != nil {
+			return err
+		}
+		if settledCount > 0 || rollbackCount > 0 {
+			if amount == reservedTotal {
+				last := existing[len(existing)-1]
+				reservation = &BenefitVoucherReservation{VoucherID: last.VoucherId, ActivityID: last.ActivityId, UserID: last.UserId, Reserved: reservedTotal, BalanceAfter: last.BalanceAfter}
+				return nil
+			}
+			return errors.New("福利券请求已结算终态，不能追加预扣")
 		}
 		if amount <= reservedTotal {
 			last := existing[len(existing)-1]
