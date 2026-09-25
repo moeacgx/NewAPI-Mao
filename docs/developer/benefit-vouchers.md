@@ -6,8 +6,8 @@
 用户钱包；只有 token 或请求明确选择券绑定分组时才参与计费。`auto` 和继承用户
 默认分组不会触发福利券扣费。
 
-本能力不自动复制渠道或分组，不限制模型，不支持多券叠加，也不覆盖图像/视频异步
-任务。分组必须由管理员预先配置，`groups.single_user_concurrency_limit` 的 `0`
+本能力不自动复制渠道或分组，不限制模型，也不覆盖图像/视频异步任务。福利券按失效时间
+跨券叠加抵扣；分组必须由管理员预先配置，`groups.single_user_concurrency_limit` 的 `0`
 表示不限。
 
 ## 数据与迁移
@@ -140,8 +140,11 @@
 组合会话同步保留旧订阅日志字段：`subscription_id`、`subscription_pre_consumed`、
 `subscription_post_delta`、计划 ID/名称。所有来源最终额度写入
 `other.billing_breakdown`：`voucher_quota`、`subscription_quota`、`wallet_quota`、
-`activity_id`、`voucher_id`。`activity_id` 与福利券流水及消费日志的 `request_id`/`log_id`
-一起用于争议追溯。福利抵扣计入消费和渠道成本，但不计入现金收入。
+`activity_id`、`voucher_id`。跨多张券时 `voucher_quota` 是福利券合计，`voucher_id` 仅保留
+首张券以兼容历史字段，不能解释为全部消费归属于该单券；逐券分配以福利券流水的
+`voucher_id`、活动 ID、`request_id` 和 `log_id` 为准。福利抵扣计入消费和渠道成本，但不计入现金收入。
+当前日志契约进一步约束：单券保留 `activity_id`/`voucher_id`；多券时两者置零，并写入
+`voucher_allocations[{activity_id,voucher_id,quota}]`，避免把福利合计伪归属到单券。
 
 标准 Relay JSON 请求的 `group` 会先经过用户可用分组和显式 token 绑定校验，再成为最终
 `using_group`；显式稳定分组才打开福利券门禁，`group=auto` 和省略 `group` 的继承路径

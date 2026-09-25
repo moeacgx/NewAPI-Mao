@@ -178,11 +178,12 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	}
 	if breakdown := relayInfo.BillingBreakdown; breakdown != nil {
 		other["billing_breakdown"] = map[string]interface{}{
-			"voucher_quota":      breakdown.VoucherQuota,
-			"subscription_quota": breakdown.SubscriptionQuota,
-			"wallet_quota":       breakdown.WalletQuota,
-			"activity_id":        breakdown.ActivityID,
-			"voucher_id":         breakdown.VoucherID,
+			"voucher_quota":       breakdown.VoucherQuota,
+			"subscription_quota":  breakdown.SubscriptionQuota,
+			"wallet_quota":        breakdown.WalletQuota,
+			"activity_id":         breakdown.ActivityID,
+			"voucher_id":          breakdown.VoucherID,
+			"voucher_allocations": breakdown.VoucherAllocations,
 		}
 	}
 	if relayInfo.UserSetting.BillingPreference != "" {

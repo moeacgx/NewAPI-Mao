@@ -426,6 +426,7 @@ func (s *BillingSession) GetBreakdown() relaycommon.BillingBreakdown {
 		return breakdown
 	}
 	if composite, ok := s.funding.(*CompositeFunding); ok {
+		voucherCount := 0
 		for index, source := range composite.sources {
 			if index >= len(composite.consumed) {
 				continue
@@ -433,14 +434,21 @@ func (s *BillingSession) GetBreakdown() relaycommon.BillingBreakdown {
 			amount := int64(composite.consumed[index])
 			switch typed := source.(type) {
 			case *BenefitVoucherFunding:
+				voucherCount++
 				breakdown.VoucherQuota += amount
-				breakdown.ActivityID = typed.activityID
-				breakdown.VoucherID = typed.voucherID
+				breakdown.VoucherAllocations = append(breakdown.VoucherAllocations, relaycommon.BillingVoucherAllocation{ActivityID: typed.activityID, VoucherID: typed.voucherID, Quota: amount})
 			case *SubscriptionFunding:
 				breakdown.SubscriptionQuota += amount
 			case *WalletFunding:
 				breakdown.WalletQuota += amount
 			}
+		}
+		if voucherCount == 1 && len(breakdown.VoucherAllocations) == 1 {
+			breakdown.ActivityID = breakdown.VoucherAllocations[0].ActivityID
+			breakdown.VoucherID = breakdown.VoucherAllocations[0].VoucherID
+		} else if voucherCount > 1 {
+			breakdown.ActivityID = 0
+			breakdown.VoucherID = 0
 		}
 		return breakdown
 	}
@@ -449,6 +457,7 @@ func (s *BillingSession) GetBreakdown() relaycommon.BillingBreakdown {
 		breakdown.VoucherQuota = typed.consumed
 		breakdown.ActivityID = typed.activityID
 		breakdown.VoucherID = typed.voucherID
+		breakdown.VoucherAllocations = []relaycommon.BillingVoucherAllocation{{ActivityID: typed.activityID, VoucherID: typed.voucherID, Quota: typed.consumed}}
 	case *SubscriptionFunding:
 		breakdown.SubscriptionQuota = typed.preConsumed
 	case *WalletFunding:

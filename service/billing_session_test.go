@@ -185,6 +185,83 @@ func TestCompositeFundingRollsBackEarlierSettlementWhenLaterSourceFails(t *testi
 	assert.Equal(t, []int{20, -20}, subscription.settleDeltas, "后续资金源失败时应回滚已成功补扣")
 }
 
+func TestCompositeFundingSettleZeroClosesVoucherWithoutChangingOtherSources(t *testing.T) {
+	voucher := &recordingFundingSource{source: BillingSourceBenefitVoucher, capacity: 50}
+	wallet := &recordingFundingSource{source: BillingSourceWallet, capacity: 50}
+	funding := NewCompositeFunding(voucher, wallet)
+	require.NoError(t, funding.PreConsume(50))
+	require.NoError(t, funding.Settle(0))
+	assert.Equal(t, []int{0}, voucher.settleDeltas)
+	assert.Empty(t, wallet.settleDeltas)
+}
+
+func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnPositiveDelta(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:composite-real-voucher-positive?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, e := db.DB(); e == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-benefit", Name: "真实福利", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	activity := &model.BenefitActivity{Name: "真实正差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
+	require.NoError(t, db.Create(activity).Error)
+	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 201, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
+	require.NoError(t, db.Create(voucher).Error)
+	funding := NewCompositeFunding(NewBenefitVoucherFunding("real-positive", 44, group.Id), &recordingFundingSource{source: BillingSourceWallet, capacity: 100, additional: 100})
+	require.NoError(t, funding.PreConsume(50))
+	require.NoError(t, funding.Settle(30))
+	var stored model.BenefitUserVoucher
+	require.NoError(t, db.First(&stored, voucher.Id).Error)
+	assert.Equal(t, int64(50), stored.UsedQuota)
+	var settled model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", "real-positive", model.BenefitLedgerTypeSettleDelta).First(&settled).Error)
+	assert.Zero(t, settled.QuotaDelta)
+}
+
+func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnNegativeDelta(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:composite-real-voucher-negative?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, e := db.DB(); e == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-benefit-negative", Name: "真实福利负差额", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	activity := &model.BenefitActivity{Name: "真实负差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
+	require.NoError(t, db.Create(activity).Error)
+	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 202, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
+	require.NoError(t, db.Create(voucher).Error)
+	wallet := &recordingFundingSource{source: BillingSourceWallet, capacity: 100, additional: 100}
+	funding := NewCompositeFunding(NewBenefitVoucherFunding("real-negative", 44, group.Id), wallet)
+	require.NoError(t, funding.PreConsume(100))
+	require.NoError(t, funding.Settle(-30))
+	var stored model.BenefitUserVoucher
+	require.NoError(t, db.First(&stored, voucher.Id).Error)
+	assert.Equal(t, int64(50), stored.UsedQuota)
+	assert.Equal(t, int64(0), stored.RemainingQuota)
+	assert.Equal(t, []int{-30}, wallet.settleDeltas)
+	var settled model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", "real-negative", model.BenefitLedgerTypeSettleDelta).First(&settled).Error)
+	assert.Zero(t, settled.QuotaDelta)
+}
+
 func TestCompositeFundingRollbackUsesCompensatingVoucherSettlement(t *testing.T) {
 	voucher := &recordingFundingSource{source: BillingSourceBenefitVoucher, capacity: 30, additional: 30}
 	subscription := &recordingFundingSource{source: BillingSourceSubscription, capacity: 30, additional: 10, settleErr: errors.New("subscription settlement failed")}
@@ -298,6 +375,20 @@ func TestBillingSessionBreakdownIncludesBenefitActivityID(t *testing.T) {
 	breakdown := session.GetBreakdown()
 	assert.Equal(t, 9, breakdown.ActivityID)
 	assert.Equal(t, 8, breakdown.VoucherID)
+}
+
+func TestBillingSessionBreakdownDoesNotAttributeMultiVoucherTotalToOneVoucher(t *testing.T) {
+	first := &BenefitVoucherFunding{voucherID: 8, activityID: 9, consumed: 30, reserved: 30}
+	second := &BenefitVoucherFunding{voucherID: 10, activityID: 11, consumed: 20, reserved: 20}
+	funding := NewCompositeFunding(first, second)
+	funding.consumed = []int{30, 20}
+	breakdown := (&BillingSession{funding: funding}).GetBreakdown()
+	assert.Equal(t, int64(50), breakdown.VoucherQuota)
+	assert.Zero(t, breakdown.VoucherID)
+	assert.Zero(t, breakdown.ActivityID)
+	require.Len(t, breakdown.VoucherAllocations, 2)
+	assert.Equal(t, int64(30), breakdown.VoucherAllocations[0].Quota)
+	assert.Equal(t, 10, breakdown.VoucherAllocations[1].VoucherID)
 }
 
 func TestBillingSessionOmitsBreakdownForNonVoucherFunding(t *testing.T) {

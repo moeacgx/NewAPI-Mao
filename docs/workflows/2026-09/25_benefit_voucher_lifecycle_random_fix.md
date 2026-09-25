@@ -28,9 +28,21 @@
 - `gofmt -w model/benefit_voucher.go model/benefit_voucher_test.go`
 - `git diff --check`
 
-## 线上盘点
+## 线上盘点（只读、局部已确认）
 
-2026-09-25 通过 CloudSSH 对 `serverId=38` 的 MaoLaoAPI PostgreSQL 做只读盘点：活动状态为
-`ended` 的活动有 7 个；其中 `active` 且仍有余额、`expires_at` 尚未到期的已领取券有 48 张。
-这批记录保留原状态即可，程序升级后会按已领取券的有效期参与同组计费；没有执行数据库批量
-改写。已过期但仍有余额的券为 0 张，因此不需要恢复错误余额。
+2026-09-25 通过 CloudSSH 对 `serverId=38` 的 MaoLaoAPI PostgreSQL 做只读盘点，作业
+`7d387b35-ffde-48d5-9b38-ad9d9129d47b`（`2026-09-25T07:28:10Z`）确认：`ended` 活动未删除、
+仍为 `active` 且 `remaining_quota > 0`、`expires_at` 未来的已领取券为 48 张；`ended` 且已真实过期
+的券为 79 张，已耗尽 21 张；`terminated` 且已过期 2 张。负数余额、`remaining_quota + used_quota >
+original_quota` 和孤儿券均为 0。历史查询中 `expires_at` 未来但状态误为 `expired` 的券为 0；另有
+81 张真实已过期但仍保留未用余额，不能复活或延长。本次不执行数据库改写，用户授权目标仅是恢复
+48 张仍有效券的抵扣能力。
+
+同日只读审计作业 `bd2f77e8-2012-4469-b478-186d61b8e2aa` 聚合出 15,624 个非空
+`request_id`：19 个存在 `pre_consume` 但无 `settle_delta`/`refund` 且最后流水早于 1 小时；
+`settled + refunded` 但无 rollback、缺少 pre 的终态流水、同请求多券均为 0。19 个历史未闭合请求
+尚待关联请求日志确认，不能据此宣称全部历史账务无异常，也不自动退款。
+
+流水类型计数为：`pre_consume=15617`、`refund=299`、`expire=81`、`settle_delta=15299`、
+`settle_rollback=3`、`refund_additional=0`。实现必须兼容这些历史单券流水，不把现场统计推断为
+线上已部署或历史账务完全正常。

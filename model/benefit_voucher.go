@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"math/rand/v2"
+	"sort"
 	"strings"
 	"time"
 
@@ -456,6 +457,12 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 		for _, ledger := range existing {
 			reservedTotal += -ledger.QuotaDelta
 		}
+		var terminalRefund BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefund).Limit(1).First(&terminalRefund).Error; err == nil {
+			return errors.New("福利券请求已退款终态，不能重复预扣")
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
 		if amount <= reservedTotal {
 			last := existing[len(existing)-1]
 			reservation = &BenefitVoucherReservation{VoucherID: last.VoucherId, ActivityID: last.ActivityId, UserID: last.UserId, Reserved: reservedTotal, BalanceAfter: last.BalanceAfter}
@@ -528,6 +535,18 @@ type benefitVoucherCompensationMetadata struct {
 	OriginalRequestID string `json:"original_request_id,omitempty"`
 	NotRestored       bool   `json:"not_restored,omitempty"`
 	TerminalStatus    string `json:"terminal_status,omitempty"`
+	LastRefundAmount  int64  `json:"last_refund_amount,omitempty"`
+	LastRefundVector  string `json:"last_refund_vector,omitempty"`
+}
+
+func benefitVoucherRefundVector(pres []BenefitVoucherLedger) string {
+	ordered := append([]BenefitVoucherLedger(nil), pres...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Id < ordered[j].Id })
+	var builder strings.Builder
+	for _, pre := range ordered {
+		fmt.Fprintf(&builder, "%d=%d,", pre.VoucherId, -pre.QuotaDelta)
+	}
+	return builder.String()
 }
 
 func benefitVoucherCompensationMetadataJSON(metadata benefitVoucherCompensationMetadata) (string, error) {
@@ -549,31 +568,49 @@ func RefundBenefitVoucherAdditional(requestID string, amount int64, now int64) e
 			return err
 		}
 		if len(pres) == 0 {
-			return nil
+			return errors.New("福利券结算缺少预扣上下文")
 		}
 		var refunds []BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefundAdditional).Find(&refunds).Error; err != nil {
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefundAdditional).Order("id ASC").Find(&refunds).Error; err != nil {
 			return err
 		}
 		existingRefundByVoucher := make(map[int]*BenefitVoucherLedger, len(refunds))
 		for index := range refunds {
 			existingRefundByVoucher[refunds[index].VoucherId] = &refunds[index]
 		}
+		reservedTotal := int64(0)
+		for _, pre := range pres {
+			reservedTotal += -pre.QuotaDelta
+		}
+		currentVector := benefitVoucherRefundVector(pres)
+		anchor := &pres[len(pres)-1]
+		var anchorMetadata benefitVoucherCompensationMetadata
+		_ = common.UnmarshalJsonStr(anchor.Metadata, &anchorMetadata)
+		if len(refunds) > 0 {
+			if anchorMetadata.LastRefundAmount == amount && anchorMetadata.LastRefundVector == currentVector {
+				return nil
+			}
+			// 历史单券流水没有请求级 anchor：只有单预扣行且该行的
+			// reserved_after 与当前完整预扣量一致时，才兼容判定重放。
+			if len(pres) == 1 {
+				for _, refund := range refunds {
+					if refund.VoucherId != pres[0].VoucherId {
+						continue
+					}
+					var metadata benefitVoucherCompensationMetadata
+					if common.UnmarshalJsonStr(refund.Metadata, &metadata) == nil && metadata.ReservedAfter == -pres[0].QuotaDelta {
+						return nil
+					}
+				}
+			}
+		}
 		remaining := amount
-		eligible := false
 		for index := range pres {
 			if remaining <= 0 {
 				break
 			}
 			pre := &pres[index]
 			reserved := -pre.QuotaDelta
-			if refund := existingRefundByVoucher[pre.VoucherId]; refund != nil {
-				var metadata benefitVoucherCompensationMetadata
-				if common.UnmarshalJsonStr(refund.Metadata, &metadata) == nil && metadata.ReservedAfter == reserved {
-					continue
-				}
-			}
-			eligible = true
 			refundAmount := reserved
 			if refundAmount > remaining {
 				refundAmount = remaining
@@ -583,7 +620,7 @@ func RefundBenefitVoucherAdditional(requestID string, amount int64, now int64) e
 				return err
 			}
 			if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
-				metadataJSON, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{ReservedAfter: reserved, RequestedAmount: refundAmount, NotRestored: true, TerminalStatus: voucher.Status})
+				metadataJSON, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{ReservedAfter: reserved, RequestedAmount: amount, RequestedDelta: refundAmount, NotRestored: true, TerminalStatus: voucher.Status})
 				if err != nil {
 					return err
 				}
@@ -604,18 +641,30 @@ func RefundBenefitVoucherAdditional(requestID string, amount int64, now int64) e
 			if err := tx.Model(pre).Updates(map[string]interface{}{"quota_delta": -(reserved - refundAmount), "balance_after": balanceAfter}).Error; err != nil {
 				return err
 			}
-			metadata := common.MapToJsonStr(map[string]interface{}{"reserved_after": reserved - refundAmount})
+			metadataJSON, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{ReservedAfter: reserved - refundAmount, RequestedAmount: amount, RequestedDelta: refundAmount})
+			if err != nil {
+				return err
+			}
 			if refund := existingRefundByVoucher[pre.VoucherId]; refund != nil {
-				if err := tx.Model(refund).Updates(map[string]interface{}{"quota_delta": gorm.Expr("quota_delta + ?", refundAmount), "balance_after": balanceAfter, "metadata": metadata, "created_at": now}).Error; err != nil {
+				if err := tx.Model(refund).Updates(map[string]interface{}{"quota_delta": gorm.Expr("quota_delta + ?", refundAmount), "balance_after": balanceAfter, "metadata": metadataJSON, "created_at": now}).Error; err != nil {
 					return err
 				}
-			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional, QuotaDelta: refundAmount, BalanceAfter: balanceAfter, CreatedAt: now, Metadata: metadata}).Error; err != nil {
+			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional, QuotaDelta: refundAmount, BalanceAfter: balanceAfter, CreatedAt: now, Metadata: metadataJSON}).Error; err != nil {
 				return err
 			}
 			remaining -= refundAmount
 		}
-		if remaining > 0 && eligible {
+		if remaining > 0 {
 			return errors.New("福利券追加预扣退款超过预扣额度")
+		}
+		anchorMetadata.LastRefundAmount = amount
+		anchorMetadata.LastRefundVector = benefitVoucherRefundVector(pres)
+		anchorMetadataJSON, err := benefitVoucherCompensationMetadataJSON(anchorMetadata)
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(anchor).Updates(map[string]interface{}{"metadata": anchorMetadataJSON}).Error; err != nil {
+			return err
 		}
 		return nil
 	})
@@ -637,10 +686,14 @@ func SettleBenefitVoucherQuota(requestID string, delta int64, now int64) error {
 		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).Order("id ASC").Find(&settled).Error; err != nil {
 			return err
 		}
+		var refunds []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type IN ?", requestID, []string{BenefitLedgerTypeRefund, BenefitLedgerTypeSettleRollback}).Limit(1).Find(&refunds).Error; err != nil {
+			return err
+		}
+		if len(refunds) > 0 {
+			return errors.New("福利券请求已进入退款终态，不能重复结算")
+		}
 		if len(settled) > 0 {
-			if len(settled) != len(pres) {
-				return errors.New("福利券重复结算流水不完整")
-			}
 			settledDelta := int64(0)
 			for _, ledger := range settled {
 				settledDelta += -ledger.QuotaDelta
@@ -649,6 +702,42 @@ func SettleBenefitVoucherQuota(requestID string, delta int64, now int64) error {
 				return errors.New("福利券重复结算额度与原结算不一致")
 			}
 			return nil
+		}
+		preByVoucher := make(map[int]*BenefitVoucherLedger, len(pres))
+		for index := range pres {
+			preByVoucher[pres[index].VoucherId] = &pres[index]
+		}
+		if delta > 0 {
+			// 正差额可以落到尚未参与初次预扣的同组券；写入零预扣流水，
+			// 让后续结算、回滚和历史单券唯一键保持一致。
+			var activity BenefitActivity
+			if err := tx.Where("id = ?", pres[0].ActivityId).First(&activity).Error; err != nil {
+				return err
+			}
+			var candidates []BenefitUserVoucher
+			if err := lockForUpdate(tx).Table("benefit_user_vouchers AS v").
+				Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
+				Where("v.user_id = ? AND a.group_id = ? AND v.remaining_quota > ? AND v.status = ? AND v.expires_at > ?", pres[0].UserId, activity.GroupId, 0, BenefitVoucherStatusActive, now).
+				Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
+				Order("v.expires_at ASC, v.id ASC").Find(&candidates).Error; err != nil {
+				return err
+			}
+			for _, voucher := range candidates {
+				if _, exists := preByVoucher[voucher.Id]; exists {
+					continue
+				}
+				pre := &BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: voucher.UserId, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now}
+				if err := tx.Create(pre).Error; err != nil {
+					return err
+				}
+				pres = append(pres, *pre)
+				preByVoucher[voucher.Id] = &pres[len(pres)-1]
+			}
+		}
+		if delta < 0 {
+			for left, right := 0, len(pres)-1; left < right; left, right = left+1, right-1 {
+				pres[left], pres[right] = pres[right], pres[left]
+			}
 		}
 		remainingDelta := delta
 		for index := range pres {

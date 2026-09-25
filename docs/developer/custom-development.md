@@ -125,10 +125,11 @@
 - 删除边界：福利活动、兑换码、优惠码均使用管理员鉴权、关键操作限流和 GORM 软删除；
   单条/批量接口返回 `deleted_ids` 与逐项 `skipped`，保留券、流水、充值、支付和审计。
   优惠码已有 payment reservation 允许通过 `Unscoped` 回调结算，删除后禁止新 reservation。
-- 关键契约：福利券独立余额；显式分组才抵扣；福利券 -> 订阅 -> 钱包；请求总价仍受
+- 关键契约：福利券独立余额；显式分组才抵扣；同组福利券按失效时间跨券抵扣；福利券 -> 订阅 -> 钱包；请求总价仍受
   token 上限约束；所有差额和回滚按 `request_id` 幂等。组合结算补偿使用独立
   `settle_rollback` 流水和原 `request_id`/类型组合键，日志 breakdown 关联
-  `activity_id`/`voucher_id`/`request_id`/`log_id`。
+  `activity_id`/`voucher_id`/`request_id`/`log_id`。多券时 `voucher_id` 为历史兼容的首券摘要，
+  不代表总消费归属；逐券账务以福利券流水为准。
 - 已知限制：分组并发为单实例进程内限制；活动不自动复制渠道/分组；本期不覆盖图像和
   视频异步任务；Default 前端时间输入显式按 `Asia/Shanghai` 转换为 Unix 秒。管理 HTTP
   接口使用服务端时间，忽略请求体 `now`；个人券有效期对外按小时传输，数据库内部仍按
