@@ -5198,7 +5198,7 @@
     "Benefit activity has not started": "まだ開始していません",
     "Benefit activity has ended": "すでに終了しました",
     "Benefit fully claimed": "受け取り上限に達しました",
-    "New accounts must wait before they can claim": "新規登録アカウントは一定期間経過後に受け取れます",
+    "New accounts must wait before they can claim": "新規登録アカウントは登録から30分後に受け取れます",
     "Claim requirement": "受け取り条件",
     "Historical top-up of at least {{amount}}": "累計チャージ額が {{amount}} 以上",
     "No historical top-up requirement": "チャージ履歴は不要です",

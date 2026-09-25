@@ -5285,7 +5285,7 @@
     "Benefit activity has not started": "Активность ещё не началась",
     "Benefit activity has ended": "Активность завершена",
     "Benefit fully claimed": "Все бонусы уже получены",
-    "New accounts must wait before they can claim": "Новым аккаунтам нужно подождать, прежде чем получить бонус",
+    "New accounts must wait before they can claim": "С момента регистрации аккаунта должно пройти не менее 30 минут",
     "Claim requirement": "Условие получения",
     "Historical top-up of at least {{amount}}": "Исторические пополнения не менее {{amount}}",
     "No historical top-up requirement": "Без требования к пополнениям",

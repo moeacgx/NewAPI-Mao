@@ -476,7 +476,7 @@
     "Claim requirement": "領取條件",
     "Historical top-up of at least {{amount}}": "歷史充值滿 {{amount}}",
     "No historical top-up requirement": "無需歷史充值",
-    "New accounts must wait before they can claim": "新註冊帳號需滿一定時長後才能領取",
+    "New accounts must wait before they can claim": "新註冊帳號需滿 30 分鐘後才能領取",
     "Already have an account?": "已有用戶？",
     "Always matches (default tier).": "始終匹配（預設檔位）。",
     "Amber": "琥珀色",

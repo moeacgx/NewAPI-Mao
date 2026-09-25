@@ -153,7 +153,7 @@ test('CUSTOM amount falls back to a neutral symbol when the cached unit is not C
   localStorage.removeItem('quota_display_type');
 });
 
-test('zh-CN renders the extra registration-age claim condition alongside the top-up requirement', async () => {
+test('zh-CN renders the exact 30-minute registration-age claim condition alongside the top-up requirement', async () => {
   await i18next.changeLanguage('zh-CN');
   render(
     <ClaimableActivityCard
@@ -163,5 +163,5 @@ test('zh-CN renders the extra registration-age claim condition alongside the top
     />,
   );
 
-  expect(screen.getByText('新注册账号需满一定时长后才能领取')).toBeTruthy();
+  expect(screen.getByText('新注册账号需满 30 分钟后才能领取')).toBeTruthy();
 });

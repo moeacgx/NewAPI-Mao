@@ -5254,7 +5254,7 @@
     "Benefit activity has not started": "L'activité n'a pas encore commencé",
     "Benefit activity has ended": "L'activité est terminée",
     "Benefit fully claimed": "Avantage entièrement réclamé",
-    "New accounts must wait before they can claim": "Les nouveaux comptes doivent attendre avant de pouvoir réclamer",
+    "New accounts must wait before they can claim": "Les nouveaux comptes doivent avoir au moins 30 minutes avant de pouvoir réclamer",
     "Claim requirement": "Condition de réclamation",
     "Historical top-up of at least {{amount}}": "Recharge historique d'au moins {{amount}}",
     "No historical top-up requirement": "Aucune recharge historique requise",

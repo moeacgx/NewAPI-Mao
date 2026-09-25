@@ -476,7 +476,7 @@
     "Claim requirement": "Điều kiện nhận",
     "Historical top-up of at least {{amount}}": "Đã nạp tích lũy tối thiểu {{amount}}",
     "No historical top-up requirement": "Không yêu cầu nạp tích lũy",
-    "New accounts must wait before they can claim": "Tài khoản mới cần chờ một thời gian trước khi có thể nhận",
+    "New accounts must wait before they can claim": "Tài khoản mới phải được tạo ít nhất 30 phút trước khi có thể nhận",
     "Already have an account?": "Đã có tài khoản?",
     "Always matches (default tier).": "Luôn khớp (bậc mặc định).",
     "Amber": "Hổ phách",

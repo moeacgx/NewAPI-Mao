@@ -65,9 +65,9 @@
   claim` 提示）与上面的领域 key 一起，补齐 Default 全部 7 种语言
   （en/zh/zh-TW/fr/ru/ja/vi）与 Classic 实际加载的 7 种语言（en/zh-CN/zh-TW/fr/ru/ja/vi，
   未加载的 `zh.json` 不在范围内）。
-- 卡片在展示"领取条件"金额下方新增一行说明账号需要注册满一定时长才能领取，不写死具体分钟数
-  （后端该阈值是硬编码常量，未通过 API 暴露，写死数字会有与后端脱节的风险）；不改变后端
-  `ineligible` 判定语义。
+- 卡片在展示"领取条件"金额下方新增一行，明确说明账号注册满 30 分钟后才能领取；两套前端
+  复用现有领域 key，并在各自 7 种有效 locale 中同步具体时长。该值与后端固定的
+  `30 * time.Minute` 门禁一致，不扩展 API，也不改变后端 `ineligible` 判定语义。
 - `formatBenefitDisplayAmount`（Default）新增 `displayType` 参数，直接由
   `activity.amount_display_type` 驱动 USD/CNY/TOKENS 的符号与格式，不再读全局
   `getCurrencyDisplay()`；`CUSTOM` 类型下没有任何接口会返回符号文本（无论当前还是快照），

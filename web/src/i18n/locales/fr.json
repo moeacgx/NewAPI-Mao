@@ -476,7 +476,7 @@
     "Claim requirement": "Condition de réclamation",
     "Historical top-up of at least {{amount}}": "Recharge historique d'au moins {{amount}}",
     "No historical top-up requirement": "Aucune recharge historique requise",
-    "New accounts must wait before they can claim": "Les nouveaux comptes doivent attendre avant de pouvoir réclamer",
+    "New accounts must wait before they can claim": "Les nouveaux comptes doivent avoir au moins 30 minutes avant de pouvoir réclamer",
     "Already have an account?": "Vous avez déjà un compte ?",
     "Always matches (default tier).": "Toujours appliqué (palier par défaut).",
     "Amber": "Ambre",

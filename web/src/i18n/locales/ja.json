@@ -476,7 +476,7 @@
     "Claim requirement": "受け取り条件",
     "Historical top-up of at least {{amount}}": "累計チャージ額が {{amount}} 以上",
     "No historical top-up requirement": "チャージ履歴は不要です",
-    "New accounts must wait before they can claim": "新規登録アカウントは一定期間経過後に受け取れます",
+    "New accounts must wait before they can claim": "新規登録アカウントは登録から30分後に受け取れます",
     "Already have an account?": "アカウントをお持ちの方？",
     "Always matches (default tier).": "常に一致（デフォルト ティア）。",
     "Amber": "アンバー",

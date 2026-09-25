@@ -20,16 +20,16 @@ import { render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import zhCNResource from '@/i18n/locales/zh.json'
 import zhTWResource from '@/i18n/locales/zh-TW.json'
+import zhCNResource from '@/i18n/locales/zh.json'
 import {
   DEFAULT_CURRENCY_CONFIG,
   useSystemConfigStore,
   type CurrencyConfig,
 } from '@/stores/system-config-store'
 
-import { ClaimableActivityCard } from '../claimable-activity-card'
 import type { BenefitActivityUserView } from '../../types'
+import { ClaimableActivityCard } from '../claimable-activity-card'
 
 // src/test-setup.ts boots the shared test i18next singleton with an EMPTY
 // `en` resource bundle (so `t(key)` simply echoes `key` back, which is what
@@ -149,13 +149,11 @@ describe('claim eligibility labels render real zh/zh-TW translations', () => {
     expect(screen.queryByText('不符合领取条件')).toBeNull()
   })
 
-  it('zh-TW renders the extra registration-age claim condition', async () => {
+  it('zh-TW renders the exact 30-minute registration-age claim condition', async () => {
     await i18next.changeLanguage('zhTW')
     renderCard()
 
-    expect(
-      screen.getByText('新註冊帳號需滿一定時長後才能領取')
-    ).toBeTruthy()
+    expect(screen.getByText('新註冊帳號需滿 30 分鐘後才能領取')).toBeTruthy()
   })
 })
 
@@ -174,7 +172,10 @@ describe('claim threshold amount follows the type it arrived with, not a separat
       // computed `claim_paid_threshold` with for THIS response), not this
       // separately-fetched global store — which can only ever be *usually*
       // in sync with it, never guaranteed.
-      setCurrencyConfig({ quotaDisplayType: 'CUSTOM', customCurrencySymbol: '€' })
+      setCurrencyConfig({
+        quotaDisplayType: 'CUSTOM',
+        customCurrencySymbol: '€',
+      })
       renderCard({
         claim_paid_threshold: 10,
         amount_display_type: displayType,
@@ -182,7 +183,9 @@ describe('claim threshold amount follows the type it arrived with, not a separat
         eligibility_reason: 'ineligible',
       })
 
-      expect(screen.getByText(new RegExp(expected.replace('$', '\\$')))).toBeTruthy()
+      expect(
+        screen.getByText(new RegExp(expected.replace('$', '\\$')))
+      ).toBeTruthy()
     }
   )
 
@@ -198,7 +201,7 @@ describe('claim threshold amount follows the type it arrived with, not a separat
     expect(screen.getByText(/€10\.00/)).toBeTruthy()
   })
 
-  it('never double-converts: a CNY-typed amount is shown as-is, not multiplied again by this client store\'s exchange rate', () => {
+  it("never double-converts: a CNY-typed amount is shown as-is, not multiplied again by this client store's exchange rate", () => {
     setCurrencyConfig({
       quotaDisplayType: 'CNY',
       usdExchangeRate: 7,

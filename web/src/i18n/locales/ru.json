@@ -476,7 +476,7 @@
     "Claim requirement": "Условие получения",
     "Historical top-up of at least {{amount}}": "Исторические пополнения не менее {{amount}}",
     "No historical top-up requirement": "Без требования к пополнениям",
-    "New accounts must wait before they can claim": "Новым аккаунтам нужно подождать, прежде чем получить бонус",
+    "New accounts must wait before they can claim": "С момента регистрации аккаунта должно пройти не менее 30 минут",
     "Already have an account?": "Уже есть аккаунт?",
     "Always matches (default tier).": "Всегда совпадает (уровень по умолчанию).",
     "Amber": "Янтарный",
