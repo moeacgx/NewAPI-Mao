@@ -113,7 +113,7 @@
   - 新增 `claimable-activity-card-i18n.compat.test.jsx`（`i18next.addResourceBundle`
     注入真实 zh-CN/zh-TW 资源，覆盖领取原因文案、"忽略过期 localStorage 缓存、按活动自身
     `amount_display_type` 展示"、"CUSTOM 兜底不冒用缓存的 USD/CNY 符号"三类回归，共 5 个
-    `test()`）：**在本环境仍未能实际执行**。尝试过程：
+    `test()`）：本机隔离 runner 实际运行 **5/5 通过**。先前的排障过程：
     1. 复用的 `node_modules`（含原始 D 盘 checkout）都没有 `vitest`/`@testing-library/*`/
        `jsdom` 二进制，`package.json` 声明了依赖但从未 `bun install` 过。
     2. 在会话 scratchpad 建了一个隔离目录，按 `bun.lock` 里的精确版本
@@ -135,10 +135,21 @@
        里对 `@testing-library/react` 的导入，报
        `Failed to resolve import "@testing-library/react" from "scripts/setup-compat-tests.mjs"`——
        怀疑 vitest 对 `setupFiles` 的导入走了和普通测试文件导入不同的解析路径，未进一步排查。
-    5. 该临时配置文件仅用于诊断，已删除，不提交；未改动 Classic 真实 `vitest.config.mjs`。
+    5. 上述失败的临时配置文件仅用于诊断，已删除，未改动 Classic 真实 `vitest.config.mjs`。
+    6. 后续在本机 `C:\Users\Administrator\AppData\Local\Temp\classic-benefit-vitest-20260925`
+       独立安装 `vitest@2.1.9`、`@testing-library/react@16.3.0`、
+       `@testing-library/dom@10.4.2`、`jsdom@25.0.1`，仅以 Junction 指向 D 盘已有的
+       React/ReactDOM/i18next/react-i18next/Semi UI；临时 config 的 `root` 指向 Classic，
+       `cacheDir` 留在 TEMP，并将临时 setup 和目标测试解析到同一套 Vitest、RTL、React、i18n。
+       无需在仓库或共享 D 盘 `node_modules` 安装依赖。执行：
 
-    已用 `eslint`/`prettier --check` 验证该文件语法/风格正确，其断言与已通过的 Default
-    同名测试逻辑一致；实际执行结果留给后续在此环境补齐依赖或在有 bun 的机器上验证。
+       ```powershell
+       node C:\Users\Administrator\AppData\Local\Temp\classic-benefit-vitest-20260925\node_modules\vitest\vitest.mjs run src/components/benefits/__tests__/claimable-activity-card-i18n.compat.test.jsx --config C:\Users\Administrator\AppData\Local\Temp\classic-benefit-vitest-20260925\vitest.config.mjs --reporter verbose
+       ```
+
+       无调试日志复跑退出码 0，1 个文件、5 个用例全部通过（14.37 秒）。初次加载大依赖图
+       超过 60 秒后人为中断，退出码 1；开启 `vite:resolve` 定位到 `helpers/index.js`
+       展开的依赖后，第二次运行亦输出 5/5 通过、退出码 0。临时 runner 不纳入仓库提交。
   - `vite build`：本轮未重新构建全项目（改动只在 `benefitLabels.js` 内部逻辑和注释，
     未涉及构建配置）；上一轮已验证构建成功，Junction 指向的是同一份原始文件，结论不变。
 - 所有触及的 Default/Classic locale JSON 均以 Node `JSON.parse` 逐一校验有效，并用原始文本
@@ -150,11 +161,8 @@
 
 ## 已知限制 / 未做的事
 
-- Classic 新增的真实渲染测试无法在当前环境验证执行结果，只做了静态检查；已尝试隔离安装
-  依赖 + `resolve.alias` 临时 runner（过程见"验证"一节），未能解决 `resolve.alias` 不对
-  `setupFiles` 生效的问题。后续如需在 CI 中真正跑起来，最直接的路径是在有 bun 的环境里对
-  `web/classic` 正式 `bun install`（超出本次前端 locale 修复范围，且需要先确认不会像本次
-  `npm --legacy-peer-deps` 那样删除既被引用又未在 `package.json` 里显式声明的包）。
+- Classic 真实渲染测试已由本机 TEMP 隔离 runner 执行通过；该 runner/config 未纳入仓库，
+  常规 CI 仍需自行安装 Classic 声明的测试依赖。此验证不代表重新执行了 Classic 全量构建。
 - `CUSTOM` 展示类型下没有任何接口返回符号文本（`/api/benefit/activities` 只返回
   `amount_display_type` 这个类型名，不返回符号；活动模型上的
   `amount_display_type_snapshot`/`amount_display_rate_snapshot`/`quota_per_unit_snapshot`
