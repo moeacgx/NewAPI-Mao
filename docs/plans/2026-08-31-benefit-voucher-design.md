@@ -47,7 +47,7 @@ quota；请求级扣费仍遵守现有 int32 饱和边界。
 
 `benefit_user_vouchers` 保存用户、活动、份额、原始额度、剩余额度、已使用额度、
 领取和失效时间。唯一索引保证一个用户在一个活动中最多一张券。券失效时间为
-`min(领取时间 + 个人有效期, 活动结束时间)`。
+`领取时间 + 个人有效期`；活动结束只关闭领取入口，不截断已领取券。
 
 `benefit_voucher_ledger` 保存 `pre_consume`、`settle_delta`、`settle_rollback`、
 `refund_additional`、`refund`、`void`、`expire` 流水，并关联 activity、voucher、user、

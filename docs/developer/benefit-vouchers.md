@@ -59,7 +59,7 @@
 
 活动结束采用 `now >= ends_at` 的领取失效边界；活动结束后不再发放新券，已领取券仍按领取时
 快照的 `expires_at` 使用。个人券初始失效时间是
-`min(claimed_at + personal_valid_hours * 3600, activity.ends_at)`。管理端创建/编辑请求
+`claimed_at + personal_valid_hours * 3600`，不受活动 `ends_at` 截断。管理端创建/编辑请求
 使用 `personal_valid_hours`，小时值可带小数但换算结果必须是完整秒；活动响应也返回
 按小时展示的 `personal_valid_hours`。数据库内部仍以 `personal_valid_seconds` 保存，旧
 客户端提交该字段时服务端继续兼容读取。访问活动、券、领取和扣费入口会惰性处理过期

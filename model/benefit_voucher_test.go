@@ -1251,6 +1251,31 @@ func TestBenefitVoucherValidityIsSnapshottedPerActivity(t *testing.T) {
 	assert.Equal(t, oldVoucher.ExpiresAt, storedOld.ExpiresAt)
 }
 
+func TestBenefitVoucherPersonalValidityOutlivesClaimWindow(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	activity := newFixedBenefitActivity(group.Id, 1000, 3000)
+	activity.PersonalValidSeconds = 7 * 24 * 3600
+	require.NoError(t, CreateBenefitActivity(activity, 11, 900))
+	_, err := PublishBenefitActivity(activity.Id, 11, 950)
+	require.NoError(t, err)
+	user := createBenefitClaimUser(t, group.Id, 51, 1, "independent-validity-user")
+	require.NoError(t, DB.Create(&TopUp{
+		UserId: user.Id, Money: 2, ActualMoney: 2, PaidAmountCNY: 2,
+		Status: "success", TradeNo: "independent-validity-paid",
+	}).Error)
+
+	voucher, err := ClaimBenefitActivity(activity.Id, user.Id, 2000)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2000+7*24*3600), voucher.ExpiresAt)
+
+	_, err = ClaimBenefitActivity(activity.Id, user.Id, 3000)
+	require.ErrorIs(t, err, ErrBenefitActivityNotClaimable)
+	var stored BenefitUserVoucher
+	require.NoError(t, DB.First(&stored, voucher.Id).Error)
+	assert.Equal(t, BenefitVoucherStatusActive, stored.Status)
+	assert.Equal(t, voucher.ExpiresAt, stored.ExpiresAt)
+}
+
 func TestBenefitClaimRejectsOutsideActivityWindow(t *testing.T) {
 	group := setupBenefitVoucherTestDB(t)
 	activity := newFixedBenefitActivity(group.Id, 1000, 3000)

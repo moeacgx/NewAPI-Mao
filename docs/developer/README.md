@@ -178,6 +178,7 @@
 - [充值日志订单请求 IP 历史规则](../workflows/2026-08/30_topup_request_ip_preservation.md)：记录旧版回调 IP 隔离方案；充值日志 IP 保留规则已由 2026-09-25 的不记录、不返回契约替代。
 - [福利营销时效额度券设计](../plans/2026-08-31-benefit-voucher-design.md)：定义绑定稳定分组的一次性福利券、组合计费、分组单用户并发、双前端和跨数据库契约。
 - [福利营销时效额度券实现](benefit-vouchers.md)：记录实际 API、状态机、数据迁移、组合扣费、日志、前端入口、软关闭和回滚边界。
+- [福利券个人有效期与活动窗口分离](../workflows/2026-09/25_benefit_personal_validity_independent.md)：记录领取时到期时间修正、历史券补正边界和跨数据库验证。
 - [福利券提前结束与随机拆分修复](../workflows/2026-09/25_benefit_voucher_lifecycle_random_fix.md)：记录有效期快照、提前结束过期同步和随机金额偏置修复。
 - [福利领取卡片 locale 审查修复](../workflows/2026-09/25_benefit_claim_locale_review.md)：修复 zh-TW 重复 key 覆盖、补齐 fr/ru/ja/vi 与 Classic 缺失语言、提示隐藏的注册时长门槛、按活动自身 `amount_display_type` 展示金额，并补充真实 zh/zh-TW 渲染测试。
 - [Classic 登录审计日志类型展示修复](../workflows/2026-08/30_classic_login_log_type_display.md)：补齐 Classic 使用日志 `LogTypeLogin=7` 的类型标签、筛选项、登录详情摘要和展开信息。
