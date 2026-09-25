@@ -61,6 +61,25 @@ func TestSplitBenefitSharesPreservesRandomBudgetAndBounds(t *testing.T) {
 	assert.Equal(t, int64(10000), totalQuota)
 }
 
+func TestSplitBenefitSharesRandomModeDoesNotConcentrateBudgetInTheLastShare(t *testing.T) {
+	shares, err := SplitBenefitShares(BenefitShareSplitInput{
+		Mode:             BenefitAmountModeRandom,
+		TotalAmountCents: 500,
+		TotalCount:       4,
+		MinAmountCents:   100,
+		MaxAmountCents:   700,
+		QuotaPerCent:     10,
+		RandomIntn: func(max int) int {
+			return max / 2
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, shares, 4)
+	for _, share := range shares {
+		assert.Greater(t, share.AmountCents, int64(100), "随机预算不应因顺序算法集中到最后一张券")
+	}
+}
+
 func TestSplitBenefitSharesRejectsUnsatisfiableRandomBounds(t *testing.T) {
 	_, err := SplitBenefitShares(BenefitShareSplitInput{
 		Mode:             BenefitAmountModeRandom,
@@ -434,6 +453,44 @@ func TestReserveBenefitVoucherQuotaExtendsExistingRequestReservation(t *testing.
 	var ledger BenefitVoucherLedger
 	require.NoError(t, DB.Where("request_id = ? AND type = ?", "reserve-extension", BenefitLedgerTypePreConsume).First(&ledger).Error)
 	assert.Equal(t, int64(-50), ledger.QuotaDelta)
+}
+
+func TestReserveBenefitVoucherQuotaCombinesEndedActivityVouchersInOneGroup(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	now := int64(1000)
+	activities := []*BenefitActivity{
+		{Name: "历史活动一", GroupId: group.Id, Status: BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900, TotalAmountCents: 100, TotalQuota: 50, TotalCount: 1, FixedAmountCents: 100},
+		{Name: "历史活动二", GroupId: group.Id, Status: BenefitActivityStatusEnded, StartsAt: 900, EndsAt: 950, TotalAmountCents: 100, TotalQuota: 50, TotalCount: 1, FixedAmountCents: 100},
+	}
+	for _, activity := range activities {
+		require.NoError(t, DB.Create(activity).Error)
+	}
+	for index, activity := range activities {
+		require.NoError(t, DB.Create(&BenefitUserVoucher{ActivityId: activity.Id, ShareId: index + 1, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: BenefitVoucherStatusActive, ExpiresAt: now + 1000}).Error)
+	}
+
+	available, err := GetBenefitVoucherAvailableQuota(44, group.Id, now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), available)
+	reservation, err := ReserveBenefitVoucherQuota("ended-multi-voucher", 44, group.Id, 80, now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(80), reservation.Reserved)
+
+	var vouchers []BenefitUserVoucher
+	require.NoError(t, DB.Where("user_id = ?", 44).Order("id ASC").Find(&vouchers).Error)
+	require.Len(t, vouchers, 2)
+	assert.Equal(t, int64(0), vouchers[0].RemainingQuota)
+	assert.Equal(t, int64(20), vouchers[1].RemainingQuota)
+	require.NoError(t, SettleBenefitVoucherQuota("ended-multi-voucher", 0, now+1))
+	assert.Equal(t, int64(50), mustBenefitVoucherByID(t, vouchers[0].Id).UsedQuota)
+	assert.Equal(t, int64(30), mustBenefitVoucherByID(t, vouchers[1].Id).UsedQuota)
+}
+
+func mustBenefitVoucherByID(t *testing.T, id int) BenefitUserVoucher {
+	t.Helper()
+	var voucher BenefitUserVoucher
+	require.NoError(t, DB.First(&voucher, id).Error)
+	return voucher
 }
 
 func TestReserveBenefitVoucherQuotaAllowsAdditionalReserveAfterUnusedTermination(t *testing.T) {
@@ -935,6 +992,32 @@ func TestEndBenefitActivityExpiresUnclaimedSharesImmediately(t *testing.T) {
 	assert.Equal(t, int64(3), expired)
 }
 
+func TestEndBenefitActivityKeepsClaimedVouchersUsableUntilExpiry(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	activity := newFixedBenefitActivity(group.Id, 1000, 3000)
+	require.NoError(t, CreateBenefitActivity(activity, 11, 900))
+	_, err := PublishBenefitActivity(activity.Id, 11, 950)
+	require.NoError(t, err)
+
+	voucher := &BenefitUserVoucher{
+		ActivityId: activity.Id, UserId: 51, OriginalQuota: 100,
+		RemainingQuota: 100, Status: BenefitVoucherStatusActive,
+		ClaimedAt: 1000, ExpiresAt: 2500,
+	}
+	require.NoError(t, DB.Create(voucher).Error)
+
+	_, err = TransitionBenefitActivity(activity.Id, 11, BenefitActivityStatusEnded, 1200)
+	require.NoError(t, err)
+
+	var stored BenefitUserVoucher
+	require.NoError(t, DB.First(&stored, voucher.Id).Error)
+	assert.Equal(t, BenefitVoucherStatusActive, stored.Status)
+	assert.Equal(t, int64(2500), stored.ExpiresAt)
+	available, err := GetBenefitVoucherAvailableQuota(voucher.UserId, group.Id, 1200)
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), available)
+}
+
 func createBenefitClaimUser(t *testing.T, groupID, id int, createdAt int64, username string) *User {
 	t.Helper()
 	if createdAt == 0 {
@@ -997,6 +1080,35 @@ func TestClaimBenefitActivityEnforcesSingleVoucherAndSoldOut(t *testing.T) {
 	require.NoError(t, DB.Model(&BenefitActivityShare{}).Where("activity_id = ? AND status = ?", activity.Id, BenefitShareStatusAvailable).Where("id <> ?", claimed.ShareId).Update("status", BenefitShareStatusClaimed).Error)
 	_, err = ClaimBenefitActivity(activity.Id, secondUser.Id, 2002)
 	require.ErrorIs(t, err, ErrBenefitSoldOut)
+}
+
+func TestBenefitVoucherValidityIsSnapshottedPerActivity(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	user := createBenefitClaimUser(t, group.Id, 51, 1, "validity-snapshot-user")
+	require.NoError(t, DB.Create(&TopUp{UserId: user.Id, Money: 2, ActualMoney: 2, PaidAmountCNY: 2, Status: "success", TradeNo: "validity-snapshot-paid"}).Error)
+
+	short := newFixedBenefitActivity(group.Id, 1000, 100000)
+	short.PersonalValidSeconds = 24 * 3600
+	require.NoError(t, CreateBenefitActivity(short, 11, 900))
+	_, err := PublishBenefitActivity(short.Id, 11, 950)
+	require.NoError(t, err)
+	oldVoucher, err := ClaimBenefitActivity(short.Id, user.Id, 2000)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2000+24*3600), oldVoucher.ExpiresAt)
+
+	long := newFixedBenefitActivity(group.Id, 100000, 800000)
+	long.PersonalValidSeconds = 7 * 24 * 3600
+	long.Name = "长期福利"
+	require.NoError(t, CreateBenefitActivity(long, 11, 100000))
+	_, err = PublishBenefitActivity(long.Id, 11, 100001)
+	require.NoError(t, err)
+	newVoucher, err := ClaimBenefitActivity(long.Id, user.Id, 102000)
+	require.NoError(t, err)
+	assert.Equal(t, int64(102000+7*24*3600), newVoucher.ExpiresAt)
+
+	var storedOld BenefitUserVoucher
+	require.NoError(t, DB.First(&storedOld, oldVoucher.Id).Error)
+	assert.Equal(t, oldVoucher.ExpiresAt, storedOld.ExpiresAt)
 }
 
 func TestBenefitClaimRejectsOutsideActivityWindow(t *testing.T) {

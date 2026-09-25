@@ -247,6 +247,18 @@ describe('user benefits page', () => {
     expect(screen.getByText('3')).toBeTruthy()
   })
 
+  it('shows the historical top-up requirement when an activity has one', async () => {
+    installApiFixtures(
+      [activity({ claim_paid_threshold: 5, eligible: false })],
+      []
+    )
+    renderUserBenefits()
+
+    await waitFor(() =>
+      expect(screen.getByText(/Historical top-up of at least/)).toBeTruthy()
+    )
+  })
+
   it('prefers the voucher own activity/group snapshot over the activity list lookup', async () => {
     installApiFixtures(
       [],

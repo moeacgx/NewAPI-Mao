@@ -78,16 +78,16 @@ export const isBenefitActivityDeletable = (status) =>
   BENEFIT_ACTIVITY_DELETABLE_STATUSES.includes(status);
 
 export const BENEFIT_CLAIM_REASON_LABEL_KEYS = {
-  ineligible: 'Not eligible yet',
+  ineligible: 'Not eligible',
   claimed: 'Already claimed',
   sold_out: 'Fully claimed',
-  inactive: 'Not currently claimable',
-  not_started: 'Not started',
-  ended: 'Ended',
+  inactive: 'Activity is not active',
+  not_started: 'Activity has not started',
+  ended: 'Activity has ended',
 };
 
 export const benefitClaimReasonLabel = (t, reason) =>
-  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible yet');
+  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible');
 
 // Only an activity view where the user is eligible, has not claimed yet, is
 // currently claimable, and still has shares left renders an enabled claim

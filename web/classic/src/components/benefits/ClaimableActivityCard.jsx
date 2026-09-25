@@ -21,9 +21,10 @@ import React from 'react';
 import { Button, Card, Tag, Typography } from '@douyinfe/semi-ui';
 import { Gift } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { renderQuota } from '../../helpers';
+import { getCurrencyConfig, renderQuota } from '../../helpers';
 import {
   benefitClaimReasonLabel,
+  formatDisplayAmount,
   isBenefitActivityClaimable,
 } from './benefitLabels';
 
@@ -80,6 +81,20 @@ export default function ClaimableActivityCard(props) {
             {benefitClaimReasonLabel(t, activity.eligibility_reason)}
           </Tag>
         )}
+      </div>
+      <div className='mt-3 rounded-md bg-[var(--semi-color-fill-0)] px-3 py-2 text-sm'>
+        <span className='text-[var(--semi-color-text-2)]'>
+          {t('Claim requirement')}：
+        </span>{' '}
+        {Number(activity.claim_paid_threshold || 0) > 0
+          ? t('Historical top-up of at least {{amount}}', {
+              amount: formatDisplayAmount(
+                t,
+                activity.claim_paid_threshold,
+                getCurrencyConfig(),
+              ),
+            })
+          : t('No historical top-up requirement')}
       </div>
 
       <div className='mt-3 grid grid-cols-2 gap-3 border-t border-[var(--semi-color-border)] pt-3 text-sm sm:grid-cols-3'>

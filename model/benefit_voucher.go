@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"math/rand/v2"
-	"slices"
 	"strings"
 	"time"
 
@@ -256,7 +255,6 @@ func SplitBenefitShares(input BenefitShareSplitInput) ([]BenefitShareAllocation,
 		}
 		remaining := input.TotalAmountCents - minimumTotal
 		capacity := input.MaxAmountCents - input.MinAmountCents
-		maxInt := int64(^uint(0) >> 1)
 		for index := range allocations {
 			remainingSlots := int64(input.TotalCount - index - 1)
 			minimumAddition := remaining - remainingSlots*capacity
@@ -267,13 +265,9 @@ func SplitBenefitShares(input BenefitShareSplitInput) ([]BenefitShareAllocation,
 			if remaining < maximumAddition {
 				maximumAddition = remaining
 			}
-			addition := minimumAddition
-			span := maximumAddition - minimumAddition
-			if span > 0 {
-				if span >= maxInt {
-					return nil, errors.New("随机面额范围过大")
-				}
-				addition += int64(randomIntn(int(span + 1)))
+			addition, err := randomBalancedAddition(remaining, int64(input.TotalCount-index), minimumAddition, maximumAddition, randomIntn)
+			if err != nil {
+				return nil, err
 			}
 			allocation, err := benefitAllocation(input.MinAmountCents+addition, input.QuotaPerCent)
 			if err != nil {
@@ -334,13 +328,9 @@ func splitBenefitQuotaShares(input BenefitShareSplitInput) ([]BenefitShareAlloca
 			if remaining < maximumAddition {
 				maximumAddition = remaining
 			}
-			addition := minimumAddition
-			span := maximumAddition - minimumAddition
-			if span > 0 {
-				if span >= int64(^uint(0)>>1) {
-					return nil, errors.New("随机面额额度范围过大")
-				}
-				addition += int64(randomIntn(int(span + 1)))
+			addition, err := randomBalancedAddition(remaining, int64(input.TotalCount-i), minimumAddition, maximumAddition, randomIntn)
+			if err != nil {
+				return nil, err
 			}
 			allocations[i].Quota = input.MinQuota + addition
 			remaining -= addition
@@ -356,6 +346,53 @@ func splitBenefitQuotaShares(input BenefitShareSplitInput) ([]BenefitShareAlloca
 		return nil, fmt.Errorf("不支持的福利券面额模式: %s", input.Mode)
 	}
 	return allocations, nil
+}
+
+// randomBalancedAddition 在满足剩余槽位上下界的前提下，围绕剩余均值取随机值。
+// 旧算法从第一份开始反复抽取剩余预算，后面的份额只能拿到越来越小的余数，
+// 造成大量份额贴着保底值。这里收窄到可行区间的均值附近，仍保留随机差异，
+// 并让每个位置拥有相同的分布机会（调用方随后还会再次洗牌）。
+func randomBalancedAddition(remaining, slots, lower, upper int64, randomIntn func(int) int) (int64, error) {
+	if slots <= 0 || lower < 0 || upper < lower || remaining < lower || remaining > upper+(slots-1)*upper {
+		return 0, errors.New("随机面额范围无效")
+	}
+	if slots == 1 {
+		if remaining < lower || remaining > upper {
+			return 0, errors.New("随机面额范围无效")
+		}
+		return remaining, nil
+	}
+	average := remaining / slots
+	if average < lower {
+		average = lower
+	}
+	if average > upper {
+		average = upper
+	}
+	spread := upper - lower
+	if average-lower < spread/2 {
+		spread = 2 * (average - lower)
+	}
+	if upper-average < spread/2 {
+		spread = 2 * (upper - average)
+	}
+	low := average - spread/2
+	high := average + (spread - spread/2)
+	if low < lower {
+		low = lower
+	}
+	if high > upper {
+		high = upper
+	}
+	span := high - low
+	if span <= 0 {
+		return low, nil
+	}
+	maxInt := int64(^uint(0) >> 1)
+	if span >= maxInt {
+		return 0, errors.New("随机面额范围过大")
+	}
+	return low + int64(randomIntn(int(span+1))), nil
 }
 
 type BenefitActivityReport struct {
@@ -385,19 +422,21 @@ func GetBenefitVoucherAvailableQuota(userID, groupID int, now int64) (int64, err
 	if DB == nil || !DB.Migrator().HasTable(&BenefitUserVoucher{}) || !DB.Migrator().HasTable(&BenefitActivity{}) {
 		return 0, nil
 	}
-	var voucher BenefitUserVoucher
-	err := DB.Joins("JOIN benefit_activities ON benefit_activities.id = benefit_user_vouchers.activity_id").
-		Where("benefit_user_vouchers.user_id = ? AND benefit_activities.group_id = ?", userID, groupID).
-		Where("benefit_user_vouchers.status = ? AND benefit_user_vouchers.remaining_quota > ? AND benefit_user_vouchers.expires_at > ?", BenefitVoucherStatusActive, 0, now).
-		Where("(benefit_activities.status IN ? OR (benefit_activities.status = ? AND benefit_activities.terminate_mode = ?)) AND benefit_activities.starts_at <= ? AND benefit_activities.ends_at > ?", []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}, BenefitActivityStatusTerminated, BenefitTerminateModeUnused, now, now).
-		Order("benefit_user_vouchers.expires_at ASC, benefit_user_vouchers.id ASC").First(&voucher).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, nil
-	}
+	var available int64
+	err := DB.Table("benefit_user_vouchers AS v").
+		Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
+		Where("v.user_id = ? AND a.group_id = ?", userID, groupID).
+		Where("v.status = ? AND v.remaining_quota > ? AND v.expires_at > ?", BenefitVoucherStatusActive, 0, now).
+		Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
+		Select("COALESCE(SUM(v.remaining_quota), 0)").Scan(&available).Error
 	if err != nil {
 		return 0, err
 	}
-	return voucher.RemainingQuota, nil
+	return available, nil
+}
+
+func benefitVoucherActivityAvailableCondition() string {
+	return "a.deleted_at IS NULL AND ((a.status IN ('published', 'paused') AND a.starts_at <= ? AND a.ends_at > ?) OR (a.status = 'terminated' AND a.terminate_mode = 'unused' AND a.starts_at <= ? AND a.ends_at > ?) OR a.status = 'ended')"
 }
 
 func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount int64, now int64) (*BenefitVoucherReservation, error) {
@@ -409,76 +448,73 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 	}
 	var reservation *BenefitVoucherReservation
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		var existing BenefitVoucherLedger
-		if err := lockForUpdate(tx).Where("request_id = ? AND type = ? AND user_id = ?", requestID, BenefitLedgerTypePreConsume, userID).First(&existing).Error; err == nil {
-			reserved := -existing.QuotaDelta
-			if amount <= reserved {
-				reservation = &BenefitVoucherReservation{VoucherID: existing.VoucherId, ActivityID: existing.ActivityId, UserID: existing.UserId, Reserved: reserved, BalanceAfter: existing.BalanceAfter}
-				return nil
+		var existing []BenefitVoucherLedger
+		if err := lockForUpdate(tx).Where("request_id = ? AND type = ? AND user_id = ?", requestID, BenefitLedgerTypePreConsume, userID).Order("id ASC").Find(&existing).Error; err != nil {
+			return err
+		}
+		reservedTotal := int64(0)
+		for _, ledger := range existing {
+			reservedTotal += -ledger.QuotaDelta
+		}
+		if amount <= reservedTotal {
+			last := existing[len(existing)-1]
+			reservation = &BenefitVoucherReservation{VoucherID: last.VoucherId, ActivityID: last.ActivityId, UserID: last.UserId, Reserved: reservedTotal, BalanceAfter: last.BalanceAfter}
+			return nil
+		}
+		remaining := amount - reservedTotal
+		var vouchers []BenefitUserVoucher
+		query := lockForUpdate(tx).Table("benefit_user_vouchers AS v").
+			Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
+			Where("v.user_id = ? AND a.group_id = ?", userID, groupID).
+			Where("v.status = ? AND v.remaining_quota > ? AND v.expires_at > ?", BenefitVoucherStatusActive, 0, now).
+			Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
+			Order("v.expires_at ASC, v.id ASC").Find(&vouchers)
+		if query.Error != nil {
+			return query.Error
+		}
+		if len(vouchers) == 0 {
+			return ErrBenefitVoucherUnavailable
+		}
+		existingByVoucher := make(map[int]*BenefitVoucherLedger, len(existing))
+		for index := range existing {
+			existingByVoucher[existing[index].VoucherId] = &existing[index]
+		}
+		var first *BenefitUserVoucher
+		var firstBalanceAfter int64
+		for index := range vouchers {
+			if remaining <= 0 {
+				break
 			}
-			additional := amount - reserved
-			var voucher BenefitUserVoucher
-			if err := lockForUpdate(tx).Where("id = ?", existing.VoucherId).First(&voucher).Error; err != nil {
-				return err
+			voucher := &vouchers[index]
+			reserved := voucher.RemainingQuota
+			if reserved > remaining {
+				reserved = remaining
 			}
-			var activity BenefitActivity
-			if err := tx.Where("id = ?", voucher.ActivityId).First(&activity).Error; err != nil {
-				return err
-			}
-			if !(slices.Contains([]string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}, activity.Status) || (activity.Status == BenefitActivityStatusTerminated && activity.TerminateMode == BenefitTerminateModeUnused)) || now < activity.StartsAt || now >= activity.EndsAt {
-				return ErrBenefitVoucherUnavailable
-			}
-			if voucher.Status != BenefitVoucherStatusActive || voucher.RemainingQuota < additional || voucher.ExpiresAt <= now {
-				return ErrBenefitVoucherUnavailable
-			}
-			balanceAfter := voucher.RemainingQuota - additional
+			balanceAfter := voucher.RemainingQuota - reserved
 			status := BenefitVoucherStatusActive
 			if balanceAfter == 0 {
 				status = BenefitVoucherStatusExhausted
 			}
-			if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": status, "updated_at": now}).Error; err != nil {
+			if err := tx.Model(voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": status, "updated_at": now}).Error; err != nil {
 				return err
 			}
-			if err := tx.Model(&existing).Updates(map[string]interface{}{"quota_delta": -amount, "balance_after": balanceAfter}).Error; err != nil {
+			if pre := existingByVoucher[voucher.Id]; pre != nil {
+				if err := tx.Model(pre).Updates(map[string]interface{}{"quota_delta": pre.QuotaDelta - reserved, "balance_after": balanceAfter}).Error; err != nil {
+					return err
+				}
+			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: userID, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: -reserved, BalanceAfter: balanceAfter, CreatedAt: now}).Error; err != nil {
 				return err
 			}
-			reservation = &BenefitVoucherReservation{VoucherID: voucher.Id, ActivityID: voucher.ActivityId, UserID: voucher.UserId, Reserved: amount, BalanceAfter: balanceAfter}
-			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		var voucher BenefitUserVoucher
-		query := lockForUpdate(tx).Joins("JOIN benefit_activities ON benefit_activities.id = benefit_user_vouchers.activity_id").
-			Where("benefit_user_vouchers.user_id = ? AND benefit_activities.group_id = ?", userID, groupID).
-			Where("benefit_user_vouchers.status = ? AND benefit_user_vouchers.remaining_quota > ? AND benefit_user_vouchers.expires_at > ?", BenefitVoucherStatusActive, 0, now).
-			Where("(benefit_activities.status IN ? OR (benefit_activities.status = ? AND benefit_activities.terminate_mode = ?)) AND benefit_activities.starts_at <= ? AND benefit_activities.ends_at > ?", []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}, BenefitActivityStatusTerminated, BenefitTerminateModeUnused, now, now).
-			Order("benefit_user_vouchers.expires_at ASC, benefit_user_vouchers.id ASC")
-		if err := query.First(&voucher).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrBenefitVoucherUnavailable
+			if first == nil {
+				first = voucher
+				firstBalanceAfter = balanceAfter
 			}
-			return err
+			remaining -= reserved
 		}
-		reserved := amount
-		if voucher.RemainingQuota < reserved {
-			reserved = voucher.RemainingQuota
+		if remaining > 0 {
+			return ErrBenefitVoucherUnavailable
 		}
-		balanceAfter := voucher.RemainingQuota - reserved
-		status := BenefitVoucherStatusActive
-		if balanceAfter == 0 {
-			status = BenefitVoucherStatusExhausted
-		}
-		if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": status, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(&BenefitVoucherLedger{
-			ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: userID,
-			RequestId: requestID, Type: BenefitLedgerTypePreConsume,
-			QuotaDelta: -reserved, BalanceAfter: balanceAfter, CreatedAt: now,
-		}).Error; err != nil {
-			return err
-		}
-		reservation = &BenefitVoucherReservation{VoucherID: voucher.Id, ActivityID: voucher.ActivityId, UserID: userID, Reserved: reserved, BalanceAfter: balanceAfter}
+		reservation = &BenefitVoucherReservation{VoucherID: first.Id, ActivityID: first.ActivityId, UserID: first.UserId, Reserved: amount, BalanceAfter: firstBalanceAfter}
 		return nil
 	})
 	return reservation, err
@@ -508,75 +544,80 @@ func RefundBenefitVoucherAdditional(requestID string, amount int64, now int64) e
 		return errors.New("福利券追加预扣退款参数无效")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
-		var pre BenefitVoucherLedger
-		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).First(&pre).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
+		var pres []BenefitVoucherLedger
+		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).Order("id DESC").Find(&pres).Error; err != nil {
 			return err
 		}
-		var voucher BenefitUserVoucher
-		if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
+		if len(pres) == 0 {
+			return nil
+		}
+		var refunds []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefundAdditional).Find(&refunds).Error; err != nil {
 			return err
 		}
-		var refund BenefitVoucherLedger
-		refundErr := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefundAdditional).First(&refund).Error
-		if refundErr != nil && !errors.Is(refundErr, gorm.ErrRecordNotFound) {
-			return refundErr
+		existingRefundByVoucher := make(map[int]*BenefitVoucherLedger, len(refunds))
+		for index := range refunds {
+			existingRefundByVoucher[refunds[index].VoucherId] = &refunds[index]
 		}
-		reserved := -pre.QuotaDelta
-		if refundErr == nil {
-			var metadata benefitVoucherCompensationMetadata
-			if common.UnmarshalJsonStr(refund.Metadata, &metadata) == nil && metadata.ReservedAfter == reserved {
-				return nil
+		remaining := amount
+		eligible := false
+		for index := range pres {
+			if remaining <= 0 {
+				break
 			}
-		}
-		if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
-			if amount > reserved {
-				return errors.New("福利券追加预扣退款超过预扣额度")
+			pre := &pres[index]
+			reserved := -pre.QuotaDelta
+			if refund := existingRefundByVoucher[pre.VoucherId]; refund != nil {
+				var metadata benefitVoucherCompensationMetadata
+				if common.UnmarshalJsonStr(refund.Metadata, &metadata) == nil && metadata.ReservedAfter == reserved {
+					continue
+				}
 			}
-			metadata := benefitVoucherCompensationMetadata{
-				ReservedAfter:   reserved,
-				RequestedAmount: amount,
-				NotRestored:     true,
-				TerminalStatus:  voucher.Status,
+			eligible = true
+			refundAmount := reserved
+			if refundAmount > remaining {
+				refundAmount = remaining
 			}
-			metadataJSON, err := benefitVoucherCompensationMetadataJSON(metadata)
-			if err != nil {
+			var voucher BenefitUserVoucher
+			if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
 				return err
 			}
-			if refundErr == nil {
-				return tx.Model(&refund).Update("metadata", metadataJSON).Error
+			if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
+				metadataJSON, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{ReservedAfter: reserved, RequestedAmount: refundAmount, NotRestored: true, TerminalStatus: voucher.Status})
+				if err != nil {
+					return err
+				}
+				if refund := existingRefundByVoucher[pre.VoucherId]; refund != nil {
+					if err := tx.Model(refund).Updates(map[string]interface{}{"metadata": metadataJSON, "created_at": now}).Error; err != nil {
+						return err
+					}
+				} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now, Metadata: metadataJSON}).Error; err != nil {
+					return err
+				}
+				remaining -= refundAmount
+				continue
 			}
-			return tx.Create(&BenefitVoucherLedger{
-				ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-				RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional,
-				QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now,
-				Metadata: metadataJSON,
-			}).Error
+			balanceAfter := voucher.RemainingQuota + refundAmount
+			if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": BenefitVoucherStatusActive, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(pre).Updates(map[string]interface{}{"quota_delta": -(reserved - refundAmount), "balance_after": balanceAfter}).Error; err != nil {
+				return err
+			}
+			metadata := common.MapToJsonStr(map[string]interface{}{"reserved_after": reserved - refundAmount})
+			if refund := existingRefundByVoucher[pre.VoucherId]; refund != nil {
+				if err := tx.Model(refund).Updates(map[string]interface{}{"quota_delta": gorm.Expr("quota_delta + ?", refundAmount), "balance_after": balanceAfter, "metadata": metadata, "created_at": now}).Error; err != nil {
+					return err
+				}
+			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional, QuotaDelta: refundAmount, BalanceAfter: balanceAfter, CreatedAt: now, Metadata: metadata}).Error; err != nil {
+				return err
+			}
+			remaining -= refundAmount
 		}
-		if amount > reserved {
+		if remaining > 0 && eligible {
 			return errors.New("福利券追加预扣退款超过预扣额度")
 		}
-		balanceAfter := voucher.RemainingQuota + amount
-		if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": BenefitVoucherStatusActive, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&pre).Updates(map[string]interface{}{"quota_delta": -(reserved - amount), "balance_after": balanceAfter}).Error; err != nil {
-			return err
-		}
-		if errors.Is(refundErr, gorm.ErrRecordNotFound) {
-			return tx.Create(&BenefitVoucherLedger{
-				ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-				RequestId: requestID, Type: BenefitLedgerTypeRefundAdditional,
-				QuotaDelta: amount, BalanceAfter: balanceAfter, CreatedAt: now,
-				Metadata: common.MapToJsonStr(map[string]interface{}{"reserved_after": reserved - amount}),
-			}).Error
-		}
-		return tx.Model(&refund).Updates(map[string]interface{}{
-			"quota_delta": gorm.Expr("quota_delta + ?", amount), "balance_after": balanceAfter,
-			"metadata": common.MapToJsonStr(map[string]interface{}{"reserved_after": reserved - amount}), "created_at": now,
-		}).Error
+		return nil
 	})
 }
 
@@ -585,58 +626,78 @@ func SettleBenefitVoucherQuota(requestID string, delta int64, now int64) error {
 		return errors.New("福利券结算请求 ID 不能为空")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
-		var pre BenefitVoucherLedger
-		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).First(&pre).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
+		var pres []BenefitVoucherLedger
+		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).Order("id ASC").Find(&pres).Error; err != nil {
 			return err
 		}
-		var settled BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).First(&settled).Error; err == nil {
-			if settled.QuotaDelta != -delta {
+		if len(pres) == 0 {
+			return nil
+		}
+		var settled []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).Order("id ASC").Find(&settled).Error; err != nil {
+			return err
+		}
+		if len(settled) > 0 {
+			if len(settled) != len(pres) {
+				return errors.New("福利券重复结算流水不完整")
+			}
+			settledDelta := int64(0)
+			for _, ledger := range settled {
+				settledDelta += -ledger.QuotaDelta
+			}
+			if settledDelta != delta {
 				return errors.New("福利券重复结算额度与原结算不一致")
 			}
 			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
 		}
-		var voucher BenefitUserVoucher
-		if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
-			return err
-		}
-		reserved := -pre.QuotaDelta
-		actual := reserved + delta
-		if actual < 0 {
-			return errors.New("福利券实际结算额度不能为负")
-		}
-		balanceAfter := voucher.RemainingQuota
-		if delta > 0 {
-			if voucher.RemainingQuota < delta {
+		remainingDelta := delta
+		for index := range pres {
+			pre := &pres[index]
+			var voucher BenefitUserVoucher
+			if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
+				return err
+			}
+			if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
+				return errors.New("福利券已失效")
+			}
+			reserved := -pre.QuotaDelta
+			localDelta := int64(0)
+			if remainingDelta > 0 {
+				localDelta = remainingDelta
+				if localDelta > voucher.RemainingQuota {
+					localDelta = voucher.RemainingQuota
+				}
+				remainingDelta -= localDelta
+			} else if remainingDelta < 0 {
+				localDelta = remainingDelta
+				if -localDelta > reserved {
+					localDelta = -reserved
+				}
+				remainingDelta -= localDelta
+			}
+			actual := reserved + localDelta
+			if actual < 0 {
+				return errors.New("福利券实际结算额度不能为负")
+			}
+			balanceAfter := voucher.RemainingQuota - localDelta
+			if balanceAfter < 0 {
 				return errors.New("福利券余额不足以补扣")
 			}
-			balanceAfter -= delta
-		} else if delta < 0 {
-			balanceAfter += -delta
+			status := BenefitVoucherStatusActive
+			if balanceAfter == 0 {
+				status = BenefitVoucherStatusExhausted
+			}
+			if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "used_quota": gorm.Expr("used_quota + ?", actual), "status": status, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeSettleDelta, QuotaDelta: -localDelta, BalanceAfter: balanceAfter, CreatedAt: now}).Error; err != nil {
+				return err
+			}
 		}
-		status := BenefitVoucherStatusActive
-		if balanceAfter == 0 {
-			status = BenefitVoucherStatusExhausted
+		if remainingDelta != 0 {
+			return errors.New("福利券结算额度不足")
 		}
-		if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
-			return errors.New("福利券已失效")
-		}
-		if err := tx.Model(&voucher).Updates(map[string]interface{}{
-			"remaining_quota": balanceAfter, "used_quota": gorm.Expr("used_quota + ?", actual),
-			"status": status, "updated_at": now,
-		}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&BenefitVoucherLedger{
-			ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-			RequestId: requestID, Type: BenefitLedgerTypeSettleDelta,
-			QuotaDelta: -delta, BalanceAfter: balanceAfter, CreatedAt: now,
-		}).Error
+		return nil
 	})
 }
 
@@ -647,81 +708,79 @@ func RollbackBenefitVoucherSettlement(requestID string, delta int64, now int64) 
 		return errors.New("福利券结算补偿请求 ID 不能为空")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
-		var pre BenefitVoucherLedger
-		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).First(&pre).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
+		var pres []BenefitVoucherLedger
+		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).Order("id ASC").Find(&pres).Error; err != nil {
 			return err
 		}
-		var settled BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).First(&settled).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
+		if len(pres) == 0 {
+			return nil
+		}
+		var settled []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).Order("id ASC").Find(&settled).Error; err != nil {
 			return err
 		}
-		if settled.QuotaDelta != -delta {
+		if len(settled) == 0 {
+			return nil
+		}
+		var existing []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleRollback).Find(&existing).Error; err != nil {
+			return err
+		}
+		if len(existing) > 0 {
+			return nil
+		}
+		settledDelta := int64(0)
+		preByVoucher := make(map[int]*BenefitVoucherLedger, len(pres))
+		for index := range pres {
+			preByVoucher[pres[index].VoucherId] = &pres[index]
+		}
+		for _, ledger := range settled {
+			settledDelta += -ledger.QuotaDelta
+		}
+		if settledDelta != delta {
 			return errors.New("福利券结算补偿额度与原结算不一致")
 		}
-		var existing BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleRollback).First(&existing).Error; err == nil {
-			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		var voucher BenefitUserVoucher
-		if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
-			return err
-		}
-		reserved := -pre.QuotaDelta
-		actual := reserved + delta
-		if actual < 0 || voucher.UsedQuota < actual {
-			return errors.New("福利券结算补偿额度无效")
-		}
-		if delta > 0 && voucher.RemainingQuota > int64(^uint64(0)>>1)-delta {
-			return errors.New("福利券结算补偿后余额溢出")
-		}
-		balanceAfter := voucher.RemainingQuota + delta
-		if balanceAfter < 0 {
-			return errors.New("福利券结算补偿后余额不能为负")
-		}
-		if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
-			metadata, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{
-				RequestedDelta:    delta,
-				Actual:            actual,
-				OriginalRequestID: requestID,
-				NotRestored:       true,
-				TerminalStatus:    voucher.Status,
-			})
-			if err != nil {
+		for _, settledLedger := range settled {
+			pre := preByVoucher[settledLedger.VoucherId]
+			if pre == nil {
+				return errors.New("福利券结算补偿缺少预扣流水")
+			}
+			var voucher BenefitUserVoucher
+			if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
 				return err
 			}
-			return tx.Create(&BenefitVoucherLedger{
-				ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-				RequestId: requestID, Type: BenefitLedgerTypeSettleRollback,
-				QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now,
-				Metadata: metadata,
-			}).Error
+			localDelta := -settledLedger.QuotaDelta
+			reserved := -pre.QuotaDelta
+			actual := reserved + localDelta
+			if actual < 0 || voucher.UsedQuota < actual {
+				return errors.New("福利券结算补偿额度无效")
+			}
+			balanceAfter := voucher.RemainingQuota + localDelta
+			if balanceAfter < 0 || balanceAfter > int64(^uint64(0)>>1) {
+				return errors.New("福利券结算补偿后余额无效")
+			}
+			if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
+				metadata, err := benefitVoucherCompensationMetadataJSON(benefitVoucherCompensationMetadata{RequestedDelta: localDelta, Actual: actual, OriginalRequestID: requestID, NotRestored: true, TerminalStatus: voucher.Status})
+				if err != nil {
+					return err
+				}
+				if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeSettleRollback, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now, Metadata: metadata}).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			status := BenefitVoucherStatusActive
+			if balanceAfter == 0 {
+				status = BenefitVoucherStatusExhausted
+			}
+			if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "used_quota": gorm.Expr("used_quota - ?", actual), "status": status, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeSettleRollback, QuotaDelta: localDelta, BalanceAfter: balanceAfter, Metadata: common.MapToJsonStr(map[string]interface{}{"original_request_id": requestID}), CreatedAt: now}).Error; err != nil {
+				return err
+			}
 		}
-		status := BenefitVoucherStatusActive
-		if balanceAfter == 0 {
-			status = BenefitVoucherStatusExhausted
-		}
-		if err := tx.Model(&voucher).Updates(map[string]interface{}{
-			"remaining_quota": balanceAfter,
-			"used_quota":      gorm.Expr("used_quota - ?", actual),
-			"status":          status,
-			"updated_at":      now,
-		}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&BenefitVoucherLedger{
-			ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-			RequestId: requestID, Type: BenefitLedgerTypeSettleRollback,
-			QuotaDelta: delta, BalanceAfter: balanceAfter,
-			Metadata: common.MapToJsonStr(map[string]interface{}{"original_request_id": requestID}), CreatedAt: now,
-		}).Error
+		return nil
 	})
 }
 
@@ -730,59 +789,56 @@ func RefundBenefitVoucherQuota(requestID string, now int64) error {
 		return errors.New("福利券退款请求 ID 不能为空")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
-		var pre BenefitVoucherLedger
-		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).First(&pre).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
+		var pres []BenefitVoucherLedger
+		if err := lockForUpdate(tx).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypePreConsume).Order("id ASC").Find(&pres).Error; err != nil {
 			return err
 		}
-		var existing BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefund).First(&existing).Error; err == nil {
+		if len(pres) == 0 {
 			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		}
+		var refunds []BenefitVoucherLedger
+		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeRefund).Find(&refunds).Error; err != nil {
 			return err
 		}
-		var settled BenefitVoucherLedger
-		if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).First(&settled).Error; err == nil {
-			var rollback BenefitVoucherLedger
-			if err := tx.Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleRollback).First(&rollback).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			} else if err != nil {
+		if len(refunds) > 0 {
+			return nil
+		}
+		var settledCount, rollbackCount int64
+		if err := tx.Model(&BenefitVoucherLedger{}).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleDelta).Count(&settledCount).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&BenefitVoucherLedger{}).Where("request_id = ? AND type = ?", requestID, BenefitLedgerTypeSettleRollback).Count(&rollbackCount).Error; err != nil {
+			return err
+		}
+		if settledCount > 0 && rollbackCount < settledCount {
+			return nil
+		}
+		for index := range pres {
+			pre := &pres[index]
+			var voucher BenefitUserVoucher
+			if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
 				return err
 			}
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
+			refund := -pre.QuotaDelta
+			if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
+				if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefund, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now, Metadata: common.MapToJsonStr(map[string]interface{}{"not_restored": true, "terminal_status": voucher.Status})}).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			balanceAfter := voucher.RemainingQuota + refund
+			status := BenefitVoucherStatusActive
+			if voucher.UsedQuota > 0 && balanceAfter == 0 {
+				status = BenefitVoucherStatusExhausted
+			}
+			if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": status, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&BenefitVoucherLedger{ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId, RequestId: requestID, Type: BenefitLedgerTypeRefund, QuotaDelta: refund, BalanceAfter: balanceAfter, CreatedAt: now}).Error; err != nil {
+				return err
+			}
 		}
-		var voucher BenefitUserVoucher
-		if err := lockForUpdate(tx).Where("id = ?", pre.VoucherId).First(&voucher).Error; err != nil {
-			return err
-		}
-		if voucher.Status == BenefitVoucherStatusVoided || voucher.Status == BenefitVoucherStatusExpired {
-			// 终态券不能因请求退款重新激活；保留零变更流水用于审计。
-			return tx.Create(&BenefitVoucherLedger{
-				ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-				RequestId: requestID, Type: BenefitLedgerTypeRefund,
-				QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now,
-				Metadata: common.MapToJsonStr(map[string]interface{}{
-					"not_restored": true, "terminal_status": voucher.Status,
-				}),
-			}).Error
-		}
-		refund := -pre.QuotaDelta
-		balanceAfter := voucher.RemainingQuota + refund
-		status := BenefitVoucherStatusActive
-		if voucher.UsedQuota > 0 && balanceAfter == 0 {
-			status = BenefitVoucherStatusExhausted
-		}
-		if err := tx.Model(&voucher).Updates(map[string]interface{}{"remaining_quota": balanceAfter, "status": status, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&BenefitVoucherLedger{
-			ActivityId: pre.ActivityId, VoucherId: pre.VoucherId, UserId: pre.UserId,
-			RequestId: requestID, Type: BenefitLedgerTypeRefund,
-			QuotaDelta: refund, BalanceAfter: balanceAfter, CreatedAt: now,
-		}).Error
+		return nil
 	})
 }
 
@@ -1610,6 +1666,7 @@ func TransitionBenefitActivity(activityID, operatorID int, targetStatus string, 
 			return err
 		}
 		if targetStatus == BenefitActivityStatusEnded {
+			// 活动结束只停止新的领取；已经领取的券继续使用到自身 expires_at。
 			return expireBenefitActivitySharesTx(tx, activity.Id)
 		}
 		return nil

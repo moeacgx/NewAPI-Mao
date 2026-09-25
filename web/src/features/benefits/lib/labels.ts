@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
 
+import { formatLocalCurrencyAmount, getCurrencyDisplay } from '@/lib/currency'
+
 import type { BenefitActivityStatus, BenefitVoucherStatus } from '../types'
 
 /** Voucher status label. Explicit t() calls keep every value scannable for i18n sync. */
@@ -71,7 +73,7 @@ export function claimEligibilityLabel(
 ): string {
   switch (reason) {
     case 'ineligible':
-      return t('Not eligible for this group')
+      return t('Not eligible')
     case 'claimed':
       return t('Already claimed')
     case 'sold_out':
@@ -85,6 +87,24 @@ export function claimEligibilityLabel(
     default:
       return t('Not eligible')
   }
+}
+
+/** 活动金额已按当前展示单位返回，不能再次按 quota 换算。 */
+export function formatBenefitDisplayAmount(
+  amount: number,
+  t: TFunction
+): string {
+  const numericAmount = Number(amount)
+  if (!Number.isFinite(numericAmount)) return '-'
+  const { meta } = getCurrencyDisplay()
+  if (meta.kind === 'tokens') {
+    return `${Math.round(numericAmount).toLocaleString()} ${t('Tokens')}`
+  }
+  return formatLocalCurrencyAmount(numericAmount, {
+    digitsLarge: 2,
+    digitsSmall: 2,
+    abbreviate: false,
+  })
 }
 
 export function ledgerEntryTypeLabel(type: string, t: TFunction): string {
