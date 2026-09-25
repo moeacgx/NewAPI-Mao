@@ -166,7 +166,7 @@ describe('user benefits page', () => {
       (button) => !button.hasAttribute('disabled')
     )
     expect(enabledButtons).toHaveLength(1)
-    expect(screen.getByText('Fully claimed')).toBeTruthy()
+    expect(screen.getByText('Benefit fully claimed')).toBeTruthy()
   })
 
   it('shows an already-claimed badge instead of a claim button once claimed', async () => {

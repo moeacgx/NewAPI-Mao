@@ -66,10 +66,15 @@ export function ClaimableActivityCard(props: ClaimableActivityCardProps) {
             ? t('Historical top-up of at least {{amount}}', {
                 amount: formatBenefitDisplayAmount(
                   activity.claim_paid_threshold,
+                  activity.amount_display_type,
                   t
                 ),
               })
             : t('No historical top-up requirement')}
+          <br />
+          <span className='text-muted-foreground text-xs'>
+            {t('New accounts must wait before they can claim')}
+          </span>
         </p>
         <div className='grid grid-cols-2 gap-2 text-sm'>
           <div>
@@ -113,7 +118,7 @@ export function ClaimableActivityCard(props: ClaimableActivityCardProps) {
               <StatusBadge
                 label={
                   activity.eligible
-                    ? t('Eligible')
+                    ? t('Eligible to claim')
                     : claimEligibilityLabel(activity.eligibility_reason, t)
                 }
                 variant={activity.eligible ? 'success' : 'neutral'}

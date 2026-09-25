@@ -179,6 +179,7 @@
 - [福利营销时效额度券设计](../plans/2026-08-31-benefit-voucher-design.md)：定义绑定稳定分组的一次性福利券、组合计费、分组单用户并发、双前端和跨数据库契约。
 - [福利营销时效额度券实现](benefit-vouchers.md)：记录实际 API、状态机、数据迁移、组合扣费、日志、前端入口、软关闭和回滚边界。
 - [福利券提前结束与随机拆分修复](../workflows/2026-09/25_benefit_voucher_lifecycle_random_fix.md)：记录有效期快照、提前结束过期同步和随机金额偏置修复。
+- [福利领取卡片 locale 审查修复](../workflows/2026-09/25_benefit_claim_locale_review.md)：修复 zh-TW 重复 key 覆盖、补齐 fr/ru/ja/vi 与 Classic 缺失语言、提示隐藏的注册时长门槛、按活动自身 `amount_display_type` 展示金额，并补充真实 zh/zh-TW 渲染测试。
 - [Classic 登录审计日志类型展示修复](../workflows/2026-08/30_classic_login_log_type_display.md)：补齐 Classic 使用日志 `LogTypeLogin=7` 的类型标签、筛选项、登录详情摘要和展开信息。
 - [Classic 控制台全局顶栏统一与营销福利 404 修复](../workflows/2026-08/30_classic_console_global_header_and_promo_code_fix.md)：将所有 Classic `/console` 页面切到数据看板同款模板顶栏，并修正营销福利页优惠码接口路径。
 - [反代 IP 登记与多实例接入](trusted-proxy-instance-registration.md)：登记反代节点地址，并在新增网关实例时同步 `TRUSTED_PROXIES` 和逐实例验证。

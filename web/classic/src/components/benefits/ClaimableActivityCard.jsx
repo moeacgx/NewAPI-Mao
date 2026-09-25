@@ -23,6 +23,7 @@ import { Gift } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getCurrencyConfig, renderQuota } from '../../helpers';
 import {
+  benefitAmountCurrency,
   benefitClaimReasonLabel,
   formatDisplayAmount,
   isBenefitActivityClaimable,
@@ -91,10 +92,17 @@ export default function ClaimableActivityCard(props) {
               amount: formatDisplayAmount(
                 t,
                 activity.claim_paid_threshold,
-                getCurrencyConfig(),
+                benefitAmountCurrency(
+                  activity.amount_display_type,
+                  getCurrencyConfig,
+                ),
               ),
             })
           : t('No historical top-up requirement')}
+        <br />
+        <span className='text-xs text-[var(--semi-color-text-2)]'>
+          {t('New accounts must wait before they can claim')}
+        </span>
       </div>
 
       <div className='mt-3 grid grid-cols-2 gap-3 border-t border-[var(--semi-color-border)] pt-3 text-sm sm:grid-cols-3'>

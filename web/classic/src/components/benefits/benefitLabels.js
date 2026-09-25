@@ -77,17 +77,22 @@ export const BENEFIT_ACTIVITY_DELETABLE_STATUSES = [
 export const isBenefitActivityDeletable = (status) =>
   BENEFIT_ACTIVITY_DELETABLE_STATUSES.includes(status);
 
+// Keys are namespaced ("... to claim" / "Benefit ...") rather than bare
+// words like "Eligible" or "Fully claimed": this flat i18n keys-are-strings
+// setup lets an unrelated feature reusing the same bare English phrase
+// silently win a duplicate JSON key and overwrite this translation (this
+// happened once already on the Default template's zh-TW locale).
 export const BENEFIT_CLAIM_REASON_LABEL_KEYS = {
-  ineligible: 'Not eligible',
+  ineligible: 'Not eligible to claim',
   claimed: 'Already claimed',
-  sold_out: 'Fully claimed',
-  inactive: 'Activity is not active',
-  not_started: 'Activity has not started',
-  ended: 'Activity has ended',
+  sold_out: 'Benefit fully claimed',
+  inactive: 'Benefit activity is not active',
+  not_started: 'Benefit activity has not started',
+  ended: 'Benefit activity has ended',
 };
 
 export const benefitClaimReasonLabel = (t, reason) =>
-  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible');
+  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible to claim');
 
 // Only an activity view where the user is eligible, has not claimed yet, is
 // currently claimable, and still has shares left renders an enabled claim
@@ -161,4 +166,35 @@ export const formatDisplayAmount = (t, amount, currency) => {
     return `${Math.round(number).toLocaleString()} ${t('Tokens')}`;
   }
   return `${currency.symbol}${number.toFixed(2)}`;
+};
+
+// Builds the `currency` argument for formatDisplayAmount() from the
+// amount_display_type an activity's own API payload carries.
+// `controller.benefitCurrentDisplayValues` computes every amount field
+// (including claim_paid_threshold) from the site's live display setting at
+// response time and returns that same type alongside it — it is NOT read
+// from a per-activity snapshot despite one existing in the schema. Building
+// this from getCurrencyConfig()/localStorage instead would read a second,
+// separately-cached copy of that same live setting, one that is only ever
+// *usually* in sync with what the amount was actually computed with (e.g.
+// after an admin changes the setting between this client's last config
+// fetch and the activity-list request). Reading the type straight off the
+// payload keeps the number and its unit atomically consistent.
+const BENEFIT_AMOUNT_SYMBOLS = { USD: '$', CNY: '¥' };
+
+export const benefitAmountCurrency = (
+  displayType,
+  getFallbackCurrencyConfig,
+) => {
+  if (displayType === 'CUSTOM') {
+    // No backend response — activity or otherwise — ever returns a custom
+    // symbol string, only the type name; fall back to the current global
+    // custom symbol (best effort, not a per-activity value).
+    const fallback = getFallbackCurrencyConfig?.() || {};
+    return { type: 'CUSTOM', symbol: fallback.symbol || '¤' };
+  }
+  return {
+    type: displayType,
+    symbol: BENEFIT_AMOUNT_SYMBOLS[displayType] || '$',
+  };
 };

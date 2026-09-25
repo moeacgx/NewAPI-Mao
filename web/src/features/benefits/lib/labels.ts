@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
 
-import { formatLocalCurrencyAmount, getCurrencyDisplay } from '@/lib/currency'
+import { getCurrencyDisplay } from '@/lib/currency'
+import type { CurrencyDisplayType } from '@/stores/system-config-store'
 
 import type { BenefitActivityStatus, BenefitVoucherStatus } from '../types'
 
@@ -66,6 +67,12 @@ export function activityStatusLabel(
  * Claim eligibility reason label. Mirrors the backend's
  * `BenefitClaimReason*` constants (ineligible/claimed/sold_out/inactive/
  * not_started/ended); explicit t() calls keep every value scannable.
+ *
+ * Keys are namespaced ("... to claim" / "Benefit ...") rather than bare
+ * words like "Eligible" or "Fully claimed": this flat i18n keys-are-strings
+ * setup lets an unrelated feature reusing the same bare English phrase
+ * silently win a duplicate JSON key and overwrite this translation (this
+ * happened once already in zh-TW.json).
  */
 export function claimEligibilityLabel(
   reason: string | undefined,
@@ -73,38 +80,62 @@ export function claimEligibilityLabel(
 ): string {
   switch (reason) {
     case 'ineligible':
-      return t('Not eligible')
+      return t('Not eligible to claim')
     case 'claimed':
       return t('Already claimed')
     case 'sold_out':
-      return t('Fully claimed')
+      return t('Benefit fully claimed')
     case 'inactive':
-      return t('Activity is not active')
+      return t('Benefit activity is not active')
     case 'not_started':
-      return t('Activity has not started')
+      return t('Benefit activity has not started')
     case 'ended':
-      return t('Activity has ended')
+      return t('Benefit activity has ended')
     default:
-      return t('Not eligible')
+      return t('Not eligible to claim')
   }
 }
 
-/** 活动金额已按当前展示单位返回，不能再次按 quota 换算。 */
+/** Bare currency symbol for the display type an activity payload arrived with. */
+function benefitAmountSymbol(displayType: CurrencyDisplayType): string {
+  switch (displayType) {
+    case 'CNY':
+      return '¥'
+    case 'CUSTOM':
+      // No backend response — activity or otherwise — ever returns a custom
+      // symbol string, only the type name; fall back to the current global
+      // custom symbol label (best effort, not a per-activity value).
+      return getCurrencyDisplay().config.customCurrencySymbol
+    case 'USD':
+    default:
+      return '$'
+  }
+}
+
+/**
+ * The backend converts this amount using its OWN current display setting at
+ * response time (`controller.benefitCurrentDisplayValues` /
+ * `model.CurrentBenefitAmountDisplayContext`, not a per-activity snapshot —
+ * despite `amount_display_type_snapshot` existing as a column, the live read
+ * path never consults it) and returns the resulting type alongside it as
+ * `activity.amount_display_type`. Format using THAT type, not a value read
+ * from this client's own (separately fetched, possibly stale-by-a-request)
+ * global display config store: the two usually agree, but only the type
+ * that travelled with this exact amount is guaranteed consistent with it.
+ * Never re-convert through a quota/exchange-rate path either — the backend
+ * has already produced the final display-unit number.
+ */
 export function formatBenefitDisplayAmount(
   amount: number,
+  displayType: CurrencyDisplayType,
   t: TFunction
 ): string {
   const numericAmount = Number(amount)
   if (!Number.isFinite(numericAmount)) return '-'
-  const { meta } = getCurrencyDisplay()
-  if (meta.kind === 'tokens') {
+  if (displayType === 'TOKENS') {
     return `${Math.round(numericAmount).toLocaleString()} ${t('Tokens')}`
   }
-  return formatLocalCurrencyAmount(numericAmount, {
-    digitsLarge: 2,
-    digitsSmall: 2,
-    abbreviate: false,
-  })
+  return `${benefitAmountSymbol(displayType)}${numericAmount.toFixed(2)}`
 }
 
 export function ledgerEntryTypeLabel(type: string, t: TFunction): string {
