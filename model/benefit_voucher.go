@@ -1528,9 +1528,6 @@ func ClaimBenefitActivity(activityID, userID int, now int64) (*BenefitUserVouche
 		}
 		share := shares[rand.IntN(len(shares))]
 		expiresAt := now + activity.PersonalValidSeconds
-		if activity.EndsAt < expiresAt {
-			expiresAt = activity.EndsAt
-		}
 		voucher = BenefitUserVoucher{
 			ActivityId: activity.Id, ShareId: share.Id, UserId: userID,
 			OriginalAmountCents: share.AmountCents, OriginalQuota: share.Quota,

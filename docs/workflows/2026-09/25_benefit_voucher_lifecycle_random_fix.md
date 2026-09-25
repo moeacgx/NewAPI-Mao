@@ -6,7 +6,7 @@
 
 ## 根因与契约
 
-- `BenefitUserVoucher.expires_at` 是领取时快照，按 `min(claimed_at + personal_valid_seconds, ends_at)` 计算。后续活动不会修改历史券；领取新活动才会得到新活动的有效期。
+- `BenefitUserVoucher.expires_at` 是领取时快照，按 `claimed_at + personal_valid_seconds` 计算。后续活动不会修改历史券；领取新活动才会得到新活动的有效期。
 - 提前结束活动时，原实现只结束活动和未领取份额；券虽然仍是 `active`，资金源查询却排除了 `ended` 活动，于是页面状态和实际扣费路径不一致。
 - 随机拆分按顺序从剩余预算抽取，余数逐步变小，导致后续份额明显偏向保底值。
 
