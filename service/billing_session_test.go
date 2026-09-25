@@ -257,9 +257,10 @@ func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnPositiveDelta(t *te
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "real-benefit", Name: "真实福利", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-44"}).Error)
 	activity := &model.BenefitActivity{Name: "真实正差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
 	require.NoError(t, db.Create(activity).Error)
 	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 201, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
@@ -289,9 +290,10 @@ func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnNegativeDelta(t *te
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "real-benefit-negative", Name: "真实福利负差额", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-negative-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-negative-44"}).Error)
 	activity := &model.BenefitActivity{Name: "真实负差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
 	require.NoError(t, db.Create(activity).Error)
 	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 202, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
@@ -337,9 +339,10 @@ func TestCompositeFundingRollbackRestoresRealVoucherLedgerAfterLaterSourceFailur
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "rollback-group", Name: "回滚分组", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "rollback-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "rollback-benefit-44"}).Error)
 	activity := &model.BenefitActivity{
 		Name: "回滚活动", GroupId: group.Id, Status: model.BenefitActivityStatusPublished,
 		StartsAt: 900, EndsAt: 2000, TotalQuota: 40, TotalCount: 1,

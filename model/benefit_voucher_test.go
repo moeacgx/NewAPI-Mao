@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestBenefitAmountCNYToQuotaUsesCNYDisplayAmount(t *testing.T) {
@@ -168,6 +169,7 @@ func setupBenefitVoucherTestDB(t *testing.T) *Group {
 	))
 	group := &Group{Code: "benefit", Name: "活动福利", Ratio: 1, Status: GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&User{Id: 44, Username: "benefit-reserve-user-44", Group: group.Code, GroupId: group.Id, AffCode: "benefit-reserve-44"}).Error)
 	return group
 }
 
@@ -453,6 +455,12 @@ func TestReserveBenefitVoucherQuotaExtendsExistingRequestReservation(t *testing.
 	var ledger BenefitVoucherLedger
 	require.NoError(t, DB.Where("request_id = ? AND type = ?", "reserve-extension", BenefitLedgerTypePreConsume).First(&ledger).Error)
 	assert.Equal(t, int64(-50), ledger.QuotaDelta)
+}
+
+func TestReserveBenefitVoucherQuotaRejectsMissingUser(t *testing.T) {
+	group := setupBenefitVoucherTestDB(t)
+	_, err := ReserveBenefitVoucherQuota("missing-user", 404404, group.Id, 10, 1000)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestReserveBenefitVoucherQuotaCombinesEndedActivityVouchersInOneGroup(t *testing.T) {

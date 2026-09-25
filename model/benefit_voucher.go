@@ -483,6 +483,21 @@ func benefitVoucherActivityAvailableCondition() string {
 	return "a.deleted_at IS NULL AND ((a.status IN ('published', 'paused') AND a.starts_at <= ? AND a.ends_at > ?) OR (a.status = 'terminated' AND a.terminate_mode = 'unused' AND a.starts_at <= ? AND a.ends_at > ?) OR a.status = 'ended')"
 }
 
+func lockBenefitVoucherUserTx(tx *gorm.DB, userID int) error {
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		result := tx.Model(&User{}).Where("id = ?", userID).UpdateColumn("id", gorm.Expr("id"))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	}
+	var user User
+	return lockForUpdate(tx).Select("id").Where("id = ?", userID).First(&user).Error
+}
+
 func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount int64, now int64) (*BenefitVoucherReservation, error) {
 	if strings.TrimSpace(requestID) == "" || userID <= 0 || groupID <= 0 || amount <= 0 {
 		return nil, errors.New("福利券预扣参数无效")
@@ -492,6 +507,9 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 	}
 	var reservation *BenefitVoucherReservation
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockBenefitVoucherUserTx(tx, userID); err != nil {
+			return err
+		}
 		var existing []BenefitVoucherLedger
 		if err := lockForUpdate(tx).Where("request_id = ? AND type = ? AND user_id = ?", requestID, BenefitLedgerTypePreConsume, userID).Order("id ASC").Find(&existing).Error; err != nil {
 			return err

@@ -40,8 +40,11 @@ original_quota` 和孤儿券均为 0。历史查询中 `expires_at` 未来但状
 
 同日只读审计作业 `bd2f77e8-2012-4469-b478-186d61b8e2aa` 聚合出 15,624 个非空
 `request_id`：19 个存在 `pre_consume` 但无 `settle_delta`/`refund` 且最后流水早于 1 小时；
-`settled + refunded` 但无 rollback、缺少 pre 的终态流水、同请求多券均为 0。19 个历史未闭合请求
-尚待关联请求日志确认，不能据此宣称全部历史账务无异常，也不自动退款。
+`settled + refunded` 但无 rollback、缺少 pre 的终态流水、同请求多券均为 0。后续只读日志关联确认其中
+18 条已有消费日志，`billing_breakdown.voucher_quota` 精确等于各自预扣额，总和 815588，实际总价
+1895442，差额由钱包/订阅承担；根因是 Composite 非零差额结算遗漏未受差额调整的福利券
+`Settle(0)`，这些请求不是退款事项。剩余 1 个请求预扣 12519 额度，无消费日志且券已过期，不能自动恢复。历史补账
+需要另行安全计划，本次不自动退款或修改历史流水，也不宣称全部历史账务无异常。
 
 流水类型计数为：`pre_consume=15617`、`refund=299`、`expire=81`、`settle_delta=15299`、
 `settle_rollback=3`、`refund_additional=0`。实现必须兼容这些历史单券流水，不把现场统计推断为
@@ -56,3 +59,14 @@ original_quota` 和孤儿券均为 0。历史查询中 `expires_at` 未来但状
 - 多券 breakdown 以请求流水计算每券 `pre_reserved + sum(-settle_delta)`，只保留正数分配；单券继续
   输出兼容的 activity/voucher 字段，多券将其置零并输出完整 `voucher_allocations`。流水查询失败不得
   静默伪造逐券归属。
+- 首次 Reserve 在读取请求流水前以真实用户行作为用户级互斥：MySQL/PostgreSQL 使用
+  `SELECT ... FOR UPDATE`，SQLite 先执行同用户 `id=id` 的 no-op 更新取得写锁。锁顺序固定为
+  user -> request ledger -> voucher；不同用户不会因分组锁相互阻塞，用户不存在则明确失败。
+
+最终验证使用当前 `model/benefit_voucher.go` SHA-256
+`A5800115E9BC7189D1A5C202B43E457B44335BF6255069148DD540C634EC4828`：SQLite、PostgreSQL 15、
+MySQL 的完整 Benefit 测试均通过；PostgreSQL/MySQL 同 `request_id` 首次 Reserve 确定性并发测试均为
+两个调用成功、总预扣 50、余额 50、仅一笔预扣流水，临时资源残留为 0。仓库回归另覆盖用户不存在
+明确失败；Go 文件已执行 `gofmt`，交付前执行 `git diff --check` 和完整三包测试。
+
+本变更准备随 `v1.0.0-rc.10.1.10.339` 发布；截至本记录更新时尚未部署，不得据此推断线上已生效。
