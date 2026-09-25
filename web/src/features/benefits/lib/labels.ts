@@ -96,34 +96,10 @@ export function claimEligibilityLabel(
   }
 }
 
-/** Bare currency symbol for the display type an activity payload arrived with. */
-function benefitAmountSymbol(displayType: CurrencyDisplayType): string {
-  switch (displayType) {
-    case 'CNY':
-      return '¥'
-    case 'CUSTOM':
-      // No backend response — activity or otherwise — ever returns a custom
-      // symbol string, only the type name; fall back to the current global
-      // custom symbol label (best effort, not a per-activity value).
-      return getCurrencyDisplay().config.customCurrencySymbol
-    case 'USD':
-    default:
-      return '$'
-  }
-}
-
 /**
- * The backend converts this amount using its OWN current display setting at
- * response time (`controller.benefitCurrentDisplayValues` /
- * `model.CurrentBenefitAmountDisplayContext`, not a per-activity snapshot —
- * despite `amount_display_type_snapshot` existing as a column, the live read
- * path never consults it) and returns the resulting type alongside it as
- * `activity.amount_display_type`. Format using THAT type, not a value read
- * from this client's own (separately fetched, possibly stale-by-a-request)
- * global display config store: the two usually agree, but only the type
- * that travelled with this exact amount is guaranteed consistent with it.
- * Never re-convert through a quota/exchange-rate path either — the backend
- * has already produced the final display-unit number.
+ * displayType 必须取自同一份活动响应（而非本地缓存的全局展示配置），否则金额和单位可能
+ * 来自两次不同步的读取；契约细节见 docs/workflows/2026-09/25_benefit_claim_locale_review.md。
+ * CUSTOM 没有接口会返回符号文本，兜底用当前全局自定义符号。
  */
 export function formatBenefitDisplayAmount(
   amount: number,
@@ -135,7 +111,13 @@ export function formatBenefitDisplayAmount(
   if (displayType === 'TOKENS') {
     return `${Math.round(numericAmount).toLocaleString()} ${t('Tokens')}`
   }
-  return `${benefitAmountSymbol(displayType)}${numericAmount.toFixed(2)}`
+  if (displayType === 'CNY') {
+    return `¥${numericAmount.toFixed(2)}`
+  }
+  if (displayType === 'CUSTOM') {
+    return `${getCurrencyDisplay().config.customCurrencySymbol}${numericAmount.toFixed(2)}`
+  }
+  return `$${numericAmount.toFixed(2)}`
 }
 
 export function ledgerEntryTypeLabel(type: string, t: TFunction): string {

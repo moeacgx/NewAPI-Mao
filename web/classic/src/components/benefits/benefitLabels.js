@@ -168,18 +168,9 @@ export const formatDisplayAmount = (t, amount, currency) => {
   return `${currency.symbol}${number.toFixed(2)}`;
 };
 
-// Builds the `currency` argument for formatDisplayAmount() from the
-// amount_display_type an activity's own API payload carries.
-// `controller.benefitCurrentDisplayValues` computes every amount field
-// (including claim_paid_threshold) from the site's live display setting at
-// response time and returns that same type alongside it — it is NOT read
-// from a per-activity snapshot despite one existing in the schema. Building
-// this from getCurrencyConfig()/localStorage instead would read a second,
-// separately-cached copy of that same live setting, one that is only ever
-// *usually* in sync with what the amount was actually computed with (e.g.
-// after an admin changes the setting between this client's last config
-// fetch and the activity-list request). Reading the type straight off the
-// payload keeps the number and its unit atomically consistent.
+// displayType 必须取自活动自身的 API 响应（而非 getCurrencyConfig()/localStorage 这份
+// 另外缓存的全局配置），否则金额和单位可能来自两次不同步的读取；契约细节见
+// docs/workflows/2026-09/25_benefit_claim_locale_review.md。
 const BENEFIT_AMOUNT_SYMBOLS = { USD: '$', CNY: '¥' };
 
 export const benefitAmountCurrency = (
@@ -187,11 +178,14 @@ export const benefitAmountCurrency = (
   getFallbackCurrencyConfig,
 ) => {
   if (displayType === 'CUSTOM') {
-    // No backend response — activity or otherwise — ever returns a custom
-    // symbol string, only the type name; fall back to the current global
-    // custom symbol (best effort, not a per-activity value).
+    // 全局配置的 symbol 字段只有在其当前 type 也是 CUSTOM 时才是真正的自定义符号；
+    // 否则（比如当前缓存是 USD/CNY）那只是 USD/CNY 符号，不能冒用，回退中性符号 ¤。
     const fallback = getFallbackCurrencyConfig?.() || {};
-    return { type: 'CUSTOM', symbol: fallback.symbol || '¤' };
+    return {
+      type: 'CUSTOM',
+      symbol:
+        fallback.type === 'CUSTOM' && fallback.symbol ? fallback.symbol : '¤',
+    };
   }
   return {
     type: displayType,

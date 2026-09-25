@@ -71,10 +71,18 @@
 - `formatBenefitDisplayAmount`（Default）新增 `displayType` 参数，直接由
   `activity.amount_display_type` 驱动 USD/CNY/TOKENS 的符号与格式，不再读全局
   `getCurrencyDisplay()`；`CUSTOM` 类型下没有任何接口会返回符号文本（无论当前还是快照），
-  保留使用前端当前全局自定义符号的兜底并在代码注释说明原因。
+  保留使用前端当前全局自定义符号的兜底。原先按类型取符号的单一调用点 `benefitAmountSymbol`
+  已按项目规范就地内联进 `formatBenefitDisplayAmount`（只有一处调用，不构成独立业务概念，
+  不再保留为单独 helper）；函数上方的契约说明收敛为 1-3 行中文注释，细节指向本文档。
 - Classic 新增 `benefitAmountCurrency(displayType, getFallbackCurrencyConfig)`
   辅助函数，同样由 `activity.amount_display_type` 驱动，替换直接调用
-  `getCurrencyConfig()`（`localStorage`）的用法；`CUSTOM` 符号兜底同上。
+  `getCurrencyConfig()`（`localStorage`）的用法。**CUSTOM 兜底修正**：`getCurrencyConfig()`
+  返回的 `symbol` 字段是按其自身当前 `type` 解析的（`type=USD` 时就是 `"$"`、`type=CNY`
+  时是 `"¥"`），只有当 `fallback.type === 'CUSTOM'` 时那个 `symbol` 才是真正的自定义符号；
+  若活动是 `CUSTOM` 但本地缓存当前是别的类型，不能借用缓存返回的 USD/CNY 符号冒充自定义
+  符号，已改为回退中性符号 `¤`（与 `getCurrencyConfig()`/`DEFAULT_CURRENCY_CONFIG` 自身
+  对"无自定义符号"场景使用的占位符一致）。新增测试覆盖"活动是 CUSTOM、本地缓存是 USD"
+  这一具体场景。
 - 两处改动的实际收益：让"金额数字"与"展示类型"始终来自同一份 `/api/benefit/activities`
   响应，消除两次独立读取之间的不一致窗口；不是"历史快照优先于当前配置"。
 
@@ -94,25 +102,45 @@
     资源，覆盖 USD/CNY/CUSTOM/TOKENS 四种展示单位）与限定触及 key 的原始文本重复 key 检查。
   - `oxlint -c .oxlintrc.json src/features/benefits src/i18n/static-keys.ts`：无问题。
   - `rsbuild build`：构建成功。
-- Classic（`web/classic/`，复用对应 `node_modules`，bun.lock 哈希核对一致）：
+- Classic（`web/classic/`）：
   - `node --test` 运行 `user-benefits-contract.test.mjs` /
     `benefit-contract.test.mjs` / `activity-management-contract.test.mjs`：48 个用例全部
-    通过。
-  - 新增 `claimable-activity-card-i18n.compat.test.jsx`（同样用
-    `i18next.addResourceBundle` 注入真实 zh-CN/zh-TW 资源，覆盖领取原因文案与
-    "忽略过期 localStorage 缓存、按活动自身 `amount_display_type` 展示"两类回归）：
-    **未能在本环境执行** —— 复用的 `node_modules`（包括本机指向的原始
-    `D:\脚本程序\开源程序二开\newapi\web\classic\node_modules`）均未安装 `vitest`
-    二进制，`package.json` 虽声明依赖但未曾 `bun install`；未在本任务范围内改动共享
-    `node_modules`（安装依赖属于环境变更，按合同应先报告而非扩大范围）。已用
-    `eslint`（`node_modules/.bin/eslint`）与 `prettier --check`（均已修复格式问题后转为通过）
-    验证该文件语法/风格正确，且其断言与已通过的 Default 同名测试逻辑一致。
-  - `i18next-cli status` / `i18next-cli lint`：只读运行成功，未发现与本次改动相关的新增
-    问题（`lint` 输出的大量 `Found hardcoded string` 均为改动前已存在的历史项，与本次
-    触及文件无关）。
-  - `prettier --check` / `eslint`：`benefitLabels.js`、`ClaimableActivityCard.jsx`
-    经 `prettier --write` 修正格式后，二者均通过。
-  - `vite build`：构建成功（仅原有的 chunk 体积提示，非本次改动引入）。
+    通过（用 `New-Item -ItemType Junction` 重建 `web/classic/node_modules` 指向原始
+    `D:\脚本程序\开源程序二开\newapi\web\classic\node_modules`，创建前核对目标存在、
+    链接路径不存在；只读复用，未写入共享目录）。
+  - `eslint` / `prettier --check`：`benefitLabels.js`、
+    `claimable-activity-card-i18n.compat.test.jsx` 均通过。
+  - 新增 `claimable-activity-card-i18n.compat.test.jsx`（`i18next.addResourceBundle`
+    注入真实 zh-CN/zh-TW 资源，覆盖领取原因文案、"忽略过期 localStorage 缓存、按活动自身
+    `amount_display_type` 展示"、"CUSTOM 兜底不冒用缓存的 USD/CNY 符号"三类回归，共 5 个
+    `test()`）：**在本环境仍未能实际执行**。尝试过程：
+    1. 复用的 `node_modules`（含原始 D 盘 checkout）都没有 `vitest`/`@testing-library/*`/
+       `jsdom` 二进制，`package.json` 声明了依赖但从未 `bun install` 过。
+    2. 在会话 scratchpad 建了一个隔离目录，按 `bun.lock` 里的精确版本
+       （`vitest@2.1.9`、`@testing-library/react@16.3.0`、
+       `@testing-library/dom@10.4.2`、`@testing-library/user-event@14.6.1`、
+       `jsdom@25.0.1`）单独 `npm install`，不带 Classic 的 `package.json`、不触发对
+       768 个既有包的整体依赖解析，装完 168 个包、无冲突。
+    3. 曾经尝试过用 `npm install --legacy-peer-deps` 直接装进
+       `web/classic/node_modules`：npm 把这当成对整棵依赖树的重新解析，删掉了 341 个、
+       改动了 24 个既有包（包括实际被引用的 `@emoji-mart`），确认为破坏性操作后已回退
+       （删除损坏的本地副本，用 Junction 重新指回原始只读数据，未改动 D 盘）。
+    4. 用隔离目录里的 `vitest` + 临时 `vitest.config.mjs`（`resolve.alias` 把
+       `@testing-library/react` 等指向隔离安装的绝对路径，`root`/相对路径指向 Classic
+       worktree，保留 `scripts/setup-compat-tests.mjs`）运行：配置文件放在 scratchpad
+       （物理路径含空格 `D:\Program Files\Git\...`）时 esbuild 无法解析配置文件路径；
+       把配置文件挪到 Classic 目录（无空格路径）后配置能加载，但 `resolve.alias`
+       （试过对象写法、`{ find, replacement }` 数组写法，并加了 `deps.inline` /
+       `server.deps.inline` 强制不外部化）始终没有应用到 `scripts/setup-compat-tests.mjs`
+       里对 `@testing-library/react` 的导入，报
+       `Failed to resolve import "@testing-library/react" from "scripts/setup-compat-tests.mjs"`——
+       怀疑 vitest 对 `setupFiles` 的导入走了和普通测试文件导入不同的解析路径，未进一步排查。
+    5. 该临时配置文件仅用于诊断，已删除，不提交；未改动 Classic 真实 `vitest.config.mjs`。
+
+    已用 `eslint`/`prettier --check` 验证该文件语法/风格正确，其断言与已通过的 Default
+    同名测试逻辑一致；实际执行结果留给后续在此环境补齐依赖或在有 bun 的机器上验证。
+  - `vite build`：本轮未重新构建全项目（改动只在 `benefitLabels.js` 内部逻辑和注释，
+    未涉及构建配置）；上一轮已验证构建成功，Junction 指向的是同一份原始文件，结论不变。
 - 所有触及的 Default/Classic locale JSON 均以 Node `JSON.parse` 逐一校验有效，并用原始文本
   正则确认本次触及的 10 个 key 在每个文件中只出现一次（不复用 `JSON.parse`，因为它会静默吞掉
   重复 key，正是本次要修的那类 bug）。
@@ -122,14 +150,20 @@
 
 ## 已知限制 / 未做的事
 
-- Classic 新增的真实渲染测试无法在当前环境验证执行结果，只做了静态检查；后续如需在 CI 中
-  真正跑起来，需要先在 `web/classic` 补齐 `vitest` 依赖安装（超出本次前端 locale 修复范围）。
+- Classic 新增的真实渲染测试无法在当前环境验证执行结果，只做了静态检查；已尝试隔离安装
+  依赖 + `resolve.alias` 临时 runner（过程见"验证"一节），未能解决 `resolve.alias` 不对
+  `setupFiles` 生效的问题。后续如需在 CI 中真正跑起来，最直接的路径是在有 bun 的环境里对
+  `web/classic` 正式 `bun install`（超出本次前端 locale 修复范围，且需要先确认不会像本次
+  `npm --legacy-peer-deps` 那样删除既被引用又未在 `package.json` 里显式声明的包）。
 - `CUSTOM` 展示类型下没有任何接口返回符号文本（`/api/benefit/activities` 只返回
   `amount_display_type` 这个类型名，不返回符号；活动模型上的
   `amount_display_type_snapshot`/`amount_display_rate_snapshot`/`quota_per_unit_snapshot`
   三个快照列也不含符号文本，且实际读路径不读它们），沿用前端当前全局自定义符号作为兜底；
   如需精确符号，需要后端新增返回字段，本次未新增该 API 字段，仅在代码注释与本文档中记录
-  这一限制。
+  这一限制。Classic 侧已修正一个子场景：本地缓存的当前类型若不是 `CUSTOM`（例如缓存着
+  USD/CNY），`getCurrencyConfig()` 返回的 `symbol` 就只是 USD/CNY 符号，不是自定义符号，
+  这种情况下不再借用该符号，回退中性符号 `¤`；Default 侧因 `customCurrencySymbol` 是与
+  `quotaDisplayType` 无关的独立字段，本来就不受这个子场景影响。
 - 后端观察（仅记录，未改动任何后端代码）：`benefit_activities` 表的
   `amount_display_type_snapshot`/`amount_display_rate_snapshot`/`quota_per_unit_snapshot`
   三个快照列目前只在 `migrateBenefitActivityQuotaConfig` 一次性迁移回填时写入，

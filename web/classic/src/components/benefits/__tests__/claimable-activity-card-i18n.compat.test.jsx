@@ -25,14 +25,11 @@ import zhCNResource from '../../../i18n/locales/zh-CN.json';
 import zhTWResource from '../../../i18n/locales/zh-TW.json';
 import ClaimableActivityCard from '../ClaimableActivityCard';
 
-// The sibling `user-benefits-contract.test.mjs` suite only greps the source
-// text (e.g. `assert.match(source, /formatDisplayAmount\(/)`), so it cannot
-// tell a correct call from a buggy one — the stale-localStorage bug this
-// fixes would have passed those assertions either way. These tests actually
-// render through real zh-CN/zh-TW resource bundles, so a wrong translation
-// or a currency symbol read from a separately-cached client setting instead
-// of the `amount_display_type` the activity payload itself carries fails an
-// assertion here.
+// 同目录下的 user-benefits-contract.test.mjs 只对源码文本做正则匹配（例如
+// assert.match(source, /formatDisplayAmount\(/)），无法区分"调用对了"和"调用错了"——
+// 本次要修的 bug 用那种断言方式一样能通过。这里改用真实 zh-CN/zh-TW 资源渲染，
+// 译文错误或货币符号读到了另外缓存的客户端配置而非活动响应自带的 amount_display_type，
+// 都会让断言失败。
 beforeAll(() => {
   i18next.addResourceBundle(
     'zh-CN',
@@ -111,9 +108,8 @@ test('zh-TW renders every claim-ineligibility reason with its own real translati
 });
 
 test('claim threshold amount follows the type in the activity payload, ignoring a stale localStorage cache', async () => {
-  // The site-wide client cache says USD; the activity payload itself
-  // carries CNY (the type the backend actually computed this threshold
-  // with for this response). The card must render CNY, not USD.
+  // 全站缓存是 USD，但活动响应自带的是 CNY（后端为这次响应实际换算用的类型）；
+  // 卡片必须显示 CNY，不能显示 USD。
   localStorage.setItem('quota_display_type', 'USD');
   await i18next.changeLanguage('zh-TW');
   render(
@@ -130,6 +126,29 @@ test('claim threshold amount follows the type in the activity payload, ignoring 
   );
 
   expect(screen.getByText(/¥100\.00/)).toBeTruthy();
+  expect(screen.queryByText(/\$100/)).toBeNull();
+  localStorage.removeItem('quota_display_type');
+});
+
+test('CUSTOM amount falls back to a neutral symbol when the cached unit is not CUSTOM', async () => {
+  // 缓存的单位是 USD，活动本身是 CUSTOM：不能冒用 USD 的 "$" 标这个数值，
+  // 应回退中性符号 ¤（getCurrencyConfig() 在 type=USD 时返回的 symbol 是 "$"，不是自定义符号）。
+  localStorage.setItem('quota_display_type', 'USD');
+  await i18next.changeLanguage('zh-TW');
+  render(
+    <ClaimableActivityCard
+      activity={activity({
+        claim_paid_threshold: 100,
+        amount_display_type: 'CUSTOM',
+        eligible: false,
+        eligibility_reason: 'ineligible',
+      })}
+      onClaim={() => {}}
+      claiming={false}
+    />,
+  );
+
+  expect(screen.getByText(/¤100\.00/)).toBeTruthy();
   expect(screen.queryByText(/\$100/)).toBeNull();
   localStorage.removeItem('quota_display_type');
 });
