@@ -27,7 +27,8 @@ type TokenGroupMigrationSummary struct {
 }
 
 type tokenGroupMigrationPlan struct {
-	token Token
+	token            Token
+	originalGroupIDs []int
 }
 
 func automaticTokenGroupReference() GroupReference {
@@ -236,6 +237,35 @@ func equalGroupIDSlices(left, right []int) bool {
 		}
 	}
 	return true
+}
+
+// 迁移只允许保留原先已处于多分组绑定中的独立分组，不允许新增独立分组冲突。
+func migrationIntroducesExclusiveConflict(groupsByID map[int]*Group, originalIDs, migratedIDs []int) bool {
+	migratedIDs = uniquePositiveGroupIDs(migratedIDs)
+	if len(migratedIDs) <= 1 {
+		return false
+	}
+	originalIDs = uniquePositiveGroupIDs(originalIDs)
+	existingExclusive := make(map[int]struct{})
+	if len(originalIDs) > 1 {
+		for _, groupID := range originalIDs {
+			if group := groupsByID[groupID]; group != nil && group.Exclusive {
+				existingExclusive[groupID] = struct{}{}
+			}
+		}
+	}
+	for _, groupID := range migratedIDs {
+		group := groupsByID[groupID]
+		if group == nil {
+			return true
+		}
+		if group.Exclusive {
+			if _, existed := existingExclusive[groupID]; !existed {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func loadTokenGroupMigrationTokensByIDs(tx *gorm.DB, tokenIDs []int, lock bool) ([]Token, error) {
@@ -541,6 +571,9 @@ func buildTokenGroupMigrationPlans(
 		if len(migratedIDs) == 0 {
 			return nil, nil, fmt.Errorf("令牌 %d 迁移后没有可用分组", token.Id)
 		}
+		if migrationIntroducesExclusiveConflict(groupsByID, groupIDs, migratedIDs) {
+			return nil, nil, fmt.Errorf("令牌 %d 迁移后新增独立分组冲突: %w", token.Id, ErrTokenGroupBindingConflict)
+		}
 
 		migratedCodes := make([]string, 0, len(migratedIDs))
 		migratedDetails := make([]GroupReference, 0, len(migratedIDs))
@@ -574,7 +607,9 @@ func buildTokenGroupMigrationPlans(
 		token.GroupIds = migratedIDs
 		token.GroupDetails = migratedDetails
 		token.GroupRatioLimits = limitsJSON
-		plans = append(plans, tokenGroupMigrationPlan{token: *token})
+		plans = append(plans, tokenGroupMigrationPlan{
+			token: *token, originalGroupIDs: append([]int(nil), groupIDs...),
+		})
 		summary.MigratedTokens++
 	}
 
@@ -584,8 +619,24 @@ func buildTokenGroupMigrationPlans(
 
 func applyTokenGroupMigrationPlans(tx *gorm.DB, plans []tokenGroupMigrationPlan) error {
 	for index := range plans {
-		token := &plans[index].token
-		if err := ValidateTokenExclusiveGroupBinding(tx, token); err != nil {
+		plan := &plans[index]
+		token := &plan.token
+		err := ValidateTokenExclusiveGroupBinding(tx, token)
+		if errors.Is(err, ErrTokenGroupBindingConflict) && len(plan.originalGroupIDs) > 0 {
+			ids := uniquePositiveGroupIDs(append(append([]int(nil), plan.originalGroupIDs...), token.GroupIds...))
+			var groups []Group
+			if queryErr := tx.Model(&Group{}).Select("id", "exclusive").Where("id IN ?", ids).Find(&groups).Error; queryErr != nil {
+				return fmt.Errorf("校验令牌 %d 独立分组失败: %w", token.Id, queryErr)
+			}
+			groupsByID := make(map[int]*Group, len(groups))
+			for i := range groups {
+				groupsByID[groups[i].Id] = &groups[i]
+			}
+			if !migrationIntroducesExclusiveConflict(groupsByID, plan.originalGroupIDs, token.GroupIds) {
+				err = nil
+			}
+		}
+		if err != nil {
 			return fmt.Errorf("令牌 %d 分组绑定冲突: %w", token.Id, err)
 		}
 		if err := tx.Unscoped().Model(&Token{}).Where("id = ?", token.Id).Updates(map[string]interface{}{
