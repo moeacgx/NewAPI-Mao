@@ -24,9 +24,16 @@ type BillingSettler interface {
 }
 
 type BillingBreakdown struct {
-	VoucherQuota      int64 `json:"voucher_quota,omitempty"`
-	SubscriptionQuota int64 `json:"subscription_quota,omitempty"`
-	WalletQuota       int64 `json:"wallet_quota,omitempty"`
-	ActivityID        int   `json:"activity_id,omitempty"`
-	VoucherID         int   `json:"voucher_id,omitempty"`
+	VoucherQuota       int64                      `json:"voucher_quota,omitempty"`
+	SubscriptionQuota  int64                      `json:"subscription_quota,omitempty"`
+	WalletQuota        int64                      `json:"wallet_quota,omitempty"`
+	ActivityID         int                        `json:"activity_id,omitempty"`
+	VoucherID          int                        `json:"voucher_id,omitempty"`
+	VoucherAllocations []BillingVoucherAllocation `json:"voucher_allocations,omitempty"`
+}
+
+type BillingVoucherAllocation struct {
+	ActivityID int   `json:"activity_id"`
+	VoucherID  int   `json:"voucher_id"`
+	Quota      int64 `json:"quota"`
 }

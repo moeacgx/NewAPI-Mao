@@ -77,17 +77,22 @@ export const BENEFIT_ACTIVITY_DELETABLE_STATUSES = [
 export const isBenefitActivityDeletable = (status) =>
   BENEFIT_ACTIVITY_DELETABLE_STATUSES.includes(status);
 
+// Keys are namespaced ("... to claim" / "Benefit ...") rather than bare
+// words like "Eligible" or "Fully claimed": this flat i18n keys-are-strings
+// setup lets an unrelated feature reusing the same bare English phrase
+// silently win a duplicate JSON key and overwrite this translation (this
+// happened once already on the Default template's zh-TW locale).
 export const BENEFIT_CLAIM_REASON_LABEL_KEYS = {
-  ineligible: 'Not eligible yet',
+  ineligible: 'Not eligible to claim',
   claimed: 'Already claimed',
-  sold_out: 'Fully claimed',
-  inactive: 'Not currently claimable',
-  not_started: 'Not started',
-  ended: 'Ended',
+  sold_out: 'Benefit fully claimed',
+  inactive: 'Benefit activity is not active',
+  not_started: 'Benefit activity has not started',
+  ended: 'Benefit activity has ended',
 };
 
 export const benefitClaimReasonLabel = (t, reason) =>
-  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible yet');
+  t(BENEFIT_CLAIM_REASON_LABEL_KEYS[reason] || 'Not eligible to claim');
 
 // Only an activity view where the user is eligible, has not claimed yet, is
 // currently claimable, and still has shares left renders an enabled claim
@@ -161,4 +166,29 @@ export const formatDisplayAmount = (t, amount, currency) => {
     return `${Math.round(number).toLocaleString()} ${t('Tokens')}`;
   }
   return `${currency.symbol}${number.toFixed(2)}`;
+};
+
+// displayType 必须取自活动自身的 API 响应（而非 getCurrencyConfig()/localStorage 这份
+// 另外缓存的全局配置），否则金额和单位可能来自两次不同步的读取；契约细节见
+// docs/workflows/2026-09/25_benefit_claim_locale_review.md。
+const BENEFIT_AMOUNT_SYMBOLS = { USD: '$', CNY: '¥' };
+
+export const benefitAmountCurrency = (
+  displayType,
+  getFallbackCurrencyConfig,
+) => {
+  if (displayType === 'CUSTOM') {
+    // 全局配置的 symbol 字段只有在其当前 type 也是 CUSTOM 时才是真正的自定义符号；
+    // 否则（比如当前缓存是 USD/CNY）那只是 USD/CNY 符号，不能冒用，回退中性符号 ¤。
+    const fallback = getFallbackCurrencyConfig?.() || {};
+    return {
+      type: 'CUSTOM',
+      symbol:
+        fallback.type === 'CUSTOM' && fallback.symbol ? fallback.symbol : '¤',
+    };
+  }
+  return {
+    type: displayType,
+    symbol: BENEFIT_AMOUNT_SYMBOLS[displayType] || '$',
+  };
 };

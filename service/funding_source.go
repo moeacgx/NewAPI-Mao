@@ -53,6 +53,13 @@ type BenefitVoucherFunding struct {
 	activityID int
 }
 
+func (f *BenefitVoucherFunding) Allocations() ([]model.BenefitVoucherRequestAllocation, error) {
+	if f == nil {
+		return nil, errors.New("福利券资金来源为空")
+	}
+	return model.GetBenefitVoucherRequestAllocations(f.requestID)
+}
+
 func NewBenefitVoucherFunding(requestID string, userID, groupID int) *BenefitVoucherFunding {
 	return &BenefitVoucherFunding{requestID: requestID, userID: userID, groupID: groupID, now: func() int64 { return time.Now().Unix() }}
 }
@@ -363,21 +370,46 @@ func (f *CompositeFunding) Settle(delta int) error {
 			return errors.New("benefit composite funding settlement capacity insufficient")
 		}
 		applied := make([]compositeSettlementAdjustment, 0, len(f.sources))
+		addedReservations := make([]compositeSettlementAdjustment, 0, len(f.sources))
 		for index, source := range f.sources {
-			if adjustments[index] == 0 {
+			settleDelta := adjustments[index]
+			if settleDelta == 0 && (f.consumed[index] <= 0 || source.Source() != BillingSourceBenefitVoucher) {
 				continue
 			}
-			if err := source.Settle(adjustments[index]); err != nil {
-				return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+			if settleDelta > 0 && f.consumed[index] == 0 && source.Source() == BillingSourceBenefitVoucher {
+				reserver, ok := source.(fundingAdditionalReservation)
+				if !ok {
+					return rollbackCompositeSettlement(f.sources, f.consumed, applied, fmt.Errorf("funding source %s cannot reserve settlement quota", source.Source()))
+				}
+				if err := reserver.ReserveAdditional(settleDelta); err != nil {
+					return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+				}
+				f.consumed[index] += settleDelta
+				addedReservations = append(addedReservations, compositeSettlementAdjustment{index: index, delta: settleDelta})
+				settleDelta = 0
 			}
-			f.consumed[index] += adjustments[index]
-			f.lastSettleDeltas[index] = adjustments[index]
-			applied = append(applied, compositeSettlementAdjustment{index: index, delta: adjustments[index]})
+			if err := source.Settle(settleDelta); err != nil {
+				err = rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+				for i := len(addedReservations) - 1; i >= 0; i-- {
+					adjustment := addedReservations[i]
+					if refunder, ok := f.sources[adjustment.index].(fundingAdditionalRefund); ok {
+						if refundErr := refunder.RefundAdditional(adjustment.delta); refundErr == nil {
+							f.consumed[adjustment.index] -= adjustment.delta
+						} else {
+							err = errors.Join(err, refundErr)
+						}
+					}
+				}
+				return err
+			}
+			f.consumed[index] += settleDelta
+			f.lastSettleDeltas[index] = settleDelta
+			applied = append(applied, compositeSettlementAdjustment{index: index, delta: settleDelta})
 		}
 		return nil
 	}
 	remaining := -delta
-	applied := make([]compositeSettlementAdjustment, 0, len(f.sources))
+	adjustments := make([]int, len(f.sources))
 	for index := len(f.sources) - 1; index >= 0 && remaining > 0; index-- {
 		refund := f.consumed[index]
 		if refund > remaining {
@@ -386,16 +418,24 @@ func (f *CompositeFunding) Settle(delta int) error {
 		if refund == 0 {
 			continue
 		}
-		if err := f.sources[index].Settle(-refund); err != nil {
-			return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
-		}
-		f.consumed[index] -= refund
-		f.lastSettleDeltas[index] = -refund
-		applied = append(applied, compositeSettlementAdjustment{index: index, delta: -refund})
+		adjustments[index] = -refund
 		remaining -= refund
 	}
 	if remaining > 0 {
 		return errors.New("benefit composite funding refund exceeds reservation")
+	}
+	applied := make([]compositeSettlementAdjustment, 0, len(f.sources))
+	for index, source := range f.sources {
+		settleDelta := adjustments[index]
+		if settleDelta == 0 && (f.consumed[index] <= 0 || source.Source() != BillingSourceBenefitVoucher) {
+			continue
+		}
+		if err := source.Settle(settleDelta); err != nil {
+			return rollbackCompositeSettlement(f.sources, f.consumed, applied, err)
+		}
+		f.consumed[index] += settleDelta
+		f.lastSettleDeltas[index] = settleDelta
+		applied = append(applied, compositeSettlementAdjustment{index: index, delta: settleDelta})
 	}
 	return nil
 }
@@ -405,12 +445,8 @@ func rollbackCompositeSettlement(sources []FundingSource, consumed []int, applie
 	for index := len(applied) - 1; index >= 0; index-- {
 		adjustment := applied[index]
 		var err error
-		if adjustment.delta > 0 {
-			if rollbacker, ok := sources[adjustment.index].(fundingSettlementRollback); ok {
-				err = rollbacker.RollbackSettle(adjustment.delta)
-			} else {
-				err = sources[adjustment.index].Settle(-adjustment.delta)
-			}
+		if rollbacker, ok := sources[adjustment.index].(fundingSettlementRollback); ok {
+			err = rollbacker.RollbackSettle(adjustment.delta)
 		} else {
 			err = sources[adjustment.index].Settle(-adjustment.delta)
 		}

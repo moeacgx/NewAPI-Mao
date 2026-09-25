@@ -58,7 +58,7 @@ func TestNewBillingSessionSkipsBenefitVoucherForInheritedGroup(t *testing.T) {
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "benefit", Name: "活动福利", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	user := &model.User{Id: 4321, Username: "benefit-session-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
@@ -89,9 +89,57 @@ func TestNewBillingSessionSkipsBenefitVoucherForInheritedGroup(t *testing.T) {
 	common.SetContextKey(explicitCtx, constant.ContextKeyBenefitGroupExplicit, true)
 	explicitInfo := *info
 	explicitInfo.RequestId = "explicit-benefit-group"
+	explicitInfo.TokenQuotaExempt = true
 	explicitSession, explicitErr := NewBillingSession(explicitCtx, &explicitInfo, 0)
 	require.Nil(t, explicitErr)
 	assert.Equal(t, BillingSourceBenefitVoucher, explicitSession.funding.Source())
+	require.NoError(t, explicitSession.Settle(10))
+	var settledVoucher model.BenefitUserVoucher
+	require.NoError(t, db.Where("user_id = ?", user.Id).First(&settledVoucher).Error)
+	assert.Equal(t, int64(490), settledVoucher.RemainingQuota)
+	assert.Equal(t, int64(10), settledVoucher.UsedQuota)
+	var settleLedger model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", explicitInfo.RequestId, model.BenefitLedgerTypeSettleDelta).First(&settleLedger).Error)
+	breakdown := explicitSession.GetBreakdown()
+	assert.Equal(t, int64(10), breakdown.VoucherQuota)
+}
+
+func TestNewBillingSessionRealFactoryMultiVoucherBreakdown(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:billing_session_real_multi?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-multi", Name: "真实多券", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	user := &model.User{Id: 7654, Username: "real-multi-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
+	require.NoError(t, db.Create(user).Error)
+	now := time.Now().Unix()
+	for i := 0; i < 2; i++ {
+		activity := &model.BenefitActivity{Name: "真实多券活动", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: now - 100, EndsAt: now - 1, TotalQuota: 50, TotalCount: 1}
+		require.NoError(t, db.Create(activity).Error)
+		require.NoError(t, db.Create(&model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: i + 1, UserId: user.Id, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: now + 3600}).Error)
+	}
+	ctx, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(ctx, constant.ContextKeyBenefitGroupExplicit, true)
+	info := &relaycommon.RelayInfo{UserId: user.Id, UsingGroup: group.Code, RequestId: "real-multi-request", TokenQuotaExempt: true, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
+	session, apiErr := NewBillingSession(ctx, info, 0)
+	require.Nil(t, apiErr)
+	require.NoError(t, session.Settle(80))
+	breakdown := session.GetBreakdown()
+	assert.Equal(t, int64(80), breakdown.VoucherQuota)
+	assert.Zero(t, breakdown.ActivityID)
+	assert.Zero(t, breakdown.VoucherID)
+	assert.Len(t, breakdown.VoucherAllocations, 2)
 }
 
 func (f *recordingFundingSource) Source() string {
@@ -185,6 +233,85 @@ func TestCompositeFundingRollsBackEarlierSettlementWhenLaterSourceFails(t *testi
 	assert.Equal(t, []int{20, -20}, subscription.settleDeltas, "后续资金源失败时应回滚已成功补扣")
 }
 
+func TestCompositeFundingSettleZeroClosesVoucherWithoutChangingOtherSources(t *testing.T) {
+	voucher := &recordingFundingSource{source: BillingSourceBenefitVoucher, capacity: 50}
+	wallet := &recordingFundingSource{source: BillingSourceWallet, capacity: 50}
+	funding := NewCompositeFunding(voucher, wallet)
+	require.NoError(t, funding.PreConsume(50))
+	require.NoError(t, funding.Settle(0))
+	assert.Equal(t, []int{0}, voucher.settleDeltas)
+	assert.Empty(t, wallet.settleDeltas)
+}
+
+func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnPositiveDelta(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:composite-real-voucher-positive?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, e := db.DB(); e == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-benefit", Name: "真实福利", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-44"}).Error)
+	activity := &model.BenefitActivity{Name: "真实正差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
+	require.NoError(t, db.Create(activity).Error)
+	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 201, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
+	require.NoError(t, db.Create(voucher).Error)
+	funding := NewCompositeFunding(NewBenefitVoucherFunding("real-positive", 44, group.Id), &recordingFundingSource{source: BillingSourceWallet, capacity: 100, additional: 100})
+	require.NoError(t, funding.PreConsume(50))
+	require.NoError(t, funding.Settle(30))
+	var stored model.BenefitUserVoucher
+	require.NoError(t, db.First(&stored, voucher.Id).Error)
+	assert.Equal(t, int64(50), stored.UsedQuota)
+	var settled model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", "real-positive", model.BenefitLedgerTypeSettleDelta).First(&settled).Error)
+	assert.Zero(t, settled.QuotaDelta)
+}
+
+func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnNegativeDelta(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	db, err := gorm.Open(sqlite.Open("file:composite-real-voucher-negative?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		if sqlDB, e := db.DB(); e == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	group := &model.Group{Code: "real-benefit-negative", Name: "真实福利负差额", Ratio: 1, Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-negative-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-negative-44"}).Error)
+	activity := &model.BenefitActivity{Name: "真实负差额", GroupId: group.Id, Status: model.BenefitActivityStatusEnded, StartsAt: 1, EndsAt: 900}
+	require.NoError(t, db.Create(activity).Error)
+	voucher := &model.BenefitUserVoucher{ActivityId: activity.Id, ShareId: 202, UserId: 44, OriginalQuota: 50, RemainingQuota: 50, Status: model.BenefitVoucherStatusActive, ExpiresAt: 4102444800}
+	require.NoError(t, db.Create(voucher).Error)
+	wallet := &recordingFundingSource{source: BillingSourceWallet, capacity: 100, additional: 100}
+	funding := NewCompositeFunding(NewBenefitVoucherFunding("real-negative", 44, group.Id), wallet)
+	require.NoError(t, funding.PreConsume(100))
+	require.NoError(t, funding.Settle(-30))
+	var stored model.BenefitUserVoucher
+	require.NoError(t, db.First(&stored, voucher.Id).Error)
+	assert.Equal(t, int64(50), stored.UsedQuota)
+	assert.Equal(t, int64(0), stored.RemainingQuota)
+	assert.Equal(t, []int{-30}, wallet.settleDeltas)
+	var settled model.BenefitVoucherLedger
+	require.NoError(t, db.Where("request_id = ? AND type = ?", "real-negative", model.BenefitLedgerTypeSettleDelta).First(&settled).Error)
+	assert.Zero(t, settled.QuotaDelta)
+}
+
 func TestCompositeFundingRollbackUsesCompensatingVoucherSettlement(t *testing.T) {
 	voucher := &recordingFundingSource{source: BillingSourceBenefitVoucher, capacity: 30, additional: 30}
 	subscription := &recordingFundingSource{source: BillingSourceSubscription, capacity: 30, additional: 10, settleErr: errors.New("subscription settlement failed")}
@@ -212,9 +339,10 @@ func TestCompositeFundingRollbackRestoresRealVoucherLedgerAfterLaterSourceFailur
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "rollback-group", Name: "回滚分组", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
+	require.NoError(t, db.Create(&model.User{Id: 44, Username: "rollback-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "rollback-benefit-44"}).Error)
 	activity := &model.BenefitActivity{
 		Name: "回滚活动", GroupId: group.Id, Status: model.BenefitActivityStatusPublished,
 		StartsAt: 900, EndsAt: 2000, TotalQuota: 40, TotalCount: 1,
@@ -288,16 +416,6 @@ func TestCompositeFundingPreConsumeReturnsRefundFailure(t *testing.T) {
 	err := funding.PreConsume(50)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "voucher refund failed")
-}
-
-func TestBillingSessionBreakdownIncludesBenefitActivityID(t *testing.T) {
-	voucher := &BenefitVoucherFunding{voucherID: 8, activityID: 9, consumed: 30, reserved: 30}
-	funding := NewCompositeFunding(voucher)
-	session := &BillingSession{funding: funding}
-
-	breakdown := session.GetBreakdown()
-	assert.Equal(t, 9, breakdown.ActivityID)
-	assert.Equal(t, 8, breakdown.VoucherID)
 }
 
 func TestBillingSessionOmitsBreakdownForNonVoucherFunding(t *testing.T) {

@@ -76,6 +76,14 @@ test('ClaimableActivityCard shows the real per-share amount, not a total/count a
   assert.match(source, /renderQuota\(activity\.max_quota\)/);
 });
 
+test('ClaimableActivityCard shows the historical top-up requirement in the current display unit', () => {
+  const source = readSource('../ClaimableActivityCard.jsx');
+  assert.match(source, /activity\.claim_paid_threshold/);
+  assert.match(source, /formatDisplayAmount\(/);
+  assert.match(source, /activity\.claim_paid_threshold/);
+  assert.match(source, /Historical top-up of at least/);
+});
+
 test('UserVoucherLedgerSheet has independent loading/error/data state and hides admin metadata', () => {
   const source = readSource('../UserVoucherLedgerSheet.jsx');
   assert.match(source, /loading/);
@@ -108,7 +116,10 @@ test('Classic user benefits page composes summary, voucher, and activity compone
     source,
     /import ClaimableActivityCard from '\.\.\/\.\.\/components\/benefits\/ClaimableActivityCard'/,
   );
-  assert.doesNotMatch(source, /UserVoucherLedgerSheet|ledgerVoucherId|loadVoucherLedger/);
+  assert.doesNotMatch(
+    source,
+    /UserVoucherLedgerSheet|ledgerVoucherId|loadVoucherLedger/,
+  );
   assert.match(source, /classic-console-panel/);
   assert.doesNotMatch(
     source,

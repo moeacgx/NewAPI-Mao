@@ -18,6 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
 
+import { getCurrencyDisplay } from '@/lib/currency'
+import type { CurrencyDisplayType } from '@/stores/system-config-store'
+
 import type { BenefitActivityStatus, BenefitVoucherStatus } from '../types'
 
 /** Voucher status label. Explicit t() calls keep every value scannable for i18n sync. */
@@ -64,6 +67,12 @@ export function activityStatusLabel(
  * Claim eligibility reason label. Mirrors the backend's
  * `BenefitClaimReason*` constants (ineligible/claimed/sold_out/inactive/
  * not_started/ended); explicit t() calls keep every value scannable.
+ *
+ * Keys are namespaced ("... to claim" / "Benefit ...") rather than bare
+ * words like "Eligible" or "Fully claimed": this flat i18n keys-are-strings
+ * setup lets an unrelated feature reusing the same bare English phrase
+ * silently win a duplicate JSON key and overwrite this translation (this
+ * happened once already in zh-TW.json).
  */
 export function claimEligibilityLabel(
   reason: string | undefined,
@@ -71,20 +80,44 @@ export function claimEligibilityLabel(
 ): string {
   switch (reason) {
     case 'ineligible':
-      return t('Not eligible for this group')
+      return t('Not eligible to claim')
     case 'claimed':
       return t('Already claimed')
     case 'sold_out':
-      return t('Fully claimed')
+      return t('Benefit fully claimed')
     case 'inactive':
-      return t('Activity is not active')
+      return t('Benefit activity is not active')
     case 'not_started':
-      return t('Activity has not started')
+      return t('Benefit activity has not started')
     case 'ended':
-      return t('Activity has ended')
+      return t('Benefit activity has ended')
     default:
-      return t('Not eligible')
+      return t('Not eligible to claim')
   }
+}
+
+/**
+ * displayType 必须取自同一份活动响应（而非本地缓存的全局展示配置），否则金额和单位可能
+ * 来自两次不同步的读取；契约细节见 docs/workflows/2026-09/25_benefit_claim_locale_review.md。
+ * CUSTOM 没有接口会返回符号文本，兜底用当前全局自定义符号。
+ */
+export function formatBenefitDisplayAmount(
+  amount: number,
+  displayType: CurrencyDisplayType,
+  t: TFunction
+): string {
+  const numericAmount = Number(amount)
+  if (!Number.isFinite(numericAmount)) return '-'
+  if (displayType === 'TOKENS') {
+    return `${Math.round(numericAmount).toLocaleString()} ${t('Tokens')}`
+  }
+  if (displayType === 'CNY') {
+    return `¥${numericAmount.toFixed(2)}`
+  }
+  if (displayType === 'CUSTOM') {
+    return `${getCurrencyDisplay().config.customCurrencySymbol}${numericAmount.toFixed(2)}`
+  }
+  return `$${numericAmount.toFixed(2)}`
 }
 
 export function ledgerEntryTypeLabel(type: string, t: TFunction): string {

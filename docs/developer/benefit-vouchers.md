@@ -6,8 +6,8 @@
 用户钱包；只有 token 或请求明确选择券绑定分组时才参与计费。`auto` 和继承用户
 默认分组不会触发福利券扣费。
 
-本能力不自动复制渠道或分组，不限制模型，不支持多券叠加，也不覆盖图像/视频异步
-任务。分组必须由管理员预先配置，`groups.single_user_concurrency_limit` 的 `0`
+本能力不自动复制渠道或分组，不限制模型，也不覆盖图像/视频异步任务。福利券按失效时间
+跨券叠加抵扣；分组必须由管理员预先配置，`groups.single_user_concurrency_limit` 的 `0`
 表示不限。
 
 ## 数据与迁移
@@ -43,6 +43,9 @@
 `max_amount`、`claim_paid_threshold`。服务端用 decimal 校验当前设置后换算内部 quota；
 固定模式安全计算“固定额度 × 份数”，并要求乘积严格等于 `total_quota`；随机模式要求
 `count * min <= total <= count * max`，拆分后的 share quota 总和必须严格等于总 quota。
+随机模式在满足上下界和总额的前提下围绕剩余均值取随机值，再打乱份额顺序，避免按顺序
+抽取余数造成后续份额长期贴着保底值。随机结果在发布时固化到 share，领取和计费不会重新
+计算金额。
 
 领取门槛是 CNY 实付金额快照，不是 quota。表单/API 按当前 USD/CNY/CUSTOM/TOKENS 单位
 回显输入，服务端另行换算为 CNY cents 后与历史充值实付比较；展示类型变化不会改写已保存
@@ -54,12 +57,18 @@
 服务端再将其换算为内部 quota。活动响应同样按当前展示单位返回金额字段；`total_quota`
 仍随响应提供以兼容现有余额/报表读取，但它是服务端计算的内部计费结果，前端不提供编辑入口。
 
-活动结束采用 `now >= ends_at` 的硬失效边界。个人券失效时间是
+活动结束采用 `now >= ends_at` 的领取失效边界；活动结束后不再发放新券，已领取券仍按领取时
+快照的 `expires_at` 使用。个人券初始失效时间是
 `min(claimed_at + personal_valid_hours * 3600, activity.ends_at)`。管理端创建/编辑请求
 使用 `personal_valid_hours`，小时值可带小数但换算结果必须是完整秒；活动响应也返回
 按小时展示的 `personal_valid_hours`。数据库内部仍以 `personal_valid_seconds` 保存，旧
 客户端提交该字段时服务端继续兼容读取。访问活动、券、领取和扣费入口会惰性处理过期
 记录并写入流水。
+
+管理员提前结束活动时，服务端只关闭新的领取入口并清理未领取份额；已领取且仍为 active
+的券继续保留到自身 `expires_at`。扣费查询会把同组多个活动的可用券额度合并，按失效时间
+顺序跨券预扣、结算和退款，避免某一张券余额不足时直接回退钱包。后续发布同一分组的新活动
+不会修改历史券的有效期；新活动领取的新券按新活动配置重新生成 `expires_at`。
 
 ## API 与权限
 
@@ -131,8 +140,11 @@
 组合会话同步保留旧订阅日志字段：`subscription_id`、`subscription_pre_consumed`、
 `subscription_post_delta`、计划 ID/名称。所有来源最终额度写入
 `other.billing_breakdown`：`voucher_quota`、`subscription_quota`、`wallet_quota`、
-`activity_id`、`voucher_id`。`activity_id` 与福利券流水及消费日志的 `request_id`/`log_id`
-一起用于争议追溯。福利抵扣计入消费和渠道成本，但不计入现金收入。
+`activity_id`、`voucher_id`。跨多张券时 `voucher_quota` 是福利券合计，`voucher_id` 仅保留
+首张券以兼容历史字段，不能解释为全部消费归属于该单券；逐券分配以福利券流水的
+`voucher_id`、活动 ID、`request_id` 和 `log_id` 为准。福利抵扣计入消费和渠道成本，但不计入现金收入。
+当前日志契约进一步约束：单券保留 `activity_id`/`voucher_id`；多券时两者置零，并写入
+`voucher_allocations[{activity_id,voucher_id,quota}]`，避免把福利合计伪归属到单券。
 
 标准 Relay JSON 请求的 `group` 会先经过用户可用分组和显式 token 绑定校验，再成为最终
 `using_group`；显式稳定分组才打开福利券门禁，`group=auto` 和省略 `group` 的继承路径

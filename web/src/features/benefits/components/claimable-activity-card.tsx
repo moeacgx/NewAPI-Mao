@@ -23,7 +23,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
 
-import { claimEligibilityLabel } from '../lib/labels'
+import {
+  claimEligibilityLabel,
+  formatBenefitDisplayAmount,
+} from '../lib/labels'
 import type { BenefitActivityUserView } from '../types'
 
 type ClaimableActivityCardProps = {
@@ -55,6 +58,24 @@ export function ClaimableActivityCard(props: ClaimableActivityCardProps) {
             {activity.description}
           </p>
         ) : null}
+        <p className='bg-muted/40 rounded-md px-3 py-2 text-sm'>
+          <span className='text-muted-foreground'>
+            {t('Claim requirement')}：
+          </span>{' '}
+          {activity.claim_paid_threshold > 0
+            ? t('Historical top-up of at least {{amount}}', {
+                amount: formatBenefitDisplayAmount(
+                  activity.claim_paid_threshold,
+                  activity.amount_display_type,
+                  t
+                ),
+              })
+            : t('No historical top-up requirement')}
+          <br />
+          <span className='text-muted-foreground text-xs'>
+            {t('New accounts must wait before they can claim')}
+          </span>
+        </p>
         <div className='grid grid-cols-2 gap-2 text-sm'>
           <div>
             <p className='text-muted-foreground text-xs'>
@@ -97,7 +118,7 @@ export function ClaimableActivityCard(props: ClaimableActivityCardProps) {
               <StatusBadge
                 label={
                   activity.eligible
-                    ? t('Eligible')
+                    ? t('Eligible to claim')
                     : claimEligibilityLabel(activity.eligibility_reason, t)
                 }
                 variant={activity.eligible ? 'success' : 'neutral'}

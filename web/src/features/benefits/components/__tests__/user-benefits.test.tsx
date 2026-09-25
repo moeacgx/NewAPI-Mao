@@ -166,7 +166,7 @@ describe('user benefits page', () => {
       (button) => !button.hasAttribute('disabled')
     )
     expect(enabledButtons).toHaveLength(1)
-    expect(screen.getByText('Fully claimed')).toBeTruthy()
+    expect(screen.getByText('Benefit fully claimed')).toBeTruthy()
   })
 
   it('shows an already-claimed badge instead of a claim button once claimed', async () => {
@@ -245,6 +245,18 @@ describe('user benefits page', () => {
 
     await waitFor(() => expect(screen.getByText('Weekend Boost')).toBeTruthy())
     expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('shows the historical top-up requirement when an activity has one', async () => {
+    installApiFixtures(
+      [activity({ claim_paid_threshold: 5, eligible: false })],
+      []
+    )
+    renderUserBenefits()
+
+    await waitFor(() =>
+      expect(screen.getByText(/Historical top-up of at least/)).toBeTruthy()
+    )
   })
 
   it('prefers the voucher own activity/group snapshot over the activity list lookup', async () => {

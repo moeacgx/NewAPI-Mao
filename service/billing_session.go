@@ -426,6 +426,7 @@ func (s *BillingSession) GetBreakdown() relaycommon.BillingBreakdown {
 		return breakdown
 	}
 	if composite, ok := s.funding.(*CompositeFunding); ok {
+		voucherFundings := make([]*BenefitVoucherFunding, 0, 1)
 		for index, source := range composite.sources {
 			if index >= len(composite.consumed) {
 				continue
@@ -433,22 +434,47 @@ func (s *BillingSession) GetBreakdown() relaycommon.BillingBreakdown {
 			amount := int64(composite.consumed[index])
 			switch typed := source.(type) {
 			case *BenefitVoucherFunding:
-				breakdown.VoucherQuota += amount
-				breakdown.ActivityID = typed.activityID
-				breakdown.VoucherID = typed.voucherID
+				voucherFundings = append(voucherFundings, typed)
 			case *SubscriptionFunding:
 				breakdown.SubscriptionQuota += amount
 			case *WalletFunding:
 				breakdown.WalletQuota += amount
 			}
 		}
+		if len(voucherFundings) > 0 {
+			allocations, err := voucherFundings[0].Allocations()
+			if err != nil {
+				common.SysError(fmt.Sprintf("福利券请求逐券流水查询失败 request_id=%s: %s", voucherFundings[0].requestID, err))
+				breakdown.VoucherQuota = int64(composite.consumed[0])
+			} else {
+				for _, allocation := range allocations {
+					breakdown.VoucherQuota += allocation.Quota
+					breakdown.VoucherAllocations = append(breakdown.VoucherAllocations, relaycommon.BillingVoucherAllocation{ActivityID: allocation.ActivityID, VoucherID: allocation.VoucherID, Quota: allocation.Quota})
+				}
+			}
+		}
+		if len(breakdown.VoucherAllocations) == 1 {
+			breakdown.ActivityID = breakdown.VoucherAllocations[0].ActivityID
+			breakdown.VoucherID = breakdown.VoucherAllocations[0].VoucherID
+		}
 		return breakdown
 	}
 	switch typed := s.funding.(type) {
 	case *BenefitVoucherFunding:
-		breakdown.VoucherQuota = typed.consumed
-		breakdown.ActivityID = typed.activityID
-		breakdown.VoucherID = typed.voucherID
+		allocations, err := typed.Allocations()
+		if err != nil {
+			common.SysError(fmt.Sprintf("福利券请求逐券流水查询失败 request_id=%s: %s", typed.requestID, err))
+			breakdown.VoucherQuota = typed.consumed
+		} else {
+			for _, allocation := range allocations {
+				breakdown.VoucherQuota += allocation.Quota
+				breakdown.VoucherAllocations = append(breakdown.VoucherAllocations, relaycommon.BillingVoucherAllocation{ActivityID: allocation.ActivityID, VoucherID: allocation.VoucherID, Quota: allocation.Quota})
+			}
+		}
+		if len(breakdown.VoucherAllocations) == 1 {
+			breakdown.ActivityID = breakdown.VoucherAllocations[0].ActivityID
+			breakdown.VoucherID = breakdown.VoucherAllocations[0].VoucherID
+		}
 	case *SubscriptionFunding:
 		breakdown.SubscriptionQuota = typed.preConsumed
 	case *WalletFunding:
