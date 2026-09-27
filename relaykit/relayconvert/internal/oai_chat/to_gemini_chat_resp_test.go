@@ -63,6 +63,91 @@ func TestResponseOpenAI2GeminiMapsTextToolFinishReasonAndUsage(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"q": "x"}, resp.Candidates[0].Content.Parts[1].FunctionCall.Arguments)
 }
 
+func TestResponseOpenAI2GeminiPreservesImageParts(t *testing.T) {
+	msg := dto.Message{}
+	msg.SetMediaContent([]dto.MediaContent{
+		{Type: dto.ContentTypeText, Text: "before"},
+		{Type: dto.ContentTypeImageURL, ImageUrl: &dto.MessageImageUrl{Url: "data:image/png;base64,aW1hZ2U="}},
+		{Type: dto.ContentTypeImageURL, ImageUrl: &dto.MessageImageUrl{Url: "https://cdn.invalid/image.png"}},
+		{Type: dto.ContentTypeText, Text: "![remote](https://cdn.invalid/markdown.jpg) after"},
+	})
+
+	resp := ResponseOpenAI2Gemini(&dto.OpenAITextResponse{
+		Choices: []dto.OpenAITextResponseChoice{{Message: msg}},
+	}, nil)
+
+	require.Len(t, resp.Candidates, 1)
+	parts := resp.Candidates[0].Content.Parts
+	require.Len(t, parts, 5)
+	assert.Equal(t, "before", parts[0].Text)
+	assert.Equal(t, "image/png", parts[1].InlineData.MimeType)
+	assert.Equal(t, "aW1hZ2U=", parts[1].InlineData.Data)
+	assert.Equal(t, "https://cdn.invalid/image.png", parts[2].FileData.FileUri)
+	assert.Equal(t, "image/png", parts[2].FileData.MimeType)
+	assert.Equal(t, "https://cdn.invalid/markdown.jpg", parts[3].FileData.FileUri)
+	assert.Equal(t, " after", parts[4].Text)
+}
+
+func TestResponseOpenAI2GeminiPreservesMessageImages(t *testing.T) {
+	msg := dto.Message{Images: []byte(`["data:image/jpeg;base64,/9j/",{"image_url":{"url":"https://cdn.invalid/out.webp"}}]`)}
+	resp := ResponseOpenAI2Gemini(&dto.OpenAITextResponse{
+		Choices: []dto.OpenAITextResponseChoice{{Message: msg}},
+	}, nil)
+
+	require.Len(t, resp.Candidates, 1)
+	require.Len(t, resp.Candidates[0].Content.Parts, 2)
+	assert.Equal(t, "image/jpeg", resp.Candidates[0].Content.Parts[0].InlineData.MimeType)
+	assert.Equal(t, "https://cdn.invalid/out.webp", resp.Candidates[0].Content.Parts[1].FileData.FileUri)
+	assert.Equal(t, "image/webp", resp.Candidates[0].Content.Parts[1].FileData.MimeType)
+}
+
+func TestResponseOpenAI2GeminiRejectsInvalidImageCarriers(t *testing.T) {
+	msg := dto.Message{}
+	msg.SetMediaContent([]dto.MediaContent{
+		{Type: dto.ContentTypeText, Text: "![raw](data:image/png,not-base64)"},
+		{Type: dto.ContentTypeText, Text: "![empty](data:image/png;base64,)"},
+		{Type: dto.ContentTypeText, Text: "![bad-url](https:///missing-host.png)"},
+		{Type: dto.ContentTypeText, Text: "ordinary https://example.com/page"},
+	})
+
+	resp := ResponseOpenAI2Gemini(&dto.OpenAITextResponse{
+		Choices: []dto.OpenAITextResponseChoice{{Message: msg}},
+	}, nil)
+
+	require.Len(t, resp.Candidates, 1)
+	require.Len(t, resp.Candidates[0].Content.Parts, 4)
+	for _, part := range resp.Candidates[0].Content.Parts {
+		assert.Nil(t, part.InlineData)
+		assert.Nil(t, part.FileData)
+	}
+}
+
+func TestResponseOpenAI2GeminiPreservesPlainDataImageContent(t *testing.T) {
+	msg := dto.Message{Content: "data:image/png;base64,aW1hZ2U="}
+	resp := ResponseOpenAI2Gemini(&dto.OpenAITextResponse{
+		Choices: []dto.OpenAITextResponseChoice{{Message: msg}},
+	}, nil)
+
+	require.Len(t, resp.Candidates, 1)
+	require.Len(t, resp.Candidates[0].Content.Parts, 1)
+	assert.Equal(t, "image/png", resp.Candidates[0].Content.Parts[0].InlineData.MimeType)
+	assert.Equal(t, "aW1hZ2U=", resp.Candidates[0].Content.Parts[0].InlineData.Data)
+}
+
+func TestStreamResponseOpenAI2GeminiKeepsMarkdownAsText(t *testing.T) {
+	text := "![image](data:image/png;base64,aW1hZ2U=)"
+	resp := StreamResponseOpenAI2Gemini(&dto.ChatCompletionsStreamResponse{
+		Choices: []dto.ChatCompletionsStreamResponseChoice{{
+			Delta: dto.ChatCompletionsStreamResponseChoiceDelta{Content: &text},
+		}},
+	}, nil)
+
+	require.Len(t, resp.Candidates, 1)
+	require.Len(t, resp.Candidates[0].Content.Parts, 1)
+	assert.Equal(t, text, resp.Candidates[0].Content.Parts[0].Text)
+	assert.Nil(t, resp.Candidates[0].Content.Parts[0].InlineData)
+}
+
 func TestStreamResponseOpenAI2GeminiMapsToolCallFinishReasonAndUsage(t *testing.T) {
 	resp := StreamResponseOpenAI2Gemini(&dto.ChatCompletionsStreamResponse{
 		Choices: []dto.ChatCompletionsStreamResponseChoice{

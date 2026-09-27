@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [OpenAI 上游 Gemini 图片响应转换修复](../workflows/2026-09/27_openai_gemini_image_response_conversion.md)：非流式 OpenAI Chat 到 Gemini 回包的图片 part、校验、计费保持与协议边界。
+
 - [令牌分组迁移保留历史独立分组绑定](../workflows/2026-09/25_token_group_migration_existing_exclusive_conflict.md)：预览和执行区分历史冲突与迁移新增冲突，保留去重和倍率保护规则。
 
 - [本地待交付修复 .338 整合与 maolaoapi 发布](../workflows/2026-09/25_pending_fixes_338_release.md)：零价、缓存恢复、用量与思考日志、管理员限流、插件探测及逐节点部署。
