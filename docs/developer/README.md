@@ -1,6 +1,7 @@
 # NewAPI-Mao 开发文档
 
 - [CI 中 Bun 截断下载重试修复](../workflows/2026-09/29_ci_bun_tarball_retry.md)：固定 Bun 1.4.1，使冻结锁文件安装在 tarball 响应中途断开时执行内建有限重试，并保留依赖版本与检查强度。
+- [Gemini 原生图片回包载体归一化](../workflows/2026-09/28_gemini_native_image_response_carriers.md)：OpenAI Images/Canvas 通过 Gemini 原生生图时的 inline/file 媒体载体、解析诊断和证据边界。
 
 - [OpenAI 上游 Gemini 图片响应转换修复](../workflows/2026-09/27_openai_gemini_image_response_conversion.md)：非流式 OpenAI Chat 到 Gemini 回包的图片 part、校验、计费保持与协议边界。
 
