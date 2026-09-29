@@ -267,6 +267,27 @@ type GeminiFileData struct {
 	FileUri  string `json:"fileUri,omitempty"`
 }
 
+// UnmarshalJSON allows GeminiFileData to accept both snake_case and camelCase fields.
+func (d *GeminiFileData) UnmarshalJSON(data []byte) error {
+	type Alias GeminiFileData
+	var aux struct {
+		Alias
+		MimeTypeSnake string `json:"mime_type,omitempty"`
+		FileURISnake  string `json:"file_uri,omitempty"`
+	}
+	if err := kitutil.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*d = GeminiFileData(aux.Alias)
+	if aux.MimeTypeSnake != "" {
+		d.MimeType = aux.MimeTypeSnake
+	}
+	if aux.FileURISnake != "" {
+		d.FileUri = aux.FileURISnake
+	}
+	return nil
+}
+
 type GeminiPart struct {
 	Text             string                  `json:"text,omitempty"`
 	Thought          bool                    `json:"thought,omitempty"`
@@ -289,6 +310,7 @@ func (p *GeminiPart) UnmarshalJSON(data []byte) error {
 	var aux struct {
 		Alias
 		InlineDataSnake *GeminiInlineData `json:"inline_data,omitempty"` // snake_case variant
+		FileDataSnake   *GeminiFileData   `json:"file_data,omitempty"`
 	}
 
 	if err := kitutil.Unmarshal(data, &aux); err != nil {
@@ -303,6 +325,9 @@ func (p *GeminiPart) UnmarshalJSON(data []byte) error {
 		p.InlineData = aux.InlineDataSnake
 	} else if aux.InlineData != nil { // Fallback to camelCase from Alias
 		p.InlineData = aux.InlineData
+	}
+	if aux.FileDataSnake != nil {
+		p.FileData = aux.FileDataSnake
 	}
 	// Other fields like Text, FunctionCall etc. are already populated via aux.Alias
 

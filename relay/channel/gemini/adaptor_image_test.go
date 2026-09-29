@@ -6,9 +6,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -210,6 +212,145 @@ func TestDoResponseNativeImagineReturnsOpenAIImageFormat(t *testing.T) {
 	require.Equal(t, 12, usageValue.PromptTokens)
 	require.Equal(t, 40, usageValue.CompletionTokens)
 	require.Equal(t, 52, usageValue.TotalTokens)
+}
+
+func TestDoResponseNativeImagineSupportsGeminiImageCarriers(t *testing.T) {
+	tests := []struct {
+		name    string
+		part    string
+		wantB64 string
+		wantURL string
+	}{
+		{name: "inlineData", part: `{"inlineData":{"mimeType":"image/png","data":"aW1hZ2U="}}`, wantB64: "aW1hZ2U="},
+		{name: "inline_data", part: `{"inline_data":{"mime_type":"image/png","data":"aW1hZ2U="}}`, wantB64: "aW1hZ2U="},
+		{name: "thought inlineData", part: `{"thought":true,"inlineData":{"mimeType":"image/png","data":"aW1hZ2U="}}`, wantB64: "aW1hZ2U="},
+		{name: "fileData", part: `{"fileData":{"mimeType":"image/png","fileUri":"https://cdn.example/image.png"}}`, wantURL: "https://cdn.example/image.png"},
+		{name: "file_data", part: `{"file_data":{"mime_type":"image/png","file_uri":"https://cdn.example/image.png"}}`, wantURL: "https://cdn.example/image.png"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+			info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+			info.RelayFormat = types.RelayFormatOpenAIImage
+			body := `{"candidates":[{"content":{"role":"model","parts":[` + tt.part + `]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":40,"totalTokenCount":52}}`
+
+			usage, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, info)
+			require.Nil(t, newAPIError)
+
+			var imageResp dto.ImageResponse
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &imageResp))
+			require.Len(t, imageResp.Data, 1)
+			require.Equal(t, tt.wantB64, imageResp.Data[0].B64Json)
+			require.Equal(t, tt.wantURL, imageResp.Data[0].Url)
+			require.Equal(t, 52, usage.(*dto.Usage).TotalTokens)
+		})
+	}
+}
+
+func TestDoResponseNativeImagineRejectsInvalidFileData(t *testing.T) {
+	tests := []struct {
+		name string
+		part string
+	}{
+		{name: "empty URI", part: `{"fileData":{"mimeType":"image/png","fileUri":""}}`},
+		{name: "missing host", part: `{"fileData":{"mimeType":"image/png","fileUri":"https:///image.png"}}`},
+		{name: "gs URI", part: `{"fileData":{"mimeType":"image/png","fileUri":"gs://bucket/image.png"}}`},
+		{name: "file URI", part: `{"fileData":{"mimeType":"image/png","fileUri":"file:///tmp/image.png"}}`},
+		{name: "javascript URI", part: `{"fileData":{"mimeType":"image/png","fileUri":"javascript:alert(1)"}}`},
+		{name: "non image MIME", part: `{"fileData":{"mimeType":"text/html","fileUri":"https://cdn.example/image.png"}}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+			info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+			info.RelayFormat = types.RelayFormatOpenAIImage
+			body := `{"candidates":[{"content":{"role":"model","parts":[` + tt.part + `]},"finishReason":"STOP","index":0}]}`
+
+			_, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, info)
+
+			require.NotNil(t, newAPIError)
+			require.Equal(t, "no images generated", newAPIError.Error())
+			require.Empty(t, recorder.Body.Bytes())
+		})
+	}
+}
+
+func TestDoResponseNativeImagineRejectsTextOnlyWithSafeShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+	info.RelayFormat = types.RelayFormatOpenAIImage
+	body := `{"candidates":[{"content":{"role":"model","parts":[{"text":"private refusal text"}]},"finishReason":"SAFETY","index":0}],"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"},"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}}`
+
+	usage, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}, info)
+
+	require.NotNil(t, newAPIError)
+	require.Equal(t, "no images generated", newAPIError.Error())
+	usageValue, ok := usage.(*dto.Usage)
+	require.True(t, ok)
+	require.Equal(t, 15, usageValue.TotalTokens)
+	require.Equal(t,
+		"gemini_native_image_no_media candidates=1 parts=1 text=1 inline_data=0 file_data=0 other=0 finish_reasons=SAFETY block_reason=PROHIBITED_CONTENT",
+		common.GetContextKeyString(c, constant.ContextKeyAdminRejectReason),
+	)
+	require.NotContains(t, common.GetContextKeyString(c, constant.ContextKeyAdminRejectReason), "private refusal text")
+}
+
+func TestDoResponseNativeImagineRedactsUnknownDiagnosticEnums(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Set(common.RequestIdKey, "req-shape-test")
+	info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+	info.RelayFormat = types.RelayFormatOpenAIImage
+	body := `{"candidates":[{"content":{"role":"model","parts":[{"text":"private refusal text"}]},"finishReason":"SECRETLEAK","index":0}],"promptFeedback":{"blockReason":"ANOTHERSECRET"}}`
+	var logBuffer bytes.Buffer
+	common.LogWriterMu.Lock()
+	originalErrorWriter := gin.DefaultErrorWriter
+	gin.DefaultErrorWriter = &logBuffer
+	common.LogWriterMu.Unlock()
+	t.Cleanup(func() {
+		common.LogWriterMu.Lock()
+		gin.DefaultErrorWriter = originalErrorWriter
+		common.LogWriterMu.Unlock()
+	})
+
+	_, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}, info)
+
+	require.NotNil(t, newAPIError)
+	shape := common.GetContextKeyString(c, constant.ContextKeyAdminRejectReason)
+	require.Contains(t, shape, "finish_reasons=OTHER block_reason=OTHER")
+	require.NotContains(t, shape, "SECRETLEAK")
+	require.NotContains(t, shape, "ANOTHERSECRET")
+	require.NotContains(t, shape, "private refusal text")
+	require.Contains(t, logBuffer.String(), "req-shape-test")
+	require.Contains(t, logBuffer.String(), shape)
+	require.NotContains(t, logBuffer.String(), "SECRETLEAK")
+	require.NotContains(t, logBuffer.String(), "ANOTHERSECRET")
+	require.NotContains(t, logBuffer.String(), "private refusal text")
 }
 
 func TestIsGeminiModelSupportImagineIncludesCanvasModels(t *testing.T) {

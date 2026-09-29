@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -467,17 +468,67 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		Created: common.GetTimestamp(),
 		Data:    make([]dto.ImageData, 0),
 	}
+	partCount := 0
+	textPartCount := 0
+	inlineDataPartCount := 0
+	fileDataPartCount := 0
+	otherPartCount := 0
+	finishReasons := make([]string, 0, len(geminiResponse.Candidates))
+	seenFinishReasons := make(map[string]struct{}, len(geminiResponse.Candidates))
 	for _, candidate := range geminiResponse.Candidates {
-		for _, part := range candidate.Content.Parts {
-			if part.InlineData == nil || part.InlineData.Data == "" {
-				continue
+		if candidate.FinishReason != nil {
+			reason := geminiDiagnosticFinishReason(*candidate.FinishReason)
+			if _, exists := seenFinishReasons[reason]; !exists {
+				seenFinishReasons[reason] = struct{}{}
+				finishReasons = append(finishReasons, reason)
 			}
-			openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
-				B64Json: part.InlineData.Data,
-			})
+		}
+		for _, part := range candidate.Content.Parts {
+			partCount++
+			switch {
+			case part.InlineData != nil:
+				inlineDataPartCount++
+				if part.InlineData.Data == "" {
+					continue
+				}
+				openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
+					B64Json: part.InlineData.Data,
+				})
+			case part.FileData != nil:
+				fileDataPartCount++
+				fileURI := strings.TrimSpace(part.FileData.FileUri)
+				parsedURI, err := url.Parse(fileURI)
+				mimeType := strings.TrimSpace(part.FileData.MimeType)
+				if err != nil || parsedURI.Hostname() == "" ||
+					(parsedURI.Scheme != "http" && parsedURI.Scheme != "https") ||
+					(mimeType != "" && !strings.HasPrefix(strings.ToLower(mimeType), "image/")) {
+					continue
+				}
+				openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
+					Url: fileURI,
+				})
+			case part.Text != "":
+				textPartCount++
+			default:
+				otherPartCount++
+			}
 		}
 	}
 	if len(openAIResponse.Data) == 0 {
+		if len(finishReasons) == 0 {
+			finishReasons = append(finishReasons, "-")
+		}
+		blockReason := "-"
+		if geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
+			blockReason = geminiDiagnosticBlockReason(*geminiResponse.PromptFeedback.BlockReason)
+		}
+		shape := fmt.Sprintf(
+			"gemini_native_image_no_media candidates=%d parts=%d text=%d inline_data=%d file_data=%d other=%d finish_reasons=%s block_reason=%s",
+			len(geminiResponse.Candidates), partCount, textPartCount, inlineDataPartCount,
+			fileDataPartCount, otherPartCount, strings.Join(finishReasons, ","), blockReason,
+		)
+		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, shape)
+		logger.LogWarn(c, shape)
 		return &usage, types.NewOpenAIError(errors.New("no images generated"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
@@ -494,6 +545,30 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	c.Writer.WriteHeader(status)
 	_, _ = c.Writer.Write(jsonResponse)
 	return &usage, nil
+}
+
+func geminiDiagnosticFinishReason(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case "FINISH_REASON_UNSPECIFIED", "STOP", "MAX_TOKENS", "SAFETY", "RECITATION",
+		"LANGUAGE", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII",
+		"MALFORMED_FUNCTION_CALL", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT",
+		"IMAGE_OTHER", "UNEXPECTED_TOOL_CALL", "TOO_MANY_TOOL_CALLS":
+		return value
+	default:
+		return "OTHER"
+	}
+}
+
+func geminiDiagnosticBlockReason(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case "BLOCK_REASON_UNSPECIFIED", "SAFETY", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT",
+		"IMAGE_SAFETY", "MODEL_ARMOR":
+		return value
+	default:
+		return "OTHER"
+	}
 }
 
 func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

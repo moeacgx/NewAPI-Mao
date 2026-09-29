@@ -480,6 +480,9 @@ describe('upstream model guard native page', () => {
       }
       if (url === `${base}/channels`) {
         const params = options?.params as { keyword: string; page: number }
+        if (params.keyword !== 'Provider') {
+          return ok({ items: [], total: 0, page: params.page, page_size: 50 })
+        }
         const item =
           params.page === 2
             ? { id: 903, name: 'Provider second page', status: 1 }
@@ -518,12 +521,28 @@ describe('upstream model guard native page', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
     const choices = screen.getByRole('group', { name: 'Available channels' })
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(`${base}/channels`, {
+        params: { keyword: 'Provider', page: 1, page_size: 50 },
+        skipErrorHandler: true,
+      })
+    )
     fireEvent.click(
       await within(choices).findByRole('checkbox', {
         name: 'Provider first page (#902)',
       })
     )
-    fireEvent.click(within(choices).getByRole('button', { name: 'Next page' }))
+    const nextPage = within(choices).getByRole('button', {
+      name: 'Next page',
+    })
+    await waitFor(() => expect(nextPage).toBeEnabled())
+    fireEvent.click(nextPage)
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(`${base}/channels`, {
+        params: { keyword: 'Provider', page: 2, page_size: 50 },
+        skipErrorHandler: true,
+      })
+    )
     fireEvent.click(
       await within(choices).findByRole('checkbox', {
         name: 'Provider second page (#903)',
