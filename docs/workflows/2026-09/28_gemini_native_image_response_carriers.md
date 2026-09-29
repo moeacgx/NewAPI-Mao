@@ -13,7 +13,11 @@
 - OpenAI `/v1/images/generations` 和 Canvas 图片任务均收到上游 HTTP 200；
 - 网关随后归一为 HTTP 500，`error_stage=parse`、
   `error_code=bad_response_body`、`no images generated`；
-- 没有取得上游原始响应正文，因此不能宣称生产响应使用了某一种图片载体。
+- 后续授权的真实上游探针仅记录脱敏形状：HTTP 200、1 个 candidate，parts 同时含
+  `text` 与 `fileData`；`fileData` 的 URI scheme 为 HTTPS 且 host 非空，MIME 已存在且
+  属于 `image/*`。该形状满足本修复的安全接受条件。
+- 原先失败事件没有保存上游原始响应正文，因此不能把这次探针反推为某一条历史失败
+  请求的唯一正文，也不能排除其他响应形状或其他失败边界。
 
 ## 源码根因
 
@@ -29,8 +33,8 @@
 - DTO 可读取 `inline_data` / `mime_type`，但未读取等价的
   `file_data` / `file_uri`。
 
-因此，`fileData` 是可用最小 fixture 明确证明的兼容缺口；真实生产回包载体仍需
-后续脱敏响应形状证据确认。
+因此，`fileData` 是可用最小 fixture 明确证明的兼容缺口；真实探针也确认上游存在
+满足安全契约的 `fileData` 形状，但历史失败事件正文不可回看，不能据此宣称唯一根因。
 
 ## 修复契约
 
