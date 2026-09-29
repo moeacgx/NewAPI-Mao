@@ -81,3 +81,13 @@ go build ./...
 HTTP(S) `fileData` 均返回一张图片，usage 保持不变；远程 URL 模拟 CORS 失败时仍
 保留 URL；文本-only 仍返回 `no images generated`。这些均为本地 fixture，不是生产
 上游响应正文证据。
+
+## 发布准备
+
+版本准备为 `v1.0.0-rc.10.1.10.342`，包含已合并的 PR #287（Gemini 原生图片
+`fileData` 载体归一化、安全 URI/MIME 校验和形状诊断）。PR #287 已基于最新
+`custom-main` 合入，合并提交为 `b9622ab6912367c43753af9d2d251009038bf215`。
+
+版本 PR 仅更新 `VERSION` 与本发布准备说明；等待版本 PR 自身前后端 CI 全部通过后，
+再由维护者决定是否打 tag、构建 Release、更新线上容器。生产验证、tag、合并和部署
+不属于本工作项。
