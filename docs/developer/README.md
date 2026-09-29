@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [CI 中 Bun 截断下载重试修复](../workflows/2026-09/29_ci_bun_tarball_retry.md)：固定 Bun 1.4.1，使冻结锁文件安装在 tarball 响应中途断开时执行内建有限重试，并保留依赖版本与检查强度。
+
 - [OpenAI 上游 Gemini 图片响应转换修复](../workflows/2026-09/27_openai_gemini_image_response_conversion.md)：非流式 OpenAI Chat 到 Gemini 回包的图片 part、校验、计费保持与协议边界。
 
 - [令牌分组迁移保留历史独立分组绑定](../workflows/2026-09/25_token_group_migration_existing_exclusive_conflict.md)：预览和执行区分历史冲突与迁移新增冲突，保留去重和倍率保护规则。
