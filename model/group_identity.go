@@ -2545,6 +2545,11 @@ func SaveGroupConfigWithOptionsAndResult(
 		// 先删除已通过引用校验的分组，释放它们占用的唯一名称。
 		for index := range deletedGroups {
 			group := &deletedGroups[index]
+			if tx.Migrator().HasTable(&GroupTagBinding{}) {
+				if err := tx.Where("group_id = ?", group.Id).Delete(&GroupTagBinding{}).Error; err != nil {
+					return fmt.Errorf("删除分组标签关联失败: %w", err)
+				}
+			}
 			if tx.Migrator().HasTable(&GroupAlias{}) {
 				if err := tx.Where("group_id = ?", group.Id).Delete(&GroupAlias{}).Error; err != nil {
 					return fmt.Errorf("删除分组 %s 的兼容别名失败: %w", group.Name, err)
