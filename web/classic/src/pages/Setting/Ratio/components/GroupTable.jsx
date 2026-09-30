@@ -35,6 +35,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import CardTable from '../../../../components/common/ui/CardTable';
 import { createTemporaryGroupCode } from '../../../../helpers';
+import GroupTagFilter from '../../../../components/common/group-tags/GroupTagFilter';
+import useGroupTags from '../../../../hooks/common/useGroupTags';
+import { filterGroupsByTag } from '../../../../helpers/groupTags';
 
 const { Text } = Typography;
 
@@ -61,6 +64,8 @@ export default function GroupTable({
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState(() => buildRows(groups));
+  const { tags } = useGroupTags();
+  const [selectedTag, setSelectedTag] = useState('all');
   const reservedCodesRef = useRef(
     new Set(
       (Array.isArray(groups) ? groups : [])
@@ -339,9 +344,16 @@ export default function GroupTable({
 
   return (
     <div>
+      <GroupTagFilter
+        tags={tags}
+        groups={rows}
+        value={selectedTag}
+        onChange={setSelectedTag}
+        disabled={disabled}
+      />
       <CardTable
         columns={columns}
-        dataSource={displayRows}
+        dataSource={filterGroupsByTag(displayRows, tags, selectedTag)}
         rowKey='_rowId'
         hidePagination
         size='small'
@@ -370,7 +382,10 @@ export default function GroupTable({
           icon={<IconPlus />}
           theme='outline'
           disabled={disabled}
-          onClick={addRow}
+          onClick={() => {
+            setSelectedTag('all');
+            addRow();
+          }}
         >
           {t('添加分组')}
         </Button>

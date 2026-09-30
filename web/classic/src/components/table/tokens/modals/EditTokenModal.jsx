@@ -67,6 +67,8 @@ import {
 import { GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../../context/Status';
+import GroupTagFilter from '../../../common/group-tags/GroupTagFilter';
+import { filterGroupsByTag } from '../../../../helpers/groupTags';
 
 const { Text, Title } = Typography;
 
@@ -74,8 +76,9 @@ const { Text, Title } = Typography;
 // GroupMultiPicker — 多分组选择 + 排序组件（Semi Design 风格）
 // ============================================================================
 
-const GroupMultiPicker = ({
+export const GroupMultiPicker = ({
   groups,
+  groupTags = [],
   selectedGroups,
   onChange,
   groupRatioLimits,
@@ -84,6 +87,7 @@ const GroupMultiPicker = ({
 }) => {
   const [popVisible, setPopVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedTag, setSelectedTag] = useState('all');
   const [draggedGroup, setDraggedGroup] = useState(null);
   const [dragOverGroup, setDragOverGroup] = useState(null);
 
@@ -92,7 +96,11 @@ const GroupMultiPicker = ({
     (group) => group.exclusive === true && selectedGroups.includes(group.value),
   );
 
-  const availableGroups = groups.filter((g) => {
+  const availableGroups = filterGroupsByTag(
+    groups,
+    groupTags,
+    selectedTag,
+  ).filter((g) => {
     if (isExclusiveSelected) return false;
     if (selectedGroups.includes(g.value)) return false;
     if (isAutoSelected && g.value !== 'auto') return false;
@@ -193,6 +201,12 @@ const GroupMultiPicker = ({
 
   return (
     <div>
+      <GroupTagFilter
+        tags={groupTags}
+        groups={groups}
+        value={selectedTag}
+        onChange={setSelectedTag}
+      />
       {/* Selected groups list */}
       {selectedGroups.length > 0 && (
         <div
@@ -314,6 +328,7 @@ const GroupMultiPicker = ({
                 )}
                 <Button
                   icon={<IconDelete size='small' />}
+                  aria-label={t('Remove group {{name}}', { name: displayName })}
                   size='small'
                   theme='borderless'
                   type='danger'
@@ -335,7 +350,12 @@ const GroupMultiPicker = ({
         showArrow
         content={
           <div
-            style={{ width: 320, maxHeight: 360, overflow: 'auto', padding: 8 }}
+            style={{
+              width: 'min(320px, calc(100vw - 96px))',
+              maxHeight: 360,
+              overflow: 'auto',
+              padding: 8,
+            }}
           >
             <Input
               prefix={<IconSearch />}
@@ -350,7 +370,8 @@ const GroupMultiPicker = ({
               <Empty description={t('没有可选分组')} style={{ padding: 16 }} />
             ) : (
               availableGroups.map((g) => (
-                <div
+                <button
+                  type='button'
                   key={g.value}
                   onClick={() => {
                     handleAdd(g.value);
@@ -363,6 +384,10 @@ const GroupMultiPicker = ({
                     padding: '8px 12px',
                     borderRadius: 6,
                     cursor: 'pointer',
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 0,
+                    background: 'transparent',
                     transition: 'background 0.15s',
                   }}
                   onMouseEnter={(e) => {
@@ -391,7 +416,7 @@ const GroupMultiPicker = ({
                       {t('独立')}
                     </Tag>
                   )}
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -439,6 +464,7 @@ const EditTokenModal = (props) => {
   const formApiRef = useRef(null);
   const [models, setModels] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [groupTags, setGroupTags] = useState([]);
   const [showQuotaInput, setShowQuotaInput] = useState(false);
   const isEdit = props.editingToken.id !== undefined;
   const defaultUseAutoGroup =
@@ -576,6 +602,9 @@ const EditTokenModal = (props) => {
       const { success, message, data } = res.data;
       if (success) {
         const localGroupOptions = createUserGroupOptions(data);
+        setGroupTags(
+          Array.isArray(res.data.group_tags) ? res.data.group_tags : [],
+        );
         if (defaultUseAutoGroup) {
           if (localGroupOptions.some((group) => group.value === 'auto')) {
             localGroupOptions.sort((a, b) =>
@@ -880,6 +909,7 @@ const EditTokenModal = (props) => {
                   <Col span={24}>
                     <Form.Slot label={t('令牌分组')}>
                       <GroupMultiPicker
+                        groupTags={groupTags}
                         groups={groups}
                         selectedGroups={selectedGroups}
                         onChange={onSelectedGroupsChange}

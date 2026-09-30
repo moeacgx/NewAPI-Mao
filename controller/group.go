@@ -323,10 +323,23 @@ func GetUserGroups(c *gin.Context) {
 		usableGroups,
 		model_setting.GetGlobalSettings().CanvasDefaultGroup,
 	)
+	groupIDs := make([]int, 0, len(usableGroups))
+	for _, group := range usableGroups {
+		if id, ok := group["id"].(int); ok && id > 0 {
+			groupIDs = append(groupIDs, id)
+		}
+	}
+	groupTags, err := model.GetGroupTags(groupIDs)
+	if err != nil {
+		// 分类读取失败不能扩大权限，也不阻止原有选组流程。
+		common.SysError("读取分组标签失败: " + err.Error())
+		groupTags = []model.GroupTag{}
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    usableGroups,
+		"success":    true,
+		"message":    "",
+		"data":       usableGroups,
+		"group_tags": groupTags,
 		// 仅下发当前用户确实可用的预设分组；前端仍允许用户手动切换。
 		"canvas_default_group": canvasDefaultGroup,
 	})
