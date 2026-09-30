@@ -254,6 +254,86 @@ func TestDoResponseNativeImagineSupportsGeminiImageCarriers(t *testing.T) {
 	}
 }
 
+func TestDoResponseNativeImagineSupportsExplicitMarkdownImage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+	info.RelayFormat = types.RelayFormatOpenAIImage
+	body := `{"candidates":[{"content":{"role":"model","parts":[{"text":"Generated image:\n![result](<https://cdn.example/rendered%28final%29.png?x=1&amp;y=&#x32;> \"preview\")"}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":1056,"totalTokenCount":1064}}`
+
+	usage, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}, info)
+	require.Nil(t, newAPIError)
+
+	var imageResp dto.ImageResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &imageResp))
+	require.Len(t, imageResp.Data, 1)
+	require.Equal(t, "https://cdn.example/rendered%28final%29.png?x=1&y=2", imageResp.Data[0].Url)
+	require.Equal(t, 1064, usage.(*dto.Usage).TotalTokens)
+}
+
+func TestDoResponseNativeImagineUnescapesMarkdownParentheses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+	info.RelayFormat = types.RelayFormatOpenAIImage
+	body := `{"candidates":[{"content":{"role":"model","parts":[{"text":"![result](https://cdn.example/rendered\\(final\\).png)"}]},"finishReason":"STOP","index":0}]}`
+
+	_, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}, info)
+	require.Nil(t, newAPIError)
+
+	var imageResp dto.ImageResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &imageResp))
+	require.Len(t, imageResp.Data, 1)
+	require.Equal(t, "https://cdn.example/rendered(final).png", imageResp.Data[0].Url)
+}
+
+func TestDoResponseNativeImagineRejectsNonImageTextLinks(t *testing.T) {
+	tests := []string{
+		"See https://cdn.example/generated.png for details",
+		"[download](https://cdn.example/generated.png)",
+		"```markdown\n![code](https://cdn.example/generated.png)\n```",
+		`\![escaped](https://cdn.example/generated.png)`,
+		"![bad](javascript:alert(1))",
+		"![bad](https:///generated.png)",
+		"![bad](data:image/png;base64,aW1hZ2U=)",
+	}
+
+	for _, text := range tests {
+		t.Run(text, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+			info := newGeminiImageRelayInfo("gemini-3-pro-image-preview")
+			info.RelayFormat = types.RelayFormatOpenAIImage
+			body, err := common.Marshal(dto.GeminiChatResponse{
+				Candidates: []dto.GeminiChatCandidate{{
+					Content: dto.GeminiChatContent{Role: "model", Parts: []dto.GeminiPart{{Text: text}}},
+				}},
+			})
+			require.NoError(t, err)
+
+			_, newAPIError := (&Adaptor{}).DoResponse(c, &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, info)
+			require.NotNil(t, newAPIError)
+			require.Equal(t, "no images generated", newAPIError.Error())
+			require.Empty(t, recorder.Body.Bytes())
+		})
+	}
+}
+
 func TestDoResponseNativeImagineRejectsInvalidFileData(t *testing.T) {
 	tests := []struct {
 		name string
@@ -309,7 +389,7 @@ func TestDoResponseNativeImagineRejectsTextOnlyWithSafeShape(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 15, usageValue.TotalTokens)
 	require.Equal(t,
-		"gemini_native_image_no_media candidates=1 parts=1 text=1 inline_data=0 file_data=0 other=0 finish_reasons=SAFETY block_reason=PROHIBITED_CONTENT",
+		"gemini_native_image_no_media candidates=1 parts=1 text=1 inline_data=0 file_data=0 markdown_image=0 other=0 finish_reasons=SAFETY block_reason=PROHIBITED_CONTENT",
 		common.GetContextKeyString(c, constant.ContextKeyAdminRejectReason),
 	)
 	require.NotContains(t, common.GetContextKeyString(c, constant.ContextKeyAdminRejectReason), "private refusal text")
