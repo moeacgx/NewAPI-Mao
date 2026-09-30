@@ -21,6 +21,10 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
+	goldmarkutil "github.com/yuin/goldmark/util"
 )
 
 func buildUsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTokens int) dto.Usage {
@@ -472,6 +476,7 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	textPartCount := 0
 	inlineDataPartCount := 0
 	fileDataPartCount := 0
+	markdownImagePartCount := 0
 	otherPartCount := 0
 	finishReasons := make([]string, 0, len(geminiResponse.Candidates))
 	seenFinishReasons := make(map[string]struct{}, len(geminiResponse.Candidates))
@@ -497,10 +502,8 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 			case part.FileData != nil:
 				fileDataPartCount++
 				fileURI := strings.TrimSpace(part.FileData.FileUri)
-				parsedURI, err := url.Parse(fileURI)
 				mimeType := strings.TrimSpace(part.FileData.MimeType)
-				if err != nil || parsedURI.Hostname() == "" ||
-					(parsedURI.Scheme != "http" && parsedURI.Scheme != "https") ||
+				if !isGeminiImageHTTPURL(fileURI) ||
 					(mimeType != "" && !strings.HasPrefix(strings.ToLower(mimeType), "image/")) {
 					continue
 				}
@@ -509,6 +512,9 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 				})
 			case part.Text != "":
 				textPartCount++
+				markdownImages, markdownImageCount := geminiMarkdownImageData(part.Text)
+				markdownImagePartCount += markdownImageCount
+				openAIResponse.Data = append(openAIResponse.Data, markdownImages...)
 			default:
 				otherPartCount++
 			}
@@ -523,9 +529,9 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 			blockReason = geminiDiagnosticBlockReason(*geminiResponse.PromptFeedback.BlockReason)
 		}
 		shape := fmt.Sprintf(
-			"gemini_native_image_no_media candidates=%d parts=%d text=%d inline_data=%d file_data=%d other=%d finish_reasons=%s block_reason=%s",
+			"gemini_native_image_no_media candidates=%d parts=%d text=%d inline_data=%d file_data=%d markdown_image=%d other=%d finish_reasons=%s block_reason=%s",
 			len(geminiResponse.Candidates), partCount, textPartCount, inlineDataPartCount,
-			fileDataPartCount, otherPartCount, strings.Join(finishReasons, ","), blockReason,
+			fileDataPartCount, markdownImagePartCount, otherPartCount, strings.Join(finishReasons, ","), blockReason,
 		)
 		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, shape)
 		logger.LogWarn(c, shape)
@@ -545,6 +551,34 @@ func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	c.Writer.WriteHeader(status)
 	_, _ = c.Writer.Write(jsonResponse)
 	return &usage, nil
+}
+
+func geminiMarkdownImageData(value string) ([]dto.ImageData, int) {
+	root := goldmark.New().Parser().Parse(text.NewReader([]byte(value)))
+	images := make([]dto.ImageData, 0)
+	markdownImageCount := 0
+	_ = ast.Walk(root, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		image, ok := node.(*ast.Image)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		markdownImageCount++
+		imageURL := strings.TrimSpace(string(goldmarkutil.URLEscape(image.Destination, true)))
+		if isGeminiImageHTTPURL(imageURL) {
+			images = append(images, dto.ImageData{Url: imageURL})
+		}
+		return ast.WalkContinue, nil
+	})
+	return images, markdownImageCount
+}
+
+func isGeminiImageHTTPURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && parsed.Hostname() != "" &&
+		(parsed.Scheme == "http" || parsed.Scheme == "https")
 }
 
 func geminiDiagnosticFinishReason(value string) string {
