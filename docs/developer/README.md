@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [maolaoapi .344 分组标签部署](../workflows/2026-10/01_maolaoapi_group_tags_344_deployment.md)：固定镜像、备份、三应用逐节点更新及生产验收边界。
+
 - [CI 中 Bun 截断下载重试修复](../workflows/2026-09/29_ci_bun_tarball_retry.md)：固定 Bun 1.4.1，使冻结锁文件安装在 tarball 响应中途断开时执行内建有限重试，并保留依赖版本与检查强度。
 - [Gemini 原生图片回包载体归一化](../workflows/2026-09/28_gemini_native_image_response_carriers.md)：OpenAI Images/Canvas 通过 Gemini 原生生图时的 inline/file 媒体与 Markdown 图片载体、安全解析、诊断和证据边界。
 
