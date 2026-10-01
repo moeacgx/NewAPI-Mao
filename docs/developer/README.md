@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [maolaoapi .345 分组标签自动匹配部署](../workflows/2026-10/01_maolaoapi_group_tag_keywords_345_deployment.md)：PR、构建、备份、固定镜像与逐节点验收。
+
 - [MAO-6 标签易用性修正](../workflows/2026-10/01_group_tag_usability.md)：令牌隐藏空标签和未分类、多个显示名称关键词自动绑定、后台紧凑筛选。
 
 - [maolaoapi .344 分组标签部署](../workflows/2026-10/01_maolaoapi_group_tags_344_deployment.md)：固定镜像、备份、三应用逐节点更新及生产验收边界。
