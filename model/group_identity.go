@@ -2140,6 +2140,9 @@ func SaveGroupConfigWithOptionsAndResult(
 	projection := map[string]string{}
 	migratedTokenPlans := make([]tokenGroupMigrationPlan, 0)
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockGroupTagWrites(tx); err != nil {
+			return err
+		}
 		prepared := make([]GroupConfig, len(configs))
 		seenCodes := make(map[string]struct{}, len(configs))
 		seenNames := make(map[string]struct{}, len(configs))
@@ -2598,6 +2601,17 @@ func SaveGroupConfigWithOptionsAndResult(
 			if err := tx.Model(&Group{}).Where("id = ?", item.Id).Updates(updates).Error; err != nil {
 				return err
 			}
+		}
+		// 分组新增或显示名称变更后，按标签持久化的匹配词追加关联。
+		// 只追加不清理，已有人工绑定不会因后续改名或规则调整被隐式删除。
+		matchedGroupIDs := make([]int, 0, len(prepared))
+		for _, item := range prepared {
+			if item.Id > 0 {
+				matchedGroupIDs = append(matchedGroupIDs, item.Id)
+			}
+		}
+		if err := appendMatchingGroupTagBindings(tx, matchedGroupIDs); err != nil {
+			return fmt.Errorf("按匹配词更新分组标签关联失败: %w", err)
 		}
 		if err := tx.Where("1 = 1").Delete(&AutoGroupMember{}).Error; err != nil {
 			return err

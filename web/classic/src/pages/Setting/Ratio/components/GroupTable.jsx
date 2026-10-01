@@ -350,6 +350,7 @@ export default function GroupTable({
         value={selectedTag}
         onChange={setSelectedTag}
         disabled={disabled}
+        compact
       />
       <CardTable
         columns={columns}

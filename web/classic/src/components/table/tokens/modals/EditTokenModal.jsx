@@ -206,6 +206,8 @@ export const GroupMultiPicker = ({
         groups={groups}
         value={selectedTag}
         onChange={setSelectedTag}
+        showUntagged={false}
+        hideEmpty
       />
       {/* Selected groups list */}
       {selectedGroups.length > 0 && (
