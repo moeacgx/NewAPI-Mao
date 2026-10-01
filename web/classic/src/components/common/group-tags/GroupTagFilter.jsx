@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useId } from 'react';
+import React, { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import GroupTagLogos from './GroupTagLogos';
 import { filterGroupsByTag } from '../../../helpers/groupTags';
@@ -25,28 +25,37 @@ import { filterGroupsByTag } from '../../../helpers/groupTags';
 export default function GroupTagFilter(props) {
   const { t } = useTranslation();
   const name = useId();
-  if (props.tags.length === 0) return null;
   const choices = [
     { id: 'all', name: t('All groups'), icons: [] },
-    { id: 'untagged', name: t('Untagged'), icons: [] },
+    ...(props.showUntagged === false
+      ? []
+      : [{ id: 'untagged', name: t('Untagged'), icons: [] }]),
     ...props.tags.map((tag) => ({ ...tag, id: String(tag.id) })),
-  ];
+  ]
+    .map((choice) => ({
+      ...choice,
+      count: filterGroupsByTag(props.groups, props.tags, choice.id).length,
+    }))
+    .filter(
+      (choice) => !props.hideEmpty || choice.id === 'all' || choice.count > 0,
+    );
   const active = choices.some((choice) => choice.id === props.value)
     ? props.value
     : 'all';
+  const { value, onChange } = props;
+  useEffect(() => {
+    if (active !== value) onChange(active);
+  }, [active, value, onChange]);
+
+  if (props.tags.length === 0) return null;
 
   return (
     <fieldset className='group-tag-filter'>
       <legend className='group-tag-legend'>{t('Group tags')}</legend>
       <div
-        className={`group-tag-grid${choices.some((choice) => choice.icons?.length > 3) ? ' group-tag-grid-stacked' : ''}`}
+        className={`group-tag-grid${choices.some((choice) => choice.icons?.length > 3) ? ' group-tag-grid-stacked' : ''}${props.compact ? ' group-tag-grid-compact' : ''}`}
       >
         {choices.map((choice) => {
-          const count = filterGroupsByTag(
-            props.groups,
-            props.tags,
-            choice.id,
-          ).length;
           return (
             <label className='group-tag-choice' key={choice.id}>
               <input
@@ -54,9 +63,7 @@ export default function GroupTagFilter(props) {
                 name={name}
                 value={choice.id}
                 checked={active === choice.id}
-                disabled={
-                  props.disabled || (count === 0 && choice.id !== 'all')
-                }
+                disabled={props.disabled || choice.count === 0}
                 onChange={() => props.onChange(choice.id)}
               />
               <span className='group-tag-card' title={choice.description}>
@@ -65,7 +72,7 @@ export default function GroupTagFilter(props) {
                   {choice.name}
                 </span>
                 <span className='group-tag-count'>
-                  {t('Groups: {{count}}', { count })}
+                  {t('Groups: {{count}}', { count: choice.count })}
                 </span>
               </span>
             </label>

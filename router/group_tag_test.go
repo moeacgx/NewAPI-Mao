@@ -16,7 +16,7 @@ import (
 
 func TestGroupTagRoutesRequireAdminAndSupportLifecycle(t *testing.T) {
 	_, admin := setupSecurityAuditRouterTestDB(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.GroupTag{}, &model.GroupTagBinding{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Option{}, &model.GroupTag{}, &model.GroupTagBinding{}))
 	user := model.User{Id: 503, Username: "tag-reader", Password: "password123", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1}
 	require.NoError(t, model.DB.Create(&user).Error)
 	adminAuth := securityAuditAuthorization(t, admin.Id)

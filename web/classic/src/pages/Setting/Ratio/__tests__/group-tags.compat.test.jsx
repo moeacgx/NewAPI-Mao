@@ -41,6 +41,63 @@ const groups = [
 ];
 
 describe('分组标签管理', () => {
+  it('关键词按当前显示名称匹配，批量加入去重并保留已有绑定顺序', async () => {
+    const put = vi
+      .spyOn(API, 'put')
+      .mockResolvedValue({ data: { success: true } });
+    const matchingGroups = [
+      { id: 11, code: 'internal-a', name: 'Codex 官方' },
+      { id: 22, code: 'internal-b', name: 'Codex 优选' },
+      { id: 33, code: 'codex-hidden', name: '独立分组' },
+      { id: 44, code: 'codex-fallback', name: '' },
+    ];
+    render(
+      <GroupTagEditor
+        tag={{
+          id: 4,
+          name: '平台',
+          description: '',
+          sort_order: 0,
+          icons: [],
+          group_ids: [33, 22],
+          match_keywords: [],
+        }}
+        groups={matchingGroups}
+        onSaved={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    const keyword = screen.getByLabelText('Match group display name');
+    const keywordInput = keyword.querySelector('input') || keyword;
+    const add = screen.getByRole('button', { name: /Add current matches/ });
+    expect(add.disabled).toBe(true);
+    fireEvent.change(keywordInput, { target: { value: '  CODEX  ' } });
+    fireEvent.keyDown(keywordInput, {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+    });
+    fireEvent.change(keywordInput, { target: { value: 'fallback' } });
+    fireEvent.keyDown(keywordInput, {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+    });
+    expect(screen.getByText('Matching groups: 3')).toBeTruthy();
+    fireEvent.click(add);
+    fireEvent.click(add);
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith(
+        '/api/group/tags/4',
+        expect.objectContaining({
+          group_ids: [33, 22, 11, 44],
+          match_keywords: ['CODEX', 'fallback'],
+        }),
+      ),
+    );
+  });
+
   it('保存等待期间 Escape 不关闭草稿，完成后才通知保存', async () => {
     let finish;
     vi.spyOn(API, 'post').mockReturnValue(
@@ -183,6 +240,9 @@ describe('分组标签管理', () => {
     });
     const onChange = vi.fn();
     render(<GroupTable groups={groups} autoGroup={{}} onChange={onChange} />);
+    fireEvent.click(await screen.findByRole('radio', { name: /Untagged/ }));
+    expect(screen.getByDisplayValue('优选分组')).toBeTruthy();
+    expect(screen.queryByDisplayValue('旗舰分组')).toBeNull();
     fireEvent.click(await screen.findByRole('radio', { name: /平台 A/ }));
     expect(screen.queryByDisplayValue('优选分组')).toBeNull();
     fireEvent.change(screen.getByDisplayValue('旗舰分组'), {

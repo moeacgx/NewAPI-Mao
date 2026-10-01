@@ -147,6 +147,54 @@
   flex-direction: column;
   gap: 6px;
 }
+.group-tag-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.group-tag-match-row > .semi-input-wrapper {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.group-tag-match-row > .semi-tagInput {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.group-tag-grid-compact .group-tag-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-rows: 36px 18px;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+.group-tag-grid-compact .group-tag-card > .group-tag-logos {
+  grid-row: 1 / 3;
+  width: 64px;
+  height: 44px;
+  gap: 2px;
+}
+.group-tag-grid-compact .group-tag-logo {
+  flex-basis: 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+.group-tag-grid-compact .group-tag-logo > :is(svg, img) {
+  width: 18px;
+  height: 18px;
+}
+.group-tag-grid-compact .group-tag-card > .group-tag-name {
+  height: 36px;
+  line-height: 18px;
+}
+.group-tag-grid-compact .group-tag-card > .group-tag-count {
+  margin: 0;
+}
 .group-tag-logo-row {
   display: flex;
   gap: 8px;
@@ -166,5 +214,8 @@
 @media (min-width: 640px) {
   .group-tag-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .group-tag-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }

@@ -86,6 +86,37 @@ function Picker(props) {
 }
 
 describe('分组标签筛选', () => {
+  it('令牌隐藏未分类与无可用分组的标签，失效筛选回到全部', async () => {
+    const emptyTags = [
+      ...tags,
+      { id: 3, name: '空平台', icons: [], group_ids: [] },
+      { id: 4, name: '不可用平台', icons: [], group_ids: [999] },
+    ];
+    const { rerender } = render(<Picker tags={emptyTags} />);
+    expect(screen.queryByRole('radio', { name: /Untagged/ })).toBeNull();
+    expect(
+      screen.queryByRole('radio', { name: /空平台|不可用平台/ }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: /OpenAI/ }));
+    rerender(
+      <Picker
+        tags={emptyTags.map((tag) =>
+          tag.id === 1 ? { ...tag, group_ids: [] } : tag,
+        )}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /All groups/ }).checked).toBe(
+        true,
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /选择分组/ }));
+    expect(
+      await screen.findByRole('button', { name: /开放平台旗舰/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /自动选择/ })).toBeTruthy();
+  });
+
   it.each([false, true])(
     '完整令牌表单通过用户标签选组后提交稳定标识，编辑模式=%s',
     async (editing) => {

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useId, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import {
   AutoComplete,
   Button,
@@ -26,6 +26,7 @@ import {
   InputNumber,
   Modal,
   Select,
+  TagInput,
   Typography,
 } from '@douyinfe/semi-ui';
 import { IconDelete, IconPlus } from '@douyinfe/semi-icons';
@@ -58,9 +59,20 @@ export default function GroupTagEditor(props) {
         sort_order: 0,
         icons: [],
         group_ids: [],
+        match_keywords: [],
       },
   );
   const [saving, setSaving] = useState(false);
+  const matchingGroups = useMemo(() => {
+    const keywords = (draft.match_keywords || [])
+      .map((keyword) => keyword.trim().toLowerCase())
+      .filter(Boolean);
+    if (keywords.length === 0) return [];
+    return props.groups.filter((group) => {
+      const name = String(group.name || group.code || '').toLowerCase();
+      return keywords.some((keyword) => name.includes(keyword));
+    });
+  }, [draft.match_keywords, props.groups]);
   const update = (field, value) =>
     setDraft((previous) => ({ ...previous, [field]: value }));
 
@@ -75,7 +87,12 @@ export default function GroupTagEditor(props) {
     }
     setSaving(true);
     try {
-      const payload = { ...draft, name: draft.name.trim() };
+      const matchedIds = matchingGroups.map((group) => group.id);
+      const payload = {
+        ...draft,
+        name: draft.name.trim(),
+        group_ids: Array.from(new Set([...draft.group_ids, ...matchedIds])),
+      };
       const response = draft.id
         ? await API.put(`/api/group/tags/${draft.id}`, payload)
         : await API.post('/api/group/tags', payload);
@@ -193,6 +210,48 @@ export default function GroupTagEditor(props) {
         </fieldset>
         <div className='group-tag-field'>
           <label htmlFor={`${prefix}-groups`}>{t('Bound groups')}</label>
+          <div className='group-tag-match-row group-tag-match-keywords'>
+            <TagInput
+              id={`${prefix}-group-keyword`}
+              aria-label={t('Match group display name')}
+              value={draft.match_keywords || []}
+              showClear
+              placeholder={t('Enter keywords and press Enter')}
+              disabled={saving}
+              onChange={(value) =>
+                update(
+                  'match_keywords',
+                  Array.from(
+                    new Set(
+                      (value || [])
+                        .map((item) => String(item).trim())
+                        .filter(Boolean),
+                    ),
+                  ),
+                )
+              }
+            />
+            <Button
+              icon={<IconPlus />}
+              disabled={saving || matchingGroups.length === 0}
+              onClick={() => {
+                const matchedIds = matchingGroups.map((group) => group.id);
+                update(
+                  'group_ids',
+                  Array.from(new Set([...draft.group_ids, ...matchedIds])),
+                );
+              }}
+            >
+              {t('Add current matches')}
+            </Button>
+          </div>
+          {(draft.match_keywords || []).length > 0 && (
+            <Typography.Text type='tertiary'>
+              {t('Matching groups: {{total}}', {
+                total: matchingGroups.length,
+              })}
+            </Typography.Text>
+          )}
           <Select
             id={`${prefix}-groups`}
             aria-label={t('Bound groups')}
@@ -212,7 +271,7 @@ export default function GroupTagEditor(props) {
           />
           <Typography.Text type='tertiary'>
             {t(
-              'A group can belong to multiple tags. Tags do not change access or pricing.',
+              'Keywords are saved as automatic rules. New or renamed groups are added when any keyword matches the display name.',
             )}
           </Typography.Text>
         </div>
