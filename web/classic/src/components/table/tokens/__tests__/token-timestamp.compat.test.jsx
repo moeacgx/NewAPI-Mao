@@ -19,8 +19,46 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
+import i18n from 'i18next';
+import { normalizeLanguage } from '../../../../i18n/language';
 import TokenTimestamp from '../TokenTimestamp';
+
+afterEach(async () => {
+  await i18n.changeLanguage('zh');
+});
+
+test.each([
+  ['zhCN', 'zh-CN'],
+  ['zhTW', 'zh-TW'],
+  ['zh_CN', 'zh-CN'],
+  ['zh_TW', 'zh-TW'],
+  ['en', 'en'],
+  ['fr', 'fr'],
+])('历史语言 %s 规范化为 %s', (input, expected) => {
+  expect(normalizeLanguage(input)).toBe(expected);
+});
+
+test.each([
+  ['zhCN', 'zh-CN'],
+  ['zhTW', 'zh-TW'],
+  ['zh_CN', 'zh-CN'],
+  ['invalid_locale_!', 'zh-CN'],
+  ['en', 'en'],
+  ['ja', 'ja'],
+])('语言 %s 不会使相对时间渲染崩溃', async (language, expectedLocale) => {
+  await i18n.changeLanguage(language);
+  const now = Date.parse('2026-10-02T08:00:00Z');
+  const { container } = render(
+    <TokenTimestamp timestamp={(now - 86400000) / 1000} now={now} />,
+  );
+  expect(container.querySelector('time').textContent).toBe(
+    new Intl.RelativeTimeFormat(expectedLocale, { numeric: 'always' }).format(
+      -1,
+      'day',
+    ),
+  );
+});
 
 test.each([0, -1, Number.MAX_SAFE_INTEGER, 9223372036854775807, Infinity, NaN])(
   '时间戳 %s 超出日期范围或为空时降级显示且不崩溃',

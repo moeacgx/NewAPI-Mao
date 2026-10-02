@@ -21,7 +21,8 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@douyinfe/semi-ui';
-import { timestamp2string } from '../../../helpers';
+import { timestamp2string } from '../../../helpers/utils';
+import { normalizeLanguage, supportedLanguages } from '../../../i18n/language';
 function formatTimestampRelative(timestamp, unit = 'seconds', locales, now) {
   if (!timestamp || timestamp === -1 || timestamp === 0) {
     return '-';
@@ -59,12 +60,17 @@ export default function TokenTimestamp({ timestamp, now = Date.now() }) {
   const date = new Date(timestamp * 1000);
   if (!Number.isFinite(date.getTime())) return <span>-</span>;
   const justNow = timestamp * 1000 <= now && now - timestamp * 1000 < 60000;
+  // 历史账号可能保存 zhCN；只把已支持的规范语言传入 Intl，避免展示设置使整页崩溃。
+  const normalizedLocale = normalizeLanguage(i18n.language);
+  const locale = supportedLanguages.includes(normalizedLocale)
+    ? normalizedLocale
+    : 'zh-CN';
   return (
     <Tooltip content={timestamp2string(timestamp)}>
       <time dateTime={date.toISOString()} tabIndex={0}>
         {justNow
           ? t('Just now')
-          : formatTimestampRelative(timestamp, 'seconds', i18n.language, now)}
+          : formatTimestampRelative(timestamp, 'seconds', locale, now)}
       </time>
     </Tooltip>
   );
