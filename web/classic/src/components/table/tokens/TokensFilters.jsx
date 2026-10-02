@@ -17,9 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Form, Button } from '@douyinfe/semi-ui';
-import { IconSearch } from '@douyinfe/semi-icons';
 
 const TokensFilters = ({
   formInitValues,
@@ -31,6 +30,10 @@ const TokensFilters = ({
 }) => {
   // Handle form reset and immediate search
   const formApiRef = useRef(null);
+  const searchRef = useRef(searchTokens);
+  searchRef.current = searchTokens;
+  const debounceRef = useRef(null);
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   const handleReset = () => {
     if (!formApiRef.current) return;
@@ -47,38 +50,58 @@ const TokensFilters = ({
         setFormApi(api);
         formApiRef.current = api;
       }}
-      onSubmit={() => searchTokens(1)}
+      onSubmit={() => {
+        clearTimeout(debounceRef.current);
+        searchRef.current(1);
+      }}
+      onValueChange={() => {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => searchRef.current(1), 300);
+      }}
       allowEmpty={true}
       autoComplete='off'
       layout='horizontal'
       trigger='change'
       stopValidateWithError={false}
-      className='w-full md:w-auto order-1 md:order-2'
+      className='tokens-filters-form'
     >
-      <div className='flex flex-col md:flex-row items-center gap-2 w-full md:w-auto'>
-        <div className='relative w-full md:w-56'>
+      <div className='tokens-filters'>
+        <div className='tokens-filter-input'>
           <Form.Input
             field='searchKeyword'
-            prefix={<IconSearch />}
-            placeholder={t('搜索关键字')}
+            placeholder={t('Filter by name...')}
+            aria-label={t('Filter by name...')}
             showClear
             pure
             size='small'
           />
         </div>
 
-        <div className='relative w-full md:w-56'>
+        <div className='tokens-filter-input'>
           <Form.Input
             field='searchToken'
-            prefix={<IconSearch />}
-            placeholder={t('密钥')}
+            placeholder={t('Filter by API key...')}
+            aria-label={t('Filter by API key...')}
             showClear
             pure
             size='small'
           />
         </div>
 
-        <div className='flex gap-2 w-full md:w-auto'>
+        <Form.Select
+          field='searchStatus'
+          pure
+          size='small'
+          aria-label={t('状态')}
+          optionList={[
+            [0, '状态'],
+            [1, '已启用'],
+            [2, '已禁用'],
+            [3, '已过期'],
+            [4, '已耗尽'],
+          ].map(([value, label]) => ({ value, label: t(label) }))}
+        />
+        <div className='flex gap-2'>
           <Button
             type='tertiary'
             htmlType='submit'

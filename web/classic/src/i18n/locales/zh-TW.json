@@ -1996,6 +1996,7 @@
     "令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制": "令牌的額度僅用於限制令牌本身的最大額度使用量，實際的使用受到帳號的剩餘額度限制",
     "令牌端点": "令牌端點",
     "令牌分组": "令牌分組",
+    "已选分组": "已選分組",
     "令牌分组，默认为用户的分组": "令牌分組，預設為使用者的分組",
     "令牌分组设为 auto 时，按以下顺序依次尝试选择可用分组，排在前面的优先级更高": "令牌分組設為 auto 時，按以下順序依次嘗試選擇可用分組，排在前面的優先級更高",
     "令牌分组设为 auto 时，系统按优先级顺序自动选择一个可用分组。": "令牌分組設為 auto 時，系統按優先級順序自動選擇一個可用分組。",
@@ -5428,6 +5429,7 @@
     "Event channels": "事件渠道",
     "Event filters are available only when archiving requests with audit events.": "只有在歸檔產生審計事件的請求時才能使用事件篩選。",
     "Event groups": "事件分組",
+    "Exclusive groups {{names}} must be used alone. Remove the other groups or assign each to a separate token.": "分組 {{names}} 必須單獨使用。請移除其他分組，或為這些分組分別建立獨立權杖。",
     "Existing payment reservations, topup logs, and usage history will not be affected.": "既有的付款預留、儲值日誌與使用紀錄不會受到影響。",
     "Expired shares/vouchers": "已過期份額/福利券",
     "Expired, unused": "過期未使用",
@@ -5996,6 +5998,11 @@
     "Worker密钥": "Worker密鑰",
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You can also use an HTTP/HTTPS image URL (up to 128 characters). HTTPS is recommended.": "也可填寫 HTTP/HTTPS 圖片直連網址（最多 128 個字元），建議使用 HTTPS。",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板後通常不需要修改這裡。可用的請求事實包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。"
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板後通常不需要修改這裡。可用的請求事實包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。",
+    "API keys": "API 金鑰",
+    "Create API key": "建立 API 金鑰",
+    "API key": "API 金鑰",
+    "Filter by name...": "依名稱篩選...",
+    "Filter by API key...": "依 API 金鑰篩選..."
   }
 }

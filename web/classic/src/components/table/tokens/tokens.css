@@ -1,0 +1,205 @@
+.tokens-page {
+  min-width: 0;
+  padding: 18px 16px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 20px;
+  background: var(--semi-color-bg-1);
+  color: var(--semi-color-text-0);
+}
+.tokens-page-header,
+.tokens-page-toolbar,
+.tokens-actions,
+.tokens-filters,
+.tokens-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tokens-page-header {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.tokens-page-header h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--semi-color-text-0);
+}
+.tokens-page-toolbar {
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.tokens-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tokens-page .semi-button {
+  border-radius: 9px;
+  font-weight: 500;
+}
+.tokens-page .tokens-create-button {
+  border-radius: 999px;
+  font-weight: 600;
+}
+.tokens-filters {
+  flex-wrap: wrap;
+}
+.tokens-filters .semi-input-wrapper,
+.tokens-filters .semi-select {
+  background: var(--semi-color-bg-1);
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  height: 32px;
+}
+.tokens-filter-input {
+  width: 240px;
+}
+.tokens-view {
+  margin-left: auto;
+}
+.tokens-view-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tokens-page .tokens-table {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tokens-page .semi-table-container {
+  overflow-x: auto;
+}
+.tokens-page .semi-table-thead > .semi-table-row > .semi-table-row-head {
+  height: 40px;
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tokens-page .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  height: 60px;
+  padding: 8px;
+  color: var(--semi-color-text-0);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.tokens-page .semi-table-row-cell .semi-typography,
+.tokens-page .semi-table-row-cell .semi-tag,
+.tokens-page .semi-table-row-cell button {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.tokens-page .tokens-name {
+  font-weight: 600;
+}
+body[theme-mode='dark'] .tokens-page {
+  --tokens-success: #61d7b1;
+}
+.tokens-page .tokens-muted {
+  color: var(--semi-color-text-1);
+}
+.tokens-page .tokens-time {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.tokens-key {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.tokens-page .tokens-key-value {
+  max-width: 205px;
+  padding: 0;
+  font-family: inherit;
+  color: var(--semi-color-text-1);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tokens-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.tokens-page .tokens-group .semi-tag:not(.tokens-ratio) {
+  background: transparent !important;
+  border: 0;
+  padding-left: 0;
+  max-width: 190px;
+}
+.tokens-page .tokens-name {
+  white-space: nowrap;
+}
+.tokens-group-name {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tokens-page .tokens-ratio {
+  min-width: 46px;
+  border: 1px solid var(--semi-color-info-light-active);
+  background: var(--semi-color-info-light-default);
+  color: var(--semi-color-info);
+  line-height: 18px;
+  border-radius: 999px;
+  padding: 0 6px;
+  text-align: center;
+}
+.tokens-quota {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 160px;
+}
+.tokens-row-actions {
+  gap: 2px;
+  white-space: nowrap;
+}
+.tokens-row-actions .semi-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+.tokens-more-menu {
+  min-width: 200px;
+}
+.tokens-more-menu .semi-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 14px;
+}
+.tokens-pagination {
+  margin-top: 16px;
+}
+@media (max-width: 640px) {
+  .tokens-page {
+    padding: 12px 10px;
+    border-radius: 14px;
+  }
+  .tokens-page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tokens-actions {
+    margin-left: auto;
+  }
+  .tokens-filters {
+    width: 100%;
+  }
+  .tokens-filter-input {
+    width: calc(50% - 5px);
+  }
+}

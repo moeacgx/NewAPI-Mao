@@ -65,12 +65,14 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
   const [resolvedTokenKeys, setResolvedTokenKeys] = useState({});
   const [loadingTokenKeys, setLoadingTokenKeys] = useState({});
   const keyRequestsRef = useRef({});
+  const listRequestRef = useRef(0);
 
   // Form state
   const [formApi, setFormApi] = useState(null);
   const formInitValues = {
     searchKeyword: '',
     searchToken: '',
+    searchStatus: 0,
   };
 
   // Get form values helper function
@@ -79,6 +81,7 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     return {
       searchKeyword: formValues.searchKeyword || '',
       searchToken: formValues.searchToken || '',
+      searchStatus: formValues.searchStatus || 0,
     };
   };
 
@@ -103,21 +106,26 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
 
   // Load tokens function
   const loadTokens = async (page = 1, size = pageSize) => {
+    const requestId = ++listRequestRef.current;
     setLoading(true);
+    setSearching(false);
     setSearchMode(false);
-    const res = await API.get(`/api/token/?p=${page}&size=${size}`);
-    const { success, message, data } = res.data;
-    if (success) {
-      syncPageData(data);
-    } else {
-      showError(message);
+    try {
+      const res = await API.get(`/api/token/?p=${page}&size=${size}`);
+      if (requestId !== listRequestRef.current) return;
+      const { success, message, data } = res.data;
+      if (success) syncPageData(data);
+      else showError(message);
+    } catch (error) {
+      if (requestId === listRequestRef.current) showError(error.message);
+    } finally {
+      if (requestId === listRequestRef.current) setLoading(false);
     }
-    setLoading(false);
   };
 
   // Refresh function
   const refresh = async (page = activePage) => {
-    await loadTokens(page);
+    await searchTokens(page);
     setSelectedKeys([]);
   };
 
@@ -316,24 +324,30 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
     const normalizedSize = Number.isInteger(size) && size > 0 ? size : pageSize;
 
-    const { searchKeyword, searchToken } = getFormValues();
-    if (searchKeyword === '' && searchToken === '') {
+    const { searchKeyword, searchToken, searchStatus } = getFormValues();
+    if (searchKeyword === '' && searchToken === '' && !searchStatus) {
       setSearchMode(false);
-      await loadTokens(1);
+      await loadTokens(normalizedPage, normalizedSize);
       return;
     }
     setSearching(true);
-    const res = await API.get(
-      `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&p=${normalizedPage}&size=${normalizedSize}`,
-    );
-    const { success, message, data } = res.data;
-    if (success) {
-      setSearchMode(true);
-      syncPageData(data);
-    } else {
-      showError(message);
+    const requestId = ++listRequestRef.current;
+    setLoading(false);
+    try {
+      const res = await API.get(
+        `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&status=${searchStatus}&p=${normalizedPage}&size=${normalizedSize}`,
+      );
+      if (requestId !== listRequestRef.current) return;
+      const { success, message, data } = res.data;
+      if (success) {
+        setSearchMode(true);
+        syncPageData(data);
+      } else showError(message);
+    } catch (error) {
+      if (requestId === listRequestRef.current) showError(error.message);
+    } finally {
+      if (requestId === listRequestRef.current) setSearching(false);
     }
-    setSearching(false);
   };
 
   // Sort tokens function
@@ -353,20 +367,12 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
 
   // Page handlers
   const handlePageChange = (page) => {
-    if (searchMode) {
-      searchTokens(page, pageSize).then();
-    } else {
-      loadTokens(page, pageSize).then();
-    }
+    searchTokens(page, pageSize);
   };
 
   const handlePageSizeChange = async (size) => {
     setPageSize(size);
-    if (searchMode) {
-      await searchTokens(1, size);
-    } else {
-      await loadTokens(1, size);
-    }
+    await searchTokens(1, size);
   };
 
   // Row selection handlers
@@ -450,7 +456,7 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
 
   // Initialize data
   useEffect(() => {
-    loadTokens(1)
+    searchTokens(1, pageSize)
       .then()
       .catch((reason) => {
         showError(reason);

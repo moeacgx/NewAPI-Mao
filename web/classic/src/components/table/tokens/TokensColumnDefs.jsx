@@ -19,10 +19,19 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import {
+  Power,
+  PowerOff,
+  SquarePen,
+  MoreHorizontal,
+  Copy,
+  Link,
+  ArrowLeftRight,
+  Trash2,
+} from 'lucide-react';
+import {
   Button,
   Dropdown,
   Space,
-  SplitButtonGroup,
   Tag,
   AvatarGroup,
   Avatar,
@@ -30,7 +39,6 @@ import {
   Progress,
   Popover,
   Typography,
-  Input,
   Modal,
 } from '@douyinfe/semi-ui';
 import {
@@ -81,9 +89,16 @@ const renderStatus = (text, record, t) => {
   }
 
   return (
-    <Tag color={tagColor} shape='circle' size='small'>
+    <span
+      style={{
+        color: enabled
+          ? 'var(--tokens-success, #008f69)'
+          : 'var(--semi-color-text-1)',
+        fontWeight: 500,
+      }}
+    >
       {tagText}
-    </Tag>
+    </span>
   );
 };
 
@@ -115,23 +130,28 @@ const renderGroupColumn = (text, record, t, groupRatios = {}) => {
   }
   // Multi-group: show first group + count badge with tooltip
   if (text && text.includes(',')) {
-    const groupList = text.split(',').map((g) => g.trim()).filter(Boolean);
+    const groupList = text
+      .split(',')
+      .map((g) => g.trim())
+      .filter(Boolean);
     const firstRatio = groupRatios[groupList[0]];
     return (
       <Tooltip
         content={
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {groupList.map((g, i) => (
-              <span key={g}>{i + 1}. {groupLabels[g] || g}</span>
+              <span key={g}>
+                {i + 1}. {groupLabels[g] || g}
+              </span>
             ))}
           </div>
         }
         position='top'
       >
-        <span className='flex items-center gap-1'>
+        <span className='tokens-group'>
           {renderGroup(groupList[0], groupLabels)}
           {firstRatio !== undefined && (
-            <Tag size='small' color='green' shape='circle'>
+            <Tag className='tokens-ratio' size='small' shape='circle'>
               {firstRatio}x
             </Tag>
           )}
@@ -146,10 +166,10 @@ const renderGroupColumn = (text, record, t, groupRatios = {}) => {
   }
   const ratio = groupRatios[text];
   return (
-    <span className='flex items-center gap-1'>
+    <span className='tokens-group'>
       {renderGroup(text, groupLabels)}
       {ratio !== undefined && (
-        <Tag size='small' color='green' shape='circle'>
+        <Tag className='tokens-ratio' size='small' shape='circle'>
           {ratio}x
         </Tag>
       )}
@@ -178,56 +198,26 @@ const renderTokenKey = (
   const displayedKey = keyValue ? `sk-${keyValue}` : '';
 
   return (
-    <div className='w-[200px]'>
-      <Input
-        readOnly
-        value={displayedKey}
+    <div className='tokens-key'>
+      <Button
+        className='tokens-key-value'
+        theme='borderless'
+        type='tertiary'
         size='small'
-        suffix={
-          <div className='flex items-center'>
-            <Button
-              theme='borderless'
-              size='small'
-              type='tertiary'
-              icon={revealed ? <IconEyeClosed /> : <IconEyeOpened />}
-              loading={loading}
-              aria-label='toggle token visibility'
-              onClick={async (e) => {
-                e.stopPropagation();
-                await toggleTokenVisibility(record);
-              }}
-            />
-            <Dropdown
-              trigger='click'
-              position='bottomRight'
-              clickToHide
-              menu={[
-                {
-                  node: 'item',
-                  name: t('复制密钥'),
-                  onClick: () => copyTokenKey(record),
-                },
-                {
-                  node: 'item',
-                  name: t('复制连接信息'),
-                  onClick: () => copyTokenConnectionString(record),
-                },
-              ]}
-            >
-              <Button
-                theme='borderless'
-                size='small'
-                type='tertiary'
-                icon={<IconCopy />}
-                loading={loading}
-                aria-label='copy token key'
-                onClick={async (e) => {
-                  e.stopPropagation();
-                }}
-              />
-            </Dropdown>
-          </div>
-        }
+        loading={loading}
+        aria-label={t('查看密钥')}
+        onClick={() => toggleTokenVisibility(record)}
+      >
+        {displayedKey}
+      </Button>
+      <Button
+        theme='borderless'
+        type='tertiary'
+        size='small'
+        icon={<Copy size={14} />}
+        loading={loading}
+        aria-label={t('复制密钥')}
+        onClick={() => copyTokenKey(record)}
       />
     </div>
   );
@@ -286,22 +276,14 @@ const renderModelLimits = (text, record, t) => {
 
     return <AvatarGroup size='extra-extra-small'>{vendorAvatars}</AvatarGroup>;
   } else {
-    return (
-      <Tag color='white' shape='circle'>
-        {t('无限制')}
-      </Tag>
-    );
+    return <span className='tokens-muted'>{t('无限制')}</span>;
   }
 };
 
 // Render IP restrictions column
 const renderAllowIps = (text, t) => {
   if (!text || text.trim() === '') {
-    return (
-      <Tag color='white' shape='circle'>
-        {t('无限制')}
-      </Tag>
-    );
+    return <span className='tokens-muted'>{t('无限制')}</span>;
   }
 
   const ips = text
@@ -350,9 +332,10 @@ const renderQuotaUsage = (text, record, t) => {
     );
     return (
       <Popover content={popoverContent} position='top'>
-        <Tag color='white' shape='circle'>
-          {t('无限额度')}
-        </Tag>
+        <div className='tokens-quota'>
+          <span>{t('无限额度')}</span>
+          <span className='tokens-muted'>{renderQuota(used)}</span>
+        </div>
       </Popover>
     );
   }
@@ -399,6 +382,8 @@ const renderOperations = (
   manageToken,
   refresh,
   t,
+  copyTokenKey,
+  copyTokenConnectionString,
 ) => {
   let chatsArray = [];
   try {
@@ -423,101 +408,96 @@ const renderOperations = (
   }
 
   return (
-    <Space wrap>
-      <SplitButtonGroup
-        className='overflow-hidden'
-        aria-label={t('项目操作按钮组')}
-      >
+    <div className='tokens-row-actions'>
+      <Tooltip content={t(record.status === 1 ? '禁用' : '启用')}>
         <Button
+          theme='borderless'
+          type={record.status === 1 ? 'danger' : 'tertiary'}
           size='small'
-          type='tertiary'
-          onClick={() => {
-            if (chatsArray.length === 0) {
-              showError(t('请联系管理员配置聊天链接'));
-            } else {
-              const first = chatsArray[0];
-              onOpenLink(first.name, first.value, record);
-            }
-          }}
-        >
-          {t('聊天')}
-        </Button>
-        <Dropdown trigger='click' position='bottomRight' menu={chatsArray}>
-          <Button
-            type='tertiary'
-            icon={<IconTreeTriangleDown />}
-            size='small'
-          ></Button>
-        </Dropdown>
-      </SplitButtonGroup>
-
-      <Tooltip content={t('填入 CC Switch')} position='top' showArrow>
-        <Button
-          size='small'
-          type='primary'
-          theme='solid'
-          style={{ fontWeight: 600, letterSpacing: '0.02em' }}
+          icon={
+            record.status === 1 ? <PowerOff size={16} /> : <Power size={16} />
+          }
+          aria-label={t(record.status === 1 ? '禁用' : '启用')}
           onClick={async () => {
-            await openCCSwitchForRecord(record);
+            await manageToken(
+              record.id,
+              record.status === 1 ? 'disable' : 'enable',
+              record,
+            );
+            await refresh();
           }}
-        >
-          CCS
-        </Button>
+        />
       </Tooltip>
-
-      {record.status === 1 ? (
+      <Tooltip content={t('编辑')}>
         <Button
-          type='danger'
+          theme='borderless'
+          type='tertiary'
           size='small'
-          onClick={async () => {
-            await manageToken(record.id, 'disable', record);
-            await refresh();
+          icon={<SquarePen size={16} />}
+          aria-label={t('编辑')}
+          onClick={() => {
+            setEditingToken(record);
+            setShowEdit(true);
           }}
-        >
-          {t('禁用')}
-        </Button>
-      ) : (
+        />
+      </Tooltip>
+      <Dropdown
+        trigger='click'
+        position='bottomRight'
+        render={
+          <Dropdown.Menu className='tokens-more-menu'>
+            <Dropdown.Item onClick={() => copyTokenKey(record)}>
+              {t('复制密钥')}
+              <Copy size={15} />
+            </Dropdown.Item>
+            <Dropdown.Item onClick={() => copyTokenConnectionString(record)}>
+              {t('复制连接信息')}
+              <Link size={15} />
+            </Dropdown.Item>
+            <Dropdown.Divider />
+            <Dropdown.Item onClick={() => openCCSwitchForRecord(record)}>
+              CC Switch
+              <ArrowLeftRight size={15} />
+            </Dropdown.Item>
+            <Dropdown trigger='hover' position='leftTop' menu={chatsArray}>
+              <Dropdown.Item
+                onClick={() => {
+                  if (!chatsArray.length)
+                    showError(t('请联系管理员配置聊天链接'));
+                }}
+              >
+                {t('聊天')}
+              </Dropdown.Item>
+            </Dropdown>
+            <Dropdown.Divider />
+            <Dropdown.Item
+              type='danger'
+              onClick={() =>
+                Modal.confirm({
+                  title: t('确定是否要删除此令牌？'),
+                  content: t('此修改将不可逆'),
+                  onOk: async () => {
+                    await manageToken(record.id, 'delete', record);
+                    await refresh();
+                  },
+                })
+              }
+            >
+              {t('删除')}
+              <Trash2 size={15} />
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        }
+      >
         <Button
+          theme='borderless'
+          type='tertiary'
           size='small'
-          onClick={async () => {
-            await manageToken(record.id, 'enable', record);
-            await refresh();
-          }}
-        >
-          {t('启用')}
-        </Button>
-      )}
-
-      <Button
-        type='tertiary'
-        size='small'
-        onClick={() => {
-          setEditingToken(record);
-          setShowEdit(true);
-        }}
-      >
-        {t('编辑')}
-      </Button>
-
-      <Button
-        type='danger'
-        size='small'
-        onClick={() => {
-          Modal.confirm({
-            title: t('确定是否要删除此令牌？'),
-            content: t('此修改将不可逆'),
-            onOk: () => {
-              (async () => {
-                await manageToken(record.id, 'delete', record);
-                await refresh();
-              })();
-            },
-          });
-        }}
-      >
-        {t('删除')}
-      </Button>
-    </Space>
+          icon={<MoreHorizontal size={17} />}
+          aria-label={t('更多')}
+        />
+      </Dropdown>
+    </div>
   );
 };
 
@@ -537,30 +517,36 @@ export const getTokensColumns = ({
   refresh,
   groupRatios = {},
 }) => {
-  return [
+  const columns = [
     {
       title: t('名称'),
       dataIndex: 'name',
+      width: 190,
+      render: (text) => <span className='tokens-name'>{text}</span>,
     },
     {
       title: t('状态'),
       dataIndex: 'status',
+      width: 110,
       key: 'status',
       render: (text, record) => renderStatus(text, record, t),
     },
     {
-      title: t('剩余额度/总额度'),
+      title: t('额度'),
+      width: 210,
       key: 'quota_usage',
       render: (text, record) => renderQuotaUsage(text, record, t),
     },
     {
       title: t('分组'),
       dataIndex: 'group',
+      width: 270,
       key: 'group',
       render: (text, record) => renderGroupColumn(text, record, t, groupRatios),
     },
     {
-      title: t('密钥'),
+      title: t('API key'),
+      width: 240,
       key: 'token_key',
       render: (text, record) =>
         renderTokenKey(
@@ -578,30 +564,34 @@ export const getTokensColumns = ({
     {
       title: t('可用模型'),
       dataIndex: 'model_limits',
+      width: 140,
       render: (text, record) => renderModelLimits(text, record, t),
     },
     {
       title: t('IP限制'),
       dataIndex: 'allow_ips',
+      width: 140,
       render: (text) => renderAllowIps(text, t),
     },
     {
-      title: t('创建时间'),
-      dataIndex: 'created_time',
-      render: (text, record, index) => {
-        return <div>{renderTimestamp(text)}</div>;
-      },
-    },
-    {
-      title: t('最后使用时间'),
-      dataIndex: 'accessed_time',
-      render: (text, record, index) => {
-        return <div>{text ? renderTimestamp(text) : '-'}</div>;
-      },
+      title: t('时间'),
+      dataIndex: 'activity_time',
+      width: 270,
+      render: (_text, record) => (
+        <div className='tokens-time'>
+          <span>{t('创建时间')}</span>
+          <span>{renderTimestamp(record.created_time)}</span>
+          <span>{t('最后使用时间')}</span>
+          <span>
+            {record.accessed_time ? renderTimestamp(record.accessed_time) : '-'}
+          </span>
+        </div>
+      ),
     },
     {
       title: t('过期时间'),
       dataIndex: 'expired_time',
+      width: 160,
       render: (text, record, index) => {
         return (
           <div>
@@ -611,7 +601,8 @@ export const getTokensColumns = ({
       },
     },
     {
-      title: '',
+      title: t('操作'),
+      width: 110,
       dataIndex: 'operate',
       fixed: 'right',
       render: (text, record, index) =>
@@ -625,7 +616,16 @@ export const getTokensColumns = ({
           manageToken,
           refresh,
           t,
+          copyTokenKey,
+          copyTokenConnectionString,
         ),
     },
+  ];
+  const keyColumn = columns.find((column) => column.key === 'token_key');
+  return [
+    columns[0],
+    columns[1],
+    keyColumn,
+    ...columns.slice(2).filter((column) => column !== keyColumn),
   ];
 };

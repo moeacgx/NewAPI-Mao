@@ -2088,6 +2088,7 @@
     "令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制": "The quota of the token is only used to limit the maximum quota usage of the token itself, and the actual usage is limited by the remaining quota of the account",
     "令牌端点": "Token Endpoint",
     "令牌分组": "Token Group",
+    "已选分组": "Selected groups",
     "令牌分组，默认为用户的分组": "Token group, default is your group",
     "令牌分组设为 auto 时，按以下顺序依次尝试选择可用分组，排在前面的优先级更高": "When token group is set to auto, groups are selected in order of priority, with higher priority groups listed first",
     "令牌分组设为 auto 时，系统按优先级顺序自动选择一个可用分组。": "When token group is set to auto, the system automatically selects an available group by priority.",
@@ -5650,6 +5651,7 @@
     "Event channels": "Event channels",
     "Event filters are available only when archiving requests with audit events.": "Event filters are available only when archiving requests with audit events.",
     "Event groups": "Event groups",
+    "Exclusive groups {{names}} must be used alone. Remove the other groups or assign each to a separate token.": "Exclusive groups {{names}} must be used alone. Remove the other groups or assign each to a separate token.",
     "Existing payment reservations, topup logs, and usage history will not be affected.": "Existing payment reservations, topup logs, and usage history will not be affected.",
     "Expired shares/vouchers": "Expired shares/vouchers",
     "Expired, unused": "Expired, unused",
@@ -6234,6 +6236,11 @@
     "Worker密钥": "Worker Key",
     "X 也可以小于 1，当折扣用。想做\"只给输出加价\"或\"额外加固定费用\"，请直接写完整计费公式。": "",
     "You can also use an HTTP/HTTPS image URL (up to 128 characters). HTTPS is recommended.": "You can also use an HTTP/HTTPS image URL (up to 128 characters). HTTPS is recommended.",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars."
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.",
+    "API keys": "API keys",
+    "Create API key": "Create API key",
+    "API key": "API key",
+    "Filter by name...": "Filter by name...",
+    "Filter by API key...": "Filter by API key..."
   }
 }

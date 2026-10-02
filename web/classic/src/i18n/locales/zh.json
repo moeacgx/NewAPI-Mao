@@ -1126,6 +1126,7 @@
     "令牌创建成功，请在列表页面点击复制获取令牌！": "令牌创建成功，请在列表页面点击复制获取令牌！",
     "令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制": "令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制",
     "令牌分组": "令牌分组",
+    "已选分组": "已选分组",
     "令牌分组，默认为用户的分组": "令牌分组，默认为用户的分组",
     "令牌更新成功！": "令牌更新成功！",
     "令牌管理": "令牌管理",
@@ -3263,6 +3264,7 @@
     "Event channels": "事件渠道",
     "Event filters are available only when archiving requests with audit events.": "只有在归档产生审计事件的请求时才能使用事件筛选。",
     "Event groups": "事件分组",
+    "Exclusive groups {{names}} must be used alone. Remove the other groups or assign each to a separate token.": "分组 {{names}} 必须单独使用。请移除其他分组，或为这些分组分别创建独立令牌。",
     "Existing payment reservations, topup logs, and usage history will not be affected.": "已有支付预留、充值日志和使用记录不会受到影响。",
     "Expired shares/vouchers": "已过期份额/福利券",
     "Expired, unused": "过期未使用",
@@ -3718,6 +3720,11 @@
     "Worker地址": "Worker地址",
     "Worker密钥": "Worker密钥",
     "You can also use an HTTP/HTTPS image URL (up to 128 characters). HTTPS is recommended.": "也可填写 HTTP/HTTPS 图片直链（最多 128 个字符），推荐使用 HTTPS。",
-    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板后通常不需要修改这里。可用的请求事实包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。"
+    "You normally do not need to edit this after applying a template. Available request facts include base_price, width, height, pixels, quality, input_images, prompt_tokens_estimated, and prompt_chars.": "套用模板后通常不需要修改这里。可用的请求事实包括 base_price、width、height、pixels、quality、input_images、prompt_tokens_estimated 和 prompt_chars。",
+    "API keys": "API 密钥",
+    "Create API key": "创建 API 密钥",
+    "API key": "API 密钥",
+    "Filter by name...": "按名称筛选...",
+    "Filter by API key...": "按 API 密钥筛选..."
   }
 }
