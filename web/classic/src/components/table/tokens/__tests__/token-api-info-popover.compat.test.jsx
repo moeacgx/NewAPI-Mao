@@ -53,7 +53,7 @@ test('打开 API 信息入口后显示已配置地址', async () => {
   expect(API.get).toHaveBeenCalledWith('/api/status');
 });
 
-test('API 信息未配置时显示空状态', async () => {
+test('API 信息未配置时按 Default 回退当前域名', async () => {
   vi.spyOn(API, 'get').mockResolvedValue({
     data: { data: { api_info_enabled: false, api_info: [] } },
   });
@@ -61,6 +61,16 @@ test('API 信息未配置时显示空状态', async () => {
   renderPopover();
   await userEvent.click(screen.getByRole('button', { name: 'API地址' }));
 
-  expect(await screen.findByText('暂无API信息')).toBeTruthy();
-  expect(screen.getByText('请联系管理员在系统设置中配置API信息')).toBeTruthy();
+  expect(await screen.findByText(window.location.origin)).toBeTruthy();
+  expect(screen.getByText('Current domain')).toBeTruthy();
+});
+
+test('API 地址未配置列表时优先使用站点地址', async () => {
+  vi.spyOn(API, 'get').mockResolvedValue({
+    data: { data: { server_address: 'https://gateway.example.test' } },
+  });
+  renderPopover();
+  await userEvent.click(screen.getByRole('button', { name: 'API地址' }));
+  expect(await screen.findByText('https://gateway.example.test')).toBeTruthy();
+  expect(screen.getByText('Default API address')).toBeTruthy();
 });

@@ -35,6 +35,7 @@ import {
   selectFilter,
 } from '../../../helpers';
 import './tokens.css';
+import TokensPagination from './TokensPagination';
 import TokensTable from './TokensTable';
 import TokensActions from './TokensActions';
 import TokensFilters from './TokensFilters';
@@ -42,8 +43,6 @@ import TokensFilters from './TokensFilters';
 import EditTokenModal from './modals/EditTokenModal';
 import CCSwitchModal from './modals/CCSwitchModal';
 import { useTokensData } from '../../../hooks/tokens/useTokensData';
-import { useIsMobile } from '../../../hooks/common/useIsMobile';
-import { createCardProPagination } from '../../../helpers/utils';
 
 function TokensPage() {
   // Define the function first, then pass it into the hook to avoid TDZ errors
@@ -53,7 +52,27 @@ function TokensPage() {
     (key) => openFluentNotificationRef.current?.(key),
     (key) => openCCSwitchModalRef.current?.(key),
   );
-  const isMobile = useIsMobile();
+  const pageRef = useRef(null);
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    const resize = () =>
+      page.style.setProperty(
+        '--tokens-available-height',
+        Math.max(
+          400,
+          window.innerHeight - page.getBoundingClientRect().top - 16,
+        ) + 'px',
+      );
+    resize();
+    window.addEventListener('resize', resize);
+    const observer = new ResizeObserver(resize);
+    observer.observe(page.parentElement);
+    return () => {
+      window.removeEventListener('resize', resize);
+      observer.disconnect();
+    };
+  }, []);
   const [visibleColumns, setVisibleColumns] = useState([
     'model_limits',
     'allow_ips',
@@ -375,10 +394,6 @@ function TokensPage() {
     loading,
     searching,
 
-    // Description state
-    compactMode,
-    setCompactMode,
-
     // Translation
     t,
   } = tokensData;
@@ -399,7 +414,7 @@ function TokensPage() {
         modelOptions={modelOptions}
       />
 
-      <section className='tokens-page'>
+      <section ref={pageRef} className='tokens-page'>
         <header className='tokens-page-header'>
           <h1>{t('API keys')}</h1>
           <TokensActions
@@ -459,17 +474,7 @@ function TokensPage() {
           </Popover>
         </div>
         <TokensTable {...tokensData} visibleColumns={visibleColumns} />
-        <div className='tokens-pagination'>
-          {createCardProPagination({
-            currentPage: tokensData.activePage,
-            pageSize: tokensData.pageSize,
-            total: tokensData.tokenCount,
-            onPageChange: tokensData.handlePageChange,
-            onPageSizeChange: tokensData.handlePageSizeChange,
-            isMobile,
-            t,
-          })}
-        </div>
+        <TokensPagination {...tokensData} />
       </section>
     </>
   );
