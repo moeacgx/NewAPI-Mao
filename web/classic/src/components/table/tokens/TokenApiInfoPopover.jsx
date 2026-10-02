@@ -41,12 +41,27 @@ const TokenApiInfoPopover = ({ t }) => {
     try {
       const res = await API.get('/api/status');
       const status = res?.data?.data || {};
-      setApiInfo(
+      const items =
         status.api_info_enabled === false || !Array.isArray(status.api_info)
           ? []
           : status.api_info.filter(
               (item) => item && typeof item.url === 'string' && item.url,
-            ),
+            );
+      const serverAddress =
+        typeof status.server_address === 'string'
+          ? status.server_address.trim()
+          : '';
+      setApiInfo(
+        items.length
+          ? items
+          : [
+              {
+                url: serverAddress || window.location.origin,
+                route: t(
+                  serverAddress ? 'Default API address' : 'Current domain',
+                ),
+              },
+            ],
       );
     } catch (error) {
       setApiInfo([]);
@@ -72,7 +87,7 @@ const TokenApiInfoPopover = ({ t }) => {
   };
 
   const content = (
-    <div className='w-[min(360px,calc(100vw-32px))] p-1'>
+    <div className='tokens-default-overlay tokens-api-popover'>
       <div className='mb-2 flex items-center gap-2 text-sm font-semibold'>
         <Server size={16} />
         {t('API信息')}
@@ -138,7 +153,7 @@ const TokenApiInfoPopover = ({ t }) => {
   return (
     <Popover
       content={content}
-      position='bottomLeft'
+      position='bottomRight'
       trigger='click'
       visible={visible}
       onVisibleChange={handleVisibleChange}

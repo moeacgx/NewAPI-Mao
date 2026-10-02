@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import TokenTimestamp from './TokenTimestamp';
+import { TokenStatusBadge, TokenGroupBadge } from './TokenDefaultBadges';
 import {
   Power,
   PowerOff,
@@ -31,29 +33,12 @@ import {
 import {
   Button,
   Dropdown,
-  Space,
-  Tag,
-  AvatarGroup,
-  Avatar,
   Tooltip,
   Progress,
   Popover,
-  Typography,
   Modal,
 } from '@douyinfe/semi-ui';
-import {
-  timestamp2string,
-  renderGroup,
-  renderQuota,
-  getModelCategories,
-  showError,
-} from '../../../helpers';
-import {
-  IconTreeTriangleDown,
-  IconCopy,
-  IconEyeOpened,
-  IconEyeClosed,
-} from '@douyinfe/semi-icons';
+import { getCurrencyConfig, renderQuota, showError } from '../../../helpers';
 
 // progress color helper
 const getProgressColor = (pct) => {
@@ -64,116 +49,69 @@ const getProgressColor = (pct) => {
 };
 
 // Render functions
-function renderTimestamp(timestamp) {
-  return <>{timestamp2string(timestamp)}</>;
+function renderTimestamp(timestamp, now) {
+  return <TokenTimestamp timestamp={timestamp} now={now} />;
 }
 
 // Render status column only (no usage)
 const renderStatus = (text, record, t) => {
-  const enabled = text === 1;
-
-  let tagColor = 'black';
-  let tagText = t('未知状态');
-  if (enabled) {
-    tagColor = 'green';
-    tagText = t('已启用');
-  } else if (text === 2) {
-    tagColor = 'red';
-    tagText = t('已禁用');
-  } else if (text === 3) {
-    tagColor = 'yellow';
-    tagText = t('已过期');
-  } else if (text === 4) {
-    tagColor = 'grey';
-    tagText = t('已耗尽');
-  }
-
-  return (
-    <span
-      style={{
-        color: enabled
-          ? 'var(--tokens-success, #008f69)'
-          : 'var(--semi-color-text-1)',
-        fontWeight: 500,
-      }}
-    >
-      {tagText}
-    </span>
-  );
+  const config = {
+    1: ['已启用', 'success'],
+    2: ['已禁用', 'neutral'],
+    3: ['已过期', 'warning'],
+    4: ['已耗尽', 'danger'],
+  }[text] || ['未知状态', 'neutral'];
+  return <TokenStatusBadge label={t(config[0])} variant={config[1]} />;
 };
 
-// Render group column
 const renderGroupColumn = (text, record, t, groupRatios = {}) => {
-  const groupDetails = Array.isArray(record?.group_details)
+  const details = Array.isArray(record.group_details)
     ? record.group_details
     : [];
-  const groupLabels = groupDetails.reduce((labels, group) => {
-    if (group?.code && group?.name && group.name !== group.code) {
-      labels[group.code] = group.name;
-    }
-    return labels;
-  }, {});
-  if (text === 'auto') {
+  const labels = Object.fromEntries(
+    details
+      .filter((group) => group.code && group.name)
+      .map((group) => [group.code, group.name]),
+  );
+  if (text === 'auto')
     return (
       <Tooltip
         content={t(
           '当前分组为 auto，会自动选择最优分组，当一个组不可用时自动降级到下一个组（熔断机制）',
         )}
-        position='top'
       >
-        <Tag color='white' shape='circle'>
-          {t('智能熔断')}
-          {record && record.cross_group_retry ? `(${t('跨分组')})` : ''}
-        </Tag>
-      </Tooltip>
-    );
-  }
-  // Multi-group: show first group + count badge with tooltip
-  if (text && text.includes(',')) {
-    const groupList = text
-      .split(',')
-      .map((g) => g.trim())
-      .filter(Boolean);
-    const firstRatio = groupRatios[groupList[0]];
-    return (
-      <Tooltip
-        content={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {groupList.map((g, i) => (
-              <span key={g}>
-                {i + 1}. {groupLabels[g] || g}
-              </span>
-            ))}
-          </div>
-        }
-        position='top'
-      >
-        <span className='tokens-group'>
-          {renderGroup(groupList[0], groupLabels)}
-          {firstRatio !== undefined && (
-            <Tag className='tokens-ratio' size='small' shape='circle'>
-              {firstRatio}x
-            </Tag>
-          )}
-          {groupList.length > 1 && (
-            <Tag size='small' color='blue' shape='circle'>
-              +{groupList.length - 1}
-            </Tag>
-          )}
+        <span>
+          <TokenStatusBadge label={t('跨分组')} variant='info' />
         </span>
       </Tooltip>
     );
-  }
-  const ratio = groupRatios[text];
+  const codes = (text || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean);
+  if (!codes.length) return <TokenStatusBadge label={t('User Group')} />;
+  const code = codes[0],
+    name = labels[code] || code;
   return (
-    <span className='tokens-group'>
-      {renderGroup(text, groupLabels)}
-      {ratio !== undefined && (
-        <Tag className='tokens-ratio' size='small' shape='circle'>
-          {ratio}x
-        </Tag>
-      )}
-    </span>
+    <Tooltip
+      content={
+        <div>
+          {codes.map((item, index) => (
+            <div key={item}>
+              {codes.length > 1 ? index + 1 + '. ' : ''}
+              {labels[item] || item}
+            </div>
+          ))}
+        </div>
+      }
+    >
+      <span className='tokens-group'>
+        <TokenGroupBadge code={code} name={name} ratio={groupRatios[code]} />
+        {codes.length > 1 && (
+          <TokenStatusBadge variant='info' label={'+' + (codes.length - 1)} />
+        )}
+      </span>
+    </Tooltip>
   );
 };
 
@@ -199,17 +137,38 @@ const renderTokenKey = (
 
   return (
     <div className='tokens-key'>
-      <Button
-        className='tokens-key-value'
-        theme='borderless'
-        type='tertiary'
-        size='small'
-        loading={loading}
-        aria-label={t('查看密钥')}
-        onClick={() => toggleTokenVisibility(record)}
+      <Popover
+        trigger='custom'
+        visible={revealed}
+        position='bottomLeft'
+        onClickOutSide={() => {
+          if (revealed) toggleTokenVisibility(record);
+        }}
+        content={
+          <div className='tokens-key-popover'>
+            <div>{t('Full API Key')}</div>
+            <input
+              autoFocus
+              aria-label={t('Full API Key')}
+              readOnly
+              value={displayedKey}
+              onFocus={(event) => event.target.select()}
+            />
+          </div>
+        }
       >
-        {displayedKey}
-      </Button>
+        <Button
+          className='tokens-key-value'
+          theme='borderless'
+          type='tertiary'
+          size='small'
+          loading={loading}
+          aria-label={t('查看密钥')}
+          onClick={() => toggleTokenVisibility(record)}
+        >
+          {record.key ? 'sk-' + record.key : ''}
+        </Button>
+      </Popover>
       <Button
         theme='borderless'
         type='tertiary'
@@ -224,150 +183,121 @@ const renderTokenKey = (
 };
 
 // Render model limits column
-const renderModelLimits = (text, record, t) => {
-  if (record.model_limits_enabled && text) {
-    const models = text.split(',').filter(Boolean);
-    const categories = getModelCategories(t);
-
-    const vendorAvatars = [];
-    const matchedModels = new Set();
-    Object.entries(categories).forEach(([key, category]) => {
-      if (key === 'all') return;
-      if (!category.icon || !category.filter) return;
-      const vendorModels = models.filter((m) =>
-        category.filter({ model_name: m }),
-      );
-      if (vendorModels.length > 0) {
-        vendorAvatars.push(
-          <Tooltip
-            key={key}
-            content={vendorModels.join(', ')}
-            position='top'
-            showArrow
-          >
-            <Avatar
-              size='extra-extra-small'
-              alt={category.label}
-              color='transparent'
-            >
-              {category.icon}
-            </Avatar>
-          </Tooltip>,
-        );
-        vendorModels.forEach((m) => matchedModels.add(m));
+const renderModelLimits = (text, record, t, isMobile) => {
+  const models = record.model_limits_enabled
+    ? (text || '').split(',').filter(Boolean)
+    : [];
+  if (!models.length) return <TokenStatusBadge label={t('无限制')} />;
+  return (
+    <Tooltip
+      trigger={isMobile ? 'click' : 'hover'}
+      content={
+        <div>
+          {models.map((model) => (
+            <div key={model}>{model}</div>
+          ))}
+        </div>
       }
-    });
-
-    const unmatchedModels = models.filter((m) => !matchedModels.has(m));
-    if (unmatchedModels.length > 0) {
-      vendorAvatars.push(
-        <Tooltip
-          key='unknown'
-          content={unmatchedModels.join(', ')}
-          position='top'
-          showArrow
-        >
-          <Avatar size='extra-extra-small' alt='unknown'>
-            {t('其他')}
-          </Avatar>
-        </Tooltip>,
-      );
-    }
-
-    return <AvatarGroup size='extra-extra-small'>{vendorAvatars}</AvatarGroup>;
-  } else {
-    return <span className='tokens-muted'>{t('无限制')}</span>;
-  }
+    >
+      <span>
+        <TokenStatusBadge
+          label={t('{{count}} models', { count: models.length })}
+        />
+      </span>
+    </Tooltip>
+  );
 };
-
-// Render IP restrictions column
-const renderAllowIps = (text, t) => {
-  if (!text || text.trim() === '') {
-    return <span className='tokens-muted'>{t('无限制')}</span>;
-  }
-
-  const ips = text
+const renderAllowIps = (text, t, isMobile) => {
+  const ips = (text || '')
     .split('\n')
     .map((ip) => ip.trim())
     .filter(Boolean);
-
-  const displayIps = ips.slice(0, 1);
-  const extraCount = ips.length - displayIps.length;
-
-  const ipTags = displayIps.map((ip, idx) => (
-    <Tag key={idx} shape='circle'>
-      {ip}
-    </Tag>
-  ));
-
-  if (extraCount > 0) {
-    ipTags.push(
-      <Tooltip
-        key='extra'
-        content={ips.slice(1).join(', ')}
-        position='top'
-        showArrow
-      >
-        <Tag shape='circle'>{'+' + extraCount}</Tag>
-      </Tooltip>,
-    );
-  }
-
-  return <Space wrap>{ipTags}</Space>;
+  if (!ips.length) return <TokenStatusBadge label={t('无限制')} />;
+  return (
+    <Tooltip
+      trigger={isMobile ? 'click' : 'hover'}
+      content={
+        <div>
+          {ips.map((ip) => (
+            <div key={ip}>{ip}</div>
+          ))}
+        </div>
+      }
+    >
+      <span>
+        <TokenStatusBadge label={t('{{count}} IP(s)', { count: ips.length })} />
+      </span>
+    </Tooltip>
+  );
 };
 
 // Render separate quota usage column
-const renderQuotaUsage = (text, record, t) => {
-  const { Paragraph } = Typography;
-  const used = parseInt(record.used_quota) || 0;
-  const remain = parseInt(record.remain_quota) || 0;
-  const total = used + remain;
-  if (record.unlimited_quota) {
-    const popoverContent = (
-      <div className='text-xs p-2'>
-        <Paragraph copyable={{ content: renderQuota(used) }}>
-          {t('已用额度')}: {renderQuota(used)}
-        </Paragraph>
-      </div>
-    );
-    return (
-      <Popover content={popoverContent} position='top'>
-        <div className='tokens-quota'>
-          <span>{t('无限额度')}</span>
-          <span className='tokens-muted'>{renderQuota(used)}</span>
-        </div>
-      </Popover>
-    );
-  }
-  const percent = total > 0 ? (remain / total) * 100 : 0;
-  const popoverContent = (
-    <div className='text-xs p-2'>
-      <Paragraph copyable={{ content: renderQuota(used) }}>
-        {t('已用额度')}: {renderQuota(used)}
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(remain) }}>
-        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}%)
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(total) }}>
-        {t('总额度')}: {renderQuota(total)}
-      </Paragraph>
-    </div>
-  );
+const renderQuotaUsage = (text, record, t, isMobile) => {
+  const used = Number(record.used_quota) || 0,
+    remain = Number(record.remain_quota) || 0,
+    total = used + remain;
+  const { symbol, type } = getCurrencyConfig();
+  const amount = (value) => {
+    const formatted = renderQuota(value);
+    if (type === 'TOKENS' || !formatted.startsWith(symbol)) return formatted;
+    return Number(formatted.slice(symbol.length)).toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    });
+  };
+  const percent =
+    total > 0 ? Math.max(0, Math.min(100, (remain / total) * 100)) : 0;
   return (
-    <Popover content={popoverContent} position='top'>
-      <Tag color='white' shape='circle'>
-        <div className='flex flex-col items-end'>
-          <span className='text-xs leading-none'>{`${renderQuota(remain)} / ${renderQuota(total)}`}</span>
-          <Progress
-            percent={percent}
-            stroke={getProgressColor(percent)}
-            aria-label='quota usage'
-            format={() => `${percent.toFixed(0)}%`}
-            style={{ width: '100%', marginTop: '1px', marginBottom: 0 }}
-          />
-        </div>
-      </Tag>
-    </Popover>
+    <div className={isMobile ? 'tokens-quota-card' : 'tokens-quota-cell'}>
+      <Popover
+        trigger='click'
+        position='top'
+        content={
+          <div className='tokens-default-overlay' style={{ padding: 12 }}>
+            <div>
+              {t('已用额度')}: {renderQuota(used)}
+            </div>
+            {!record.unlimited_quota && (
+              <>
+                <div>
+                  {t('剩余额度')}: {renderQuota(remain)}
+                </div>
+                <div>
+                  {t('总额度')}: {renderQuota(total)}
+                </div>
+              </>
+            )}
+          </div>
+        }
+      >
+        <button
+          type='button'
+          className='tokens-quota-trigger'
+          aria-label={t('已用额度') + ' ' + amount(used)}
+        >
+          <span className='tokens-quota'>
+            {isMobile && (
+              <span className='tokens-quota-label'>
+                {t('剩余额度')} ({type === 'TOKENS' ? t('Tokens') : symbol})
+              </span>
+            )}
+            <span>{record.unlimited_quota ? t('无限制') : amount(remain)}</span>
+            {isMobile && (
+              <span className='tokens-quota-label'>{t('已用额度')}</span>
+            )}
+            <span>{amount(used)}</span>
+          </span>
+        </button>
+      </Popover>
+      {!record.unlimited_quota && (
+        <Progress
+          size='small'
+          percent={percent}
+          showInfo={false}
+          stroke={getProgressColor(percent)}
+          aria-label={t('剩余额度')}
+        />
+      )}
+    </div>
   );
 };
 
@@ -516,37 +446,45 @@ export const getTokensColumns = ({
   setShowEdit,
   refresh,
   groupRatios = {},
+  isMobile = false,
+  now = Date.now(),
 }) => {
   const columns = [
     {
       title: t('名称'),
       dataIndex: 'name',
-      width: 190,
+      width: 180,
       render: (text) => <span className='tokens-name'>{text}</span>,
     },
     {
       title: t('状态'),
       dataIndex: 'status',
-      width: 110,
+      width: 120,
       key: 'status',
       render: (text, record) => renderStatus(text, record, t),
     },
     {
-      title: t('额度'),
-      width: 210,
+      title:
+        t('额度') +
+        ' (' +
+        (getCurrencyConfig().type === 'TOKENS'
+          ? t('Tokens')
+          : getCurrencyConfig().symbol) +
+        ')',
+      width: 260,
       key: 'quota_usage',
-      render: (text, record) => renderQuotaUsage(text, record, t),
+      render: (text, record) => renderQuotaUsage(text, record, t, isMobile),
     },
     {
       title: t('分组'),
       dataIndex: 'group',
-      width: 270,
+      width: 220,
       key: 'group',
       render: (text, record) => renderGroupColumn(text, record, t, groupRatios),
     },
     {
       title: t('API key'),
-      width: 240,
+      width: 260,
       key: 'token_key',
       render: (text, record) =>
         renderTokenKey(
@@ -562,28 +500,30 @@ export const getTokensColumns = ({
         ),
     },
     {
-      title: t('可用模型'),
+      title: t('Models'),
       dataIndex: 'model_limits',
-      width: 140,
-      render: (text, record) => renderModelLimits(text, record, t),
+      width: 160,
+      render: (text, record) => renderModelLimits(text, record, t, isMobile),
     },
     {
       title: t('IP限制'),
       dataIndex: 'allow_ips',
-      width: 140,
-      render: (text) => renderAllowIps(text, t),
+      width: 160,
+      render: (text) => renderAllowIps(text, t, isMobile),
     },
     {
       title: t('时间'),
       dataIndex: 'activity_time',
-      width: 270,
+      width: 220,
       render: (_text, record) => (
-        <div className='tokens-time'>
+        <div className='tokens-time' data-table-text='secondary'>
           <span>{t('创建时间')}</span>
-          <span>{renderTimestamp(record.created_time)}</span>
+          <span>{renderTimestamp(record.created_time, now)}</span>
           <span>{t('最后使用时间')}</span>
           <span>
-            {record.accessed_time ? renderTimestamp(record.accessed_time) : '-'}
+            {record.accessed_time
+              ? renderTimestamp(record.accessed_time, now)
+              : '-'}
           </span>
         </div>
       ),
@@ -591,14 +531,17 @@ export const getTokensColumns = ({
     {
       title: t('过期时间'),
       dataIndex: 'expired_time',
-      width: 160,
-      render: (text, record, index) => {
-        return (
-          <div>
-            {record.expired_time === -1 ? t('永不过期') : renderTimestamp(text)}
-          </div>
-        );
-      },
+      width: 180,
+      render: (text) =>
+        text === -1 ? (
+          <TokenStatusBadge label={t('永不过期')} />
+        ) : (
+          <span
+            className={text * 1000 <= now ? 'tokens-expired' : 'tokens-expiry'}
+          >
+            <TokenTimestamp timestamp={text} now={now} />
+          </span>
+        ),
     },
     {
       title: t('操作'),
