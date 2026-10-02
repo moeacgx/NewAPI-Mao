@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty } from '@douyinfe/semi-ui';
-import CardTable from '../../common/ui/CardTable';
+import { Empty, Table } from '@douyinfe/semi-ui';
+
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
@@ -89,34 +89,20 @@ const TokensTable = (tokensData) => {
     groupRatios,
   ]);
 
-  // Handle compact mode by removing fixed positioning
-  const tableColumns = useMemo(() => {
-    return compactMode
-      ? columns.map((col) => {
-          if (col.dataIndex === 'operate') {
-            const { fixed, ...rest } = col;
-            return rest;
-          }
-          return col;
-        })
-      : columns;
-  }, [compactMode, columns]);
+  const tableColumns = columns.filter(
+    (column) =>
+      !['model_limits', 'allow_ips', 'activity_time', 'expired_time'].includes(
+        column.dataIndex,
+      ) || (tokensData.visibleColumns || []).includes(column.dataIndex),
+  );
 
   return (
-    <CardTable
+    <Table
       columns={tableColumns}
       dataSource={tokens}
-      scroll={compactMode ? undefined : { x: 'max-content' }}
-      pagination={{
-        currentPage: activePage,
-        pageSize: pageSize,
-        total: tokenCount,
-        showSizeChanger: true,
-        pageSizeOptions: [10, 20, 50, 100],
-        onPageSizeChange: handlePageSizeChange,
-        onPageChange: handlePageChange,
-      }}
-      hidePagination={true}
+      scroll={{ x: 1850 }}
+      rowKey='id'
+      pagination={false}
       loading={loading}
       rowSelection={rowSelection}
       onRow={handleRow}
@@ -130,7 +116,7 @@ const TokensTable = (tokensData) => {
           style={{ padding: 30 }}
         />
       }
-      className='rounded-xl overflow-hidden'
+      className='tokens-table'
       size='middle'
     />
   );

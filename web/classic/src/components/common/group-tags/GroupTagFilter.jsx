@@ -56,7 +56,7 @@ export default function GroupTagFilter(props) {
         className={`group-tag-grid${choices.some((choice) => choice.icons?.length > 3) ? ' group-tag-grid-stacked' : ''}${props.compact ? ' group-tag-grid-compact' : ''}`}
       >
         {choices.map((choice) => {
-          return (
+          const option = (
             <label className='group-tag-choice' key={choice.id}>
               <input
                 type='radio'
@@ -64,7 +64,23 @@ export default function GroupTagFilter(props) {
                 value={choice.id}
                 checked={active === choice.id}
                 disabled={props.disabled || choice.count === 0}
-                onChange={() => props.onChange(choice.id)}
+                aria-haspopup={props.onActivate ? 'dialog' : undefined}
+                aria-expanded={
+                  props.onActivate
+                    ? active === choice.id && !!props.expanded
+                    : undefined
+                }
+                onChange={(event) => {
+                  props.onChange(choice.id);
+                  props.onActivate?.(choice.id, event);
+                }}
+                onClick={(event) => props.onActivate?.(choice.id, event)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && props.onActivate) {
+                    event.preventDefault();
+                    props.onActivate(choice.id, event);
+                  }
+                }}
               />
               <span className='group-tag-card' title={choice.description}>
                 <GroupTagLogos icons={choice.icons} />
@@ -77,6 +93,9 @@ export default function GroupTagFilter(props) {
               </span>
             </label>
           );
+          return props.renderChoice
+            ? props.renderChoice(choice, option)
+            : option;
         })}
       </div>
       {props.tags.find((tag) => String(tag.id) === active)?.description && (

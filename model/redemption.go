@@ -13,18 +13,27 @@ import (
 )
 
 type Redemption struct {
-	Id           int            `json:"id"`
-	UserId       int            `json:"user_id"`
-	Key          string         `json:"key" gorm:"type:char(32);uniqueIndex"`
-	Status       int            `json:"status" gorm:"default:1"`
-	Name         string         `json:"name" gorm:"index"`
-	Quota        int64          `json:"quota" gorm:"type:bigint;default:100"`
-	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
-	RedeemedTime int64          `json:"redeemed_time" gorm:"bigint"`
-	Count        int            `json:"count" gorm:"-:all"` // only for api request
-	UsedUserId   int            `json:"used_user_id"`
-	DeletedAt    gorm.DeletedAt `gorm:"index"`
-	ExpiredTime  int64          `json:"expired_time" gorm:"bigint"` // 过期时间，0 表示不过期
+	Id             int            `json:"id"`
+	UserId         int            `json:"user_id"`
+	Key            string         `json:"key" gorm:"type:char(32);uniqueIndex"`
+	Status         int            `json:"status" gorm:"default:1"`
+	Name           string         `json:"name" gorm:"index"`
+	Quota          int64          `json:"quota" gorm:"type:bigint;default:100"`
+	CreatedTime    int64          `json:"created_time" gorm:"bigint"`
+	RedeemedTime   int64          `json:"redeemed_time" gorm:"bigint"`
+	Count          int            `json:"count" gorm:"-:all"` // only for api request
+	UsedUserId     int            `json:"used_user_id"`
+	DeletedAt      gorm.DeletedAt `gorm:"index"`
+	ExpiredTime    int64          `json:"expired_time" gorm:"bigint"` // 过期时间，0 表示不过期
+	MaxRedeemCount int            `json:"max_redeem_count" gorm:"default:1"`
+	RedeemedCount  int            `json:"redeemed_count" gorm:"default:0"`
+}
+
+type RedemptionUsage struct {
+	Id           int   `json:"id"`
+	RedemptionId int   `json:"redemption_id" gorm:"uniqueIndex:idx_redemption_usage_user,priority:1;index"`
+	UserId       int   `json:"user_id" gorm:"uniqueIndex:idx_redemption_usage_user,priority:2;index"`
+	CreatedTime  int64 `json:"created_time" gorm:"bigint"`
 }
 
 func GetAllRedemptions(startIdx int, num int) (redemptions []*Redemption, total int64, err error) {
@@ -160,21 +169,41 @@ func Redeem(key string, userId int) (quota int64, err error) {
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("该兑换码已过期")
 		}
-		// Compare-and-swap on status: only the transaction that flips
-		// enabled -> used may credit quota, so a concurrent redeem of the
-		// same code loses here even without a row lock (e.g. on SQLite).
+		if redemption.MaxRedeemCount <= 0 {
+			redemption.MaxRedeemCount = 1
+		}
+		if redemption.RedeemedCount >= redemption.MaxRedeemCount {
+			return errors.New("该兑换码已被使用")
+		}
+		now := common.GetTimestamp()
+		status := redemption.Status
+		if redemption.RedeemedCount+1 >= redemption.MaxRedeemCount {
+			status = common.RedemptionCodeStatusUsed
+		}
+		firstUsedTime, firstUserID := redemption.RedeemedTime, redemption.UsedUserId
+		if redemption.RedeemedCount == 0 {
+			firstUsedTime, firstUserID = now, userId
+		}
+		// 名额递增和状态切换在一条带容量条件的更新中完成，避免并发兑换超额。
 		result := tx.Model(&Redemption{}).
-			Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
+			Where("id = ? AND status = ? AND (max_redeem_count <= 0 OR redeemed_count < max_redeem_count)", redemption.Id, common.RedemptionCodeStatusEnabled).
+			Where("redeemed_count = ?", redemption.RedeemedCount).
 			Updates(map[string]interface{}{
-				"redeemed_time": common.GetTimestamp(),
-				"status":        common.RedemptionCodeStatusUsed,
-				"used_user_id":  userId,
+				"redeemed_count":   gorm.Expr("redeemed_count + ?", 1),
+				"max_redeem_count": gorm.Expr("CASE WHEN max_redeem_count <= 0 THEN 1 ELSE max_redeem_count END"),
+				"redeemed_time":    firstUsedTime,
+				"status":           status,
+				"used_user_id":     firstUserID,
 			})
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
 			return errors.New("该兑换码已被使用")
+		}
+		usage := &RedemptionUsage{RedemptionId: redemption.Id, UserId: userId, CreatedTime: now}
+		if err := tx.Create(usage).Error; err != nil {
+			return errors.New("该用户已兑换过此兑换码")
 		}
 		if err := creditTopUpQuota(tx, userId, redemption.Quota, nil); err != nil {
 			return err
@@ -192,9 +221,10 @@ func Redeem(key string, userId int) (quota int64, err error) {
 }
 
 func (redemption *Redemption) Insert() error {
-	var err error
-	err = DB.Create(redemption).Error
-	return err
+	if redemption.MaxRedeemCount <= 0 {
+		redemption.MaxRedeemCount = 1
+	}
+	return DB.Create(redemption).Error
 }
 
 func (redemption *Redemption) SelectUpdate() error {
@@ -205,7 +235,7 @@ func (redemption *Redemption) SelectUpdate() error {
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (redemption *Redemption) Update() error {
 	var err error
-	err = DB.Model(redemption).Select("name", "status", "quota", "redeemed_time", "expired_time").Updates(redemption).Error
+	err = DB.Model(redemption).Select("name", "status", "quota", "redeemed_time", "expired_time", "max_redeem_count").Updates(redemption).Error
 	return err
 }
 

@@ -63,6 +63,7 @@ import {
   IconPlus,
   IconDelete,
   IconSearch,
+  IconLayers,
 } from '@douyinfe/semi-icons';
 import { GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -90,6 +91,17 @@ export const GroupMultiPicker = ({
   const [selectedTag, setSelectedTag] = useState('all');
   const [draggedGroup, setDraggedGroup] = useState(null);
   const [dragOverGroup, setDragOverGroup] = useState(null);
+  const pickerAnchorRef = useRef(null);
+  const hasGroupTags = groupTags.length > 0;
+
+  useEffect(() => {
+    if (!hasGroupTags) {
+      setPopVisible(false);
+      setSelectedTag('all');
+      setSearchText('');
+      pickerAnchorRef.current = null;
+    }
+  }, [hasGroupTags]);
 
   const isAutoSelected = selectedGroups.includes('auto');
   const isExclusiveSelected = groups.some(
@@ -101,12 +113,7 @@ export const GroupMultiPicker = ({
     groupTags,
     selectedTag,
   ).filter((g) => {
-    if (isExclusiveSelected) return false;
     if (selectedGroups.includes(g.value)) return false;
-    if (isAutoSelected && g.value !== 'auto') return false;
-    if (g.value === 'auto' && selectedGroups.length > 0 && !isAutoSelected)
-      return false;
-    if (g.exclusive === true && selectedGroups.length > 0) return false;
     if (searchText) {
       const q = searchText.toLowerCase();
       return (
@@ -118,15 +125,23 @@ export const GroupMultiPicker = ({
   });
 
   const handleAdd = (value) => {
-    const selectedOption = groups.find((group) => group.value === value);
-    if (selectedOption?.exclusive === true) {
-      onChange([value]);
-    } else if (value === 'auto') {
-      onChange(['auto']);
-    } else {
-      onChange([...selectedGroups.filter((v) => v !== 'auto'), value]);
+    if (!selectedGroups.includes(value)) {
+      onChange([...selectedGroups, value]);
     }
     setSearchText('');
+    closePicker();
+  };
+
+  const closePicker = () => {
+    setPopVisible(false);
+    pickerAnchorRef.current?.focus();
+  };
+
+  const openTagPicker = (tag, event) => {
+    pickerAnchorRef.current = event.currentTarget;
+    setSelectedTag(tag);
+    setSearchText('');
+    setPopVisible(true);
   };
 
   const handleRemove = (value) => {
@@ -199,6 +214,77 @@ export const GroupMultiPicker = ({
     );
   };
 
+  const pickerContent = (
+    <div
+      className='token-group-picker-popup'
+      role='dialog'
+      aria-label={t('选择分组')}
+    >
+      <div className='token-group-picker-search'>
+        <Input
+          prefix={<IconSearch />}
+          placeholder={t('搜索分组...')}
+          aria-label={t('搜索分组...')}
+          value={searchText}
+          onChange={setSearchText}
+          autoFocus
+          showClear
+          size='small'
+        />
+        <Button
+          icon={<IconClose size='small' />}
+          aria-label={t('关闭')}
+          theme='borderless'
+          size='small'
+          onClick={closePicker}
+        />
+      </div>
+      <div className='token-group-picker-options'>
+        {availableGroups.length === 0 ? (
+          <Empty description={t('没有可选分组')} style={{ padding: 16 }} />
+        ) : (
+          availableGroups.map((g) => (
+            <button
+              type='button'
+              key={g.value}
+              className='token-group-picker-option'
+              onClick={() => handleAdd(g.value)}
+            >
+              <span className='token-group-picker-option-text'>
+                <Text strong size='small'>
+                  {g.label || g.value}
+                </Text>
+                {g.description && (
+                  <Text type='tertiary' size='small'>
+                    {g.description}
+                  </Text>
+                )}
+              </span>
+              <span className='token-group-picker-option-badges'>
+                {renderRatioBadge(g.ratio)}
+                {(g.exclusive || g.value === 'auto') && (
+                  <Tag size='small' color='purple' shape='circle'>
+                    {t('独立')}
+                  </Tag>
+                )}
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const popoverProps = {
+    onClickOutSide: () => setPopVisible(false),
+    onEscKeyDown: closePicker,
+    position: 'bottomLeft',
+    autoAdjustOverflow: true,
+    showArrow: true,
+    closeOnEsc: true,
+    content: pickerContent,
+  };
+
   return (
     <div>
       <GroupTagFilter
@@ -208,6 +294,18 @@ export const GroupMultiPicker = ({
         onChange={setSelectedTag}
         showUntagged={false}
         hideEmpty
+        expanded={popVisible}
+        onActivate={openTagPicker}
+        renderChoice={(choice, option) => (
+          <Popover
+            key={choice.id}
+            {...popoverProps}
+            trigger='custom'
+            visible={popVisible && selectedTag === choice.id}
+          >
+            {option}
+          </Popover>
+        )}
       />
       {/* Selected groups list */}
       {selectedGroups.length > 0 && (
@@ -219,12 +317,19 @@ export const GroupMultiPicker = ({
             marginBottom: 8,
           }}
         >
+          <div className='token-group-selected-heading'>
+            <IconLayers size={15} />
+            <Text strong size='small'>
+              {t('已选分组')}
+            </Text>
+          </div>
           {selectedGroups.map((value, index) => {
             const info = groupMap[value];
             const displayName = info?.label || value;
             return (
               <div
                 key={value}
+                className='token-group-selected-row'
                 onDragOver={(event) => handleDragOver(event, value)}
                 onDrop={(event) => handleDrop(event, value)}
                 style={{
@@ -285,7 +390,7 @@ export const GroupMultiPicker = ({
                       {displayName}
                     </Text>
                     {info && renderRatioBadge(info.ratio)}
-                    {info?.exclusive && (
+                    {(info?.exclusive || value === 'auto') && (
                       <Tag size='small' color='purple' shape='circle'>
                         {t('独立')}
                       </Tag>
@@ -302,7 +407,7 @@ export const GroupMultiPicker = ({
                     </Text>
                   )}
                 </div>
-                {!isAutoSelected && (
+                {value !== 'auto' && (
                   <div
                     style={{
                       display: 'flex',
@@ -343,110 +448,33 @@ export const GroupMultiPicker = ({
         </div>
       )}
 
-      {/* Add button with popover */}
-      <Popover
-        visible={popVisible}
-        onVisibleChange={setPopVisible}
-        trigger='click'
-        position='bottomLeft'
-        showArrow
-        content={
-          <div
-            style={{
-              width: 'min(320px, calc(100vw - 96px))',
-              maxHeight: 360,
-              overflow: 'auto',
-              padding: 8,
+      {!hasGroupTags && (
+        <Popover
+          {...popoverProps}
+          visible={popVisible}
+          onVisibleChange={setPopVisible}
+          trigger='click'
+        >
+          <Button
+            icon={<IconPlus />}
+            theme='light'
+            type='tertiary'
+            size='small'
+            onClick={(event) => {
+              pickerAnchorRef.current = event.currentTarget;
+              setSearchText('');
             }}
           >
-            <Input
-              prefix={<IconSearch />}
-              placeholder={t('搜索分组...')}
-              value={searchText}
-              onChange={setSearchText}
-              showClear
-              size='small'
-              style={{ marginBottom: 8 }}
-            />
-            {availableGroups.length === 0 ? (
-              <Empty description={t('没有可选分组')} style={{ padding: 16 }} />
-            ) : (
-              availableGroups.map((g) => (
-                <button
-                  type='button'
-                  key={g.value}
-                  onClick={() => {
-                    handleAdd(g.value);
-                    setPopVisible(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    width: '100%',
-                    textAlign: 'left',
-                    border: 0,
-                    background: 'transparent',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      'var(--semi-color-fill-0)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <div>
-                    <Text strong size='small'>
-                      {g.label || g.value}
-                    </Text>
-                    {g.description && (
-                      <div>
-                        <Text type='tertiary' size='small'>
-                          {g.description}
-                        </Text>
-                      </div>
-                    )}
-                  </div>
-                  {renderRatioBadge(g.ratio)}
-                  {g.exclusive && (
-                    <Tag size='small' color='purple' shape='circle'>
-                      {t('独立')}
-                    </Tag>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        }
-      >
-        <Button
-          icon={<IconPlus />}
-          theme='light'
-          type='tertiary'
-          size='small'
-          disabled={isAutoSelected || isExclusiveSelected}
-        >
-          {selectedGroups.length === 0 ? t('选择分组') : t('添加分组')}
-        </Button>
-      </Popover>
+            {selectedGroups.length === 0 ? t('选择分组') : t('添加分组')}
+          </Button>
+        </Popover>
+      )}
 
       {/* Hint */}
       {selectedGroups.length > 1 && !isAutoSelected && !isExclusiveSelected && (
         <div style={{ marginTop: 6 }}>
           <Text type='tertiary' size='small'>
             {t('多个分组包含相同模型时，将按排列顺序依次尝试')}
-          </Text>
-        </div>
-      )}
-      {selectedGroups.length > 1 && isExclusiveSelected && (
-        <div style={{ marginTop: 6 }}>
-          <Text type='danger' size='small'>
-            {t('独立分组必须单独选择')}
           </Text>
         </div>
       )}
@@ -475,6 +503,12 @@ const EditTokenModal = (props) => {
     defaultUseAutoGroup ? ['auto'] : [],
   );
   const [groupRatioLimits, setGroupRatioLimits] = useState({});
+  const [groupSelectionError, setGroupSelectionError] = useState('');
+  const groupSelectionErrorRef = useRef(null);
+
+  useEffect(() => {
+    if (groupSelectionError) groupSelectionErrorRef.current?.focus();
+  }, [groupSelectionError]);
 
   const getInitValues = () => ({
     name: '',
@@ -535,6 +569,7 @@ const EditTokenModal = (props) => {
   };
 
   const onSelectedGroupsChange = (groupsForToken) => {
+    setGroupSelectionError('');
     setSelectedGroups(groupsForToken);
     setGroupRatioLimits((prev) => cleanGroupRatioLimits(prev, groupsForToken));
   };
@@ -717,6 +752,27 @@ const EditTokenModal = (props) => {
   };
 
   const submit = async (values) => {
+    const exclusiveGroups = selectedGroups.filter(
+      (value) =>
+        value === 'auto' ||
+        groups.some((group) => group.value === value && group.exclusive),
+    );
+    if (selectedGroups.length > 1 && exclusiveGroups.length > 0) {
+      const names = exclusiveGroups
+        .map((value) => {
+          const option = groups.find((group) => group.value === value);
+          return option?.label || (value === 'auto' ? t('自动选择') : value);
+        })
+        .join(', ');
+      setGroupSelectionError(
+        t(
+          'Exclusive groups {{names}} must be used alone. Remove the other groups or assign each to a separate token.',
+          { names },
+        ),
+      );
+      return;
+    }
+    setGroupSelectionError('');
     setLoading(true);
     const groupSelection = buildGroupSelectionPayload(selectedGroups, groups);
     const isMultiGroup = selectedGroups.length > 1;
@@ -909,7 +965,7 @@ const EditTokenModal = (props) => {
                     />
                   </Col>
                   <Col span={24}>
-                    <Form.Slot label={t('令牌分组')}>
+                    <Form.Slot>
                       <GroupMultiPicker
                         groupTags={groupTags}
                         groups={groups}
@@ -919,6 +975,16 @@ const EditTokenModal = (props) => {
                         onGroupRatioLimitChange={handleGroupRatioLimitChange}
                         t={t}
                       />
+                      {groupSelectionError && (
+                        <div
+                          className='token-group-selection-error'
+                          role='alert'
+                          tabIndex={-1}
+                          ref={groupSelectionErrorRef}
+                        >
+                          {groupSelectionError}
+                        </div>
+                      )}
                     </Form.Slot>
                   </Col>
                   <Col

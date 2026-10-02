@@ -1,5 +1,12 @@
 # NewAPI-Mao 二次开发能力
 
+## Classic 令牌界面与多人兑换码
+
+- Classic 列表采用紧凑表格、清晰字重层次与行操作菜单；支持名称/密钥片段和服务端状态筛选，保留取密钥安全与分页契约。
+- 创建/编辑令牌支持标签直接选组、已选分组标题、草稿自由追加和保存前独立组冲突校验。
+- 多人兑换码恢复每码上限与独立用户使用记录，额度发放和名额占用在同一事务内；旧兑换码默认 1 次。
+- 文档：[令牌列表](../workflows/2026-10/02_classic_token_search_api_info.md)、[创建编辑](../workflows/2026-10/01_token_tag_picker_flow.md)、[兑换码修复](../workflows/2026-10/01_redemption_multi_user_limit.md)。本地 SQLite 验证不能代替 MySQL/PostgreSQL 实跑。
+
 ## Classic 分组标签
 
 - 在分组与模型定价设置中维护标签、说明、排序、多个内置 Logo 或图片 URL，并按稳定分组 ID 绑定。

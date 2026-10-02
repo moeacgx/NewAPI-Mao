@@ -1,5 +1,11 @@
 # NewAPI-Mao 开发文档
 
+- [Classic 令牌搜索与 API 信息入口](../workflows/2026-10/02_classic_token_search_api_info.md)：令牌名称/密钥部分匹配、API 信息入口与新版模板对照。
+
+- [兑换码多人兑换修复](../workflows/2026-10/01_redemption_multi_user_limit.md)：每码兑换上限持久化、唯一用户记录、限额并发保护与历史一次性码兼容。
+
+- [MAO-6 令牌标签直接选组](../workflows/2026-10/01_token_tag_picker_flow.md)：标签点击浮窗、草稿自由追加、保存时独立分组冲突校验。
+
 - [maolaoapi .345 分组标签自动匹配部署](../workflows/2026-10/01_maolaoapi_group_tag_keywords_345_deployment.md)：PR、构建、备份、固定镜像与逐节点验收。
 
 - [MAO-6 标签易用性修正](../workflows/2026-10/01_group_tag_usability.md)：令牌隐藏空标签和未分类、多个显示名称关键词自动绑定、后台紧凑筛选。
