@@ -34,7 +34,7 @@ func TaskPluginRequest() gin.HandlerFunc {
 		}
 		var body map[string]any
 		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.AbortWithStatusJSON(invalidRequestStatus(err), gin.H{"error": gin.H{"message": err.Error(), "type": "invalid_request_error"}})
 			return
 		}
 		modelName, _ := body["model"].(string)
@@ -99,17 +99,25 @@ func PrepareTaskPluginRoute() gin.HandlerFunc {
 		}
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
-			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, "")
+			abortTaskPluginRouteErrorDetail(c, invalidRequestStatus(err), err.Error())
 			return
 		}
 		raw, err := storage.Bytes()
-		if err != nil || !utf8.Valid(raw) {
-			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, "")
+		if err != nil {
+			abortTaskPluginRouteErrorDetail(c, invalidRequestStatus(err), err.Error())
+			return
+		}
+		if !utf8.Valid(raw) {
+			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, "invalid UTF-8 request body")
 			return
 		}
 		var body map[string]any
-		if err := common.Unmarshal(raw, &body); err != nil || body == nil {
-			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, "")
+		if err := common.Unmarshal(raw, &body); err != nil {
+			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		if body == nil {
+			abortTaskPluginRouteErrorDetail(c, http.StatusBadRequest, "request body must be a JSON object")
 			return
 		}
 		requestContext.Body = map[string]any{"kind": string(jsplugin.BodyJSON), "value": body}

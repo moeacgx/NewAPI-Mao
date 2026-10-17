@@ -19,6 +19,7 @@ import (
 
 const KeyRequestBody = "key_request_body"
 const KeyBodyStorage = "key_body_storage"
+const keyBodyReadError = "key_body_read_error"
 
 var ErrRequestBodyTooLarge = errors.New("request body too large")
 
@@ -57,6 +58,14 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 		}
 	}
 
+	// 请求体读取失败后，底层 Body 已被消费或关闭；后续中间件继续读取时
+	// 应返回第一次读取的真实原因，而不是误报 closed Body。
+	if readErr, failed := c.Get(keyBodyReadError); failed {
+		if err, ok := readErr.(error); ok {
+			return nil, err
+		}
+	}
+
 	maxMB := constant.MaxRequestBodyMB
 	if maxMB <= 0 {
 		maxMB = 128 // 默认 128MB
@@ -71,8 +80,9 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 
 	if err != nil {
 		if IsRequestBodyTooLargeError(err) {
-			return nil, errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxMB))
+			err = errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxMB))
 		}
+		c.Set(keyBodyReadError, err)
 		return nil, err
 	}
 
