@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
+
 - [流式性能统计与上游响应头等待优化](../workflows/2026-10/06_stream_metrics_response_header_timeout.md)：正常完成流的取消收尾统计，以及可配置的上游响应头等待上限。
 
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
