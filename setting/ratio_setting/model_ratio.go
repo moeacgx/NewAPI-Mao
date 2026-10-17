@@ -242,6 +242,12 @@ var defaultModelRatio = map[string]float64{
 	"deepseek-chat":          0.27 / 2,
 	"deepseek-coder":         0.27 / 2,
 	"deepseek-reasoner":      0.55 / 2, // 0.55 / 1k tokens
+	// DeepSeek V4.1 defaults (USD per million tokens converted to the
+	// project's $0.002/1K-token ratio unit). Tiered billing can override these
+	// with peak/off-peak expressions when enabled.
+	"deepseek-flash":    0.30 / 2,
+	"deepseek-v4-flash": 0.30 / 2,
+	"deepseek-v4-pro":   1.32 / 2,
 	// Perplexity online 模型对搜索额外收费，有需要应自行调整，此处不计入搜索费用
 	"llama-3-sonar-small-32k-chat":   0.2 / 1000 * USD,
 	"llama-3-sonar-small-32k-online": 0.2 / 1000 * USD,
@@ -270,6 +276,9 @@ var defaultModelRatio = map[string]float64{
 }
 
 var defaultModelPrice = map[string]float64{
+	// DeepSeek Search/Fetch charge $0.75 per 1,000 successful requests.
+	"deepseek-search":                0.00075,
+	"deepseek-fetch":                 0.00075,
 	"suno_music":                     0.1,
 	"suno_lyrics":                    0.01,
 	"dall-e-3":                       0.04,

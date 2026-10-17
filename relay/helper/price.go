@@ -71,6 +71,18 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (hosttypes.PriceData, error) {
+	// DeepSeek Search/Fetch are fixed-price request endpoints. Keep their
+	// default price available even when operators clear the legacy price maps.
+	if info != nil && (info.OriginModelName == "deepseek-search" || info.OriginModelName == "deepseek-fetch") {
+		groupRatioInfo := HandleGroupRatio(c, info)
+		quota, err := common.QuotaFromFloatStrict(0.00075 * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		if err != nil {
+			return hosttypes.PriceData{}, err
+		}
+		priceData := hosttypes.PriceData{ModelPrice: 0.00075, UsePrice: true, QuotaToPreConsume: quota, GroupRatioInfo: groupRatioInfo}
+		info.PriceData = priceData
+		return priceData, nil
+	}
 	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
 
 	groupRatioInfo := HandleGroupRatio(c, info)

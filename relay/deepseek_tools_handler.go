@@ -122,6 +122,13 @@ func DeepSeekToolsHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIErr
 		return nil
 	}
 
-	service.PostTextConsumeQuota(c, info, &dto.Usage{}, nil)
+	// Search/Fetch responses have no token usage. Settle the fixed request
+	// reservation directly; the normal text path would reject zero-token usage
+	// before reaching the request-price billing unit on older hosts.
+	if info.Billing != nil {
+		if err := info.Billing.Settle(info.PriceData.QuotaToPreConsume); err != nil {
+			return types.NewError(err, types.ErrorCodePreConsumeTokenQuotaFailed)
+		}
+	}
 	return nil
 }

@@ -233,6 +233,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	if oaiError := responsesResponse.GetOpenAIError(); oaiError != nil {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
+	info.ApplyVendorToolUsage(responseBody)
 
 	// compute usage
 	usage := *normalizeNativeResponsesUsage(responsesResponse.Usage)
@@ -506,6 +507,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		case "response.completed", "response.done", "response.incomplete",
 			"response.cancelled", "response.canceled":
 			if streamResponse.Response != nil {
+				info.ApplyVendorToolUsage([]byte(data))
 				countTerminalToolCalls(streamResponse.Response.Output)
 				if completedText := responsesLocalUsageText(streamResponse.Response); strings.TrimSpace(completedText) != "" {
 					terminalResponseText = completedText

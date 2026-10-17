@@ -192,6 +192,12 @@ type RelayInfo struct {
 	FinalRequestRelayFormat types.RelayFormat
 
 	StreamStatus *StreamStatus
+	// VendorToolUsage converts vendor-reported tool counts into billable keys.
+	VendorToolUsage func(raw []byte) map[string]int
+	// WebSearchBillingKey overrides the hosted-search price key for a channel.
+	WebSearchBillingKey string
+	// ReasoningConversion carries model-modifier intent to provider adaptors.
+	ReasoningConversion *dto.ReasoningConversionState
 
 	// convOptions caches the converter settings snapshot (see ConvOptions).
 	convOptions *convmeta.Options
@@ -278,6 +284,10 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// Channel identity feeds the converter options snapshot (e.g.
 	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
+	// These hooks are specific to the selected channel attempt.
+	info.VendorToolUsage = nil
+	info.WebSearchBillingKey = ""
+	info.ReasoningConversion = nil
 	info.ThinkingLog = thinkingLogFromRequest(info.Request)
 	if !info.ShouldForceResponses() && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled) {
 		info.ReasoningEffort = ""
@@ -675,6 +685,9 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 			return GenRelayInfoAlphaSearch(c, request), nil
 		}
 		return nil, errors.New("request is not a AlphaSearchRequest")
+	case types.RelayFormatDeepSeekTools:
+		info = genBaseRelayInfo(c, request)
+		info.RelayFormat = types.RelayFormatDeepSeekTools
 	case types.RelayFormatTask:
 		info = genBaseRelayInfo(c, nil)
 		info.TaskRelayInfo = &TaskRelayInfo{}
@@ -853,6 +866,14 @@ func (info *RelayInfo) SetReasoningEffort(effort string) {
 		return
 	}
 	info.ReasoningEffort = strings.TrimSpace(effort)
+}
+
+// ReasoningState returns model-modifier state attached to this request.
+func (info *RelayInfo) ReasoningState() *dto.ReasoningConversionState {
+	if info == nil {
+		return nil
+	}
+	return info.ReasoningConversion
 }
 
 func (info *RelayInfo) EnsureClaudeConvertInfo() *convmeta.ClaudeConvertInfo {
