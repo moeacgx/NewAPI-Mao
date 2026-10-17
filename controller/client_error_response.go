@@ -6,11 +6,11 @@ import (
 )
 
 // clientOpenAIError serializes a final client view without changing the internal error.
-func clientOpenAIError(apiErr *types.NewAPIError, requestID string) (types.OpenAIError, int) {
+func clientOpenAIError(apiErr *types.NewAPIError, requestID string, upstreamURLs ...string) (types.OpenAIError, int) {
 	if apiErr == nil {
 		return types.OpenAIError{}, 0
 	}
-	result := apiErr.ToOpenAIError()
+	result := apiErr.ToOpenAIError(upstreamURLs...)
 	message := result.Message
 	statusCode := apiErr.StatusCode
 	if types.IsUpstreamReturnedError(apiErr) {
@@ -20,11 +20,11 @@ func clientOpenAIError(apiErr *types.NewAPIError, requestID string) (types.OpenA
 	return result, statusCode
 }
 
-func clientClaudeError(apiErr *types.NewAPIError, requestID string) (types.ClaudeError, int) {
+func clientClaudeError(apiErr *types.NewAPIError, requestID string, upstreamURLs ...string) (types.ClaudeError, int) {
 	if apiErr == nil {
 		return types.ClaudeError{}, 0
 	}
-	result := apiErr.ToClaudeError()
+	result := apiErr.ToClaudeError(upstreamURLs...)
 	message := result.Message
 	statusCode := apiErr.StatusCode
 	if types.IsUpstreamReturnedError(apiErr) {

@@ -264,7 +264,7 @@ func sendCommittedResponsesStreamAPIError(c *gin.Context, relayErr *types.NewAPI
 	if c == nil || c.Writer == nil || !c.Writer.Written() || relayErr == nil {
 		return nil
 	}
-	clientError := relayErr.ToOpenAIError()
+	clientError := relayErr.ToOpenAIError(common.UpstreamAddresses(c)...)
 	if types.IsUpstreamReturnedError(relayErr) {
 		message, _, _ := common.ReplaceClientErrorCandidates(relayErr.StatusCode, relayErr.Error(), clientError.Message)
 		clientError.Message = message
