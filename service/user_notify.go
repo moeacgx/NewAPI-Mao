@@ -14,14 +14,24 @@ import (
 )
 
 func NotifyRootUser(t string, subject string, content string) {
-	user := model.GetRootUser().ToBaseUser()
-	err := NotifyUser(user.Id, user.Email, user.GetSetting(), dto.NewNotify(t, subject, content, nil))
-	if err != nil {
-		common.SysLog(fmt.Sprintf("failed to notify root user: %s", err.Error()))
-	}
+	notifyAdmins(t, func(role int, setting dto.UserSetting) bool {
+		if setting.ChannelNotifyEnabled != nil {
+			return *setting.ChannelNotifyEnabled
+		}
+		return role == common.RoleRootUser
+	}, func(string) (string, string) { return subject, content })
 }
 
 func NotifyUpstreamModelUpdateWatchers(subject string, content string) {
+	notifyAdmins(dto.NotifyTypeChannelUpdate, func(_ int, setting dto.UserSetting) bool {
+		return setting.UpstreamModelUpdateNotifyEnabled
+	}, func(string) (string, string) { return subject, content })
+}
+
+// notifyAdmins sends a legacy user notification to every enabled administrator
+// whose notification preference allows the event. Existing settings keep the
+// root-only channel behavior when the new switch has never been saved.
+func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, render func(lang string) (subject string, content string)) {
 	var users []model.User
 	if err := model.DB.
 		Select("id", "email", "role", "status", "setting").
@@ -31,20 +41,20 @@ func NotifyUpstreamModelUpdateWatchers(subject string, content string) {
 		return
 	}
 
-	notification := dto.NewNotify(dto.NotifyTypeChannelUpdate, subject, content, nil)
 	sentCount := 0
 	for _, user := range users {
 		userSetting := user.GetSetting()
-		if !userSetting.UpstreamModelUpdateNotifyEnabled {
+		if !receives(user.Role, userSetting) {
 			continue
 		}
-		if err := NotifyUser(user.Id, user.Email, userSetting, notification); err != nil {
-			common.SysLog(fmt.Sprintf("failed to notify user %d for upstream model update: %s", user.Id, err.Error()))
+		subject, content := render(userSetting.Language)
+		if err := NotifyUser(user.Id, user.Email, userSetting, dto.NewNotify(notifyType, subject, content, nil)); err != nil {
+			common.SysLog(fmt.Sprintf("failed to notify user %d for %s: %s", user.Id, notifyType, err.Error()))
 			continue
 		}
 		sentCount++
 	}
-	common.SysLog(fmt.Sprintf("upstream model update notifications sent: %d", sentCount))
+	common.SysLog(fmt.Sprintf("%s notifications sent: %d", notifyType, sentCount))
 }
 
 func NotifyUser(userId int, userEmail string, userSetting dto.UserSetting, data dto.Notify) error {

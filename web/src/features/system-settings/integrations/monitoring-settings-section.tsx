@@ -61,6 +61,7 @@ const numericString = z.string().refine((value) => {
 }, 'Enter a non-negative number or leave empty')
 
 const monitoringSchema = z.object({
+  QuotaRemindEnabled: z.boolean(),
   QuotaRemindThreshold: numericString,
   perf_metrics_setting: z.object({
     enabled: z.boolean(),
@@ -74,6 +75,7 @@ type MonitoringFormInput = z.input<typeof monitoringSchema>
 type MonitoringFormValues = z.output<typeof monitoringSchema>
 
 type FlatMonitoringDefaults = {
+  QuotaRemindEnabled: boolean
   QuotaRemindThreshold: string
   'perf_metrics_setting.enabled': boolean
   'perf_metrics_setting.flush_interval': number
@@ -88,6 +90,7 @@ type MonitoringSettingsSectionProps = {
 const buildFormDefaults = (
   defaults: MonitoringSettingsSectionProps['defaultValues']
 ): MonitoringFormInput => ({
+  QuotaRemindEnabled: defaults.QuotaRemindEnabled,
   QuotaRemindThreshold: defaults.QuotaRemindThreshold ?? '',
   perf_metrics_setting: {
     enabled: defaults['perf_metrics_setting.enabled'],
@@ -100,6 +103,7 @@ const buildFormDefaults = (
 const normalizeDefaults = (
   defaults: MonitoringSettingsSectionProps['defaultValues']
 ): FlatMonitoringDefaults => ({
+  QuotaRemindEnabled: defaults.QuotaRemindEnabled,
   QuotaRemindThreshold: (defaults.QuotaRemindThreshold ?? '').trim(),
   'perf_metrics_setting.enabled': defaults['perf_metrics_setting.enabled'],
   'perf_metrics_setting.flush_interval':
@@ -113,6 +117,7 @@ const normalizeDefaults = (
 const normalizeFormValues = (
   values: MonitoringFormValues
 ): FlatMonitoringDefaults => ({
+  QuotaRemindEnabled: values.QuotaRemindEnabled,
   QuotaRemindThreshold: values.QuotaRemindThreshold.trim(),
   'perf_metrics_setting.enabled': values.perf_metrics_setting.enabled,
   'perf_metrics_setting.flush_interval':
@@ -185,6 +190,23 @@ export function MonitoringSettingsSection({
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
             isSaving={updateOption.isPending}
+          />
+          <FormField
+            control={form.control}
+            name='QuotaRemindEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Low balance reminder')}</FormLabel>
+                  <FormDescription>
+                    {t('Send notifications when a user balance falls below the threshold')}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
           />
           <FormField
             control={form.control}
