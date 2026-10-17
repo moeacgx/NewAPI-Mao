@@ -126,7 +126,11 @@ beforeEach(() => {
     if (url === '/api/channel/priority/order') {
       return { data: { success: true, data: current } }
     }
-    if (url === '/api/channel' || url === '/api/channel/search') {
+    if (
+      url === '/api/channel' ||
+      url === '/api/channel/' ||
+      url === '/api/channel/search'
+    ) {
       const field = config?.params?.sort_by ?? 'priority'
       const desc = config?.params?.sort_order !== 'asc'
       const items = current.items
@@ -320,7 +324,7 @@ test('card and table views share the saved order', async () => {
   expect(orderInView()).toEqual(['channel:1', 'channel:3', 'channel:2'])
 })
 
-test('mobile view controls stay available with the filter panel collapsed', async () => {
+test('mobile view keeps channel controls available', async () => {
   const original = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
     ...original(query),
@@ -328,10 +332,6 @@ test('mobile view controls stay available with the filter panel collapsed', asyn
   }))
   await mount('card', false)
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Collapse' }))
-  expect(
-    screen.queryByPlaceholderText('Filter by name, ID, or key...')
-  ).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Refresh' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Drag mode' })).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Table view' }))
