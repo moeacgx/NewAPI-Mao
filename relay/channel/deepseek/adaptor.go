@@ -256,6 +256,11 @@ func parseDeepSeekModelModifier(model string) (base, thinking, effort string, te
 		return model, "", "", nil, false
 	}
 	base = parts[0]
+	// A provider suffix and an explicit @ modifier may be combined. The @
+	// control wins, but the legacy tail must still be removed from the model ID.
+	if suffixBase, _, _, suffixOK := reasoning.ParseDeepSeekV4ThinkingSuffix(base); suffixOK {
+		base = suffixBase
+	}
 	thinking = "enabled"
 	for _, part := range parts[1:] {
 		key, value, found := strings.Cut(strings.ToLower(strings.TrimSpace(part)), ":")
