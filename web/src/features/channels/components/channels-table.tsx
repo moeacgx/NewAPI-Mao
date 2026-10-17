@@ -608,7 +608,6 @@ export function ChannelsTable() {
           applyHeaderSize
           afterTable={<ChannelPriorityStatus order={priorityOrder} />}
           toolbarProps={{
-            collapsibleOnMobile: true,
             searchPlaceholder: t('Filter by name, ID, or key...'),
             searchDebounceMs: 500,
             onReset: () => {
