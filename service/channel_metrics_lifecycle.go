@@ -513,6 +513,12 @@ func classifyChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, r
 	if info != nil && info.IsStream && info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.HasErrors()) {
 		return channelmetrics.OutcomeStreamError, channelmetrics.FailureOwnerChannel, channelmetrics.ErrorStageStream, upstreamStarted
 	}
+	// 流可能已经收到 DONE/EOF，随后仅在处理器收尾时观察到客户端上下文取消。
+	// 这种请求已经正常完成，不能被后续上下文状态改记为客户端取消。
+	if info != nil && info.IsStream && info.StreamStatus != nil &&
+		info.StreamStatus.IsNormalEnd() && !info.StreamStatus.HasErrors() && relayErr == nil {
+		return channelmetrics.OutcomeSuccess, channelmetrics.FailureOwnerNone, channelmetrics.ErrorStageNone, upstreamStarted
+	}
 	if relayErr != nil && requestErrorMatchesCancellation(c, relayErr) {
 		return channelmetrics.OutcomeClientCancelled, channelmetrics.FailureOwnerClient, channelmetrics.ErrorStageConnect, false
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -34,6 +35,9 @@ type proxyHTTPClientCache struct {
 	clients map[string]*http.Client
 	aliases map[string]string // rawProxyURL -> canonicalProxyURL
 }
+
+// maxTimeoutSeconds 是转换为 time.Duration 时不会溢出的最大秒数。
+const maxTimeoutSeconds = int64(math.MaxInt64 / int64(time.Second))
 
 type proxyURLConfig struct {
 	parsedURL *url.URL
@@ -91,6 +95,13 @@ func newRelayHTTPTransport() *http.Transport {
 	transport.MaxIdleConns = common.RelayMaxIdleConns
 	transport.MaxIdleConnsPerHost = common.RelayMaxIdleConnsPerHost
 	transport.IdleConnTimeout = time.Duration(common.RelayIdleConnTimeout) * time.Second
+	if seconds := common.RelayResponseHeaderTimeout; seconds > 0 {
+		seconds64 := int64(seconds)
+		if seconds64 > maxTimeoutSeconds {
+			seconds64 = maxTimeoutSeconds
+		}
+		transport.ResponseHeaderTimeout = time.Duration(seconds64) * time.Second
+	}
 	transport.ForceAttemptHTTP2 = true
 	if common.TLSInsecureSkipVerify {
 		transport.TLSClientConfig = common.InsecureTLSConfig
