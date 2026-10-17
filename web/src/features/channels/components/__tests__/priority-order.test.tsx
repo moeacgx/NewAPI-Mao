@@ -34,6 +34,10 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+// The channel table only needs the icon lookup shape in this behavioral test;
+// mocking the large icon package also avoids Node's JSON import-attribute gap.
+vi.mock('@lobehub/icons', () => ({}))
+
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
