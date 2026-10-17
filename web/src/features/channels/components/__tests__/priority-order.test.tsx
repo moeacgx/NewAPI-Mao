@@ -306,7 +306,7 @@ test('card and table views share the saved order', async () => {
   fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder channel 3' }), {
     key: 'ArrowUp',
   })
-  await screen.findByRole('button', { name: 'Undo' }, { timeout: 5000 })
+  await screen.findByRole('button', { name: 'Undo' })
   const views = screen.queryByRole('group', { name: 'View mode' })
   if (views) {
     const cardView = within(views).queryByRole('button', { name: 'Card view' })
@@ -392,7 +392,7 @@ test('a quick card pointer drag saves even when released before an animation fra
   fireEvent.pointerMove(scope, { pointerId: 1, clientX: 340, clientY: 150 })
   fireEvent.pointerUp(scope, { pointerId: 1, clientX: 340, clientY: 150 })
   fireEvent.lostPointerCapture(scope, { pointerId: 1 })
-  await screen.findByRole('button', { name: 'Undo' })
+  await screen.findByRole('button', { name: 'Undo' }, { timeout: 5000 })
   expect(requests.filter((request) => !request.preview)).toEqual([
     { id: 3, target_id: 2, position: 'before', revision: 'initial' },
   ])
