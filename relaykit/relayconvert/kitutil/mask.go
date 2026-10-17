@@ -14,8 +14,9 @@ var (
 	// as double quotes and angle or curly brackets, so a URL quoted in an error
 	// keeps its delimiters. Apostrophes and parentheses are valid inside a URL;
 	// the caller trims them, like other punctuation, only when they trail it.
-	maskURLPattern = regexp.MustCompile(`(?:https?|wss?)://[^\s"<>{}]+`)
-	maskIPPattern  = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	maskURLPattern    = regexp.MustCompile(`(?:https?|wss?)://[^\s"<>{}]+`)
+	maskDomainPattern = regexp.MustCompile(`\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b`)
+	maskIPPattern     = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
 	// maskBracketedIPv6Pattern matches the bracketed form Go network errors use
 	// for IPv6 addresses, as in "dial tcp [2001:db8::1]:443", with an optional
 	// zone; the caller confirms the content parses as an IP.
@@ -202,6 +203,9 @@ func MaskSensitiveInfo(str string, upstreamURLs ...string) string {
 	})
 	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
 	if len(upstreamHosts) == 0 {
+		if len(upstreamURLs) == 0 {
+			str = maskDomainPattern.ReplaceAllStringFunc(str, maskHostForPlainDomain)
+		}
 		return str
 	}
 
