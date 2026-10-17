@@ -34,11 +34,11 @@ func TestQuotaReminderDueHonorsSiteAndUserSwitches(t *testing.T) {
 	})
 	common.QuotaRemindThreshold = 100
 	setting := dto.UserSetting{}
-	setting.QuotaWarningEnabled = boolPtr(false)
+	setting.QuotaWarningEnabled = quotaBoolPtr(false)
 	require.False(t, quotaReminderDue(setting, 120, 90))
-	setting.QuotaWarningEnabled = boolPtr(true)
+	setting.QuotaWarningEnabled = quotaBoolPtr(true)
 	common.QuotaRemindEnabled = false
 	require.False(t, quotaReminderDue(setting, 120, 90))
 }
 
-func boolPtr(value bool) *bool { return &value }
+func quotaBoolPtr(value bool) *bool { return &value }
