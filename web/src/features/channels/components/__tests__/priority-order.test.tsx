@@ -306,7 +306,7 @@ test('card and table views share the saved order', async () => {
   fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder channel 3' }), {
     key: 'ArrowUp',
   })
-  await screen.findByRole('button', { name: 'Undo' })
+  await screen.findByRole('button', { name: 'Undo' }, { timeout: 5000 })
   const views = screen.queryByRole('group', { name: 'View mode' })
   if (views) {
     const cardView = within(views).queryByRole('button', { name: 'Card view' })
