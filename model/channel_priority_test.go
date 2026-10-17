@@ -83,12 +83,12 @@ func TestChannelPriorityDatabaseMatrix(t *testing.T) {
 			previousDB, previousType := DB, common.MainDatabaseType()
 			DB = db
 			common.SetMainDatabaseType(common.DatabaseType(dialect))
-			initCol()
+			InitDBColumns()
 			t.Cleanup(func() {
 				require.NoError(t, db.Migrator().DropTable(&Ability{}, &Channel{}))
 				DB = previousDB
 				common.SetMainDatabaseType(previousType)
-				initCol()
+				InitDBColumns()
 				require.NoError(t, sqlDB.Close())
 			})
 			require.NoError(t, db.AutoMigrate(&Channel{}, &Ability{}))

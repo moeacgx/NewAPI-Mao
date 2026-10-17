@@ -21,13 +21,13 @@ func GetChannelPriorityOrder(c *gin.Context) {
 func ReorderChannelPriority(c *gin.Context) {
 	var move model.ChannelPriorityMove
 	if err := common.DecodeJson(c.Request.Body, &move); err != nil {
-		common.ApiErrorT(c, "Invalid channel priority move")
+		common.ApiErrorMsg(c, "Invalid channel priority move")
 		return
 	}
 	order, err := model.ReorderChannelPriority(move)
 	if err != nil {
 		if errors.Is(err, model.ErrChannelPriorityConflict) || errors.Is(err, model.ErrChannelPriorityInvalid) || errors.Is(err, model.ErrChannelPriorityRange) {
-			common.ApiErrorT(c, err.Error())
+			common.ApiErrorMsg(c, err.Error())
 		} else {
 			common.ApiError(c, err)
 		}
