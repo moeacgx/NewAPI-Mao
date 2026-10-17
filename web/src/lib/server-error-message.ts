@@ -58,3 +58,16 @@ export function getServerErrorMessageKey(value: unknown): string | null {
     ] ?? null
   )
 }
+
+
+/** Queries reject failed business responses without changing the raw API contract. */
+export function requireServerSuccess<T>(response: T): T {
+  if (isRecord(response) && response.success === false) {
+    const message =
+      typeof response.message === 'string'
+        ? response.message
+        : 'Server request failed'
+    throw new Error(message)
+  }
+  return response
+}
