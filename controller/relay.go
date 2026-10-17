@@ -653,15 +653,16 @@ func writeRelayErrorResponse(c *gin.Context, ws *websocket.Conn, relayFormat typ
 	if relayFormat != types.RelayFormatOpenAIRealtime {
 		helper.ResetEventStreamHeadersForRetry(c)
 	}
+	upstreamURLs := common.UpstreamAddresses(c)
 	switch relayFormat {
 	case types.RelayFormatOpenAIRealtime:
-		clientError, _ := clientOpenAIError(relayErr, requestID)
+		clientError, _ := clientOpenAIError(relayErr, requestID, upstreamURLs...)
 		helper.WssError(c, ws, clientError)
 	case types.RelayFormatClaude:
-		clientError, statusCode := clientClaudeError(relayErr, requestID)
+		clientError, statusCode := clientClaudeError(relayErr, requestID, upstreamURLs...)
 		c.JSON(statusCode, gin.H{"type": "error", "error": clientError})
 	default:
-		openAIError := relayErr.ToOpenAIError()
+		openAIError := relayErr.ToOpenAIError(upstreamURLs...)
 		if relayErr.GetErrorCode() == types.ErrorCodeSensitiveWordsDetected {
 			openAIError = service.SensitiveFilterClientOpenAIError(relayErr)
 		}
@@ -877,12 +878,16 @@ func shouldRetryInternal(c *gin.Context, openaiErr *types.NewAPIError, retryTime
 
 // relayErrorLogDisplayContent 返回客户端实际看到的错误，以及替换发生时供管理员对照的上游原文。
 func relayErrorLogDisplayContent(err *types.NewAPIError) (string, string) {
+	return relayErrorLogDisplayContentWithUpstream(err)
+}
+
+func relayErrorLogDisplayContentWithUpstream(err *types.NewAPIError, upstreamURLs ...string) (string, string) {
 	if err == nil {
 		return "", ""
 	}
 
-	upstreamContent := err.MaskSensitiveErrorWithStatusCode()
-	clientError := err.ToOpenAIError()
+	upstreamContent := err.MaskSensitiveErrorWithStatusCode(upstreamURLs...)
+	clientError := err.ToOpenAIError(upstreamURLs...)
 	clientMessage := clientError.Message
 	clientStatusCode := err.StatusCode
 	replaced := false
@@ -914,6 +919,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		return
 	}
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+	upstreamURLs := common.UpstreamAddresses(c)
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
 	if service.ShouldDisableChannel(err) && channelError.AutoBan {
@@ -940,7 +946,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
-		displayContent, upstreamContent := relayErrorLogDisplayContent(err)
+		displayContent, upstreamContent := relayErrorLogDisplayContentWithUpstream(err, upstreamURLs...)
 		if upstreamContent != "" {
 			other["upstream_error"] = upstreamContent
 		}
