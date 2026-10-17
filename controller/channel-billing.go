@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -356,6 +357,59 @@ func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	return availableBalanceUsd, nil
 }
 
+// updateChannelSub2APIBalance reads the balance reported by a Sub2API
+// provider. Sub2API returns `remaining` for subscription keys and `balance`
+// for wallet keys, so prefer the former when both fields are present.
+func updateChannelSub2APIBalance(channel *model.Channel) (float64, error) {
+	baseURL := strings.TrimSpace(channel.GetBaseURL())
+	if baseURL == "" {
+		return 0, errors.New("Sub2API channel is missing base_url")
+	}
+
+	body, err := GetResponseBody("GET", strings.TrimRight(baseURL, "/")+"/v1/usage", channel, GetAuthHeader(channel.Key))
+	if err != nil {
+		return 0, err
+	}
+
+	var usage struct {
+		Balance      *float64 `json:"balance"`
+		Remaining    *float64 `json:"remaining"`
+		IsValid      *bool    `json:"isValid"`
+		Subscription *struct {
+			DailyLimitUSD   *float64 `json:"daily_limit_usd"`
+			WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
+			MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
+		} `json:"subscription"`
+	}
+	if err := common.Unmarshal(body, &usage); err != nil {
+		return 0, err
+	}
+	if usage.IsValid != nil && !*usage.IsValid {
+		return 0, errors.New("Sub2API key is invalid (isValid=false)")
+	}
+
+	balance := usage.Remaining
+	if balance == nil {
+		balance = usage.Balance
+	}
+	if balance == nil {
+		return 0, errors.New("Sub2API /v1/usage response is missing remaining and balance fields (the key may belong to a subscription group without an available balance)")
+	}
+
+	// An unrestricted subscription may report remaining=-1. Do not overwrite a
+	// previously known wallet balance with that sentinel value. A negative
+	// wallet balance remains valid, so identify the sentinel from the limits.
+	if subscription := usage.Subscription; subscription != nil &&
+		subscription.DailyLimitUSD == nil &&
+		subscription.WeeklyLimitUSD == nil &&
+		subscription.MonthlyLimitUSD == nil {
+		return 0, errors.New("Sub2API /v1/usage reports an unlimited subscription without a finite balance")
+	}
+
+	channel.UpdateBalance(*balance)
+	return *balance, nil
+}
+
 func updateChannelBalance(channel *model.Channel) (float64, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
@@ -386,6 +440,8 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 		return updateChannelOpenRouterBalance(channel)
 	case constant.ChannelTypeMoonshot:
 		return updateChannelMoonshotBalance(channel)
+	case constant.ChannelTypeSub2API:
+		return updateChannelSub2APIBalance(channel)
 	default:
 		return 0, errors.New("尚未实现")
 	}
