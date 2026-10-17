@@ -21,7 +21,7 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 		},
 		{
 			name:         "bracketed IPv6 addresses are masked without an upstream address",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `dial tcp [2a01:4f8::1]:443: i/o timeout; lookup api.example.com on [::1]:53; dial tcp [fe80::1%eth0]:443; dial tcp [::ffff:10.0.0.1]:443; items[0] and [1:2] stay`,
 			want:         `dial tcp [***]:443: i/o timeout; lookup api.example.com on [***]:53; dial tcp [***]:443; dial tcp [***]:443; items[0] and [1:2] stay`,
 		},
@@ -33,7 +33,7 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 		},
 		{
 			name:         "no upstream address still masks API key values",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `invalid api_key:AIzaSyAAAaUooTUni8AdaOkSRMda30n_Q4vrV70`,
 			want:         `invalid api_key:***`,
 		},
@@ -45,25 +45,25 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 		},
 		{
 			name:         "parentheses inside a URL keep its query masked",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `failed to download https://cdn.example/image(1).png?token=secret (status 403)`,
 			want:         `failed to download https://cdn.example/image(1).png?token=*** (status 403)`,
 		},
 		{
 			name:         "apostrophes inside a URL keep its query and userinfo masked",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `failed to download https://cdn.example/John's-photo.png?token=secret from 'https://o'neil:pw@cdn.example/a?sig=1'`,
 			want:         `failed to download https://cdn.example/John's-photo.png?token=*** from 'https://***@cdn.example/a?sig=***'`,
 		},
 		{
 			name:         "userinfo is masked on any host",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `downloading https://alice:secret@cdn.example/file.png and https://bob@cdn.example/a?sig=1`,
 			want:         `downloading https://***@cdn.example/file.png and https://***@cdn.example/a?sig=***`,
 		},
 		{
 			name:         "query values are masked without an upstream address",
-			upstreamURLs: nil,
+			upstreamURLs: []string{""},
 			input:        `request to https://generativelanguage.googleapis.com/v1beta/models?key=AIza-secret failed`,
 			want:         `request to https://generativelanguage.googleapis.com/v1beta/models?key=*** failed`,
 		},

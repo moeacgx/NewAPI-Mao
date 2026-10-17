@@ -213,9 +213,6 @@ func UpstreamAddresses(c *gin.Context) []string {
 			addresses = append(addresses, address)
 		}
 	}
-	if len(addresses) == 0 {
-		return []string{""}
-	}
 	return addresses
 }
 

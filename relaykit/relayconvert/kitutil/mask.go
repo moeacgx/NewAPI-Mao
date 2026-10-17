@@ -64,6 +64,41 @@ func maskHostForPlainDomain(domain string) string {
 	return stars + "." + strings.Join(tail, ".")
 }
 
+// maskAllSensitiveInfo preserves the historical helper behavior for callers
+// that do not have request context: every URL host/path and bare domain is
+// masked. Relay error paths pass an explicit address slice and use the scoped
+// behavior below instead.
+func maskAllSensitiveInfo(str string) string {
+	str = maskApiKeyPattern.ReplaceAllString(str, "${1}api_key:***${3}")
+	str = maskURLPattern.ReplaceAllStringFunc(str, func(match string) string {
+		urlStr := strings.TrimRight(match, ".,;:!?'")
+		u, err := url.Parse(urlStr)
+		if err != nil || u.Host == "" {
+			return match
+		}
+		result := u.Scheme + "://" + maskHostForURL(strings.TrimSuffix(u.Hostname(), "."))
+		if port := u.Port(); port != "" {
+			result += ":" + port
+		}
+		if u.Path != "" && u.Path != "/" {
+			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+			result += "/" + strings.Trim(strings.Repeat("***/", len(parts)), "/")
+		} else if u.Path == "/" {
+			result += "/"
+		}
+		if u.RawQuery != "" {
+			result += maskURLQuery(u.RawQuery)
+		}
+		return result + match[len(urlStr):]
+	})
+	str = maskDomainPattern.ReplaceAllStringFunc(str, maskHostForPlainDomain)
+	str = maskBracketedIPv6Pattern.ReplaceAllStringFunc(str, func(match string) string {
+		return "[***]"
+	})
+	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
+	return str
+}
+
 // maskURLQuery keeps the parameter names of a raw query and masks the values.
 // Example: key=secret&alt=sse -> ?alt=***&key=***
 func maskURLQuery(rawQuery string) string {
@@ -100,6 +135,9 @@ func maskURLQuery(rawQuery string) string {
 // https://docs.example.org/errors -> unchanged
 // https://auth.example.org/token?client_secret=s -> https://auth.example.org/token?client_secret=***
 func MaskSensitiveInfo(str string, upstreamURLs ...string) string {
+	if len(upstreamURLs) == 0 {
+		return maskAllSensitiveInfo(str)
+	}
 	// Mask API keys (e.g., "api_key:AIzaSyAAAaUooTUni8AdaOkSRMda30n_Q4vrV70" -> "api_key:***")
 	str = maskApiKeyPattern.ReplaceAllString(str, "${1}api_key:***${3}")
 
