@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -54,6 +55,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
+	// DeepSeek runs Claude Code and Codex searches server-side and bills them
+	// through its Search API, whatever model name the client sent.
+	info.WebSearchBillingKey = SearchToolPriceKey
+	if info.RelayMode == constant.RelayModeResponses {
+		info.VendorToolUsage = responsesToolUsage
+	}
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -70,6 +77,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			return fmt.Sprintf("%s/completions", fimBaseUrl), nil
 		case constant.RelayModeResponses:
 			return fmt.Sprintf("%s/responses", info.ChannelBaseUrl), nil
+		case constant.RelayModeToolsSearch:
+			return fmt.Sprintf("%s/v1/tools/search", info.ChannelBaseUrl), nil
+		case constant.RelayModeToolsFetch:
+			return fmt.Sprintf("%s/v1/tools/fetch", info.ChannelBaseUrl), nil
 		default:
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 		}
@@ -89,6 +100,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if err := applyDeepSeekV4OpenAIThinkingSuffix(info, request); err != nil {
 		return nil, err
 	}
+	applyDeepSeekModelModifier(info, request)
 
 	return request, nil
 }
@@ -127,20 +139,29 @@ func applyDeepSeekV4ClaudeThinkingSuffix(info *relaycommon.RelayInfo, request *d
 	}
 	baseModel, thinkingType, effort, ok := reasoning.ParseDeepSeekV4ThinkingSuffix(modelName)
 	if !ok {
+		applyDeepSeekClaudeModelModifier(info, request)
 		return nil
 	}
 	request.Model = baseModel
 	request.Thinking = &dto.Thinking{Type: thinkingType}
-	if effort == "" {
-		request.OutputConfig = nil
-	} else {
-		outputConfig, err := common.Marshal(map[string]string{
-			"effort": effort,
-		})
+	// Only effort is set or removed; other output_config members stay.
+	outputConfig := make(map[string]any)
+	if len(request.OutputConfig) > 0 && common.GetJsonType(request.OutputConfig) == "object" {
+		if err := common.Unmarshal(request.OutputConfig, &outputConfig); err != nil {
+			return fmt.Errorf("invalid output_config: %w", err)
+		}
+	}
+	delete(outputConfig, "effort")
+	if effort != "" {
+		outputConfig["effort"] = effort
+	}
+	request.OutputConfig = nil
+	if len(outputConfig) > 0 {
+		encoded, err := common.Marshal(outputConfig)
 		if err != nil {
 			return fmt.Errorf("error marshalling output_config: %w", err)
 		}
-		request.OutputConfig = outputConfig
+		request.OutputConfig = encoded
 	}
 	if info != nil {
 		if info.ChannelMeta != nil {
@@ -162,7 +183,134 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(_ *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
 	applyDeepSeekV4ResponsesThinkingSuffix(info, &request)
+	applyDeepSeekResponsesModelModifier(info, &request)
 	return request, nil
+}
+
+// applyDeepSeekModelModifier handles the provider-specific @ controls without
+// changing the shared model-modifier pipeline. These controls are accepted on
+// DeepSeek V4.1 model aliases and are stripped before the upstream request.
+func applyDeepSeekModelModifier(info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) {
+	base, thinking, effort, temperature, ok := parseDeepSeekModelModifier(request.Model)
+	if !ok {
+		return
+	}
+	request.Model = base
+	request.Temperature = temperature
+	request.THINKING, _ = common.Marshal(map[string]string{"type": thinking})
+	request.ReasoningEffort = effort
+	request.Reasoning = nil
+	if info != nil {
+		info.SetReasoningEffort(deepSeekLogEffort(thinking, effort))
+		if info.ChannelMeta != nil {
+			info.UpstreamModelName = base
+		}
+	}
+}
+
+func applyDeepSeekClaudeModelModifier(info *relaycommon.RelayInfo, request *dto.ClaudeRequest) {
+	base, thinking, effort, temperature, ok := parseDeepSeekModelModifier(request.Model)
+	if !ok {
+		return
+	}
+	request.Model = base
+	request.Thinking = &dto.Thinking{Type: thinking}
+	request.Temperature = temperature
+	if effort == "" {
+		request.OutputConfig = nil
+	} else {
+		request.OutputConfig, _ = common.Marshal(map[string]string{"effort": effort})
+	}
+	if info != nil {
+		info.SetReasoningEffort(deepSeekLogEffort(thinking, effort))
+		if info.ChannelMeta != nil {
+			info.UpstreamModelName = base
+		}
+	}
+}
+
+func applyDeepSeekResponsesModelModifier(info *relaycommon.RelayInfo, request *dto.OpenAIResponsesRequest) {
+	base, thinking, effort, _, ok := parseDeepSeekModelModifier(request.Model)
+	if !ok {
+		return
+	}
+	request.Model = base
+	if request.Reasoning == nil {
+		request.Reasoning = &dto.Reasoning{}
+	}
+	if thinking == "disabled" {
+		effort = "none"
+	}
+	request.Reasoning.Effort = effort
+	if info != nil {
+		info.SetReasoningEffort(deepSeekLogEffort(thinking, effort))
+		if info.ChannelMeta != nil {
+			info.UpstreamModelName = base
+		}
+	}
+}
+
+func parseDeepSeekModelModifier(model string) (base, thinking, effort string, temperature *float64, ok bool) {
+	parts := strings.Split(model, "@")
+	if len(parts) < 2 || !strings.HasPrefix(parts[0], "deepseek-") {
+		return model, "", "", nil, false
+	}
+	base = parts[0]
+	// A provider suffix and an explicit @ modifier may be combined. The @
+	// control wins, but the legacy tail must still be removed from the model ID.
+	if suffixBase, _, _, suffixOK := reasoning.ParseDeepSeekV4ThinkingSuffix(base); suffixOK {
+		base = suffixBase
+	}
+	thinking = "enabled"
+	for _, part := range parts[1:] {
+		key, value, found := strings.Cut(strings.ToLower(strings.TrimSpace(part)), ":")
+		if !found {
+			continue
+		}
+		switch key {
+		case "thinking":
+			switch value {
+			case "off", "none", "0":
+				thinking, effort = "disabled", ""
+			case "on", "adaptive":
+				thinking, effort = "enabled", ""
+			default:
+				if budget, err := strconv.Atoi(value); err == nil && budget > 0 {
+					thinking, effort = "enabled", "medium"
+				}
+			}
+		case "effort":
+			if value == "none" {
+				thinking, effort = "disabled", ""
+			} else if slicesContains([]string{"low", "medium", "high", "xhigh", "max"}, value) {
+				thinking, effort = "enabled", value
+			}
+		case "temperature":
+			if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+				temperature = &parsed
+			}
+		}
+	}
+	return base, thinking, effort, temperature, true
+}
+
+func slicesContains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func deepSeekLogEffort(thinking, effort string) string {
+	if thinking == "disabled" {
+		return "none"
+	}
+	if effort == "" || effort == "medium" || effort == "xhigh" {
+		return "high"
+	}
+	return effort
 }
 
 func applyDeepSeekV4ResponsesThinkingSuffix(info *relaycommon.RelayInfo, request *dto.OpenAIResponsesRequest) {
@@ -171,21 +319,27 @@ func applyDeepSeekV4ResponsesThinkingSuffix(info *relaycommon.RelayInfo, request
 		modelName = info.UpstreamModelName
 	}
 	baseModel, thinkingType, effort, ok := reasoning.ParseDeepSeekV4ThinkingSuffix(modelName)
-	if ok {
-		if thinkingType == "disabled" {
-			effort = "none"
+	if !ok {
+		if info != nil && request.Reasoning != nil {
+			info.SetReasoningEffort(request.Reasoning.Effort)
 		}
-		request.Model = baseModel
-		if request.Reasoning == nil {
-			request.Reasoning = &dto.Reasoning{}
-		}
+		return
+	}
+	if thinkingType == "disabled" {
+		effort = "none"
+	}
+	request.Model = baseModel
+	if request.Reasoning == nil && effort != "" {
+		request.Reasoning = &dto.Reasoning{}
+	}
+	if request.Reasoning != nil {
 		request.Reasoning.Effort = effort
-		if info != nil && info.ChannelMeta != nil {
+	}
+	if info != nil {
+		if info.ChannelMeta != nil {
 			info.UpstreamModelName = baseModel
 		}
-	}
-	if info != nil && request.Reasoning != nil {
-		info.SetReasoningEffort(request.Reasoning.Effort)
+		info.SetReasoningEffort(effort)
 	}
 }
 
