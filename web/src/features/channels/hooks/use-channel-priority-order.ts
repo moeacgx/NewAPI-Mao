@@ -192,10 +192,14 @@ export function useChannelPriorityOrder(props: {
         snapshot.items.map((item) => [item.id, item.priority])
       )
       const stale = current.expected.some(
-        (item) => (latestByID.get(item.id) ?? null) !== item.priority
+        (item) =>
+          !latestByID.has(item.id) ||
+          (latestByID.get(item.id) ?? null) !== item.priority
       )
       if (stale) {
-        throw new Error(t('Channel priorities changed. Refresh and try again.'))
+        toast.error(t('Channel priorities changed. Refresh and try again.'))
+        await client.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+        return
       }
       await save({ ...current.drop, revision: snapshot.revision })
     } catch (error) {

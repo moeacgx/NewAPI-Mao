@@ -32,11 +32,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-
-// The channel table only needs the icon lookup shape in this behavioral test;
-// mock the local loader so the test does not import the icon package's JSON data.
-vi.mock('@/lib/lobe-icon', () => ({ getLobeIcon: () => null }))
 
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -49,6 +46,10 @@ import type { Channel } from '../../types'
 import { ChannelsPrimaryButtons } from '../channels-primary-buttons'
 import { ChannelsProvider } from '../channels-provider'
 import { ChannelsTable } from '../channels-table'
+
+// The channel table only needs the icon lookup shape in this behavioral test;
+// mock the local loader so the test does not import the icon package's JSON data.
+vi.mock('@/lib/lobe-icon', () => ({ getLobeIcon: () => null }))
 
 const initial: PriorityOrder = {
   revision: 'initial',
@@ -300,6 +301,44 @@ test('failed save restores the visible order and does not offer undo', async () 
   expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
 })
 
+test.each(['table', 'card'] as const)(
+  '%s rejects an outdated visible target and refreshes the list to the other administrator order',
+  async (view) => {
+    const conflictToast = vi.spyOn(toast, 'error')
+    await mount(view)
+    current = {
+      revision: 'other-admin-edit',
+      items: [
+        { id: 1, priority: 100 },
+        { id: 2, priority: 120 },
+        { id: 3, priority: 0 },
+      ],
+      changes: [],
+    }
+
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Reorder channel 3' }),
+      {
+        key: 'ArrowUp',
+      }
+    )
+
+    await waitFor(() =>
+      expect(orderInView()).toEqual(['channel:2', 'channel:1', 'channel:3'])
+    )
+    expect(requests).toEqual([])
+    expect(conflictToast).toHaveBeenCalledExactlyOnceWith(
+      'Channel priorities changed. Refresh and try again.'
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Undo' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Reorder channel 3' })
+    ).toBeEnabled()
+  }
+)
+
 test('card and table views share the saved order', async () => {
   await mount()
   const user = userEvent.setup()
@@ -307,17 +346,22 @@ test('card and table views share the saved order', async () => {
     key: 'ArrowUp',
   })
   await screen.findByRole('button', { name: 'Undo' })
-  const views = screen.queryByRole('group', { name: 'View mode' })
-  if (views) {
-    const cardView = within(views).queryByRole('button', { name: 'Card view' })
-    const tableView = within(views).queryByRole('button', { name: 'Table view' })
-    if (cardView && tableView) {
-      cardView.focus()
-      await user.tab()
-      await user.keyboard('{Enter}')
-      await screen.findByRole('table')
-    }
-  }
+  const views = within(screen.getByRole('group', { name: 'View mode' }))
+  const cardView = views.getByRole('button', { name: 'Card view' })
+  const tableView = views.getByRole('button', { name: 'Table view' })
+  expect(cardView).toHaveAttribute('aria-pressed', 'true')
+  cardView.focus()
+  await user.tab()
+  expect(tableView).toHaveFocus()
+  await user.keyboard('{Enter}')
+  expect(await screen.findByRole('table')).toBeVisible()
+  expect(tableView).toHaveAttribute('aria-pressed', 'true')
+  expect(orderInView()).toEqual(['channel:1', 'channel:3', 'channel:2'])
+  await user.click(cardView)
+  await waitFor(() =>
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  )
+  expect(cardView).toHaveAttribute('aria-pressed', 'true')
   expect(orderInView()).toEqual(['channel:1', 'channel:3', 'channel:2'])
 })
 
@@ -331,11 +375,10 @@ test('mobile view keeps channel controls available', async () => {
   const user = userEvent.setup()
   expect(screen.getByRole('button', { name: 'Refresh' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Drag mode' })).toBeVisible()
-  const tableView = screen.queryByRole('button', { name: 'Table view' })
-  if (tableView) {
-    await user.click(tableView)
-    expect(await screen.findByRole('table')).toBeVisible()
-  }
+  const tableView = screen.getByRole('button', { name: 'Table view' })
+  await user.click(tableView)
+  expect(await screen.findByRole('table')).toBeVisible()
+  expect(tableView).toHaveAttribute('aria-pressed', 'true')
 })
 
 function pointerGeometry() {
@@ -587,8 +630,12 @@ test('sorting a table column updates the header selection and remains active in 
     header.getByRole('combobox', { name: 'Sort channels by' })
   ).toHaveTextContent('Name')
   expect(header.getByRole('button', { name: 'Ascending' })).toBeEnabled()
-  const cardView = screen.queryByRole('button', { name: 'Card view' })
-  if (cardView) await user.click(cardView)
+  const cardView = screen.getByRole('button', { name: 'Card view' })
+  await user.click(cardView)
+  await waitFor(() =>
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  )
+  expect(cardView).toHaveAttribute('aria-pressed', 'true')
   expect(
     header.getByRole('combobox', { name: 'Sort channels by' })
   ).toHaveTextContent('Name')
