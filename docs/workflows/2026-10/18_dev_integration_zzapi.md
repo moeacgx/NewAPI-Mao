@@ -112,3 +112,21 @@ Go 测试单次设置 `-timeout 60s`，独立 relaykit 使用 `GOWORK=off`。
   `upstream prematurely closed`、超时、broken pipe 或 connection reset。该统计是日志字样计数，
   不能单独证明每条 499/502 的完整请求链路原因。
 - 未执行登录态浏览器、真实付费上游或持续负载测试；本次生产观察也没有证明 499 已消失。
+
+### maolaoapi Nginx 反代与日志轮转（2026-10-18）
+
+- 仅修改生产机 Nginx 配置，未修改渠道观测中心代码。
+- `maolaoapi.com` 三个应用上游改为 `max_fails=5 fail_timeout=10s`，减少短暂节点重启时
+  被全部标记为不可用的窗口。
+- 应用反代仅对连接错误、超时、无效响应头和 502/503/504 做有限重试，
+  每个请求最多 2 次、最多 10 秒；不再把 404 当作上游故障重试。
+- 新增 JSON 访问日志字段：请求时间、上游地址、上游状态、连接/响应头/响应耗时、
+  Cloudflare Ray ID 和 `CF-Connecting-IP`，便于区分客户端断开、Cloudflare 和后端节点问题。
+- 现有约 12GB 的 `/www/wwwlogs/maolaoapi.com.log` 与错误日志未删除，已移动到
+  `/www/wwwlogs/history_backups/maolaoapi.com/`，对应生产备份目录为
+  `/home/docker/maolaoapi/backups/nginx-observability-20261018-095318`。
+- `/etc/logrotate.d/maolaoapi-nginx` 已配置每日轮转或单文件超过 500MB 时轮转，
+  压缩并保留 14 份；轮转后通过 Nginx reopen 重新打开日志文件。
+- `nginx -t`、平滑 reload、两个公网域名 `/api/status` 和三个应用容器健康检查均通过。
+- 新日志当前权限为 `0600 www:www`。旧日志归档仍保留，确认不再需要排障证据后再单独删除，
+  不在本次操作中自动清理。
