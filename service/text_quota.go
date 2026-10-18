@@ -298,6 +298,13 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	dModelRatio := decimal.NewFromFloat(summary.ModelRatio)
 	dGroupRatio := decimal.NewFromFloat(summary.GroupRatio)
 	dModelPrice := decimal.NewFromFloat(summary.ModelPrice)
+	// DeepSeek Search/Fetch are request-priced tool endpoints. Their successful
+	// call is represented by the tool surcharge below; the routing model price
+	// must not be charged a second time when the response has zero tokens.
+	if relayInfo.RelayMode == relayconstant.RelayModeToolsSearch ||
+		relayInfo.RelayMode == relayconstant.RelayModeToolsFetch {
+		dModelPrice = decimal.Zero
+	}
 	dCacheCreationRatio := decimal.NewFromFloat(summary.CacheCreationRatio)
 	dCacheCreationRatio5m := decimal.NewFromFloat(summary.CacheCreationRatio5m)
 	dCacheCreationRatio1h := decimal.NewFromFloat(summary.CacheCreationRatio1h)

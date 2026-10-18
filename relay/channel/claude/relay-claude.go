@@ -150,7 +150,11 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 		claudeResponse.Usage != nil &&
 		claudeResponse.Usage.ServerToolUse != nil &&
 		claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		if info.WebSearchBillingKey != "" {
+			info.SetBillableToolCount(info.WebSearchBillingKey, claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		} else {
+			c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		}
 	}
 }
 
@@ -253,6 +257,7 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		claudeInfo.Usage.ClaudeCacheCreation5mTokens = claudeResponse.Usage.GetCacheCreation5mTokens()
 		claudeInfo.Usage.ClaudeCacheCreation1hTokens = claudeResponse.Usage.GetCacheCreation1hTokens()
 	}
+	info.ApplyVendorToolUsage(data)
 	var responseData []byte
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
@@ -267,7 +272,11 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	}
 
 	if claudeResponse.Usage != nil && claudeResponse.Usage.ServerToolUse != nil && claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		if info.WebSearchBillingKey != "" {
+			info.SetBillableToolCount(info.WebSearchBillingKey, claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		} else {
+			c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		}
 	}
 
 	for _, block := range claudeResponse.Content {
