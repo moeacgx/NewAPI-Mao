@@ -58,7 +58,9 @@ jobs:
         run: go build ./...
 
       - name: Test root and relaykit modules
-        run: make test
+        run: |
+          go test ./... -timeout 60s
+          cd relaykit && go test ./... -timeout 60s
 
   frontend:
     name: Frontend typecheck and test
