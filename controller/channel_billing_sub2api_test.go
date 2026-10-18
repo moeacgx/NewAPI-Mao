@@ -24,7 +24,10 @@ func setupSub2APIBalanceTest(t *testing.T) {
 	sqlDB.SetMaxOpenConns(1)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}))
 	model.DB = db
-	t.Cleanup(func() { model.DB = originalDB })
+	t.Cleanup(func() {
+		model.DB = originalDB
+		require.NoError(t, sqlDB.Close())
+	})
 }
 
 func newSub2APITestChannel(t *testing.T, baseURL string) *model.Channel {
@@ -103,4 +106,38 @@ func TestUpdateStandardChannelBalanceRoutesSub2API(t *testing.T) {
 	balance, err := updateChannelBalance(channel)
 	require.NoError(t, err)
 	assert.InDelta(t, 77.7, balance, 1e-9)
+}
+
+func TestSub2APIBalanceUnlimitedSentinelAndFiniteValues(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		body   string
+		want   float64
+		reject bool
+	}{
+		{"零限额的无限标记", `{"remaining":-1,"subscription":{"daily_limit_usd":0,"weekly_limit_usd":0,"monthly_limit_usd":0}}`, 12, true},
+		{"负限额的无限标记", `{"remaining":-1,"subscription":{"daily_limit_usd":-2}}`, 12, true},
+		{"无限订阅有限余额", `{"remaining":8,"subscription":{"daily_limit_usd":0}}`, 8, false},
+		{"无限订阅钱包回退", `{"balance":5,"subscription":{"daily_limit_usd":0}}`, 5, false},
+		{"普通钱包负余额", `{"balance":-1}`, -1, false},
+		{"有限订阅负余额", `{"remaining":-1,"subscription":{"daily_limit_usd":10}}`, -1, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			setupSub2APIBalanceTest(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(tt.body)) }))
+			defer server.Close()
+			channel := newSub2APITestChannel(t, server.URL)
+			channel.UpdateBalance(12)
+			balance, err := updateChannelBalance(channel)
+			if tt.reject {
+				require.ErrorContains(t, err, "unlimited subscription")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, balance)
+			}
+			var stored model.Channel
+			require.NoError(t, model.DB.First(&stored, channel.Id).Error)
+			assert.Equal(t, tt.want, stored.Balance)
+		})
+	}
 }

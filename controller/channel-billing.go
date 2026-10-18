@@ -399,7 +399,7 @@ func updateChannelSub2APIBalance(channel *model.Channel) (float64, error) {
 	// An unrestricted subscription may report remaining=-1. Do not overwrite a
 	// previously known wallet balance with that sentinel value. A negative
 	// wallet balance remains valid, so identify the sentinel from the limits.
-	if subscription := usage.Subscription; subscription != nil &&
+	if subscription := usage.Subscription; usage.Remaining != nil && *usage.Remaining == -1 && subscription != nil &&
 		!hasPositiveSub2APILimit(subscription.DailyLimitUSD) &&
 		!hasPositiveSub2APILimit(subscription.WeeklyLimitUSD) &&
 		!hasPositiveSub2APILimit(subscription.MonthlyLimitUSD) {
