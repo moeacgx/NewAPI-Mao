@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "Pour AtlasCloud gpt-image-2/edit, appliquez le préréglage AtlasCloud et mettez à jour currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For example, 3 means the third returned order": "Par exemple, 3 désigne le troisième ordre renvoyé",
@@ -7268,6 +7268,14 @@
     "Move channels into a priority tier or between tiers. Priority values update automatically.": "Déplacez les canaux dans un même niveau ou entre deux niveaux. Les priorités sont calculées automatiquement.",
     "Pause drag demo": "Mettre la démo en pause",
     "Replay drag demo": "Revoir la démonstration",
-    "Resume drag demo": "Reprendre la démo"
+    "Resume drag demo": "Reprendre la démo",
+
+    "Channel notifications": "Channel notifications",
+    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
+    "Low balance reminder": "Low balance reminder",
+    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
+    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
+    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
+    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
   }
 }

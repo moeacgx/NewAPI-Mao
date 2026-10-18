@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "Với AtlasCloud gpt-image-2/edit, áp dụng cấu hình đặt sẵn AtlasCloud và cập nhật currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For example, 3 means the third returned order": "Ví dụ: 3 nghĩa là thứ tự trả về thứ ba",
@@ -7268,6 +7268,14 @@
     "Move channels into a priority tier or between tiers. Priority values update automatically.": "Kéo kênh vào cùng mức hoặc giữa các mức ưu tiên. Giá trị ưu tiên được tính tự động.",
     "Pause drag demo": "Tạm dừng minh họa kéo thả",
     "Replay drag demo": "Phát lại minh họa",
-    "Resume drag demo": "Tiếp tục minh họa kéo thả"
+    "Resume drag demo": "Tiếp tục minh họa kéo thả",
+
+    "Channel notifications": "Channel notifications",
+    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
+    "Low balance reminder": "Low balance reminder",
+    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
+    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
+    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
+    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
   }
 }
