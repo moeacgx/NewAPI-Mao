@@ -71,15 +71,20 @@ import {
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
-import { buildRetainedBillingDetails } from '../../lib/billing-details'
+import {
+  buildRetainedBillingDetails,
+  buildTieredBillingDetails,
+  formatBillingDetailNumber,
+  getBenefitBillingDetail,
+} from '../../lib/billing-details'
 import {
   parseLogOther,
   getParamOverrideActionLabel,
   parseAuditLine,
   decodeBillingExprB64,
   formatLogUseTime,
+  getUpstreamResponseModelName,
   getLogUseTimeSeconds,
-  getTieredBillingSummary,
   hasAnyCacheTokens,
   isViolationFeeLog,
   getFirstResponseTimeColor,
@@ -93,6 +98,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { WebSocketBadge } from '../websocket-badge'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -236,7 +242,6 @@ function BillingBreakdown(props: {
   const isPerCall = isPerCallBilling(other.model_price)
   const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
-  const tieredSummary = getTieredBillingSummary(other)
   const isRetainedMode =
     other.billing_mode === 'route_formula' ||
     other.billing_route_price_status === 'formula' ||
@@ -251,6 +256,22 @@ function BillingBreakdown(props: {
   const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
   const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
   const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
+  const benefitBreakdown = getBenefitBillingDetail(other)
+
+  if (benefitBreakdown) {
+    rows.push({
+      label: t('Benefit Voucher'),
+      value: formatLogQuota(benefitBreakdown.voucherQuota),
+    })
+    rows.push({
+      label: t('Subscription'),
+      value: formatLogQuota(benefitBreakdown.subscriptionQuota),
+    })
+    rows.push({
+      label: t('Wallet'),
+      value: formatLogQuota(benefitBreakdown.walletQuota),
+    })
+  }
 
   if (isRetainedMode) {
     const quotaPerUnit = getCurrencyDisplay().config.quotaPerUnit
@@ -269,28 +290,30 @@ function BillingBreakdown(props: {
       })
     }
   } else if (isTieredExpr) {
-    rows.push({
-      label: t('Billing Mode'),
-      value: t('Dynamic Pricing'),
-    })
-    if (tieredSummary) {
-      if (tieredSummary.tier.label) {
-        rows.push({
-          label: t('Matched Tier'),
-          value: tieredSummary.tier.label,
-        })
+    for (const row of buildTieredBillingDetails(
+      other,
+      {
+        promptTokens: log.prompt_tokens,
+        completionTokens: log.completion_tokens,
+      },
+      getCurrencyDisplay().config.quotaPerUnit
+    )) {
+      let value = row.value || '-'
+      if (row.valueKey) value = t(row.valueKey)
+      if (
+        row.pricePerMillionUSD != null &&
+        row.count != null &&
+        row.componentUSD != null
+      ) {
+        value = `${formatBillingDetailNumber(row.count)} × ${fmtPrice(row.pricePerMillionUSD)}/M = ${fmtPrice(row.componentUSD)}`
+      } else if (row.pricePerMillionUSD != null) {
+        value = `${fmtPrice(row.pricePerMillionUSD)}/M`
+      } else if (row.amountUSD != null) {
+        value = fmtPrice(row.amountUSD)
+      } else if (row.quotaAmount != null) {
+        value = formatLogQuota(row.quotaAmount)
       }
-      for (const entry of tieredSummary.priceEntries) {
-        rows.push({
-          label: t(entry.shortLabel),
-          value: `${fmtPrice(entry.price)}/M`,
-        })
-      }
-    } else {
-      rows.push({
-        label: t('Matched Tier'),
-        value: t('No matching results'),
-      })
+      rows.push({ label: t(row.labelKey), value })
     }
   } else if (isPerCall) {
     rows.push({ label: t('Billing Mode'), value: t('Per-call') })
@@ -565,6 +588,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const upstreamResponseModel = props.isAdmin
+    ? getUpstreamResponseModelName(other)
+    : undefined
+  const hasModelMapping = Boolean(
+    props.isAdmin && other?.is_model_mapped && other?.upstream_model_name
+  )
   const upstreamError =
     props.isAdmin && other?.upstream_error !== details
       ? other?.upstream_error || ''
@@ -709,6 +738,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             size='sm'
             copyable={false}
           />
+          {other?.ws === true && <WebSocketBadge />}
         </>
       }
       description={t('View the complete details for this log entry')}
@@ -1130,23 +1160,32 @@ export function DetailsDialog(props: DetailsDialogProps) {
           />
         )}
 
-        {/* Model mapping */}
-        {props.isAdmin &&
-          other?.is_model_mapped &&
-          other?.upstream_model_name && (
-            <DetailSection label={t('Model Mapping')}>
+        {/* Model mapping and upstream response model (admin only). */}
+        {props.isAdmin && (hasModelMapping || upstreamResponseModel) && (
+          <DetailSection label={t(hasModelMapping ? 'Model Mapping' : 'Model')}>
+            {hasModelMapping && (
+              <>
+                <DetailRow
+                  label={t('Request Model')}
+                  value={props.log.model_name}
+                  mono
+                />
+                <DetailRow
+                  label={t('Actual Model')}
+                  value={other?.upstream_model_name}
+                  mono
+                />
+              </>
+            )}
+            {upstreamResponseModel && (
               <DetailRow
-                label={t('Request Model')}
-                value={props.log.model_name}
+                label={t('Upstream Response Model')}
+                value={upstreamResponseModel}
                 mono
               />
-              <DetailRow
-                label={t('Actual Model')}
-                value={other.upstream_model_name}
-                mono
-              />
-            </DetailSection>
-          )}
+            )}
+          </DetailSection>
+        )}
 
         {/* Token breakdown (for consume/error types with token data) */}
         {isDisplayableType(props.log.type) && other && (

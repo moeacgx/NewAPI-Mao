@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
@@ -12,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+func OaiResponsesCompactionHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
 
 	responseBody, err := io.ReadAll(resp.Body)
@@ -24,11 +25,10 @@ func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Us
 	if err := common.Unmarshal(responseBody, &compactResp); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	info.SetUpstreamResponseModelName(compactResp.Model)
 	if oaiError := compactResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
-
-	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	usage := dto.Usage{}
 	if compactResp.Usage != nil {
@@ -40,6 +40,11 @@ func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Us
 		}
 		usage.CopyCacheCreationTokensFrom(compactResp.Usage)
 	}
+	if usageError := service.TextUsageError(c, info, &usage); usageError != nil {
+		return &usage, usageError
+	}
+
+	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	return &usage, nil
 }

@@ -81,12 +81,15 @@ func applyChannelStatusFilter(query *gorm.DB, statusFilter int) *gorm.DB {
 	return query
 }
 
-func buildChannelListQuery(group string, statusFilter int, typeFilter int) *gorm.DB {
+func buildChannelListQuery(group string, statusFilter int, typeFilter int, vendorFilter int) *gorm.DB {
 	query := model.DB.Model(&model.Channel{})
 	query = model.ApplyChannelGroupFilter(query, group)
 	query = applyChannelStatusFilter(query, statusFilter)
 	if typeFilter >= 0 {
 		query = query.Where("type = ?", typeFilter)
+	}
+	if vendorFilter > 0 {
+		query = query.Where("vendor_id = ?", vendorFilter)
 	}
 	return query
 }
@@ -95,6 +98,15 @@ func GetChannelOps(c *gin.Context) {
 	common.ApiSuccess(c, gin.H{
 		"retry_times": common.RetryTimes,
 	})
+}
+
+func hydrateChannelGroupsForResponse(c *gin.Context, channels []*model.Channel) bool {
+	if err := model.HydrateChannelGroupBindings(model.DB, channels); err != nil {
+		common.SysError("failed to hydrate channel groups: " + err.Error())
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道分组失败，请稍后重试"})
+		return false
+	}
+	return true
 }
 
 func GetAllChannels(c *gin.Context) {
@@ -115,17 +127,24 @@ func GetAllChannels(c *gin.Context) {
 			typeFilter = t
 		}
 	}
+	vendorStr := c.Query("vendor")
+	vendorFilter := -1
+	if vendorStr != "" {
+		if v, err := strconv.Atoi(vendorStr); err == nil {
+			vendorFilter = v
+		}
+	}
 
 	var total int64
 
 	if enableTagMode {
-		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, vendorFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 		if err != nil {
 			common.SysError("failed to get paginated tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
 			return
 		}
-		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
+		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, vendorFilter))
 		if err != nil {
 			common.SysError("failed to count tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签数量失败，请稍后重试"})
@@ -136,7 +155,7 @@ func GetAllChannels(c *gin.Context) {
 				continue
 			}
 			var tagChannels []*model.Channel
-			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag = ?", *tag)).
+			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, vendorFilter).Where("tag = ?", *tag)).
 				Omit("key").
 				Find(&tagChannels).Error
 			if err != nil {
@@ -147,13 +166,13 @@ func GetAllChannels(c *gin.Context) {
 			channelData = append(channelData, tagChannels...)
 		}
 	} else {
-		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter).Count(&total).Error; err != nil {
+		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter, vendorFilter).Count(&total).Error; err != nil {
 			common.SysError("failed to count channels: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道数量失败，请稍后重试"})
 			return
 		}
 
-		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter)).
+		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, vendorFilter)).
 			Limit(pageInfo.GetPageSize()).
 			Offset(pageInfo.GetStartIdx()).
 			Omit("key").
@@ -164,12 +183,15 @@ func GetAllChannels(c *gin.Context) {
 			return
 		}
 	}
+	if !hydrateChannelGroupsForResponse(c, channelData) {
+		return
+	}
 
 	for _, datum := range channelData {
 		clearChannelInfo(datum)
 	}
 
-	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1)
+	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1, vendorFilter)
 	var results []struct {
 		Type  int64
 		Count int64
@@ -183,12 +205,30 @@ func GetAllChannels(c *gin.Context) {
 	for _, r := range results {
 		typeCounts[r.Type] = r.Count
 	}
+	vendorCountQuery := buildChannelListQuery(groupFilter, statusFilter, typeFilter, -1)
+	var vendorResults []struct {
+		VendorID *int
+		Count    int64
+	}
+	if err := vendorCountQuery.Select("vendor_id, count(*) as count").Group("vendor_id").Find(&vendorResults).Error; err != nil {
+		common.SysError("failed to count channel vendors: " + err.Error())
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道供应商统计失败，请稍后重试"})
+		return
+	}
+	vendorCounts := make(map[string]int64)
+	for _, r := range vendorResults {
+		if r.VendorID == nil || *r.VendorID <= 0 {
+			continue
+		}
+		vendorCounts[strconv.Itoa(*r.VendorID)] = r.Count
+	}
 	common.ApiSuccess(c, gin.H{
-		"items":       channelData,
-		"total":       total,
-		"page":        pageInfo.GetPage(),
-		"page_size":   pageInfo.GetPageSize(),
-		"type_counts": typeCounts,
+		"items":         channelData,
+		"total":         total,
+		"page":          pageInfo.GetPage(),
+		"page_size":     pageInfo.GetPageSize(),
+		"type_counts":   typeCounts,
+		"vendor_counts": vendorCounts,
 	})
 	return
 }
@@ -278,6 +318,13 @@ func SearchChannels(c *gin.Context) {
 	modelKeyword := c.Query("model")
 	statusParam := c.Query("status")
 	statusFilter := parseStatusFilter(statusParam)
+	vendorParam := c.Query("vendor")
+	vendorFilter := -1
+	if vendorParam != "" {
+		if v, err := strconv.Atoi(vendorParam); err == nil {
+			vendorFilter = v
+		}
+	}
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
 	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
@@ -294,7 +341,7 @@ func SearchChannels(c *gin.Context) {
 		for _, tag := range tags {
 			if tag != nil && *tag != "" {
 				var tagChannels []*model.Channel
-				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1).Where("tag = ?", *tag)).
+				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1, -1).Where("tag = ?", *tag)).
 					Omit("key").
 					Find(&tagChannels).Error
 				if err != nil {
@@ -317,6 +364,9 @@ func SearchChannels(c *gin.Context) {
 			return
 		}
 		channelData = channels
+	}
+	if enableTagMode && !hydrateChannelGroupsForResponse(c, channelData) {
+		return
 	}
 
 	if statusFilter == common.ChannelStatusEnabled || statusFilter == 0 {
@@ -357,6 +407,24 @@ func SearchChannels(c *gin.Context) {
 		channelData = filtered
 	}
 
+	vendorCounts := make(map[string]int64)
+	for _, channel := range channelData {
+		if channel.VendorID == nil || *channel.VendorID <= 0 {
+			continue
+		}
+		vendorCounts[strconv.Itoa(*channel.VendorID)]++
+	}
+
+	if vendorFilter > 0 {
+		filtered := make([]*model.Channel, 0, len(channelData))
+		for _, ch := range channelData {
+			if ch.VendorID != nil && *ch.VendorID == vendorFilter {
+				filtered = append(filtered, ch)
+			}
+		}
+		channelData = filtered
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("p", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	if page < 1 {
@@ -386,9 +454,10 @@ func SearchChannels(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data": gin.H{
-			"items":       pagedData,
-			"total":       total,
-			"type_counts": typeCounts,
+			"items":         pagedData,
+			"total":         total,
+			"type_counts":   typeCounts,
+			"vendor_counts": vendorCounts,
 		},
 	})
 	return
@@ -475,10 +544,27 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 	if channel == nil {
 		return fmt.Errorf("channel cannot be empty")
 	}
+	if channel.ConcurrencyLimit != nil && *channel.ConcurrencyLimit < 0 {
+		return fmt.Errorf("并发上限不能小于 0")
+	}
 
 	// 校验 channel settings
 	if err := channel.ValidateSettings(); err != nil {
 		return fmt.Errorf("渠道额外设置[channel setting] 格式错误：%s", err.Error())
+	}
+	pluginKey := channel.GetSetting().TaskPluginKey
+	if channel.Type == constant.ChannelTypeTaskPlugin {
+		if pluginKey == "" {
+			return fmt.Errorf("官方插件渠道必须选择 task_plugin_key")
+		}
+		if _, err := model.GetTaskPluginVersion(pluginKey, ""); err != nil {
+			return fmt.Errorf("插件 key 不存在")
+		}
+		if strings.TrimSpace(channel.GetBaseURL()) == "" {
+			return fmt.Errorf("插件渠道必须配置 base_url")
+		}
+	} else if pluginKey != "" {
+		return fmt.Errorf("只有官方插件渠道允许 task_plugin_key")
 	}
 
 	if channel.Type == constant.ChannelTypeNewAPI && strings.TrimSpace(channel.GetBaseURL()) == "" {
@@ -769,15 +855,16 @@ func DeleteDisabledChannel(c *gin.Context) {
 }
 
 type ChannelTag struct {
-	Tag            string  `json:"tag"`
-	NewTag         *string `json:"new_tag"`
-	Priority       *int64  `json:"priority"`
-	Weight         *uint   `json:"weight"`
-	ModelMapping   *string `json:"model_mapping"`
-	Models         *string `json:"models"`
-	Groups         *string `json:"groups"`
-	ParamOverride  *string `json:"param_override"`
-	HeaderOverride *string `json:"header_override"`
+	Tag              string  `json:"tag"`
+	NewTag           *string `json:"new_tag"`
+	Priority         *int64  `json:"priority"`
+	Weight           *uint   `json:"weight"`
+	ConcurrencyLimit *int    `json:"concurrency_limit"`
+	ModelMapping     *string `json:"model_mapping"`
+	Models           *string `json:"models"`
+	Groups           *string `json:"groups"`
+	ParamOverride    *string `json:"param_override"`
+	HeaderOverride   *string `json:"header_override"`
 }
 
 func DisableTagChannels(c *gin.Context) {
@@ -876,7 +963,14 @@ func EditTagChannels(c *gin.Context) {
 		}
 		channelTag.HeaderOverride = common.GetPointer[string](trimmed)
 	}
-	err = model.EditChannelByTag(channelTag.Tag, channelTag.NewTag, channelTag.ModelMapping, channelTag.Models, channelTag.Groups, channelTag.Priority, channelTag.Weight, channelTag.ParamOverride, channelTag.HeaderOverride)
+	if channelTag.ConcurrencyLimit != nil && *channelTag.ConcurrencyLimit < 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "并发上限不能小于 0",
+		})
+		return
+	}
+	err = model.EditChannelByTag(channelTag.Tag, channelTag.NewTag, channelTag.ModelMapping, channelTag.Models, channelTag.Groups, channelTag.Priority, channelTag.Weight, channelTag.ParamOverride, channelTag.HeaderOverride, channelTag.ConcurrencyLimit)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -929,8 +1023,9 @@ func DeleteChannelBatch(c *gin.Context) {
 
 type PatchChannel struct {
 	model.Channel
-	MultiKeyMode *string `json:"multi_key_mode"`
-	KeyMode      *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
+	MultiKeyMode      *string `json:"multi_key_mode"`
+	KeyMode           *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
+	ConvertToMultiKey *bool   `json:"convert_to_multi_key,omitempty"`
 }
 
 type ChannelStatusRequest struct {
@@ -958,8 +1053,52 @@ func UpdateChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if _, ok := requestData["status"]; ok {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+	_, groupProvided := requestData["group"]
+	_, groupIDsProvided := requestData["group_ids"]
+	if requestData["group"] == nil {
+		groupProvided = false
+	}
+	if requestData["group_ids"] == nil {
+		groupIDsProvided = false
+	}
+	if groupIDsProvided && len(channel.GroupIds) == 0 {
+		common.ApiError(c, fmt.Errorf("渠道分组不能为空"))
+		return
+	}
+	if groupProvided && !groupIDsProvided && strings.TrimSpace(channel.Group) == "" {
+		common.ApiError(c, fmt.Errorf("渠道分组不能为空"))
+		return
+	}
+	if !groupIDsProvided {
+		channel.GroupIds = nil
+	}
+	if _, statusProvided := requestData["status"]; statusProvided {
+		_, idProvided := requestData["id"]
+		if len(requestData) != 2 || !idProvided || channel.Id <= 0 {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		statusUpdate := ChannelStatusRequest{}
+		if err := common.Unmarshal(rawBody, &statusUpdate); err != nil || !isManageableChannelStatus(statusUpdate.Status) {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		changed := model.UpdateChannelStatus(channel.Id, "", statusUpdate.Status, "manual operation (legacy client)")
+		if changed {
+			model.InitChannelCache()
+		}
+		recordManageAudit(c, "channel.status_update", map[string]interface{}{
+			"id":      channel.Id,
+			"status":  statusUpdate.Status,
+			"changed": changed,
+		})
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data": gin.H{
+				"status": statusUpdate.Status,
+			},
+		})
 		return
 	}
 	clearChannelReadOnlyFields(&channel, requestData)
@@ -982,6 +1121,7 @@ func UpdateChannel(c *gin.Context) {
 		return
 	}
 	originProxy := originChannel.GetSetting().Proxy
+	_, channel.VendorIDSet = requestData["vendor_id"]
 	proxyChanged := false
 	if _, settingProvided := requestData["setting"]; settingProvided {
 		newProxy, _ := service.NormalizeProxyURL(channel.GetSetting().Proxy)
@@ -998,13 +1138,21 @@ func UpdateChannel(c *gin.Context) {
 		return
 	}
 
+	convertingToMultiKey := channel.ConvertToMultiKey != nil && *channel.ConvertToMultiKey && !originChannel.ChannelInfo.IsMultiKey
+	if convertingToMultiKey {
+		if err := convertChannelToMultiKey(&channel, originChannel); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+
 	// If the request explicitly specifies a new MultiKeyMode, apply it on top of the original info.
 	if channel.MultiKeyMode != nil && *channel.MultiKeyMode != "" {
 		channel.ChannelInfo.MultiKeyMode = constant.MultiKeyMode(*channel.MultiKeyMode)
 	}
 
 	// 处理多key模式下的密钥追加/覆盖逻辑
-	if channel.KeyMode != nil && channel.ChannelInfo.IsMultiKey {
+	if channel.KeyMode != nil && channel.ChannelInfo.IsMultiKey && !convertingToMultiKey {
 		switch *channel.KeyMode {
 		case "append":
 			// 追加模式：将新密钥添加到现有密钥列表
@@ -1094,6 +1242,9 @@ func UpdateChannel(c *gin.Context) {
 	}
 	// 记录变更的字段名（语言无关的字段标识），密钥仅记录"已更换"绝不记录内容。
 	changedFields := make([]string, 0)
+	if convertingToMultiKey {
+		changedFields = append(changedFields, "channel_info.is_multi_key", "multi_key_mode")
+	}
 	if channel.Models != originChannel.Models {
 		changedFields = append(changedFields, "models")
 	}
@@ -1108,6 +1259,12 @@ func UpdateChannel(c *gin.Context) {
 	}
 	if channel.Key != "" && channel.Key != originChannel.Key {
 		changedFields = append(changedFields, "key")
+	}
+	if channel.GetConcurrencyLimit() != originChannel.GetConcurrencyLimit() {
+		changedFields = append(changedFields, "concurrency_limit")
+	}
+	if channel.VendorIDSet && !equalIntPtr(channel.VendorID, originChannel.VendorID) {
+		changedFields = append(changedFields, "vendor_id")
 	}
 	recordManageAudit(c, "channel.update", map[string]interface{}{
 		"id":             channel.Id,
@@ -1184,6 +1341,16 @@ func isManageableChannelStatus(status int) bool {
 
 // equalStringPtr 比较两个 *string 是否相等（均为 nil 视为相等）。
 func equalStringPtr(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func equalIntPtr(a, b *int) bool {
 	if a == nil && b == nil {
 		return true
 	}

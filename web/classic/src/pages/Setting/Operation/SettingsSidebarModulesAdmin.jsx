@@ -299,6 +299,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           description: t('扩展模块管理与启停'),
         },
         {
+          key: 'task_plugins',
+          title: t('Task Plugins'),
+          description: t('Task plugin details'),
+        },
+        {
           key: 'setting',
           title: t('系统设置'),
           description: t('系统参数配置'),

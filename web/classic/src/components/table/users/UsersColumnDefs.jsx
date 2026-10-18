@@ -28,6 +28,7 @@ import {
   Typography,
   Dropdown,
 } from '@douyinfe/semi-ui';
+import UserQuotaCell from './UserQuotaCell';
 import { IconMore } from '@douyinfe/semi-icons';
 import {
   renderGroup,
@@ -142,42 +143,8 @@ const renderStatistics = (text, record, showEnableDisableModal, t) => {
   );
 };
 
-// Render separate quota usage column
-const renderQuotaUsage = (text, record, t) => {
-  const { Paragraph } = Typography;
-  const used = parseInt(record.used_quota) || 0;
-  const remain = parseInt(record.quota) || 0;
-  const total = used + remain;
-  const percent = total > 0 ? (remain / total) * 100 : 0;
-  const popoverContent = (
-    <div className='text-xs p-2'>
-      <Paragraph copyable={{ content: renderQuota(used) }}>
-        {t('已用额度')}: {renderQuota(used)}
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(remain) }}>
-        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}%)
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(total) }}>
-        {t('总额度')}: {renderQuota(total)}
-      </Paragraph>
-    </div>
-  );
-  return (
-    <Popover content={popoverContent} position='top'>
-      <Tag color='white' shape='circle'>
-        <div className='flex flex-col items-end'>
-          <span className='text-xs leading-none'>{`${renderQuota(remain)} / ${renderQuota(total)}`}</span>
-          <Progress
-            percent={percent}
-            aria-label='quota usage'
-            format={() => `${percent.toFixed(0)}%`}
-            style={{ width: '100%', marginTop: '1px', marginBottom: 0 }}
-          />
-        </div>
-      </Tag>
-    </Popover>
-  );
-};
+// 额度详情使用独立组件，保留原表格数据契约。
+const renderQuotaUsage = (text, record) => <UserQuotaCell record={record} />;
 
 /**
  * Render invite information

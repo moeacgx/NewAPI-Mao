@@ -145,13 +145,16 @@ func handleLastResponse(lastStreamData string, responseId *string, createAt *int
 	*createAt = lastStreamResponse.Created
 	*systemFingerprint = lastStreamResponse.GetSystemFingerprint()
 	*model = lastStreamResponse.Model
+	info.SetUpstreamResponseModelName(lastStreamResponse.Model)
 
 	if service.ValidUsage(lastStreamResponse.Usage) {
 		*containStreamUsage = true
 		*usage = lastStreamResponse.Usage
 		if !info.ShouldIncludeUsage {
 			*shouldSendLastResp = lo.SomeBy(lastStreamResponse.Choices, func(choice dto.ChatCompletionsStreamResponseChoice) bool {
-				return choice.Delta.GetContentString() != "" || choice.Delta.GetReasoningContent() != ""
+				return choice.Delta.GetContentString() != "" ||
+					choice.Delta.GetReasoningContent() != "" ||
+					len(choice.Delta.ToolCalls) > 0
 			})
 		}
 	}
@@ -236,9 +239,52 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 	}
 }
 
-func sendResponsesStreamData(c *gin.Context, streamResponse dto.ResponsesStreamResponse, data string) {
+type responsesStreamDataItem struct {
+	response dto.ResponsesStreamResponse
+	data     string
+}
+
+func sendResponsesStreamData(c *gin.Context, streamResponse dto.ResponsesStreamResponse, data string) error {
 	if data == "" {
-		return
+		return nil
 	}
-	_ = helper.ResponseChunkData(c, streamResponse, data)
+	return helper.ResponseChunkData(c, streamResponse, data)
+}
+
+func sendResponsesStreamDataBatch(c *gin.Context, items []responsesStreamDataItem) error {
+	for _, item := range items {
+		if err := sendResponsesStreamData(c, item.response, item.data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sendCommittedResponsesStreamAPIError(c *gin.Context, relayErr *types.NewAPIError, sequenceNumber int64) error {
+	if c == nil || c.Writer == nil || !c.Writer.Written() || relayErr == nil {
+		return nil
+	}
+	clientError := relayErr.ToOpenAIError()
+	if types.IsUpstreamReturnedError(relayErr) {
+		message, _, _ := common.ReplaceClientErrorCandidates(relayErr.StatusCode, relayErr.Error(), clientError.Message)
+		clientError.Message = message
+	}
+	event := struct {
+		Type           string `json:"type"`
+		SequenceNumber int64  `json:"sequence_number"`
+		Code           any    `json:"code"`
+		Message        string `json:"message"`
+		Param          string `json:"param"`
+	}{
+		Type:           "error",
+		SequenceNumber: sequenceNumber,
+		Code:           clientError.Code,
+		Message:        clientError.Message,
+		Param:          clientError.Param,
+	}
+	data, err := common.Marshal(event)
+	if err != nil {
+		return err
+	}
+	return sendResponsesStreamData(c, dto.ResponsesStreamResponse{Type: "error"}, string(data))
 }

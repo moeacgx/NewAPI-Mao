@@ -152,7 +152,12 @@ func recordLoginAudit(user *model.User, c *gin.Context) {
 // setupLogin creates a server-controlled login Session and returns the shared
 // authentication bundle used by every login method.
 func setupLogin(user *model.User, c *gin.Context) {
-	setupLoginAtAuthVersion(user, 0, c)
+	if user == nil || user.AuthVersion <= 0 {
+		writeAuthSessionError(c, service.ErrLoginSessionInvalid)
+		return
+	}
+	// 主凭证验证后的快照不能跨越密码重置等安全版本变化。
+	setupLoginAtAuthVersion(user, user.AuthVersion, c)
 }
 
 func setupLoginAtAuthVersion(user *model.User, expectedAuthVersion int64, c *gin.Context) {
@@ -190,7 +195,7 @@ func setupLoginAtAuthVersion(user *model.User, expectedAuthVersion int64, c *gin
 	service.WriteRefreshCookie(c, bundle.RefreshToken)
 	setAuthNoStore(c)
 	recordLoginAudit(user, c)
-	model.RecordUserIP(user.Id, c.ClientIP(), "login")
+	model.RecordUserIP(user.Id, c.ClientIP(), model.UserIPActionLogin)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
@@ -267,6 +272,7 @@ func Register(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.Username,
+		Group:       "default",
 		InviterId:   inviterId,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 	}
@@ -316,7 +322,7 @@ func Register(c *gin.Context) {
 			return
 		}
 	}
-	model.RecordUserIP(insertedUser.Id, c.ClientIP(), "register")
+	model.RecordUserIP(insertedUser.Id, c.ClientIP(), model.UserIPActionRegister)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -344,6 +350,7 @@ func GetAllUsers(c *gin.Context) {
 func SearchUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
 	group := c.Query("group")
+	searchType := c.DefaultQuery("search_type", "all")
 	var role *int
 	if roleStr := c.Query("role"); roleStr != "" {
 		if parsed, err := strconv.Atoi(roleStr); err == nil {
@@ -358,7 +365,7 @@ func SearchUsers(c *gin.Context) {
 	}
 	pageInfo := common.GetPageQuery(c)
 	sortOptions := model.NewUserSortOptions(c.Query("sort_by"), c.Query("sort_order"))
-	users, total, err := model.SearchUsers(keyword, group, role, status, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions)
+	users, total, err := model.SearchUsersWithSort(keyword, group, role, status, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions, searchType)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -418,6 +425,7 @@ func GenerateAccessToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	recordUserSecurityAudit(c, id, "access_token.generate", map[string]interface{}{"token_ref": model.AccessTokenFingerprint(key)})
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -1030,6 +1038,7 @@ func CreateUser(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
+		Group:       "default",
 		Role:        user.Role, // 保持管理员设置的角色
 	}
 	authzTouched := false
@@ -1082,7 +1091,7 @@ func updateAdminPermissionsForUserInTx(c *gin.Context, tx *gorm.DB, userID int, 
 type ManageRequest struct {
 	Id     int    `json:"id"`
 	Action string `json:"action"`
-	Value  int    `json:"value"`
+	Value  int64  `json:"value"`
 	Mode   string `json:"mode"`
 }
 
@@ -1176,7 +1185,7 @@ func ManageUser(c *gin.Context) {
 				common.ApiError(c, err)
 				return
 			}
-			recordManageAuditFor(c, user.Id, "user.quota_add", map[string]interface{}{
+			recordTargetUserManageAudit(c, user.Id, "user.quota_add", map[string]interface{}{
 				"quota": logger.LogQuota(req.Value),
 			})
 		case "subtract":
@@ -1188,16 +1197,20 @@ func ManageUser(c *gin.Context) {
 				common.ApiError(c, err)
 				return
 			}
-			recordManageAuditFor(c, user.Id, "user.quota_subtract", map[string]interface{}{
+			recordTargetUserManageAudit(c, user.Id, "user.quota_subtract", map[string]interface{}{
 				"quota": logger.LogQuota(req.Value),
 			})
 		case "override":
 			oldQuota := user.Quota
-			if err := model.DB.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", req.Value).Error; err != nil {
+			if req.Value < 0 {
+				common.ApiErrorI18n(c, i18n.MsgUserQuotaChangeZero)
+				return
+			}
+			if err := model.SetUserQuota(user.Id, req.Value); err != nil {
 				common.ApiError(c, err)
 				return
 			}
-			recordManageAuditFor(c, user.Id, "user.quota_override", map[string]interface{}{
+			recordTargetUserManageAudit(c, user.Id, "user.quota_override", map[string]interface{}{
 				"from": logger.LogQuota(oldQuota),
 				"to":   logger.LogQuota(req.Value),
 			})
@@ -1273,6 +1286,11 @@ type emailBindRequest struct {
 }
 
 func EmailBind(c *gin.Context) {
+	user := model.User{Id: c.GetInt("id")}
+	if user.Id <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "not authenticated"})
+		return
+	}
 	var req emailBindRequest
 	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
 		common.ApiError(c, errors.New("invalid request body"))
@@ -1281,20 +1299,8 @@ func EmailBind(c *gin.Context) {
 	email := req.Email
 	email = model.NormalizeEmail(email)
 	code := req.Code
-	if !common.VerifyCodeWithKey(email, code, common.EmailVerificationPurpose) {
+	if !common.ConsumeVerificationCode(email, code, common.EmailVerificationPurpose) {
 		common.ApiErrorI18n(c, i18n.MsgUserVerificationCodeError)
-		return
-	}
-	user := model.User{
-		Id: c.GetInt("id"),
-	}
-	if user.Id == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "not authenticated"})
-		return
-	}
-	err := user.FillUserById()
-	if err != nil {
-		common.ApiError(c, err)
 		return
 	}
 	if err := model.BindEmailToUser(&user, email); err != nil {

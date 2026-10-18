@@ -161,7 +161,7 @@ const brandNames = new Set([
   'AIGC2D','Anthropic','API2GPT','Claude','Cloudflare','Cohere','DeepSeek',
   'Discord','DoubaoVideo','FastGPT','Gemini','GitHub','Jimeng','JustSong',
   'LingYiWanWu','LinuxDO','Midjourney','MidjourneyPlus','MiniMax','Mistral',
-  'MokaAI','Moonshot','NewAPI','OhMyGPT','Ollama','OpenAI','OpenAIMax',
+  'MokaAI','Moonshot','NewAPI','NewAPI-Mao','OhMyGPT','Ollama','OpenAI','OpenAIMax',
   'OpenRouter','Passkey','Perplexity','QuantumNous','Replicate','SiliconFlow',
   'Stripe','Submodel','SunoAPI','Telegram','Tencent','Vertex AI','VolcEngine',
   'WeChat','Xinference','Xunfei','AI Proxy','One API',
@@ -276,6 +276,8 @@ Delete temporary scripts after completion.
 - If the source text is unclear, inspect the code and locale files first. Ask the user for exact source copy only when the intended UI text remains ambiguous.
 
 ### Length and Layout Awareness
+
+- 本项目身份使用 `NewAPI-Mao`；保留上游归属和通用 New API 渠道、协议名称。边界见 `docs/developer/project-identity.md`。
 
 - Consider whether translated text may overflow the UI before choosing final wording, especially for buttons, table headers, menu items, labels, toasts, dialog titles, tabs, badges, and empty states.
 - For languages that often expand relative to English, especially French, Russian, and Vietnamese, prefer natural but compact wording.

@@ -220,7 +220,7 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 		}
 	}
 
-	if userQuota-priceData.Quota < 0 {
+	if userQuota-int64(priceData.Quota) < 0 {
 		return &dto.MidjourneyResponse{
 			Code:        4,
 			Description: "quota_not_enough",
@@ -566,7 +566,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		}
 	}
 
-	if consumeQuota && userQuota-priceData.Quota < 0 {
+	if consumeQuota && userQuota-int64(priceData.Quota) < 0 {
 		return &dto.MidjourneyResponse{
 			Code:        4,
 			Description: "quota_not_enough",
@@ -611,7 +611,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			common.SysLog("get_channel_null: " + err.Error())
 		}
 		if channel.GetAutoBan() && common.AutomaticDisableChannelEnabled {
-			model.UpdateChannelStatus(midjourneyTask.ChannelId, "", 2, "No available account instance")
+			model.UpdateChannelStatusAutomatically(midjourneyTask.ChannelId, "", 2, "No available account instance")
 		}
 	}
 	if midjResponse.Code != 1 && midjResponse.Code != 21 && midjResponse.Code != 22 {

@@ -27,7 +27,8 @@ import {
 const defaultSiteSettings: SiteSettings = {
   'theme.frontend': 'default',
   Notice: '',
-  SystemName: 'New API',
+  SystemName: 'NewAPI-Mao',
+  SystemDescription: '',
   Logo: '',
   Footer: '',
   About: '',

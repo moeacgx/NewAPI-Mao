@@ -115,6 +115,10 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, responseBodyPreview))
 			newApiErr.Err = fmt.Errorf("bad response status code %d", resp.StatusCode)
 		}
+		if embeddedStatusCode, ok := types.EmbeddedUpstreamHTTPStatus(responseBodyText); ok {
+			newApiErr.OriginalStatusCode = embeddedStatusCode
+			newApiErr.StatusCode = embeddedStatusCode
+		}
 		return
 	}
 
@@ -135,7 +139,12 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 		// raw body so the upstream failure remains diagnosable.
 		logger.LogError(ctx, fmt.Sprintf("bad response status code %d with empty error message, body: %s", resp.StatusCode, responseBodyPreview))
 	}
-	newApiErr = types.NewOpenAIError(errors.New(message), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+	newApiErr = types.NewOpenAIError(
+		errors.New(message),
+		types.ErrorCodeBadResponseStatusCode,
+		resp.StatusCode,
+		types.ErrOptionWithUpstreamCapacityClassification(),
+	)
 	if showBodyWhenFail {
 		newApiErr.Err = buildErrWithBody(newApiErr.Error())
 	}
@@ -154,14 +163,21 @@ func ResetStatusCode(newApiErr *types.NewAPIError, statusCodeMappingStr string) 
 	if err != nil {
 		return
 	}
-	if newApiErr.StatusCode == http.StatusOK {
+	sourceStatusCode := newApiErr.StatusCode
+	if newApiErr.OriginalStatusCode != 0 {
+		sourceStatusCode = newApiErr.OriginalStatusCode
+	}
+	if sourceStatusCode == http.StatusOK {
 		return
 	}
-	codeStr := strconv.Itoa(newApiErr.StatusCode)
+	codeStr := strconv.Itoa(sourceStatusCode)
 	if value, ok := statusCodeMapping[codeStr]; ok {
 		intCode, ok := parseStatusCodeMappingValue(value)
 		if !ok {
 			return
+		}
+		if newApiErr.OriginalStatusCode == 0 {
+			newApiErr.OriginalStatusCode = newApiErr.StatusCode
 		}
 		newApiErr.StatusCode = intCode
 	}

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -75,11 +76,69 @@ type Log struct {
 	ChannelName       string  `json:"channel_name" gorm:"->"`
 	TokenId           int     `json:"token_id" gorm:"default:0;index"`
 	Group             string  `json:"group" gorm:"index"`
+	GroupName         string  `json:"group_name" gorm:"-"`
 	Ip                string  `json:"ip" gorm:"index;default:''"`
 	RequestId         string  `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	IdempotencyKey    *string `json:"-" gorm:"type:varchar(191);uniqueIndex:uidx_logs_idempotency_key"`
 	UpstreamRequestId string  `json:"upstream_request_id,omitempty" gorm:"type:varchar(128);index:idx_logs_upstream_request_id;default:''"`
 	Other             string  `json:"other"`
+}
+
+func applyLogGroupNames(logs []*Log, groupNames map[string]string) {
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		group := strings.TrimSpace(log.Group)
+		if group == "" {
+			other, _ := common.StrToMap(log.Other)
+			if value, ok := other["group"].(string); ok {
+				group = strings.TrimSpace(value)
+			}
+		}
+		if group == "" {
+			continue
+		}
+		log.GroupName = FormatGroupDisplayNames(group, groupNames)
+	}
+}
+
+func hydrateLogGroupNames(logs []*Log) {
+	groupNames, err := GetGroupDisplayNameMap()
+	if err != nil {
+		groupNames = map[string]string{}
+	}
+	applyLogGroupNames(logs, groupNames)
+}
+
+// resolveLogGroupFilterValues 将日志筛选输入解析为可命中的历史标识集合。
+// 日志表仍保存字符串 code/alias；无法解析的输入回退为原值，兼容旧数据和旧分组。
+func resolveLogGroupFilterValues(group string) ([]string, error) {
+	if group == "" {
+		return nil, nil
+	}
+	values, err := ResolveGroupLogIdentifiers(group)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return []string{group}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return []string{group}, nil
+	}
+	return values, nil
+}
+
+func applyLogGroupFilter(tx *gorm.DB, column string, group string) (*gorm.DB, error) {
+	values, err := resolveLogGroupFilterValues(group)
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return tx, nil
+	}
+	return tx.Where(column+" IN ?", values), nil
 }
 
 // don't use iota, avoid change log type value
@@ -101,8 +160,58 @@ func ensureLogRequestId(log *Log) {
 }
 
 func createLog(log *Log) error {
+	stripTopupLogIP(log)
 	ensureLogRequestId(log)
 	return LOG_DB.Create(log).Error
+}
+
+func createLogWithID(log *Log) (int, error) {
+	stripTopupLogIP(log)
+	ensureLogRequestId(log)
+	if err := LOG_DB.Create(log).Error; err != nil {
+		return 0, err
+	}
+	return log.Id, nil
+}
+
+// stripTopupLogIP 统一去除充值日志的 IP，兼顾新写入与历史查询，保留金额审计。
+func stripTopupLogIP(log *Log) {
+	if log == nil || log.Type != LogTypeTopup {
+		return
+	}
+	log.Ip = ""
+	if log.Other == "" {
+		return
+	}
+	// 保留金额的原始 JSON 数值，避免 int64 余额经 float64 转换丢失精度。
+	var other map[string]json.RawMessage
+	if err := common.UnmarshalJsonStr(log.Other, &other); err != nil {
+		// 无法解析的历史审计不原样返回，避免通过损坏的 JSON 泄露旧 IP。
+		log.Other = ""
+		return
+	}
+	rawAdminInfo, ok := other["admin_info"]
+	if !ok {
+		return
+	}
+	var adminInfo map[string]json.RawMessage
+	if err := common.Unmarshal(rawAdminInfo, &adminInfo); err != nil {
+		delete(other, "admin_info")
+	} else {
+		changed := false
+		for _, key := range []string{"caller_ip", "request_ip", "callback_ip", "server_ip"} {
+			if _, exists := adminInfo[key]; exists {
+				delete(adminInfo, key)
+				changed = true
+			}
+		}
+		if !changed {
+			return
+		}
+		other["admin_info"], _ = common.Marshal(adminInfo)
+	}
+	data, _ := common.Marshal(other)
+	log.Other = string(data)
 }
 
 func clickHouseLogOrder(prefix string) string {
@@ -116,15 +225,25 @@ func assignDisplayLogIds(logs []*Log, startIdx int) {
 }
 
 func formatUserLogs(logs []*Log, startIdx int) {
+	hydrateLogGroupNames(logs)
 	for i := range logs {
+		stripTopupLogIP(logs[i])
 		logs[i].ChannelName = ""
+		if logs[i].Type == LogTypeManage {
+			logs[i].Ip = ""
+		}
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
 			// Remove admin-only debug fields.
 			delete(otherMap, "admin_info")
+			delete(otherMap, "root_info")
 			// Remove operation-audit details (operator/route info), admin-only.
 			delete(otherMap, "audit_info")
+			delete(otherMap, "is_model_mapped")
+			delete(otherMap, "upstream_model_name")
+			delete(otherMap, "upstream_response_model_name")
+			delete(otherMap, "upstream_error")
 			// delete(otherMap, "reject_reason")
 			// delete(otherMap, "stream_status")
 		}
@@ -229,6 +348,11 @@ func RecordLoginLog(userId int, username string, content string, ip string, acti
 // adminInfo 存放操作者身份（写入 Other.admin_info，普通用户查询时剥离）；
 // auditInfo 存放路由/方法/结果等中间件兜底信息（写入 Other.audit_info，普通用户查询时剥离）。
 func RecordOperationAuditLog(logUserId int, content string, ip string, action string, params map[string]interface{}, adminInfo map[string]interface{}, auditInfo map[string]interface{}) {
+	// ApiPanelWatch 会周期性同步渠道配置；这类同步审计没有排障价值，
+	// 只过滤精确的 channel.update，保留创建、删除、启停和其他管理审计。
+	if action == "channel.update" {
+		return
+	}
 	username, _ := GetUsernameById(logUserId, false)
 	other := map[string]interface{}{
 		"op": buildOpField(action, params),
@@ -253,15 +377,39 @@ func RecordOperationAuditLog(logUserId int, content string, ip string, action st
 	}
 }
 
-func RecordTopupLog(userId int, content string, callerIp string, paymentMethod string, callbackPaymentMethod string) {
+// TopupLogDetails 是充值成功审计日志的稳定字段契约。
+// 余额快照只允许由同一充值事务在完成额度更新后显式标记，避免失败或重复回调伪造快照。
+type TopupLogDetails struct {
+	PaymentMethod         string
+	CallbackPaymentMethod string
+	TradeNo               string
+	BalanceBefore         int64
+	BalanceAfter          int64
+	CreditedQuota         int64
+	PaidAmountCNY         float64
+	HasBalanceSnapshot    bool
+	HasPaidAmountSnapshot bool
+}
+
+// RecordTopupLogWithDetails 记录充值成功日志及管理员专用审计字段。
+func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetails) {
 	username, _ := GetUsernameById(userId, false)
 	adminInfo := map[string]interface{}{
-		"server_ip":               common.GetIp(),
 		"node_name":               common.NodeName,
-		"caller_ip":               callerIp,
-		"payment_method":          paymentMethod,
-		"callback_payment_method": callbackPaymentMethod,
+		"payment_method":          details.PaymentMethod,
+		"callback_payment_method": details.CallbackPaymentMethod,
 		"version":                 common.Version,
+	}
+	if tradeNo := strings.TrimSpace(details.TradeNo); tradeNo != "" {
+		adminInfo["trade_no"] = tradeNo
+	}
+	if details.HasBalanceSnapshot {
+		adminInfo["balance_before"] = details.BalanceBefore
+		adminInfo["credited_quota"] = details.CreditedQuota
+		adminInfo["balance_after"] = details.BalanceAfter
+	}
+	if details.HasPaidAmountSnapshot {
+		adminInfo["paid_amount_cny"] = details.PaidAmountCNY
 	}
 	other := map[string]interface{}{
 		"admin_info": adminInfo,
@@ -272,13 +420,43 @@ func RecordTopupLog(userId int, content string, callerIp string, paymentMethod s
 		CreatedAt: common.GetTimestamp(),
 		Type:      LogTypeTopup,
 		Content:   content,
-		Ip:        callerIp,
 		Other:     common.MapToJsonStr(other),
 	}
-	err := createLog(log)
-	if err != nil {
+	if err := createLog(log); err != nil {
 		common.SysLog("failed to record topup log: " + err.Error())
 	}
+}
+
+// RecordTopupLog 保留非订单充值日志调用方的基础审计行为。
+func RecordTopupLog(userId int, content string, paymentMethod string, callbackPaymentMethod string) {
+	RecordTopupLogWithDetails(userId, content, TopupLogDetails{
+		PaymentMethod:         paymentMethod,
+		CallbackPaymentMethod: callbackPaymentMethod,
+	})
+}
+
+// RecordTopupOrderLog 记录成功订单的完整充值审计快照。
+func RecordTopupOrderLog(topUp *TopUp, content string, callbackPaymentMethod string) {
+	if topUp == nil {
+		return
+	}
+	paidAmountCNY := topUp.PaidAmountCNY
+	if paidAmountCNY <= 0 {
+		paidAmount := invoiceOrderPaidAmount(topUp.Money, topUp.ActualMoney, topUp.PromoCodeId)
+		provider := invoiceOrderPaymentProvider(topUp.PaymentProvider, topUp.PaymentMethod)
+		paidAmountCNY = invoiceOrderAmountCNY(paidAmount, provider)
+	}
+	RecordTopupLogWithDetails(topUp.UserId, content, TopupLogDetails{
+		PaymentMethod:         topUp.PaymentMethod,
+		CallbackPaymentMethod: callbackPaymentMethod,
+		TradeNo:               topUp.TradeNo,
+		BalanceBefore:         topUp.BalanceBefore,
+		BalanceAfter:          topUp.BalanceAfter,
+		CreditedQuota:         topUp.CreditedQuota,
+		PaidAmountCNY:         paidAmountCNY,
+		HasBalanceSnapshot:    topUp.HasBalanceSnapshot,
+		HasPaidAmountSnapshot: true,
+	})
 }
 
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
@@ -327,6 +505,7 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 }
 
 type RecordConsumeLogParams struct {
+	LogType          int                    `json:"-"`
 	ChannelId        int                    `json:"channel_id"`
 	PromptTokens     int                    `json:"prompt_tokens"`
 	CompletionTokens int                    `json:"completion_tokens"`
@@ -341,9 +520,13 @@ type RecordConsumeLogParams struct {
 	Other            map[string]interface{} `json:"other"`
 }
 
-func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
-	if !common.LogConsumeEnabled {
-		return
+func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) int {
+	logType := params.LogType
+	if logType == LogTypeUnknown {
+		logType = LogTypeConsume
+	}
+	if logType == LogTypeConsume && !common.LogConsumeEnabled {
+		return 0
 	}
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
@@ -361,7 +544,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		UserId:           userId,
 		Username:         username,
 		CreatedAt:        createdAt,
-		Type:             LogTypeConsume,
+		Type:             logType,
 		Content:          params.Content,
 		PromptTokens:     params.PromptTokens,
 		CompletionTokens: params.CompletionTokens,
@@ -383,11 +566,11 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		UpstreamRequestId: upstreamRequestId,
 		Other:             otherStr,
 	}
-	err := createLog(log)
+	logID, err := createLogWithID(log)
 	if err != nil {
 		logger.LogError(c, "failed to record log: "+err.Error())
 	}
-	if common.DataExportEnabled {
+	if logType == LogTypeConsume && common.DataExportEnabled {
 		LogQuotaData(QuotaDataLogParams{
 			UserID:    userId,
 			Username:  username,
@@ -401,6 +584,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 			NodeName:  common.NodeName,
 		})
 	}
+	return logID
 }
 
 type RecordTaskBillingLogParams struct {
@@ -488,6 +672,10 @@ func recordTaskBillingLogOnceWithDB(db *gorm.DB, log *Log) error {
 }
 
 func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+	return GetAllLogsByUserID(logType, startTimestamp, endTimestamp, modelName, username, 0, tokenName, startIdx, num, channel, group, requestId, upstreamRequestId)
+}
+
+func GetAllLogsByUserID(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, userId int, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -498,7 +686,9 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {
 		return nil, 0, err
 	}
-	if tx, err = applyExplicitLogTextFilter(tx, "logs.username", username); err != nil {
+	if userId != 0 {
+		tx = tx.Where("logs.user_id = ?", userId)
+	} else if tx, err = applyExplicitLogTextFilter(tx, "logs.username", username); err != nil {
 		return nil, 0, err
 	}
 	if tokenName != "" {
@@ -519,8 +709,8 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if channel != 0 {
 		tx = tx.Where("logs.channel_id = ?", channel)
 	}
-	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
+	if tx, err = applyLogGroupFilter(tx, "logs."+logGroupCol, group); err != nil {
+		return nil, 0, err
 	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
@@ -540,6 +730,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 	channelIds := types.NewSet[int]()
 	for _, log := range logs {
+		stripTopupLogIP(log)
 		if log.ChannelId != 0 {
 			channelIds.Add(log.ChannelId)
 		}
@@ -577,6 +768,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 			logs[i].ChannelName = channelMap[logs[i].ChannelId]
 		}
 	}
+	hydrateLogGroupNames(logs)
 
 	return logs, total, err
 }
@@ -609,8 +801,8 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if endTimestamp != 0 {
 		tx = tx.Where("logs.created_at <= ?", endTimestamp)
 	}
-	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
+	if tx, err = applyLogGroupFilter(tx, "logs."+logGroupCol, group); err != nil {
+		return nil, 0, err
 	}
 	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
@@ -638,16 +830,25 @@ type Stat struct {
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
+	return SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, username, 0, tokenName, channel, group)
+}
+
+func SumUsedQuotaByUserID(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, userId int, tokenName string, channel int, group string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0) quota")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm")
 
-	if tx, err = applyExplicitLogTextFilter(tx, "username", username); err != nil {
-		return stat, err
-	}
-	if rpmTpmQuery, err = applyExplicitLogTextFilter(rpmTpmQuery, "username", username); err != nil {
-		return stat, err
+	if userId != 0 {
+		tx = tx.Where("user_id = ?", userId)
+		rpmTpmQuery = rpmTpmQuery.Where("user_id = ?", userId)
+	} else {
+		if tx, err = applyExplicitLogTextFilter(tx, "username", username); err != nil {
+			return stat, err
+		}
+		if rpmTpmQuery, err = applyExplicitLogTextFilter(rpmTpmQuery, "username", username); err != nil {
+			return stat, err
+		}
 	}
 	if tokenName != "" {
 		tx = tx.Where("token_name = ?", tokenName)
@@ -669,9 +870,13 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		tx = tx.Where("channel_id = ?", channel)
 		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
 	}
-	if group != "" {
-		tx = tx.Where(logGroupCol+" = ?", group)
-		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+	groupValues, err := resolveLogGroupFilterValues(group)
+	if err != nil {
+		return stat, err
+	}
+	if len(groupValues) > 0 {
+		tx = tx.Where(logGroupCol+" IN ?", groupValues)
+		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" IN ?", groupValues)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)

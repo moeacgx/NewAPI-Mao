@@ -1,6 +1,8 @@
-# New API Electron Desktop App
+# NewAPI-Mao Electron Desktop App
 
-This directory contains the Electron wrapper for New API, providing a native desktop application with system tray support for Windows, macOS, and Linux.
+This directory contains the Electron wrapper for NewAPI-Mao, providing a native desktop application with system tray support for Windows, macOS, and Linux.
+
+产品名与窗口标题为 NewAPI-Mao；保留 `com.newapi.desktop` 应用 ID。安装版继续使用 `New-API-App` 用户数据目录，开发版使用 `new-api-electron` 目录，数据库文件仍为 `new-api.db`。本次不迁移或删除既有数据。
 
 ## Prerequisites
 
@@ -76,6 +78,6 @@ const PORT = 3000; // Change to desired port
 ### Database Location
 - **Development**: `../data/new-api.db` (project directory)
 - **Production**:
-  - macOS: `~/Library/Application Support/New API/data/`
-  - Windows: `%APPDATA%/New API/data/`
-  - Linux: `~/.config/New API/data/`
+  - macOS: `~/Library/Application Support/New-API-App/data/`
+  - Windows: `%APPDATA%/New-API-App/data/`
+  - Linux: `~/.config/New-API-App/data/`

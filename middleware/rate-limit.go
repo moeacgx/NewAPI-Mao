@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -36,6 +37,8 @@ return {1, count, ttl}
 `
 
 var inMemoryRateLimiter common.InMemoryRateLimiter
+
+var classifyDashboardCredentialForRateLimit = classifyDashboardCredential
 
 var defNext = func(c *gin.Context) {
 	c.Next()
@@ -186,9 +189,54 @@ func GlobalAPIRateLimit() func(c *gin.Context) {
 	return defNext
 }
 
+// GlobalAPIRateLimitWithAdminBypass 在路由鉴权前核验真实后台凭证，避免管理员消耗共享 IP 桶。
+// 后续权限检查仍照常执行；仅有 GA 防护的个人安全流程保留原有限流。
+func GlobalAPIRateLimitWithAdminBypass() func(c *gin.Context) {
+	if !common.GlobalApiRateLimitEnable {
+		return defNext
+	}
+	limiter := rateLimitFactory(common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration, "GA")
+	return func(c *gin.Context) {
+		path := c.FullPath()
+		securityPath := strings.HasPrefix(path, "/api/user/passkey") ||
+			(strings.HasPrefix(path, "/api/user/2fa/") && path != "/api/user/2fa/stats") ||
+			strings.HasPrefix(path, "/api/user/sessions") || path == "/api/user/self" ||
+			(strings.HasPrefix(path, "/api/affiliate/") && !strings.HasPrefix(path, "/api/affiliate/admin/"))
+		if !securityPath {
+			if user, _, _, err := classifyDashboardCredentialForRateLimit(c); err == nil && user != nil && user.Status == common.UserStatusEnabled && validUserInfo(user.Username, user.Role) && user.Role >= common.RoleAdminUser {
+				c.Next()
+				return
+			}
+		}
+		limiter(c)
+	}
+}
+
+// AdminRateLimitBypass 只包装后台业务限流，必须放在 UserAuth/AdminAuth/RootAuth 后。
+// 不用于登录、二次验证、个人资金操作或模型调用的限流。
+func AdminRateLimitBypass(limiter gin.HandlerFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		identity, ok := GetAuthIdentity(c)
+		if ok && identity.UserID > 0 && identity.UserID == c.GetInt("id") &&
+			validUserInfo(c.GetString("username"), c.GetInt("role")) && c.GetInt("role") >= common.RoleAdminUser {
+			c.Next()
+			return
+		}
+		limiter(c)
+	}
+}
+
 func CriticalRateLimit() func(c *gin.Context) {
 	if common.CriticalRateLimitEnable {
 		return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "CT")
+	}
+	return defNext
+}
+
+// AuthRefreshRateLimit 隔离会话续期计数，避免其他关键操作耗尽共享 CT 后阻塞续期。
+func AuthRefreshRateLimit() func(c *gin.Context) {
+	if common.CriticalRateLimitEnable {
+		return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "AR")
 	}
 	return defNext
 }
@@ -202,6 +250,14 @@ func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 		common.CriticalRateLimitDuration,
 		"UC:"+scope,
 	)
+}
+
+// TokenKeyReadRateLimit 必须位于 UserAuth 后，普通用户单条和批量读取共用额度，管理员豁免。
+func TokenKeyReadRateLimit() func(c *gin.Context) {
+	if !common.TokenKeyReadRateLimitEnable {
+		return defNext
+	}
+	return AdminRateLimitBypass(userRateLimitFactory(common.TokenKeyReadRateLimitNum, common.TokenKeyReadRateLimitDuration, "TKR"))
 }
 
 func DownloadRateLimit() func(c *gin.Context) {
@@ -265,5 +321,5 @@ func SearchRateLimit() func(c *gin.Context) {
 	if !common.SearchRateLimitEnable {
 		return defNext
 	}
-	return userRateLimitFactory(common.SearchRateLimitNum, common.SearchRateLimitDuration, "SR")
+	return AdminRateLimitBypass(userRateLimitFactory(common.SearchRateLimitNum, common.SearchRateLimitDuration, "SR"))
 }

@@ -39,28 +39,25 @@ import {
   getModelPriceVariantRange,
   getModelPriceVariantRuleLabel,
 } from './modelPriceVariants';
+import { readStoredUser } from './auth-data';
 
 const HTMLToastContent = ({ htmlContent }) => {
   return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 };
 export default HTMLToastContent;
 export function isAdmin() {
-  let user = localStorage.getItem('user');
-  if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 10;
+  const user = readStoredUser();
+  return user?.role >= 10;
 }
 
 export function isRoot() {
-  let user = localStorage.getItem('user');
-  if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 100;
+  const user = readStoredUser();
+  return user?.role >= 100;
 }
 
 export function getSystemName() {
   let system_name = localStorage.getItem('system_name');
-  if (!system_name) return 'New API';
+  if (!system_name) return 'NewAPI-Mao';
   return system_name;
 }
 
@@ -71,10 +68,7 @@ export function getLogo() {
 }
 
 export function getUserIdFromLocalStorage() {
-  let user = localStorage.getItem('user');
-  if (!user) return -1;
-  user = JSON.parse(user);
-  return user.id;
+  return readStoredUser()?.id ?? -1;
 }
 
 export function getFooterHTML() {
@@ -135,13 +129,18 @@ export function showError(error) {
   console.error(error);
   if (error.message) {
     if (error.name === 'AxiosError') {
-      switch (error.response.status) {
-        case 401:
-          // 清除用户状态
-          localStorage.removeItem('user');
-          // toast.error('错误：未登录或登录已过期，请重新登录！', showErrorOptions);
-          window.location.href = '/login?expired=true';
-          break;
+      const status = error.response?.status;
+      if (
+        status === 401 ||
+        (status === 409 &&
+          error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
+      ) {
+        // 明确失效或会话身份不匹配时重新登录，临时故障保留用户状态。
+        localStorage.removeItem('user');
+        window.location.href = '/login?expired=true';
+        return;
+      }
+      switch (status) {
         case 429:
           Toast.error('错误：请求次数过多，请稍后再试！');
           break;
@@ -422,18 +421,14 @@ export const processIncompleteThinkTags = (content, reasoningContent = '') => {
 };
 
 // 构建消息内容（包含图片）
-export const buildMessageContent = (
-  textContent,
-  imageUrls = [],
-  imageEnabled = false,
-) => {
+export const buildMessageContent = (textContent, imageUrls = []) => {
   if (!textContent && (!imageUrls || imageUrls.length === 0)) {
     return '';
   }
 
   const validImageUrls = imageUrls.filter((url) => url && url.trim() !== '');
 
-  if (imageEnabled && validImageUrls.length > 0) {
+  if (validImageUrls.length > 0) {
     return [
       { type: 'text', text: textContent || '' },
       ...validImageUrls.map((url) => ({
@@ -740,7 +735,6 @@ export const calculateModelPrice = ({
   // 3. 根据计费类型计算价格
   if (record.quota_type === 0) {
     // 按量计费
-    const isTokensDisplay = quotaDisplayType === 'TOKENS';
     const inputRatioPriceUSD = record.model_ratio * 2 * usedGroupRatio;
     const originalInputRatioPriceUSD = record.model_ratio * 2;
     const unitDivisor = tokenUnit === 'K' ? 1000 : 1;
@@ -750,25 +744,6 @@ export const calculateModelPrice = ({
       value !== null &&
       value !== '' &&
       Number.isFinite(Number(value));
-
-    const formatRatio = (value) =>
-      hasRatioValue(value) ? Number(Number(value).toFixed(6)) : null;
-
-    if (isTokensDisplay) {
-      return {
-        inputRatio: formatRatio(record.model_ratio),
-        completionRatio: formatRatio(record.completion_ratio),
-        cacheRatio: formatRatio(record.cache_ratio),
-        createCacheRatio: formatRatio(record.create_cache_ratio),
-        imageRatio: formatRatio(record.image_ratio),
-        audioInputRatio: formatRatio(record.audio_ratio),
-        audioOutputRatio: formatRatio(record.audio_completion_ratio),
-        isPerToken: true,
-        isTokensDisplay: true,
-        usedGroup,
-        usedGroupRatio,
-      };
-    }
 
     let symbol = '$';
     if (currency === 'CNY') {
@@ -952,56 +927,6 @@ export const getModelPriceItems = (
   }
 
   if (priceData.isPerToken) {
-    if (quotaDisplayType === 'TOKENS' || priceData.isTokensDisplay) {
-      return [
-        {
-          key: 'input-ratio',
-          label: t('输入倍率'),
-          value: priceData.inputRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'completion-ratio',
-          label: t('补全倍率'),
-          value: priceData.completionRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'cache-ratio',
-          label: t('缓存读取倍率'),
-          value: priceData.cacheRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'create-cache-ratio',
-          label: t('缓存创建倍率'),
-          value: priceData.createCacheRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'image-ratio',
-          label: t('图片输入倍率'),
-          value: priceData.imageRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'audio-input-ratio',
-          label: t('音频输入倍率'),
-          value: priceData.audioInputRatio,
-          suffix: 'x',
-        },
-        {
-          key: 'audio-output-ratio',
-          label: t('音频补全倍率'),
-          value: priceData.audioOutputRatio,
-          suffix: 'x',
-        },
-      ].filter(
-        (item) =>
-          item.value !== null && item.value !== undefined && item.value !== '',
-      );
-    }
-
     const unitSuffix = ` / 1${priceData.unitLabel} Tokens`;
     return [
       {
@@ -1143,7 +1068,7 @@ export const formatDynamicPriceSummary = (billingExpr, t, groupRatio = 1) => {
     }
   } catch (e) {}
 
-  const gr = groupRatio || 1;
+  const gr = groupRatio ?? 1;
   const exprBody = billingExpr.replace(/^v\d+:/, '');
   const tierMatches = exprBody.match(/tier\(/g) || [];
   const tierCount = tierMatches.length;
@@ -1311,6 +1236,7 @@ const DEFAULT_PRICING_FILTERS = {
   viewMode: 'card',
   tokenUnit: 'M',
   filterGroup: 'all',
+  selectedGroup: 'all',
   filterQuotaType: 'all',
   filterEndpointType: 'all',
   filterVendor: 'all',
@@ -1326,6 +1252,7 @@ export const resetPricingFilters = ({
   setShowRatio,
   setViewMode,
   setFilterGroup,
+  setSelectedGroup,
   setFilterQuotaType,
   setFilterEndpointType,
   setFilterVendor,
@@ -1340,6 +1267,7 @@ export const resetPricingFilters = ({
   setViewMode?.(DEFAULT_PRICING_FILTERS.viewMode);
   setTokenUnit?.(DEFAULT_PRICING_FILTERS.tokenUnit);
   setFilterGroup?.(DEFAULT_PRICING_FILTERS.filterGroup);
+  setSelectedGroup?.(DEFAULT_PRICING_FILTERS.selectedGroup);
   setFilterQuotaType?.(DEFAULT_PRICING_FILTERS.filterQuotaType);
   setFilterEndpointType?.(DEFAULT_PRICING_FILTERS.filterEndpointType);
   setFilterVendor?.(DEFAULT_PRICING_FILTERS.filterVendor);

@@ -111,6 +111,9 @@ import {
   SecureVerificationDialog,
   useSecureVerification,
 } from '@/features/auth/secure-verification'
+import { getVendors } from '@/features/models/api'
+import { vendorsQueryKeys } from '@/features/models/lib'
+import { TaskPluginBindingField } from '@/features/task-plugins/components/task-plugin-binding-field'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useHiddenClickUnlock } from '@/hooks/use-hidden-click-unlock'
 import {
@@ -147,6 +150,7 @@ import {
   FIELD_PASSTHROUGH_TYPES,
   FIELD_DESCRIPTIONS,
   FIELD_PLACEHOLDERS,
+  FORCE_RESPONSES_CHANNEL_TYPES,
   MODEL_FETCHABLE_TYPES,
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../../constants'
@@ -286,7 +290,9 @@ const SENSITIVE_FORM_FIELDS = [
   'vertex_key_type',
   'aws_key_type',
   'azure_responses_version',
+  'task_plugin_key',
   'force_format',
+  'force_responses',
   'thinking_to_content',
   'proxy',
   'http_protocol',
@@ -316,6 +322,11 @@ const SENSITIVE_FORM_FIELDS = [
   'upstream_model_update_check_enabled',
   'upstream_model_update_auto_sync_enabled',
   'upstream_model_update_ignored_models',
+  'tokenspro_overview_sync_enabled',
+  'tokenspro_overview_sync_interval_seconds',
+  'tokenspro_overview_last_success_time',
+  'tokenspro_overview_last_allowed',
+  'tokenspro_overview_last_error',
 ] satisfies (keyof ChannelFormValues)[]
 
 function readAdvancedSettingsPreference(): boolean {
@@ -354,6 +365,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
+    values.force_responses ||
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
     values.system_prompt_override ||
@@ -374,7 +386,9 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.monitor_enable_threshold?.trim() ||
     values.upstream_model_update_check_enabled ||
     values.upstream_model_update_auto_sync_enabled ||
-    values.upstream_model_update_ignored_models?.trim()
+    values.upstream_model_update_ignored_models?.trim() ||
+    values.tokenspro_overview_sync_enabled ||
+    values.tokenspro_overview_sync_interval_seconds?.trim()
   )
 }
 
@@ -714,6 +728,11 @@ export function ChannelMutateDrawer({
     queryFn: () => getPrefillGroups('model'),
   })
 
+  const { data: vendorsData } = useQuery({
+    queryKey: vendorsQueryKeys.list({ page_size: 1000 }),
+    queryFn: () => getVendors({ page_size: 1000 }),
+  })
+
   const { copyToClipboard } = useCopyToClipboard()
 
   const {
@@ -776,6 +795,7 @@ export function ChannelMutateDrawer({
   const currentParamOverride = form.watch('param_override')
   const currentHeaderOverride = form.watch('header_override')
   const currentForceFormat = form.watch('force_format')
+  const currentForceResponses = form.watch('force_responses')
   const currentThinkingToContent = form.watch('thinking_to_content')
   const currentPassThroughBodyEnabled = form.watch('pass_through_body_enabled')
   const currentDisableTaskPollingSleep = form.watch(
@@ -981,6 +1001,16 @@ export function ChannelMutateDrawer({
     return options
   }, [currentType, t])
 
+  const vendors = useMemo(
+    () => vendorsData?.data?.items ?? [],
+    [vendorsData?.data?.items]
+  )
+
+  const vendorOptions = useMemo(
+    () => vendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+    [vendors]
+  )
+
   const formErrors = form.formState.errors
   const identityHasErrors = Boolean(
     formErrors.name ||
@@ -1054,6 +1084,7 @@ export function ChannelMutateDrawer({
   )
   const extraSettingsConfigured = Boolean(
     currentForceFormat ||
+    currentForceResponses ||
     currentThinkingToContent ||
     currentPassThroughBodyEnabled ||
     currentDisableTaskPollingSleep ||
@@ -1355,7 +1386,7 @@ export function ChannelMutateDrawer({
     const timer = setTimeout(() => {
       toast.warning(
         t(
-          'Warning: Base URL should not end with /v1. New API will handle it automatically. This may cause request failures.'
+          'Warning: Base URL should not end with /v1. NewAPI-Mao will handle it automatically. This may cause request failures.'
         ),
         { duration: 5000 }
       )
@@ -2038,6 +2069,19 @@ export function ChannelMutateDrawer({
                                             nextType > 0
                                           ) {
                                             field.onChange(nextType)
+                                            if (
+                                              !FORCE_RESPONSES_CHANNEL_TYPES.has(
+                                                nextType
+                                              )
+                                            ) {
+                                              form.setValue(
+                                                'force_responses',
+                                                false,
+                                                {
+                                                  shouldDirty: true,
+                                                }
+                                              )
+                                            }
                                           }
                                         }}
                                         placeholder={t('Select channel type')}
@@ -2076,6 +2120,63 @@ export function ChannelMutateDrawer({
                                     {...field}
                                   />
                                 </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name='vendor_id'
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t('Vendor')}</FormLabel>
+                                <Select
+                                  items={[
+                                    { value: 'none', label: t('No vendor') },
+                                    ...vendorOptions.map((vendor) => ({
+                                      value: String(vendor.value),
+                                      label: vendor.label,
+                                    })),
+                                  ]}
+                                  onValueChange={(value) =>
+                                    field.onChange(
+                                      value && value !== 'none'
+                                        ? Number(value)
+                                        : undefined
+                                    )
+                                  }
+                                  value={
+                                    field.value ? String(field.value) : 'none'
+                                  }
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue
+                                        placeholder={t('Select vendor')}
+                                      />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent alignItemWithTrigger={false}>
+                                    <SelectGroup>
+                                      <SelectItem value='none'>
+                                        {t('No vendor')}
+                                      </SelectItem>
+                                      {vendorOptions.map((vendor) => (
+                                        <SelectItem
+                                          key={vendor.value}
+                                          value={String(vendor.value)}
+                                        >
+                                          {vendor.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  {t(
+                                    'Used for management and display grouping only.'
+                                  )}
+                                </FormDescription>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -2140,6 +2241,12 @@ export function ChannelMutateDrawer({
                               )}
                             />
                           </fieldset>
+                        )}
+                        {currentType === 62 && (
+                          <TaskPluginBindingField
+                            form={form}
+                            disabled={sensitiveLocked}
+                          />
                         )}
                       </ChannelBasicSection>
                     </div>
@@ -2825,7 +2932,7 @@ export function ChannelMutateDrawer({
                                     </FormControl>
                                     <FormDescription>
                                       {t(
-                                        'Custom API base URL. For official channels, New API has built-in addresses. Only fill this for third-party proxy sites or special endpoints. Do not add /v1 or trailing slash.'
+                                        'Custom API base URL. For official channels, NewAPI-Mao has built-in addresses. Only fill this for third-party proxy sites or special endpoints. Do not add /v1 or trailing slash.'
                                       )}
                                     </FormDescription>
                                     <FormMessage />
@@ -3218,66 +3325,67 @@ export function ChannelMutateDrawer({
                                 />
                               )}
 
-                              {!isEditing &&
-                                multiKeyMode === 'multi_to_single' && (
-                                  <FormField
-                                    control={form.control}
-                                    name='multi_key_type'
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>
-                                          {t('Multi-Key Strategy')}
-                                        </FormLabel>
-                                        <Select
-                                          items={[
-                                            {
-                                              value: 'random',
-                                              label: t('Random'),
-                                            },
-                                            {
-                                              value: 'polling',
-                                              label: t('Polling'),
-                                            },
-                                          ]}
-                                          onValueChange={field.onChange}
-                                          value={field.value}
+                              {(isMultiKeyChannel ||
+                                (!isEditing &&
+                                  multiKeyMode === 'multi_to_single')) && (
+                                <FormField
+                                  control={form.control}
+                                  name='multi_key_type'
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>
+                                        {t('Multi-Key Strategy')}
+                                      </FormLabel>
+                                      <Select
+                                        items={[
+                                          {
+                                            value: 'random',
+                                            label: t('Random'),
+                                          },
+                                          {
+                                            value: 'polling',
+                                            label: t('Polling'),
+                                          },
+                                        ]}
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent
+                                          alignItemWithTrigger={false}
                                         >
-                                          <FormControl>
-                                            <SelectTrigger>
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent
-                                            alignItemWithTrigger={false}
-                                          >
-                                            <SelectGroup>
-                                              <SelectItem value='random'>
-                                                {t('Random')}
-                                              </SelectItem>
-                                              <SelectItem value='polling'>
-                                                {t('Polling')}
-                                              </SelectItem>
-                                            </SelectGroup>
-                                          </SelectContent>
-                                        </Select>
-                                        <FormDescription>
-                                          {multiKeyType === 'polling' ? (
-                                            <span className='text-warning'>
-                                              {t(
-                                                'Polling mode requires Redis and memory cache, otherwise performance will be significantly degraded'
-                                              )}
-                                            </span>
-                                          ) : (
-                                            t(
-                                              'Randomly select a key from the pool for each request'
-                                            )
-                                          )}
-                                        </FormDescription>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                )}
+                                          <SelectGroup>
+                                            <SelectItem value='random'>
+                                              {t('Random')}
+                                            </SelectItem>
+                                            <SelectItem value='polling'>
+                                              {t('Polling')}
+                                            </SelectItem>
+                                          </SelectGroup>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormDescription>
+                                        {multiKeyType === 'polling' ? (
+                                          <span className='text-warning'>
+                                            {t(
+                                              'Polling mode requires Redis and memory cache, otherwise performance will be significantly degraded'
+                                            )}
+                                          </span>
+                                        ) : (
+                                          t(
+                                            'Randomly select a key from the pool for each request'
+                                          )
+                                        )}
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
                             </ChannelAuthSection>
                           </fieldset>
                         </div>
@@ -4145,6 +4253,37 @@ export function ChannelMutateDrawer({
                                         <Switch
                                           checked={field.value}
                                           onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+
+                              {(FORCE_RESPONSES_CHANNEL_TYPES.has(
+                                currentType
+                              ) ||
+                                currentForceResponses) && (
+                                <FormField
+                                  control={form.control}
+                                  name='force_responses'
+                                  render={({ field }) => (
+                                    <FormItem className='flex items-center justify-between gap-4 px-4 py-3'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel>
+                                          {t('Force Responses upstream')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                          disabled={sensitiveLocked}
                                         />
                                       </FormControl>
                                     </FormItem>

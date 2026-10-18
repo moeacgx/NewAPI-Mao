@@ -34,6 +34,7 @@ import { applyFaviconToDom } from '@/lib/dom-utils'
 import '@/lib/dayjs'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import { handleServerError } from '@/lib/handle-server-error'
+import { applySiteMetadataFromStatus } from '@/lib/site-metadata'
 
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
@@ -113,23 +114,15 @@ const rootElement = document.querySelector<HTMLElement>('#root')
 if (!rootElement) {
   throw new Error('Root element not found')
 }
-// Set document.title and favicon from cached status, then refresh from network
+// 最新状态返回前保留服务端首屏标题。
 ;(function initSystemBranding() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
-    const apply = (name: string) => {
-      document.title = name
-      const metaTitle = document.querySelector(
-        'meta[name="title"]'
-      ) as HTMLMetaElement | null
-      if (metaTitle) metaTitle.setAttribute('content', name)
-    }
-    // Cache-first
+    // 可先显示缓存 Logo，旧名称不能覆盖服务端首屏标题。
     try {
       const saved = localStorage.getItem('status')
       if (saved) {
         const s = JSON.parse(saved)
-        if (s?.system_name) apply(s.system_name)
         if (s?.logo) applyFaviconToDom(s.logo)
       }
     } catch {
@@ -138,8 +131,8 @@ if (!rootElement) {
     // Background refresh
     getStatus()
       .then((s) => {
-        if (s?.system_name) {
-          apply(s.system_name as string)
+        if (s) {
+          applySiteMetadataFromStatus(s)
           try {
             localStorage.setItem('status', JSON.stringify(s))
           } catch {

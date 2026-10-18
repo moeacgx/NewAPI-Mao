@@ -36,7 +36,7 @@ func configureAffiliateTest(t *testing.T) {
 	s.InviteeMinRechargeAmount = 0
 }
 
-func createAffiliateTestUser(t *testing.T, id, inviterID, quota int) User {
+func createAffiliateTestUser(t *testing.T, id, inviterID int, quota int64) User {
 	t.Helper()
 	user := User{
 		Id:        id,
@@ -66,7 +66,7 @@ func assertAffiliateBalanceConserved(t *testing.T, balance AffiliateBalance) {
 	)
 }
 
-func TestAffiliateRewardSourceTupleIsIdempotentUnderDuplicateCallbacks(t *testing.T) {
+func TestAffiliateRewardSourceTupleIsConcurrentIdempotentAndUserScoped(t *testing.T) {
 	truncateTables(t)
 	configureAffiliateTest(t)
 
@@ -94,28 +94,60 @@ func TestAffiliateRewardSourceTupleIsIdempotentUnderDuplicateCallbacks(t *testin
 	}
 
 	var records []AffiliateRecord
-	require.NoError(t, DB.Where("source_type = ? AND source_id = ?", AffiliateSourceTopUp, "duplicate-callback-order").Order("level ASC").Find(&records).Error)
+	require.NoError(t, DB.Where("source_type = ? AND source_id = ?", AffiliateSourceTopUp, "duplicate-callback-order").Order("level ASC, user_id ASC").Find(&records).Error)
 	require.Len(t, records, 2)
 	assert.Equal(t, 8102, records[0].UserId)
 	assert.Equal(t, 1, records[0].Level)
 	createAffiliateTestUser(t, 8104, 0, 0)
 	require.NoError(t, DB.Model(&User{}).Where("id = ?", 8103).Update("inviter_id", 8104).Error)
 	require.NoError(t, CreateAffiliateRewardsForPayment(8103, AffiliateSourceTopUp, "duplicate-callback-order", businessQuota))
-	require.NoError(t, DB.Where("source_type = ? AND source_id = ?", AffiliateSourceTopUp, "duplicate-callback-order").Order("level ASC").Find(&records).Error)
-	require.Len(t, records, 2)
+	require.NoError(t, DB.Where("source_type = ? AND source_id = ?", AffiliateSourceTopUp, "duplicate-callback-order").Order("level ASC, user_id ASC").Find(&records).Error)
+	require.Len(t, records, 3)
 
-	assert.Equal(t, businessQuota, records[0].SourceQuota)
-	assert.Equal(t, 1_000, records[0].RewardQuota)
-	assert.Equal(t, 8101, records[1].UserId)
-	assert.Equal(t, 2, records[1].Level)
-	assert.Equal(t, 500, records[1].RewardQuota)
+	assert.EqualValues(t, businessQuota, records[0].SourceQuota)
+	assert.EqualValues(t, 1_000, records[0].RewardQuota)
+	assert.Equal(t, 8104, records[1].UserId)
+	assert.Equal(t, 1, records[1].Level)
+	assert.EqualValues(t, 1_000, records[1].RewardQuota)
+	assert.Equal(t, 8101, records[2].UserId)
+	assert.Equal(t, 2, records[2].Level)
+	assert.EqualValues(t, 500, records[2].RewardQuota)
 
 	first := loadAffiliateTestBalance(t, 8102)
 	second := loadAffiliateTestBalance(t, 8101)
-	assert.Equal(t, 1_000, first.PendingQuota)
-	assert.Equal(t, 1_000, first.TotalQuota)
-	assert.Equal(t, 500, second.PendingQuota)
-	assert.Equal(t, 500, second.TotalQuota)
+	assert.EqualValues(t, 1_000, first.PendingQuota)
+	assert.EqualValues(t, 1_000, first.TotalQuota)
+	third := loadAffiliateTestBalance(t, 8104)
+	assert.EqualValues(t, 1_000, third.PendingQuota)
+	assert.EqualValues(t, 1_000, third.TotalQuota)
+	assert.EqualValues(t, 500, second.PendingQuota)
+	assert.EqualValues(t, 500, second.TotalQuota)
+}
+
+func TestAffiliateRewardSourceTupleKeepsDifferentUsersIndependent(t *testing.T) {
+	truncateTables(t)
+	configureAffiliateTest(t)
+
+	createAffiliateTestUser(t, 8201, 0, 0)
+	createAffiliateTestUser(t, 8202, 8201, 0)
+	createAffiliateTestUser(t, 8203, 0, 0)
+	createAffiliateTestUser(t, 8204, 8203, 0)
+
+	const sourceID = "same-source-different-users"
+	const businessQuota = 10_000
+	require.NoError(t, CreateAffiliateRewardsForPayment(8202, AffiliateSourceTopUp, sourceID, businessQuota))
+	require.NoError(t, CreateAffiliateRewardsForPayment(8204, AffiliateSourceTopUp, sourceID, businessQuota))
+
+	var records []AffiliateRecord
+	require.NoError(t, DB.Where("source_type = ? AND source_id = ? AND level = ?", AffiliateSourceTopUp, sourceID, 1).
+		Order("user_id ASC").Find(&records).Error)
+	require.Len(t, records, 2)
+	assert.Equal(t, 8201, records[0].UserId)
+	assert.Equal(t, 8203, records[1].UserId)
+	assert.EqualValues(t, 1_000, records[0].RewardQuota)
+	assert.EqualValues(t, 1_000, records[1].RewardQuota)
+	assert.EqualValues(t, 1_000, loadAffiliateTestBalance(t, 8201).PendingQuota)
+	assert.EqualValues(t, 1_000, loadAffiliateTestBalance(t, 8203).PendingQuota)
 }
 
 func TestAffiliateSettlementLocksBalanceBeforeRecordMutation(t *testing.T) {
@@ -189,22 +221,22 @@ func TestAffiliateSettlementWithdrawalTransitionsConserveBalance(t *testing.T) {
 	require.NoError(t, SettleMatureAffiliateRecords(8111))
 
 	balance := loadAffiliateTestBalance(t, 8111)
-	assert.Equal(t, 0, balance.PendingQuota)
-	assert.Equal(t, 1_000, balance.AvailableQuota)
+	assert.EqualValues(t, 0, balance.PendingQuota)
+	assert.EqualValues(t, 1_000, balance.AvailableQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
 	require.NoError(t, DB.Create(&AffiliatePayoutAccount{UserId: 8111, AlipayAccount: "pay@example.test"}).Error)
 	withdrawal, err := CreateAffiliateWithdrawal(8111, AffiliatePayoutMethodAlipay, 400)
 	require.NoError(t, err)
 	balance = loadAffiliateTestBalance(t, 8111)
-	assert.Equal(t, 600, balance.AvailableQuota)
-	assert.Equal(t, 400, balance.FrozenQuota)
+	assert.EqualValues(t, 600, balance.AvailableQuota)
+	assert.EqualValues(t, 400, balance.FrozenQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
 	require.NoError(t, RejectAffiliateWithdrawal(withdrawal.Id, 1, "reject"))
 	require.NoError(t, RejectAffiliateWithdrawal(withdrawal.Id, 1, "duplicate reject"))
 	balance = loadAffiliateTestBalance(t, 8111)
-	assert.Equal(t, 1_000, balance.AvailableQuota)
+	assert.EqualValues(t, 1_000, balance.AvailableQuota)
 	assert.Zero(t, balance.FrozenQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
@@ -213,9 +245,9 @@ func TestAffiliateSettlementWithdrawalTransitionsConserveBalance(t *testing.T) {
 	require.NoError(t, MarkAffiliateWithdrawalPaid(withdrawal.Id, 1, "paid"))
 	require.NoError(t, MarkAffiliateWithdrawalPaid(withdrawal.Id, 1, "duplicate paid"))
 	balance = loadAffiliateTestBalance(t, 8111)
-	assert.Equal(t, 600, balance.AvailableQuota)
+	assert.EqualValues(t, 600, balance.AvailableQuota)
 	assert.Zero(t, balance.FrozenQuota)
-	assert.Equal(t, 400, balance.WithdrawnQuota)
+	assert.EqualValues(t, 400, balance.WithdrawnQuota)
 	assertAffiliateBalanceConserved(t, balance)
 }
 
@@ -269,7 +301,7 @@ func TestAffiliateMinimumWithdrawalConversionRejectsUnsafeValues(t *testing.T) {
 				require.NoError(t, DB.Model(&AffiliateWithdrawal{}).Where("user_id = ?", userID).Count(&count).Error)
 				assert.Zero(t, count)
 				balance := loadAffiliateTestBalance(t, userID)
-				assert.Equal(t, 1_000, balance.AvailableQuota)
+				assert.EqualValues(t, 1_000, balance.AvailableQuota)
 				assert.Zero(t, balance.FrozenQuota)
 				assertAffiliateBalanceConserved(t, balance)
 				return
@@ -277,16 +309,16 @@ func TestAffiliateMinimumWithdrawalConversionRejectsUnsafeValues(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, withdrawal)
-			assert.Equal(t, testCase.quota, withdrawal.Quota)
+			assert.EqualValues(t, testCase.quota, withdrawal.Quota)
 			balance := loadAffiliateTestBalance(t, userID)
-			assert.Equal(t, 1_000-testCase.quota, balance.AvailableQuota)
-			assert.Equal(t, testCase.quota, balance.FrozenQuota)
+			assert.EqualValues(t, 1_000-testCase.quota, balance.AvailableQuota)
+			assert.EqualValues(t, testCase.quota, balance.FrozenQuota)
 			assertAffiliateBalanceConserved(t, balance)
 		})
 	}
 }
 
-func TestAffiliateTransferUsesAtomicWalletCapacityAndSynchronizesLegacyFields(t *testing.T) {
+func TestAffiliateTransferAllowsBalanceAboveLegacyInt32Boundary(t *testing.T) {
 	truncateTables(t)
 	configureAffiliateTest(t)
 
@@ -294,24 +326,27 @@ func TestAffiliateTransferUsesAtomicWalletCapacityAndSynchronizesLegacyFields(t 
 	require.NoError(t, DB.Create(&AffiliateBalance{UserId: 8121, AvailableQuota: 100, TotalQuota: 100}).Error)
 
 	err := TransferAffiliateQuotaToBalance(8121, 100)
-	require.ErrorIs(t, err, ErrTopUpQuotaLimitExceeded)
+	require.NoError(t, err)
 	balance := loadAffiliateTestBalance(t, 8121)
-	assert.Equal(t, 100, balance.AvailableQuota)
-	assert.Zero(t, balance.TransferredQuota)
+	assert.Zero(t, balance.AvailableQuota)
+	assert.EqualValues(t, 100, balance.TransferredQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
-	require.NoError(t, DB.Model(&User{}).Where("id = ?", 8121).Update("quota", 10).Error)
+	require.NoError(t, DB.Model(&AffiliateBalance{}).Where("user_id = ?", 8121).Updates(map[string]interface{}{
+		"available_quota": 100,
+		"total_quota":     200,
+	}).Error)
 	require.NoError(t, TransferAffiliateQuotaToBalance(8121, 100))
 	balance = loadAffiliateTestBalance(t, 8121)
 	assert.Zero(t, balance.AvailableQuota)
-	assert.Equal(t, 100, balance.TransferredQuota)
+	assert.EqualValues(t, 200, balance.TransferredQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
 	var user User
 	require.NoError(t, DB.Select("quota", "aff_quota", "aff_history").Where("id = ?", 8121).First(&user).Error)
-	assert.Equal(t, 110, user.Quota)
+	assert.EqualValues(t, int64(common.MaxQuota)+150, user.Quota)
 	assert.Zero(t, user.AffQuota)
-	assert.Equal(t, 100, user.AffHistoryQuota)
+	assert.EqualValues(t, 200, user.AffHistoryQuota)
 }
 
 func TestAffiliateBalanceMigratesLegacyUserFieldsOnFirstAccess(t *testing.T) {
@@ -325,15 +360,15 @@ func TestAffiliateBalanceMigratesLegacyUserFieldsOnFirstAccess(t *testing.T) {
 	}).Error)
 	balance, err := GetAffiliateBalance(8122)
 	require.NoError(t, err)
-	assert.Equal(t, 700, balance.AvailableQuota)
-	assert.Equal(t, 1_000, balance.TotalQuota)
-	assert.Equal(t, 300, balance.TransferredQuota)
+	assert.EqualValues(t, 700, balance.AvailableQuota)
+	assert.EqualValues(t, 1_000, balance.TotalQuota)
+	assert.EqualValues(t, 300, balance.TransferredQuota)
 	assertAffiliateBalanceConserved(t, *balance)
 
 	var user User
 	require.NoError(t, DB.Select("aff_quota", "aff_history").Where("id = ?", 8122).First(&user).Error)
-	assert.Equal(t, 700, user.AffQuota)
-	assert.Equal(t, 1_000, user.AffHistoryQuota)
+	assert.EqualValues(t, 700, user.AffQuota)
+	assert.EqualValues(t, 1_000, user.AffHistoryQuota)
 }
 
 func TestAffiliateInviterBindingRejectsSelfCycleAndDuplicateCount(t *testing.T) {
@@ -387,7 +422,7 @@ func TestAffiliateFraudClawbackConfiscatesOnce(t *testing.T) {
 
 	balance := loadAffiliateTestBalance(t, 8141)
 	assert.Zero(t, balance.AvailableQuota)
-	assert.Equal(t, 1_000, balance.ConfiscatedQuota)
+	assert.EqualValues(t, 1_000, balance.ConfiscatedQuota)
 	assert.Zero(t, balance.TotalQuota)
 	var record AffiliateRecord
 	require.NoError(t, DB.Where("source_type = ? AND source_id = ?", AffiliateSourceTopUp, "clawback-order").First(&record).Error)
@@ -396,7 +431,7 @@ func TestAffiliateFraudClawbackConfiscatesOnce(t *testing.T) {
 	err := UnbindAffiliateRelationship(alert.Id, 1, true)
 	require.Error(t, err)
 	balance = loadAffiliateTestBalance(t, 8141)
-	assert.Equal(t, 1_000, balance.ConfiscatedQuota)
+	assert.EqualValues(t, 1_000, balance.ConfiscatedQuota)
 }
 
 func TestAffiliateFraudClawbackWaitsForWithdrawalTerminalState(t *testing.T) {
@@ -455,8 +490,8 @@ func TestAffiliateFraudClawbackWaitsForWithdrawalTerminalState(t *testing.T) {
 			assert.Contains(t, err.Error(), "提现申请")
 
 			balance := loadAffiliateTestBalance(t, inviterID)
-			assert.Equal(t, 600, balance.AvailableQuota)
-			assert.Equal(t, 400, balance.FrozenQuota)
+			assert.EqualValues(t, 600, balance.AvailableQuota)
+			assert.EqualValues(t, 400, balance.FrozenQuota)
 			assert.Zero(t, balance.ConfiscatedQuota)
 			assertAffiliateBalanceConserved(t, balance)
 			var unchangedRecord AffiliateRecord
@@ -482,9 +517,9 @@ func TestAffiliateFraudClawbackWaitsForWithdrawalTerminalState(t *testing.T) {
 			balance = loadAffiliateTestBalance(t, inviterID)
 			assert.Zero(t, balance.AvailableQuota)
 			assert.Zero(t, balance.FrozenQuota)
-			assert.Equal(t, testCase.wantRecovered, balance.ConfiscatedQuota)
-			assert.Equal(t, testCase.wantWithdrawn, balance.WithdrawnQuota)
-			assert.Equal(t, testCase.wantTotal, balance.TotalQuota)
+			assert.EqualValues(t, testCase.wantRecovered, balance.ConfiscatedQuota)
+			assert.EqualValues(t, testCase.wantWithdrawn, balance.WithdrawnQuota)
+			assert.EqualValues(t, testCase.wantTotal, balance.TotalQuota)
 			assertAffiliateBalanceConserved(t, balance)
 			var finalizedWithdrawal AffiliateWithdrawal
 			require.NoError(t, DB.First(&finalizedWithdrawal, withdrawal.Id).Error)
@@ -495,7 +530,7 @@ func TestAffiliateFraudClawbackWaitsForWithdrawalTerminalState(t *testing.T) {
 			var resolvedAlert AffiliateFraudAlert
 			require.NoError(t, DB.First(&resolvedAlert, alert.Id).Error)
 			assert.Equal(t, FraudAlertStatusResolved, resolvedAlert.Status)
-			assert.Equal(t, testCase.wantRecovered, resolvedAlert.ClawbackQuota)
+			assert.EqualValues(t, testCase.wantRecovered, resolvedAlert.ClawbackQuota)
 		})
 	}
 }
@@ -520,13 +555,13 @@ func TestAffiliateRiskFreezeRoutesSettlementToRiskBalance(t *testing.T) {
 	balance := loadAffiliateTestBalance(t, 8151)
 	assert.Zero(t, balance.PendingQuota)
 	assert.Zero(t, balance.AvailableQuota)
-	assert.Equal(t, 1_000, balance.RiskFrozenQuota)
+	assert.EqualValues(t, 1_000, balance.RiskFrozenQuota)
 	assertAffiliateBalanceConserved(t, balance)
 
 	_, err = RemoveAffiliateRiskAction(8151, 1, AffiliateRiskRemoveRequest{})
 	require.NoError(t, err)
 	balance = loadAffiliateTestBalance(t, 8151)
-	assert.Equal(t, 1_000, balance.AvailableQuota)
+	assert.EqualValues(t, 1_000, balance.AvailableQuota)
 	assert.Zero(t, balance.RiskFrozenQuota)
 	assertAffiliateBalanceConserved(t, balance)
 }
@@ -565,7 +600,7 @@ func TestAffiliateRegistrationCountsWithoutFixedInviterReward(t *testing.T) {
 	var savedInvitee User
 	require.NoError(t, DB.Where("id = ?", invitee.Id).First(&savedInvitee).Error)
 	assert.Equal(t, 8161, savedInvitee.InviterId)
-	assert.Equal(t, 123, savedInvitee.Quota)
+	assert.EqualValues(t, 123, savedInvitee.Quota)
 
 	var inviter User
 	require.NoError(t, DB.Where("id = ?", 8161).First(&inviter).Error)
@@ -580,7 +615,7 @@ func TestAffiliateBusinessQuotaSnapshotsExcludeInvoiceFee(t *testing.T) {
 		AffiliateSourceQuota: 5_000,
 		InvoiceFeeAmount:     4,
 	}
-	assert.Equal(t, 5_000, topUpAffiliateSourceQuota(topup, topup.CreditedQuota))
+	assert.EqualValues(t, 5_000, topUpAffiliateSourceQuota(topup, topup.CreditedQuota))
 	freeTopUp := &TopUp{
 		CreditedQuota: 9_000,
 		PromoCodeId:   1,
@@ -592,7 +627,7 @@ func TestAffiliateBusinessQuotaSnapshotsExcludeInvoiceFee(t *testing.T) {
 		AffiliateSourceQuota: 4_000,
 		InvoiceFeeAmount:     5,
 	}
-	assert.Equal(t, 4_000, subscriptionOrderAffiliateSourceQuota(order))
+	assert.EqualValues(t, 4_000, subscriptionOrderAffiliateSourceQuota(order))
 }
 
 func TestAffiliateFraudOverlapCanonicalizesPublicIPv6(t *testing.T) {
@@ -613,6 +648,39 @@ func TestAffiliateFraudOverlapCanonicalizesPublicIPv6(t *testing.T) {
 	batch, err := GetIPOverlapBatch(8171, []int{8172}, 0)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"2001:4860:4860::8888"}, batch[8172])
+}
+
+func TestAffiliateFraudIgnoresPaymentIPRecords(t *testing.T) {
+	truncateTables(t)
+	configureAffiliateTest(t)
+
+	createAffiliateTestUser(t, 8173, 0, 0)
+	createAffiliateTestUser(t, 8174, 8173, 0)
+	records := []UserIPRecord{
+		{UserId: 8173, Ip: "203.0.113.42", Action: "login"},
+		{UserId: 8174, Ip: "203.0.113.42", Action: "register"},
+		{UserId: 8173, Ip: "198.51.100.44", Action: "payment"},
+		{UserId: 8174, Ip: "198.51.100.44", Action: "topup"},
+	}
+	require.NoError(t, DB.Create(&records).Error)
+
+	overlaps, err := GetIPOverlap(8173, 8174, 0)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.42"}, overlaps)
+
+	batch, err := GetIPOverlapBatch(8173, []int{8174}, 0)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.42"}, batch[8174])
+
+	created, err := DetectFraudForInviter(8173, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, created)
+
+	var alert AffiliateFraudAlert
+	require.NoError(t, DB.Where("inviter_id = ? AND invitee_id = ?", 8173, 8174).First(&alert).Error)
+	var sharedIPs []string
+	require.NoError(t, common.UnmarshalJsonStr(alert.SharedIps, &sharedIPs))
+	assert.Equal(t, []string{"203.0.113.42"}, sharedIPs)
 }
 
 func TestAffiliateRechargeEligibilityUsesNormalizedBusinessCNY(t *testing.T) {

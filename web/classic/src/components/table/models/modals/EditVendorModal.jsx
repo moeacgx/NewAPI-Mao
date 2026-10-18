@@ -153,9 +153,20 @@ const EditVendorModal = ({ visible, handleClose, refresh, editingVendor }) => {
             <Form.Input
               field='icon'
               label={t('供应商图标')}
-              placeholder={t('请输入图标名称')}
+              placeholder={t('Icon name or image URL')}
+              maxLength={128}
+              rules={[
+                {
+                  max: 128,
+                  message: t('Use at most 128 characters for the icon.'),
+                },
+              ]}
               extraText={
                 <span>
+                  {t(
+                    'You can also use an HTTP/HTTPS image URL (up to 128 characters). HTTPS is recommended.',
+                  )}
+                  <br />
                   {t(
                     "图标使用@lobehub/icons库，如：OpenAI、Claude.Color，支持链式参数：OpenAI.Avatar.type={'platform'}、OpenRouter.Avatar.shape={'square'}，查询所有可用图标请 ",
                   )}

@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+
+	"gorm.io/gorm"
 )
 
 type TaskStatus string
@@ -111,9 +114,15 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
-	Key            string `json:"key,omitempty"`
-	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
-	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
+	ResultDiscarded bool                   `json:"result_discarded,omitempty"`
+	Execution       *TaskExecutionSnapshot `json:"execution,omitempty"`
+	PluginState     json.RawMessage        `json:"plugin_state,omitempty"`
+	PluginData      json.RawMessage        `json:"plugin_data,omitempty"`
+	PluginImmediate *commonRelay.TaskInfo  `json:"plugin_immediate,omitempty"`
+	PluginResultURL string                 `json:"plugin_result_url,omitempty"`
+	Key             string                 `json:"key,omitempty"`
+	UpstreamTaskID  string                 `json:"upstream_task_id,omitempty"` // 上游真实 task ID
+	ResultURL       string                 `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
 	BillingSource        string                    `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId       int                       `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
@@ -143,7 +152,7 @@ type TaskRefundReconciliation struct {
 	UpstreamModelName            string              `json:"upstream_model_name,omitempty"`
 	AccountingDone               bool                `json:"accounting_done,omitempty"`
 	WalletQuotaVersion           int64               `json:"wallet_quota_version,omitempty"`
-	WalletQuota                  int                 `json:"wallet_quota,omitempty"`
+	WalletQuota                  int64               `json:"wallet_quota,omitempty"`
 	CacheRepairDone              bool                `json:"cache_repair_done,omitempty"`
 	LogClaimToken                string              `json:"log_claim_token,omitempty"`
 	LogClaimUntil                int64               `json:"log_claim_until,omitempty"`
@@ -198,10 +207,14 @@ func (p *TaskPrivateData) Scan(val interface{}) error {
 }
 
 func (p TaskPrivateData) Value() (driver.Value, error) {
-	if (p == TaskPrivateData{}) {
+	data, err := common.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	if string(data) == "{}" {
 		return nil, nil
 	}
-	return common.Marshal(p)
+	return data, nil
 }
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
@@ -214,7 +227,111 @@ type SyncTaskQueryParams struct {
 	Status         string
 	StartTimestamp int64
 	EndTimestamp   int64
+	Username       string
+	ModelName      string
 	UserIDs        []int
+}
+
+func applyTaskTextFilter(query *gorm.DB, column string, value string) *gorm.DB {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return query
+	}
+	if strings.Contains(value, "%") {
+		pattern, err := sanitizeLikePattern(value)
+		if err != nil {
+			return query.Where("1 = 0")
+		}
+		return query.Where(column+" LIKE ? ESCAPE '!'", pattern)
+	}
+	return query.Where(column+" = ?", value)
+}
+
+func taskJSONValueExpr(field string) string {
+	dialect := ""
+	if DB != nil && DB.Dialector != nil {
+		dialect = DB.Dialector.Name()
+	}
+	switch dialect {
+	case "postgres":
+		return "tasks.properties->>'" + field + "'"
+	case "mysql":
+		return "JSON_UNQUOTE(JSON_EXTRACT(tasks.properties, '$." + field + "'))"
+	default:
+		return "json_extract(tasks.properties, '$." + field + "')"
+	}
+}
+
+func taskVisibleModelExpr() string {
+	origin := taskJSONValueExpr("origin_model_name")
+	upstream := taskJSONValueExpr("upstream_model_name")
+	return "COALESCE(NULLIF(" + origin + ", ''), " + upstream + ")"
+}
+
+func applyTaskModelNameFilter(query *gorm.DB, modelName string, admin bool) *gorm.DB {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return query
+	}
+	if admin {
+		origin := taskJSONValueExpr("origin_model_name")
+		upstream := taskJSONValueExpr("upstream_model_name")
+		if strings.Contains(modelName, "%") {
+			pattern, err := sanitizeLikePattern(modelName)
+			if err != nil {
+				return query.Where("1 = 0")
+			}
+			return query.Where("("+origin+" LIKE ? ESCAPE '!' OR "+upstream+" LIKE ? ESCAPE '!')", pattern, pattern)
+		}
+		return query.Where("("+origin+" = ? OR "+upstream+" = ?)", modelName, modelName)
+	}
+	visible := taskVisibleModelExpr()
+	if strings.Contains(modelName, "%") {
+		pattern, err := sanitizeLikePattern(modelName)
+		if err != nil {
+			return query.Where("1 = 0")
+		}
+		return query.Where(visible+" LIKE ? ESCAPE '!'", pattern)
+	}
+	return query.Where(visible+" = ?", modelName)
+}
+
+func applyTaskQueryFilters(query *gorm.DB, queryParams SyncTaskQueryParams, admin bool) *gorm.DB {
+	if queryParams.ChannelID != "" && admin {
+		query = query.Where("tasks.channel_id = ?", queryParams.ChannelID)
+	}
+	if queryParams.Platform != "" {
+		query = query.Where("tasks.platform = ?", queryParams.Platform)
+	}
+	if queryParams.UserID != "" && admin {
+		query = query.Where("tasks.user_id = ?", queryParams.UserID)
+	}
+	if len(queryParams.UserIDs) != 0 && admin {
+		query = query.Where("tasks.user_id in (?)", queryParams.UserIDs)
+	}
+	if queryParams.Username != "" && admin {
+		query = query.Joins("JOIN users ON users.id = tasks.user_id")
+		query = applyTaskTextFilter(query, "users.username", queryParams.Username)
+	}
+	if queryParams.ModelName != "" {
+		query = applyTaskModelNameFilter(query, queryParams.ModelName, admin)
+	}
+	if queryParams.TaskID != "" {
+		query = query.Where("tasks.task_id = ?", queryParams.TaskID)
+	}
+	if queryParams.Action != "" {
+		query = query.Where("tasks.action = ?", queryParams.Action)
+	}
+	if queryParams.Status != "" {
+		query = query.Where("tasks.status = ?", queryParams.Status)
+	}
+	if queryParams.StartTimestamp != 0 {
+		query = query.Where("tasks.submit_time >= ?", queryParams.StartTimestamp)
+	}
+	if queryParams.EndTimestamp != 0 {
+		query = query.Where("tasks.submit_time <= ?", queryParams.EndTimestamp)
+	}
+	return query
 }
 
 func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) *Task {
@@ -257,34 +374,23 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 }
 
 func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQueryParams) []*Task {
+	return taskGetAllUserTask(userId, startIdx, num, queryParams, false)
+}
+
+func TaskGetAllUserTaskForLog(userId int, startIdx int, num int, queryParams SyncTaskQueryParams) []*Task {
+	tasks := taskGetAllUserTask(userId, startIdx, num, queryParams, true)
+	hydrateTaskLogData(tasks)
+	return tasks
+}
+
+func taskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQueryParams, omitData bool) []*Task {
 	var tasks []*Task
 	var err error
 
-	// 初始化查询构建器
-	query := DB.Where("user_id = ?", userId)
+	query := DB.Model(&Task{}).Where("tasks.user_id = ?", userId)
+	query = applyTaskQueryFilters(query, queryParams, false)
 
-	if queryParams.TaskID != "" {
-		query = query.Where("task_id = ?", queryParams.TaskID)
-	}
-	if queryParams.Action != "" {
-		query = query.Where("action = ?", queryParams.Action)
-	}
-	if queryParams.Status != "" {
-		query = query.Where("status = ?", queryParams.Status)
-	}
-	if queryParams.Platform != "" {
-		query = query.Where("platform = ?", queryParams.Platform)
-	}
-	if queryParams.StartTimestamp != 0 {
-		// 假设您已将前端传来的时间戳转换为数据库所需的时间格式，并处理了时间戳的验证和解析
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
-	}
-	if queryParams.EndTimestamp != 0 {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
-	}
-
-	// 获取数据
-	err = query.Omit("channel_id").Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
+	err = taskLogSelect(query, omitData, true).Order("tasks.id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
@@ -293,48 +399,97 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 }
 
 func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*Task {
+	return taskGetAllTasks(startIdx, num, queryParams, false)
+}
+
+func TaskGetAllTasksForLog(startIdx int, num int, queryParams SyncTaskQueryParams) []*Task {
+	tasks := taskGetAllTasks(startIdx, num, queryParams, true)
+	hydrateTaskLogData(tasks)
+	return tasks
+}
+
+func taskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams, omitData bool) []*Task {
 	var tasks []*Task
 	var err error
 
-	// 初始化查询构建器
-	query := DB
+	query := DB.Model(&Task{})
+	query = applyTaskQueryFilters(query, queryParams, true)
 
-	// 添加过滤条件
-	if queryParams.ChannelID != "" {
-		query = query.Where("channel_id = ?", queryParams.ChannelID)
-	}
-	if queryParams.Platform != "" {
-		query = query.Where("platform = ?", queryParams.Platform)
-	}
-	if queryParams.UserID != "" {
-		query = query.Where("user_id = ?", queryParams.UserID)
-	}
-	if len(queryParams.UserIDs) != 0 {
-		query = query.Where("user_id in (?)", queryParams.UserIDs)
-	}
-	if queryParams.TaskID != "" {
-		query = query.Where("task_id = ?", queryParams.TaskID)
-	}
-	if queryParams.Action != "" {
-		query = query.Where("action = ?", queryParams.Action)
-	}
-	if queryParams.Status != "" {
-		query = query.Where("status = ?", queryParams.Status)
-	}
-	if queryParams.StartTimestamp != 0 {
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
-	}
-	if queryParams.EndTimestamp != 0 {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
-	}
-
-	// 获取数据
-	err = query.Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
+	err = taskLogSelect(query, omitData, false).Order("tasks.id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
 
 	return tasks
+}
+
+func taskLogSelect(query *gorm.DB, omitData bool, omitChannel bool) *gorm.DB {
+	columns := make([]string, 0, 2)
+	if omitData {
+		columns = append(columns, "data")
+	}
+	if omitChannel {
+		columns = append(columns, "channel_id")
+	}
+	if len(columns) == 0 {
+		return query
+	}
+	return query.Omit(columns...)
+}
+
+func hydrateTaskLogData(tasks []*Task) {
+	ids := make([]int64, 0, len(tasks))
+	now := time.Now().Unix()
+	for _, task := range tasks {
+		if shouldHydrateTaskLogData(task, now) {
+			ids = append(ids, task.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+
+	var rows []struct {
+		ID   int64
+		Data json.RawMessage
+	}
+	if err := DB.Model(&Task{}).
+		Select("id", "data").
+		Where("id IN ?", ids).
+		Find(&rows).Error; err != nil {
+		return
+	}
+
+	dataByID := make(map[int64]json.RawMessage, len(rows))
+	for _, row := range rows {
+		dataByID[row.ID] = row.Data
+	}
+	for _, task := range tasks {
+		if task != nil {
+			task.Data = dataByID[task.ID]
+		}
+	}
+}
+
+func shouldHydrateTaskLogData(task *Task, now int64) bool {
+	if task == nil {
+		return false
+	}
+	if !constant.IsImageTaskPlatform(task.Platform) {
+		return true
+	}
+	if task.Status != TaskStatusSuccess {
+		return false
+	}
+	return !imageTaskLogDataExpired(task, now)
+}
+
+func imageTaskLogDataExpired(task *Task, now int64) bool {
+	retentionHours := common.GetImageTaskDataRetentionHours()
+	if retentionHours <= 0 || task.FinishTime <= 0 {
+		return false
+	}
+	return now >= task.FinishTime+int64(retentionHours)*int64(time.Hour/time.Second)
 }
 
 func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
@@ -457,13 +612,15 @@ func (Task *Task) Insert() error {
 }
 
 type taskSnapshot struct {
-	Status     TaskStatus
-	Progress   string
-	StartTime  int64
-	FinishTime int64
-	FailReason string
-	ResultURL  string
-	Data       json.RawMessage
+	PluginState json.RawMessage
+	PluginData  json.RawMessage
+	Status      TaskStatus
+	Progress    string
+	StartTime   int64
+	FinishTime  int64
+	FailReason  string
+	ResultURL   string
+	Data        json.RawMessage
 }
 
 func (s taskSnapshot) Equal(other taskSnapshot) bool {
@@ -473,18 +630,21 @@ func (s taskSnapshot) Equal(other taskSnapshot) bool {
 		s.FinishTime == other.FinishTime &&
 		s.FailReason == other.FailReason &&
 		s.ResultURL == other.ResultURL &&
-		bytes.Equal(s.Data, other.Data)
+		bytes.Equal(s.Data, other.Data) &&
+		bytes.Equal(s.PluginState, other.PluginState) && bytes.Equal(s.PluginData, other.PluginData)
 }
 
 func (t *Task) Snapshot() taskSnapshot {
 	return taskSnapshot{
-		Status:     t.Status,
-		Progress:   t.Progress,
-		StartTime:  t.StartTime,
-		FinishTime: t.FinishTime,
-		FailReason: t.FailReason,
-		ResultURL:  t.PrivateData.ResultURL,
-		Data:       t.Data,
+		PluginState: t.PrivateData.PluginState,
+		PluginData:  t.PrivateData.PluginData,
+		Status:      t.Status,
+		Progress:    t.Progress,
+		StartTime:   t.StartTime,
+		FinishTime:  t.FinishTime,
+		FailReason:  t.FailReason,
+		ResultURL:   t.PrivateData.ResultURL,
+		Data:        t.Data,
 	}
 }
 
@@ -570,33 +730,7 @@ type TaskQuotaUsage struct {
 func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 	var total int64
 	query := DB.Model(&Task{})
-	if queryParams.ChannelID != "" {
-		query = query.Where("channel_id = ?", queryParams.ChannelID)
-	}
-	if queryParams.Platform != "" {
-		query = query.Where("platform = ?", queryParams.Platform)
-	}
-	if queryParams.UserID != "" {
-		query = query.Where("user_id = ?", queryParams.UserID)
-	}
-	if len(queryParams.UserIDs) != 0 {
-		query = query.Where("user_id in (?)", queryParams.UserIDs)
-	}
-	if queryParams.TaskID != "" {
-		query = query.Where("task_id = ?", queryParams.TaskID)
-	}
-	if queryParams.Action != "" {
-		query = query.Where("action = ?", queryParams.Action)
-	}
-	if queryParams.Status != "" {
-		query = query.Where("status = ?", queryParams.Status)
-	}
-	if queryParams.StartTimestamp != 0 {
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
-	}
-	if queryParams.EndTimestamp != 0 {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
-	}
+	query = applyTaskQueryFilters(query, queryParams, true)
 	_ = query.Count(&total).Error
 	return total
 }
@@ -604,25 +738,8 @@ func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 // TaskCountAllUserTask returns total tasks for given user
 func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	var total int64
-	query := DB.Model(&Task{}).Where("user_id = ?", userId)
-	if queryParams.TaskID != "" {
-		query = query.Where("task_id = ?", queryParams.TaskID)
-	}
-	if queryParams.Action != "" {
-		query = query.Where("action = ?", queryParams.Action)
-	}
-	if queryParams.Status != "" {
-		query = query.Where("status = ?", queryParams.Status)
-	}
-	if queryParams.Platform != "" {
-		query = query.Where("platform = ?", queryParams.Platform)
-	}
-	if queryParams.StartTimestamp != 0 {
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
-	}
-	if queryParams.EndTimestamp != 0 {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
-	}
+	query := DB.Model(&Task{}).Where("tasks.user_id = ?", userId)
+	query = applyTaskQueryFilters(query, queryParams, false)
 	_ = query.Count(&total).Error
 	return total
 }

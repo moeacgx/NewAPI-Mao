@@ -24,6 +24,52 @@ func TestRelayInfoGetFinalRequestRelayFormatPrefersExplicitFinal(t *testing.T) {
 	require.Equal(t, types.RelayFormat(types.RelayFormatOpenAIResponses), info.GetFinalRequestRelayFormat())
 }
 
+func TestChannelRetryClearsPreviousResponsesProtocol(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	info := &RelayInfo{
+		RelayFormat:             types.RelayFormatOpenAI,
+		RequestConversionChain:  []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses},
+		FinalRequestRelayFormat: types.RelayFormatOpenAIResponses,
+	}
+	info.InitChannelMeta(c)
+	require.NotNil(t, info.ChannelMeta)
+	assert.Equal(t, types.RelayFormat(types.RelayFormatOpenAI), info.GetFinalRequestRelayFormat())
+	assert.Equal(t, []types.RelayFormat{types.RelayFormatOpenAI}, info.RequestConversionChain)
+}
+
+func TestRelayInfoSetUpstreamResponseModelNameTrimsAndPreservesPreviousValue(t *testing.T) {
+	info := &RelayInfo{}
+	info.SetUpstreamResponseModelName(" provider-actual ")
+	info.SetUpstreamResponseModelName("  ")
+
+	require.Equal(t, "provider-actual", info.UpstreamResponseModelName)
+}
+
+func TestUpstreamModelObserverSeesEachDeclaredModelAndCurrentRoute(t *testing.T) {
+	info := &RelayInfo{ChannelMeta: &ChannelMeta{ChannelId: 11}, UsingGroup: "first"}
+	type observation struct {
+		channel int
+		group   string
+		model   string
+	}
+	var observed []observation
+	info.OnUpstreamModelEvidence = func(current *RelayInfo, evidence UpstreamModelEvidence) {
+		assert.Equal(t, constant.UpstreamModelSourceResponseBody, evidence.Source)
+		observed = append(observed, observation{current.ChannelId, current.UsingGroup, evidence.Model})
+	}
+	info.SetUpstreamResponseModelName(" unexpected ")
+	info.SetUpstreamResponseModelName(" ")
+	info.SetUpstreamResponseModelName("expected")
+	info.ChannelMeta = &ChannelMeta{ChannelId: 22}
+	info.UsingGroup = "second"
+	info.SetUpstreamResponseModelName("other")
+	assert.Equal(t, []observation{
+		{11, "first", "unexpected"}, {11, "first", "expected"}, {22, "second", "other"},
+	}, observed)
+}
+
 func TestRelayInfoGetFinalRequestRelayFormatFallsBackToConversionChain(t *testing.T) {
 	info := &RelayInfo{
 		RelayFormat:            types.RelayFormatOpenAI,
@@ -170,8 +216,12 @@ func TestInitChannelMetaRestoresRequestReasoningEffortForRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	info.SetReasoningEffort("high")
+	info.UpstreamResponseModelName = "previous-channel-model"
+	info.CodexFasterModelName = "previous-channel-buffer"
 	info.InitChannelMeta(ctx)
 	assert.Equal(t, "max", info.ReasoningEffort)
+	assert.Empty(t, info.UpstreamResponseModelName)
+	assert.Empty(t, info.CodexFasterModelName)
 
 	info.SetReasoningEffort("low")
 	info.InitChannelMeta(ctx)

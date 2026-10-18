@@ -21,16 +21,17 @@ import (
 // Code 仅保留给旧 API、旧配置和迁移期运行时使用，不应作为第二个名称展示；
 // Name 是当前分组名称。所有新的持久化关联都必须使用 Group.Id。
 type Group struct {
-	Id             int     `json:"id"`
-	Code           string  `json:"code" gorm:"size:64;not null;uniqueIndex:idx_groups_code"`
-	Name           string  `json:"name" gorm:"size:128;not null;uniqueIndex:idx_groups_name"`
-	Description    string  `json:"description,omitempty" gorm:"type:text"`
-	Ratio          float64 `json:"ratio" gorm:"default:1"`
-	UserSelectable bool    `json:"user_selectable" gorm:"default:false"`
-	Exclusive      bool    `json:"exclusive" gorm:"default:false;index"`
-	Status         int     `json:"status" gorm:"default:1;index"`
-	CreatedTime    int64   `json:"created_time" gorm:"bigint"`
-	UpdatedTime    int64   `json:"updated_time" gorm:"bigint"`
+	Id                         int     `json:"id"`
+	Code                       string  `json:"code" gorm:"size:64;not null;uniqueIndex:idx_groups_code"`
+	Name                       string  `json:"name" gorm:"size:128;not null;uniqueIndex:idx_groups_name"`
+	Description                string  `json:"description,omitempty" gorm:"type:text"`
+	Ratio                      float64 `json:"ratio" gorm:"default:1"`
+	UserSelectable             bool    `json:"user_selectable" gorm:"default:false"`
+	Exclusive                  bool    `json:"exclusive" gorm:"default:false;index"`
+	SingleUserConcurrencyLimit int     `json:"single_user_concurrency_limit"`
+	Status                     int     `json:"status" gorm:"default:1;index"`
+	CreatedTime                int64   `json:"created_time" gorm:"bigint"`
+	UpdatedTime                int64   `json:"updated_time" gorm:"bigint"`
 
 	// AutoEnabled/AutoOrder 是自动分组关联表的 API 投影，不直接存储在 groups 表。
 	AutoEnabled bool `json:"auto_enabled" gorm:"-"`
@@ -112,10 +113,12 @@ type GroupConfig struct {
 	UserSelectable bool    `json:"user_selectable"`
 	Exclusive      bool    `json:"exclusive"`
 	// ExclusiveOmitted 仅用于保存请求；旧客户端缺失 exclusive 时保留数据库现值。
-	ExclusiveOmitted bool `json:"-"`
-	Status           int  `json:"status"`
-	AutoEnabled      bool `json:"auto_enabled"`
-	AutoOrder        int  `json:"auto_order"`
+	ExclusiveOmitted                  bool `json:"-"`
+	SingleUserConcurrencyLimit        int  `json:"single_user_concurrency_limit"`
+	SingleUserConcurrencyLimitOmitted bool `json:"-"`
+	Status                            int  `json:"status"`
+	AutoEnabled                       bool `json:"auto_enabled"`
+	AutoOrder                         int  `json:"auto_order"`
 }
 
 type GroupConfigSaveResult struct {
@@ -128,14 +131,15 @@ type GroupConfigSaveResult struct {
 
 func (g *Group) ToConfig(autoMembers map[int]AutoGroupMember) GroupConfig {
 	config := GroupConfig{
-		Id:             g.Id,
-		Code:           g.Code,
-		Name:           g.Name,
-		Description:    g.Description,
-		Ratio:          g.Ratio,
-		UserSelectable: g.UserSelectable,
-		Exclusive:      g.Exclusive,
-		Status:         g.Status,
+		Id:                         g.Id,
+		Code:                       g.Code,
+		Name:                       g.Name,
+		Description:                g.Description,
+		Ratio:                      g.Ratio,
+		UserSelectable:             g.UserSelectable,
+		Exclusive:                  g.Exclusive,
+		SingleUserConcurrencyLimit: g.SingleUserConcurrencyLimit,
+		Status:                     g.Status,
 	}
 	if member, ok := autoMembers[g.Id]; ok {
 		config.AutoEnabled = true
@@ -293,6 +297,30 @@ func GetGroupDisplayNameMap() (map[string]string, error) {
 		}
 	}
 
+	// 旧版 UserUsableGroups 的 key 是历史分组标识，value 是旧版分组展示标签。
+	// 分组身份迁移后，这些 key 可能没有进入 group_aliases；当前 code/alias
+	// 映射也未命中时，使用旧 key 对应的标签作为只读展示回退。业务解析仍
+	// 要求显式 code/alias，不使用这条兼容映射改变权限或计费语义。
+	if DB.Migrator().HasTable(&Option{}) {
+		var option Option
+		if err := DB.Where(&Option{Key: "UserUsableGroups"}).First(&option).Error; err == nil {
+			var legacyNames map[string]string
+			if common.UnmarshalJsonStr(option.Value, &legacyNames) == nil {
+				for legacyCode, displayName := range legacyNames {
+					legacyCode = strings.TrimSpace(legacyCode)
+					displayName = strings.TrimSpace(displayName)
+					if legacyCode == "" || displayName == "" || isVirtualAutoCode(legacyCode) {
+						continue
+					}
+					if _, exists := result[legacyCode]; exists {
+						continue
+					}
+					result[legacyCode] = displayName
+				}
+			}
+		}
+	}
+
 	// Name 只用于展示兼容，不能覆盖可参与业务解析的 code 或 alias。
 	for _, group := range groups {
 		if isVirtualAutoCode(group.Code) {
@@ -307,6 +335,50 @@ func GetGroupDisplayNameMap() (map[string]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// FormatGroupDisplayNames 将一个或多个分组标识转换为当前展示名称。
+// 分组标识以逗号分隔时保留原顺序并逐项转换；未知标识回退为原值，空输入返回空字符串。
+func FormatGroupDisplayNames(identifier string, names map[string]string) string {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return ""
+	}
+	parts := strings.Split(identifier, ",")
+	mapped := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		mapped = append(mapped, groupDisplayNameFromMap(part, names))
+	}
+	return strings.Join(mapped, ", ")
+}
+
+// GetGroupDisplayNameForError 将错误文本中的一个或多个分组标识转换为显示名称。
+// 分组标识内部使用逗号分隔时，保留原顺序并逐项转换；查询失败则回退原标识。
+func GetGroupDisplayNameForError(identifier string) string {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return ""
+	}
+	if DB == nil {
+		return FormatGroupDisplayNames(identifier, nil)
+	}
+
+	names, err := GetGroupDisplayNameMap()
+	if err != nil {
+		return FormatGroupDisplayNames(identifier, nil)
+	}
+	return FormatGroupDisplayNames(identifier, names)
+}
+
+func groupDisplayNameFromMap(identifier string, names map[string]string) string {
+	if name := strings.TrimSpace(names[identifier]); name != "" {
+		return name
+	}
+	return identifier
 }
 
 func GetGroupById(id int) (*Group, error) {
@@ -330,6 +402,17 @@ func GetGroupById(id int) (*Group, error) {
 // GetGroupByCodeOrAlias 用于兼容旧的字符串入口。
 func GetGroupByCodeOrAlias(code string) (*Group, error) {
 	return GetGroupByCodeOrAliasWithDB(DB, code)
+}
+
+func ResolveGroupIDForBilling(code string) (int, bool) {
+	if DB == nil || strings.TrimSpace(code) == "" || strings.EqualFold(strings.TrimSpace(code), TokenGroupModeAuto) {
+		return 0, false
+	}
+	group, err := GetGroupByCodeOrAlias(code)
+	if err != nil || group == nil || group.Id <= 0 {
+		return 0, false
+	}
+	return group.Id, true
 }
 
 // GetGroupByCodeOrAliasWithDB 在事务中解析旧字符串入口。
@@ -2057,6 +2140,9 @@ func SaveGroupConfigWithOptionsAndResult(
 	projection := map[string]string{}
 	migratedTokenPlans := make([]tokenGroupMigrationPlan, 0)
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockGroupTagWrites(tx); err != nil {
+			return err
+		}
 		prepared := make([]GroupConfig, len(configs))
 		seenCodes := make(map[string]struct{}, len(configs))
 		seenNames := make(map[string]struct{}, len(configs))
@@ -2094,6 +2180,9 @@ func SaveGroupConfigWithOptionsAndResult(
 			}
 			if item.Ratio < 0 {
 				return fmt.Errorf("分组 %s 的倍率不能小于 0", code)
+			}
+			if item.SingleUserConcurrencyLimit < 0 {
+				return fmt.Errorf("分组 %s 的单用户并发上限不能小于 0", code)
 			}
 			if !item.ExclusiveOmitted && item.Exclusive && item.AutoEnabled {
 				return fmt.Errorf("独立分组 %s 不能加入自动分组", name)
@@ -2236,6 +2325,9 @@ func SaveGroupConfigWithOptionsAndResult(
 			if item.ExclusiveOmitted {
 				item.Exclusive = existing.Exclusive
 			}
+			if item.SingleUserConcurrencyLimitOmitted {
+				item.SingleUserConcurrencyLimit = existing.SingleUserConcurrencyLimit
+			}
 			if item.Exclusive && item.AutoEnabled {
 				return fmt.Errorf("独立分组 %s 不能加入自动分组", item.Name)
 			}
@@ -2306,15 +2398,16 @@ func SaveGroupConfigWithOptionsAndResult(
 
 				now := time.Now().Unix()
 				group = Group{
-					Code:           codeCandidate,
-					Name:           nameCandidate,
-					Description:    item.Description,
-					Ratio:          item.Ratio,
-					UserSelectable: item.UserSelectable,
-					Exclusive:      item.Exclusive,
-					Status:         item.Status,
-					CreatedTime:    now,
-					UpdatedTime:    now,
+					Code:                       codeCandidate,
+					Name:                       nameCandidate,
+					Description:                item.Description,
+					Ratio:                      item.Ratio,
+					UserSelectable:             item.UserSelectable,
+					Exclusive:                  item.Exclusive,
+					SingleUserConcurrencyLimit: item.SingleUserConcurrencyLimit,
+					Status:                     item.Status,
+					CreatedTime:                now,
+					UpdatedTime:                now,
 				}
 				if group.Ratio == 0 {
 					group.Ratio = 1
@@ -2455,6 +2548,11 @@ func SaveGroupConfigWithOptionsAndResult(
 		// 先删除已通过引用校验的分组，释放它们占用的唯一名称。
 		for index := range deletedGroups {
 			group := &deletedGroups[index]
+			if tx.Migrator().HasTable(&GroupTagBinding{}) {
+				if err := tx.Where("group_id = ?", group.Id).Delete(&GroupTagBinding{}).Error; err != nil {
+					return fmt.Errorf("删除分组标签关联失败: %w", err)
+				}
+			}
 			if tx.Migrator().HasTable(&GroupAlias{}) {
 				if err := tx.Where("group_id = ?", group.Id).Delete(&GroupAlias{}).Error; err != nil {
 					return fmt.Errorf("删除分组 %s 的兼容别名失败: %w", group.Name, err)
@@ -2496,13 +2594,24 @@ func SaveGroupConfigWithOptionsAndResult(
 		}
 
 		for _, item := range prepared {
-			updates := map[string]interface{}{"name": item.Name, "description": item.Description, "ratio": item.Ratio, "user_selectable": item.UserSelectable, "exclusive": item.Exclusive, "status": item.Status, "updated_time": time.Now().Unix()}
+			updates := map[string]interface{}{"name": item.Name, "description": item.Description, "ratio": item.Ratio, "user_selectable": item.UserSelectable, "exclusive": item.Exclusive, "single_user_concurrency_limit": item.SingleUserConcurrencyLimit, "status": item.Status, "updated_time": time.Now().Unix()}
 			if item.Status == 0 {
 				updates["status"] = GroupStatusDisabled
 			}
 			if err := tx.Model(&Group{}).Where("id = ?", item.Id).Updates(updates).Error; err != nil {
 				return err
 			}
+		}
+		// 分组新增或显示名称变更后，按标签持久化的匹配词追加关联。
+		// 只追加不清理，已有人工绑定不会因后续改名或规则调整被隐式删除。
+		matchedGroupIDs := make([]int, 0, len(prepared))
+		for _, item := range prepared {
+			if item.Id > 0 {
+				matchedGroupIDs = append(matchedGroupIDs, item.Id)
+			}
+		}
+		if err := appendMatchingGroupTagBindings(tx, matchedGroupIDs); err != nil {
+			return fmt.Errorf("按匹配词更新分组标签关联失败: %w", err)
 		}
 		if err := tx.Where("1 = 1").Delete(&AutoGroupMember{}).Error; err != nil {
 			return err

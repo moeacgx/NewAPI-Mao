@@ -14,7 +14,7 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
-var SystemName = "New API"
+var SystemName = "NewAPI-Mao"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
@@ -84,8 +84,9 @@ var SessionCookieSecure = false
 var SessionCookieTrustedURLs []string
 
 const (
-	DefaultUserSessionActiveLimit           = 50
-	DefaultUserSessionIssuanceLimit         = 100
+	DefaultUserSessionActiveLimit = 50
+	// v243 兼容默认不限制签发次数；配置正数可重新启用窗口限流。
+	DefaultUserSessionIssuanceLimit         = 0
 	DefaultUserSessionIssuanceWindowSeconds = 24 * 60 * 60
 	DefaultUserSessionRevokedRetentionDays  = 7
 	DefaultUserSessionHourlyAlertThreshold  = 5000
@@ -254,6 +255,11 @@ var (
 	CriticalRateLimitEnable   bool
 	CriticalRateLimitNum            = 20
 	CriticalRateLimitDuration int64 = 20 * 60
+
+	// 读取密钥按已认证用户独立计数，避免同出口的关键操作互相影响。
+	TokenKeyReadRateLimitEnable         = true
+	TokenKeyReadRateLimitNum            = 60
+	TokenKeyReadRateLimitDuration int64 = 60
 
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60

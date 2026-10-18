@@ -134,10 +134,19 @@ func SearchTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	keyword := c.Query("keyword")
 	token := c.Query("token")
+	status := 0
+	if rawStatus := c.Query("status"); rawStatus != "" {
+		parsed, parseErr := strconv.Atoi(rawStatus)
+		if parseErr != nil || parsed < 0 || parsed > 4 {
+			common.ApiErrorMsg(c, "Invalid token status")
+			return
+		}
+		status = parsed
+	}
 
 	pageInfo := common.GetPageQuery(c)
 
-	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), status)
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -108,6 +108,7 @@ func createTelegramBindTestFlow(t *testing.T, db *gorm.DB, name string, status i
 	require.NoError(t, model.CreateUserSession(session))
 	flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
 		Purpose: model.AuthFlowPurposeTelegramBind, UserId: user.Id, SessionId: session.SID,
+		Payload:   telegramBindTestPayload(t, user.Id, session.SID),
 		ExpiresAt: now.Add(time.Minute),
 	})
 	require.NoError(t, err)
@@ -200,6 +201,7 @@ func TestTelegramBindCommitsFlowAssertionAndBindingAtomically(t *testing.T) {
 	require.NoError(t, model.CreateUserSession(session))
 	flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
 		Purpose: model.AuthFlowPurposeTelegramBind, UserId: user.Id, SessionId: session.SID,
+		Payload:   telegramBindTestPayload(t, user.Id, session.SID),
 		ExpiresAt: now.Add(time.Minute),
 	})
 	require.NoError(t, err)
@@ -259,6 +261,7 @@ func TestTelegramBindCommitsFlowAssertionAndBindingAtomically(t *testing.T) {
 
 	replayFlowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
 		Purpose: model.AuthFlowPurposeTelegramBind, UserId: user.Id, SessionId: session.SID,
+		Payload:   telegramBindTestPayload(t, user.Id, session.SID),
 		ExpiresAt: now.Add(time.Minute),
 	})
 	require.NoError(t, err)
@@ -284,6 +287,7 @@ func TestTelegramBindCommitsFlowAssertionAndBindingAtomically(t *testing.T) {
 	require.NoError(t, model.CreateUserSession(competingSession))
 	competingFlowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
 		Purpose: model.AuthFlowPurposeTelegramBind, UserId: competingUser.Id, SessionId: competingSession.SID,
+		Payload:   telegramBindTestPayload(t, competingUser.Id, competingSession.SID),
 		ExpiresAt: now.Add(time.Minute),
 	})
 	require.NoError(t, err)
@@ -406,4 +410,12 @@ func TestTelegramBindCommitsFlowAssertionAndBindingAtomically(t *testing.T) {
 		internalAssertionExpiry,
 	))
 
+}
+
+// telegramBindTestPayload 构造绑定发起时的完整身份快照。
+func telegramBindTestPayload(t *testing.T, userID int, sid string) string {
+	t.Helper()
+	payload, err := common.Marshal(model.AuthSessionIdentity{UserID: userID, SessionID: sid, UserAuthVersion: 1, SessionVersion: 1})
+	require.NoError(t, err)
+	return string(payload)
 }

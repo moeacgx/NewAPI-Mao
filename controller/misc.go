@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -41,7 +42,41 @@ func TestStatus(c *gin.Context) {
 	return
 }
 
+func GetGitHubLatestRelease(c *gin.Context) {
+	release, err := service.GetLatestSelfUpdateRelease(c.Request.Context())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, release)
+}
+
+type SelfUpdateRequest struct {
+	TagName string `json:"tag_name"`
+}
+
+func SelfUpdate(c *gin.Context) {
+	var req SelfUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	result, err := service.RunSelfUpdate(c.Request.Context(), req.TagName)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}
+
 func GetStatus(c *gin.Context) {
+	generalSetting := operation_setting.GetGeneralSetting()
+	displayExchangeRate := service.ResolveDisplayExchangeRate(
+		c.Request.Context(),
+		generalSetting.AutoUSDExchangeRate,
+		operation_setting.USDExchangeRate,
+	)
 
 	cs := console_setting.GetConsoleSetting()
 	common.OptionMapRWMutex.RLock()
@@ -64,7 +99,8 @@ func GetStatus(c *gin.Context) {
 		"telegram_oauth":              common.TelegramOAuthEnabled,
 		"telegram_bot_name":           common.TelegramBotName,
 		"theme":                       system_setting.GetThemeSettings().Frontend,
-		"system_name":                 common.SystemName,
+		"system_name":                 common.OptionMap["SystemName"],
+		"system_description":          common.OptionMap["SystemDescription"],
 		"logo":                        common.Logo,
 		"footer_html":                 common.Footer,
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
@@ -73,13 +109,13 @@ func GetStatus(c *gin.Context) {
 		"cc_switch_api_address":       setting.GetCCSwitchAPIAddress(),
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
-		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
+		"docs_link":                   generalSetting.DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
 		"display_in_currency":           operation_setting.IsCurrencyDisplay(),
 		"quota_display_type":            operation_setting.GetQuotaDisplayType(),
-		"custom_currency_symbol":        operation_setting.GetGeneralSetting().CustomCurrencySymbol,
-		"custom_currency_exchange_rate": operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
+		"custom_currency_symbol":        generalSetting.CustomCurrencySymbol,
+		"custom_currency_exchange_rate": generalSetting.CustomCurrencyExchangeRate,
 		"enable_batch_update":           common.BatchUpdateEnabled,
 		"enable_drawing":                common.DrawingEnabled,
 		"enable_task":                   common.TaskEnabled,
@@ -95,9 +131,13 @@ func GetStatus(c *gin.Context) {
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
-		"usd_exchange_rate": operation_setting.USDExchangeRate,
-		"price":             operation_setting.Price,
-		"stripe_unit_price": setting.StripeUnitPrice,
+		"usd_exchange_rate":                 displayExchangeRate.Rate,
+		"usd_exchange_rate_source":          displayExchangeRate.Source,
+		"usd_exchange_rate_last_updated_at": displayExchangeRate.LastUpdatedAt,
+		"usd_exchange_rate_is_fallback":     displayExchangeRate.IsFallback,
+		"auto_usd_exchange_rate":            generalSetting.AutoUSDExchangeRate,
+		"price":                             operation_setting.Price,
+		"stripe_unit_price":                 setting.StripeUnitPrice,
 
 		// 面板启用开关
 		"api_info_enabled":      cs.ApiInfoEnabled,

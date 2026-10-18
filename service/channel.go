@@ -6,39 +6,58 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 )
 
-func formatNotifyType(channelId int, status int) string {
-	return fmt.Sprintf("%s_%d_%d", dto.NotifyTypeChannelUpdate, channelId, status)
+func enqueueChannelNotification(eventType string, channelId int, channelName, reason, errorMessage, errorCode string, statusCode int) {
+	payload := map[string]any{
+		"channel_id":    channelId,
+		"channel_name":  channelName,
+		"status_code":   statusCode,
+		"error_message": errorMessage,
+		"error_code":    errorCode,
+	}
+	if strings.TrimSpace(reason) != "" {
+		payload["reason"] = reason
+	}
+	eventKey := fmt.Sprintf("channel:%d:%s:%s", channelId, eventType, common.GetUUID())
+	if err := model.EnqueueNotificationEvent(eventType, eventKey, payload); err != nil {
+		common.SysLog(fmt.Sprintf("failed to enqueue channel notification for channel %d: %s", channelId, err.Error()))
+	}
 }
 
-// disable & notify
+// DisableChannel disables a failed channel and queues a Telegram notification event.
 func DisableChannel(channelError types.ChannelError, reason string) {
+	disableChannel(channelError, reason, reason, "", 0)
+}
+
+func DisableChannelWithError(channelError types.ChannelError, apiErr *types.NewAPIError) {
+	if apiErr == nil {
+		DisableChannel(channelError, "")
+		return
+	}
+	disableChannel(channelError, apiErr.ErrorWithStatusCode(), apiErr.Error(), string(apiErr.GetErrorCode()), apiErr.StatusCode)
+}
+
+func disableChannel(channelError types.ChannelError, reason, errorMessage, errorCode string, statusCode int) {
 	common.SysLog(fmt.Sprintf("通道「%s」（#%d）发生错误，准备禁用，原因：%s", channelError.ChannelName, channelError.ChannelId, common.LocalLogPreview(reason)))
 
-	// 检查是否启用自动禁用功能
 	if !channelError.AutoBan {
 		common.SysLog(fmt.Sprintf("通道「%s」（#%d）未启用自动禁用功能，跳过禁用操作", channelError.ChannelName, channelError.ChannelId))
 		return
 	}
 
-	success := model.UpdateChannelStatus(channelError.ChannelId, channelError.UsingKey, common.ChannelStatusAutoDisabled, reason)
+	success := model.UpdateChannelStatusAutomatically(channelError.ChannelId, channelError.UsingKey, common.ChannelStatusAutoDisabled, reason)
 	if success {
-		subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelError.ChannelName, channelError.ChannelId)
-		content := fmt.Sprintf("通道「%s」（#%d）已被禁用，原因：%s", channelError.ChannelName, channelError.ChannelId, reason)
-		NotifyRootUser(formatNotifyType(channelError.ChannelId, common.ChannelStatusAutoDisabled), subject, content)
+		enqueueChannelNotification(model.NotificationEventTypeChannelDisabled, channelError.ChannelId, channelError.ChannelName, reason, errorMessage, errorCode, statusCode)
 	}
 }
 
 func EnableChannel(channelId int, usingKey string, channelName string) {
-	success := model.UpdateChannelStatus(channelId, usingKey, common.ChannelStatusEnabled, "")
+	success := model.UpdateChannelStatusAutomatically(channelId, usingKey, common.ChannelStatusEnabled, "")
 	if success {
-		subject := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
-		content := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
-		NotifyRootUser(formatNotifyType(channelId, common.ChannelStatusEnabled), subject, content)
+		enqueueChannelNotification(model.NotificationEventTypeChannelEnabled, channelId, channelName, "", "", "", 0)
 	}
 }
 
@@ -47,6 +66,10 @@ func ShouldDisableChannel(err *types.NewAPIError) bool {
 		return false
 	}
 	if err == nil {
+		return false
+	}
+	// 上游模型容量不足是临时过载，不代表渠道凭据或配置失效。
+	if types.IsUpstreamCapacityError(err) {
 		return false
 	}
 	if types.IsChannelError(err) {

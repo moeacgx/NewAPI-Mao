@@ -516,6 +516,19 @@ export const getTaskLogsColumns = ({
       dataIndex: 'fail_reason',
       fixed: 'right',
       render: (text, record, index) => {
+        if (record.status === 'SUCCESS' && record.result_discarded === true) {
+          return (
+            <Tooltip
+              content={t(
+                'The synchronous result was returned through the API and was not saved for later viewing',
+              )}
+            >
+              <Typography.Text type='tertiary'>
+                {t('Result not retained')}
+              </Typography.Text>
+            </Tooltip>
+          );
+        }
         // Suno audio preview
         const isSunoSuccess =
           record.platform === 'suno' &&

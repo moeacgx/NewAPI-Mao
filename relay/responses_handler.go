@@ -1,12 +1,14 @@
 package relay
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -70,6 +72,11 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
+	stripHTTPResponsesContinuation(request)
+	request.Input, err = normalizeHTTPResponsesInput(request.Input)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+	}
 
 	adaptor := GetAdaptor(info.ApiType)
 	if adaptor == nil {
@@ -77,12 +84,19 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	}
 	adaptor.Init(info)
 	var requestBody io.Reader
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
+	if shouldPassThroughResponsesBody(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeReadRequestBodyFailed, types.ErrOptionWithSkipRetry())
 		}
-		requestBody = common.NewReplayableBodyReader(storage)
+		var bodyCloser io.Closer
+		requestBody, bodyCloser, err = newSanitizedHTTPResponsesBody(storage)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+		if bodyCloser != nil {
+			defer bodyCloser.Close()
+		}
 	} else {
 		convertedRequest, err := adaptor.ConvertOpenAIResponsesRequest(c, info, *request)
 		if err != nil {
@@ -95,7 +109,7 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		}
 
 		// remove disabled fields for OpenAI Responses API
-		jsonData, err = relaycommon.RemoveDisabledFields(jsonData, info.ChannelOtherSettings, info.ChannelSetting.PassThroughBodyEnabled)
+		jsonData, err = relaycommon.RemoveDisabledFields(jsonData, info.ChannelOtherSettings, info.ChannelSetting.PassThroughBodyEnabled, info.ShouldForceResponses())
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
@@ -107,7 +121,12 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 				return newAPIErrorFromParamOverride(err)
 			}
 		}
+		jsonData, err = sanitizeHTTPResponsesBody(jsonData)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
 
+		info.CaptureThinkingLogBody(jsonData)
 		logger.LogDebug(c, "requestBody: %s", jsonData)
 		body, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
 		if err != nil {
@@ -155,17 +174,161 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 			info.PriceData = originPriceData
 			return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry(), types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		}
-		service.PostTextConsumeQuota(c, info, usageDto, nil)
+		quotaErr := service.PostTextConsumeQuota(c, info, usageDto, nil)
 
 		info.OriginModelName = originModelName
 		info.PriceData = originPriceData
-		return nil
+		return quotaErr
 	}
 
 	if strings.HasPrefix(info.OriginModelName, "gpt-4o-audio") {
-		service.PostAudioConsumeQuota(c, info, usageDto, "")
+		return service.PostAudioConsumeQuota(c, info, usageDto, "")
 	} else {
-		service.PostTextConsumeQuota(c, info, usageDto, nil)
+		return service.PostTextConsumeQuota(c, info, usageDto, nil)
 	}
-	return nil
+}
+
+// shouldPassThroughResponsesBody 只在上游本来就接收 Responses 正文时透传。
+// Claude、Gemini 渠道会把请求发到各自的原生接口，原文里没有 messages 或 contents。
+func shouldPassThroughResponsesBody(info *relaycommon.RelayInfo) bool {
+	if info == nil || info.ChannelMeta == nil || info.ShouldForceResponses() {
+		return false
+	}
+	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled && !info.ChannelSetting.PassThroughBodyEnabled {
+		return false
+	}
+	if info.ChannelOtherSettings.ResponsesToChatEnabled {
+		return false
+	}
+	switch info.ApiType {
+	case constant.APITypeAnthropic, constant.APITypeGemini:
+		return false
+	default:
+		return true
+	}
+}
+
+// stripHTTPResponsesContinuation 删除 HTTP/SSE 上游不支持的 WebSocket 续传 ID。
+func stripHTTPResponsesContinuation(request *dto.OpenAIResponsesRequest) {
+	if request == nil {
+		return
+	}
+	request.PreviousResponseID = ""
+}
+
+func newSanitizedHTTPResponsesBody(storage common.BodyStorage) (io.Reader, io.Closer, error) {
+	if storage == nil {
+		return nil, nil, fmt.Errorf("request body storage is nil")
+	}
+	raw, err := storage.Bytes()
+	if err != nil {
+		return nil, nil, err
+	}
+	if common.GetJsonType(raw) != "object" {
+		return common.NewReplayableBodyReader(storage), nil, nil
+	}
+
+	cleaned, err := sanitizeHTTPResponsesBody(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	if string(cleaned) == string(raw) {
+		return common.NewReplayableBodyReader(storage), nil, nil
+	}
+	cleanedBody, closer, err := relaycommon.NewOutboundJSONBody(cleaned)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cleanedBody, closer, nil
+}
+
+func sanitizeHTTPResponsesBody(raw []byte) ([]byte, error) {
+	if common.GetJsonType(raw) != "object" {
+		return raw, nil
+	}
+
+	var body map[string]json.RawMessage
+	if err := common.Unmarshal(raw, &body); err != nil {
+		return nil, fmt.Errorf("unmarshal Responses request body: %w", err)
+	}
+	changed := false
+	if _, exists := body["previous_response_id"]; exists {
+		delete(body, "previous_response_id")
+		changed = true
+	}
+	if input, exists := body["input"]; exists {
+		normalized, err := normalizeHTTPResponsesInput(input)
+		if err != nil {
+			return nil, err
+		}
+		if string(normalized) != string(input) {
+			body["input"] = normalized
+			changed = true
+		}
+	}
+	if !changed {
+		return raw, nil
+	}
+	cleaned, err := common.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal Responses request body: %w", err)
+	}
+	return cleaned, nil
+}
+
+func normalizeHTTPResponsesInput(input json.RawMessage) (json.RawMessage, error) {
+	if common.GetJsonType(input) != "array" {
+		return input, nil
+	}
+
+	var items []json.RawMessage
+	if err := common.Unmarshal(input, &items); err != nil {
+		return nil, fmt.Errorf("unmarshal Responses input: %w", err)
+	}
+	changed := false
+	for index, rawItem := range items {
+		if common.GetJsonType(rawItem) != "object" {
+			continue
+		}
+		var item map[string]any
+		if err := common.Unmarshal(rawItem, &item); err != nil {
+			return nil, fmt.Errorf("unmarshal Responses input item %d: %w", index, err)
+		}
+		itemType := strings.ToLower(strings.TrimSpace(fmt.Sprint(item["type"])))
+		callID, hasCallID := item["call_id"]
+		if !strings.HasSuffix(itemType, "_call_output") {
+			continue
+		}
+		if hasCallID && callID != nil && strings.TrimSpace(fmt.Sprint(callID)) != "" {
+			continue
+		}
+		output := item["output"]
+		var outputText string
+		if output == nil {
+			outputText = ""
+		} else if text, ok := output.(string); ok {
+			outputText = text
+		} else if encoded, err := common.Marshal(output); err == nil {
+			outputText = string(encoded)
+		} else {
+			outputText = fmt.Sprint(output)
+		}
+		normalizedItem, err := common.Marshal(map[string]any{
+			"role":    "user",
+			"content": fmt.Sprintf("[tool_output_missing_call_id] %s", outputText),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("marshal normalized Responses input item %d: %w", index, err)
+		}
+		items[index] = normalizedItem
+		changed = true
+	}
+	if !changed {
+		return input, nil
+	}
+	normalized, err := common.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("marshal normalized Responses input: %w", err)
+	}
+	return normalized, nil
 }

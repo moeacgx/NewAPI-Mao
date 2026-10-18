@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,6 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -30,14 +30,136 @@ type ModelRequest struct {
 	Group string `json:"group,omitempty"`
 }
 
+const channelConcurrencyContextKey = "channel_concurrency_lease"
+
+const groupUserConcurrencyContextKey = string(constant.ContextKeyGroupUserConcurrency)
+
+type groupUserConcurrencyContextValue struct {
+	lease     *model.GroupUserConcurrencyLease
+	groupID   int
+	isBenefit bool
+}
+
+type channelConcurrencyContextValue struct {
+	lease         *model.ChannelConcurrencyLease
+	stopHeartbeat context.CancelFunc
+}
+
+func applyRequestedGroup(c *gin.Context, inheritedGroup, requestedGroup string) (string, error) {
+	requestedGroup = strings.TrimSpace(requestedGroup)
+	if requestedGroup == "" {
+		return inheritedGroup, nil
+	}
+	tokenGroup := strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyTokenGroup))
+	if requestedGroup == "auto" {
+		if tokenGroup != "" && tokenGroup != "auto" {
+			return "", errors.New("自动分组未绑定到令牌")
+		}
+	} else {
+		authenticatedUserGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+		if !service.IsUserSelectableGroup(authenticatedUserGroup, requestedGroup) {
+			return "", errors.New("请求分组不可用")
+		}
+		if tokenGroup != "" && tokenGroup != "auto" && len(service.GetRequestTokenGroups(c, requestedGroup)) == 0 {
+			return "", errors.New("请求分组未绑定到令牌")
+		}
+	}
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, requestedGroup)
+	common.SetContextKey(c, constant.ContextKeyBenefitGroupExplicit, requestedGroup != "auto")
+	return requestedGroup, nil
+}
+
+func applyPlaygroundRequestedGroup(c *gin.Context, inheritedGroup, requestedGroup string) (string, error) {
+	requestedGroup = strings.TrimSpace(requestedGroup)
+	if requestedGroup == "" {
+		return inheritedGroup, nil
+	}
+	authenticatedUserGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	if requestedGroup != "auto" {
+		if !service.IsUserSelectableGroup(authenticatedUserGroup, requestedGroup) {
+			return "", errors.New("请求分组不可用")
+		}
+	} else {
+		if _, ok := service.GetUserUsableGroups(authenticatedUserGroup)["auto"]; !ok {
+			return "", errors.New("自动分组不可用")
+		}
+	}
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, requestedGroup)
+	common.SetContextKey(c, constant.ContextKeyBenefitGroupExplicit, requestedGroup != "auto")
+	return requestedGroup, nil
+}
+
+func distributorGroupIdentifier(usingGroup, selectGroup string) string {
+	using := strings.TrimSpace(usingGroup)
+	selected := strings.TrimSpace(selectGroup)
+	if using == "auto" && selected != "" && selected != "auto" {
+		return selected
+	}
+	if strings.Contains(using, ",") && selected != "" && selected != using && !strings.Contains(selected, ",") {
+		return selected
+	}
+	return using
+}
+
+func formatDistributorGroupForMessage(usingGroup, selectGroup string, groupNames map[string]string) string {
+	return model.FormatGroupDisplayNames(distributorGroupIdentifier(usingGroup, selectGroup), groupNames)
+}
+
+func distributorGroupForMessage(usingGroup, selectGroup string) string {
+	groupNames := map[string]string(nil)
+	if model.DB != nil {
+		if names, err := model.GetGroupDisplayNameMap(); err == nil {
+			groupNames = names
+		}
+	}
+	return formatDistributorGroupForMessage(usingGroup, selectGroup, groupNames)
+}
+
+func abortDistributorError(c *gin.Context, statusCode int, message, modelName, group string, code types.ErrorCode) {
+	abortWithOpenAiMessage(c, statusCode, message, code)
+	if c == nil || !constant.ErrorLogEnabled || c.GetInt("id") <= 0 || model.LOG_DB == nil {
+		return
+	}
+	other := map[string]interface{}{
+		"error_stage": "distribution",
+		"request_path": func() string {
+			if c.Request == nil || c.Request.URL == nil {
+				return ""
+			}
+			return c.Request.URL.Path
+		}(),
+		"status_code": statusCode,
+		"error_code":  string(code),
+		"error_type":  string(types.ErrorTypeNewAPIError),
+	}
+	useTimeSeconds := 0
+	if startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime); !startTime.IsZero() {
+		useTimeSeconds = max(0, int(time.Since(startTime).Seconds()))
+	}
+	model.RecordErrorLog(c, c.GetInt("id"), 0, modelName, c.GetString("token_name"), message,
+		c.GetInt("token_id"), useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), group, other)
+}
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
+		var selectGroup string
+		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
+		}
+		if modelRequest.Group != "" {
+			if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
+				usingGroup, err = applyPlaygroundRequestedGroup(c, usingGroup, modelRequest.Group)
+			} else {
+				usingGroup, err = applyRequestedGroup(c, usingGroup, modelRequest.Group)
+			}
+			if err != nil {
+				abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
+				return
+			}
 		}
 		if ok {
 			id, err := strconv.Atoi(channelId.(string))
@@ -51,7 +173,7 @@ func Distribute() func(c *gin.Context) {
 				return
 			}
 			if channel.Status != common.ChannelStatusEnabled {
-				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
+				abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 				return
 			}
 		} else {
@@ -62,7 +184,7 @@ func Distribute() func(c *gin.Context) {
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
 				if !ok {
 					// token model limit is empty, all models are not allowed
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess))
+					abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 					return
 				}
 				var tokenModelLimit map[string]bool
@@ -72,7 +194,7 @@ func Distribute() func(c *gin.Context) {
 				}
 				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
 				if _, ok := tokenModelLimit[matchName]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
+					abortDistributorError(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}), modelRequest.Model, usingGroup, types.ErrorCodeAccessDenied)
 					return
 				}
 			}
@@ -82,27 +204,6 @@ func Distribute() func(c *gin.Context) {
 					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
 					return
 				}
-				var selectGroup string
-				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
-				// check path is /pg/chat/completions
-				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
-					playgroundRequest := &dto.PlayGroundRequest{}
-					err = common.UnmarshalBodyReusable(c, playgroundRequest)
-					if err != nil {
-						abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidPlayground, map[string]any{"Error": err.Error()}))
-						return
-					}
-					if playgroundRequest.Group != "" {
-						authenticatedUserGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-						if !service.IsUserSelectableGroup(authenticatedUserGroup, playgroundRequest.Group) {
-							abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
-							return
-						}
-						usingGroup = playgroundRequest.Group
-						common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
-					}
-				}
-
 				if binding, found := service.GetPreferredChannelAffinityBinding(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					bindingKeyUsable := true
@@ -156,16 +257,17 @@ func Distribute() func(c *gin.Context) {
 						RequestPath: c.Request.URL.Path, Retry: common.GetPointer(0),
 					})
 					if err != nil {
-						showGroup := usingGroup
-						if usingGroup == "auto" {
-							showGroup = fmt.Sprintf("auto(%s)", selectGroup)
+						showGroup := distributorGroupForMessage(usingGroup, selectGroup)
+						message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": channelSelectionErrorMessage(c, err)})
+						errorCode := types.ErrorCodeModelNotFound
+						if errors.Is(err, model.ErrChannelConcurrencyLimitReached) {
+							errorCode = types.ErrorCodeChannelConcurrencyLimit
 						}
-						message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": err.Error()})
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, types.ErrorCodeModelNotFound)
+						abortDistributorError(c, http.StatusServiceUnavailable, message, modelRequest.Model, usingGroup, errorCode)
 						return
 					}
 					if channel == nil {
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
+						abortDistributorError(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": distributorGroupForMessage(usingGroup, selectGroup), "Model": modelRequest.Model}), modelRequest.Model, usingGroup, types.ErrorCodeModelNotFound)
 						return
 					}
 				}
@@ -177,12 +279,71 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
-		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		newAPIError := SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		if newAPIError != nil && !ok && shouldSelectChannel && !errors.Is(newAPIError, model.ErrGroupUserConcurrencyLimitReached) {
+			releaseChannelConcurrencyForContext(c)
+			releaseGroupUserConcurrencyForContext(c)
+			exclusions := map[int]struct{}{channel.Id: {}}
+			for attempt := 0; attempt < common.RetryTimes; attempt++ {
+				channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
+					Ctx: c, ModelName: modelRequest.Model, TokenGroup: usingGroup,
+					RequestPath: c.Request.URL.Path, Retry: common.GetPointer(0),
+					ExcludedChannelIDs: exclusions,
+				})
+				if err != nil {
+					if errors.Is(err, model.ErrChannelConcurrencyLimitReached) {
+						newAPIError = types.NewError(err, types.ErrorCodeChannelConcurrencyLimit, types.ErrOptionWithSkipRetry())
+					}
+					break
+				}
+				if channel == nil {
+					break
+				}
+				exclusions[channel.Id] = struct{}{}
+				newAPIError = SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+				if newAPIError == nil {
+					break
+				}
+				releaseChannelConcurrencyForContext(c)
+			}
+		}
+		if newAPIError != nil {
+			releaseChannelConcurrencyForContext(c)
+			releaseGroupUserConcurrencyForContext(c)
+			statusCode := types.ErrorCodeModelNotFound
+			if errors.Is(newAPIError, model.ErrChannelConcurrencyLimitReached) {
+				statusCode = types.ErrorCodeChannelConcurrencyLimit
+			}
+			httpStatus := http.StatusServiceUnavailable
+			if errors.Is(newAPIError, model.ErrGroupUserConcurrencyLimitReached) {
+				httpStatus = http.StatusTooManyRequests
+				statusCode = types.ErrorCodeChannelConcurrencyLimit
+			}
+			abortDistributorError(c, httpStatus, channelSelectionErrorMessage(c, newAPIError), modelRequest.Model, usingGroup, statusCode)
+			return
+		}
+		service.RecordSystemInstanceRequestStart()
+		defer service.RecordSystemInstanceRequestEnd()
+		defer releaseChannelConcurrencyForContext(c)
+		defer releaseGroupUserConcurrencyForContext(c)
 		c.Next()
 		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
 			service.RecordChannelAffinity(c, channel.Id)
 		}
 	}
+}
+
+func channelSelectionErrorMessage(c *gin.Context, err error) string {
+	if errors.Is(err, model.ErrGroupUserConcurrencyLimitReached) {
+		if benefit, ok := common.GetContextKey(c, constant.ContextKeyGroupUserConcurrencyBenefit); ok && benefit == true {
+			return "福利分组限制，你请求太快啦！"
+		}
+		return "Too Many Requests"
+	}
+	if errors.Is(err, model.ErrChannelConcurrencyLimitReached) {
+		return i18n.T(c, i18n.MsgDistributorChannelConcurrencyLimit)
+	}
+	return err.Error()
 }
 
 func setAffinityOrderedGroupRetryState(c *gin.Context, groupIndex int) {
@@ -194,10 +355,12 @@ func setAffinityOrderedGroupRetryState(c *gin.Context, groupIndex int) {
 }
 
 // channelSupportsRequestPath reports whether a channel can serve the request path.
-// Only Advanced Custom (type 58) channels are path-checked; all other channel types
-// always pass. A type-58 channel is usable only when one of its routes matches.
+// 官方插件必须匹配独立入口和 key；高级自定义渠道继续检查其配置路径。
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
 	if channel == nil {
+		return false
+	}
+	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
 		return false
 	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {
@@ -274,6 +437,15 @@ func getJSONStringValue(result gjson.Result, field string) (string, error) {
 }
 
 func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
+	// 原生插件以已固定路由的解码模型参与现有权限和渠道选择。
+	if decoded := c.GetString("resolved_task_model"); decoded != "" {
+		var request ModelRequest
+		if err := common.UnmarshalBodyReusable(c, &request); err != nil {
+			return nil, false, err
+		}
+		request.Model = decoded
+		return &request, true, nil
+	}
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
 	var err error
@@ -373,6 +545,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			return nil, false, err
 		}
 		modelRequest.Model = req.Model
+		modelRequest.Group = req.Group
 	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/realtime") {
 		//wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01
@@ -388,9 +561,9 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			modelRequest.Model = c.Param("model")
 		}
 	}
-	if strings.HasPrefix(c.Request.URL.Path, "/v1/images/generations") {
+	if isImageGenerationPath(c.Request.URL.Path) {
 		modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "dall-e")
-	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/images/edits") {
+	} else if isImageEditPath(c.Request.URL.Path) {
 		//modelRequest.Model = common.GetStringIfEmpty(c.PostForm("model"), "gpt-image-1")
 		contentType := c.ContentType()
 		if slices.Contains([]string{gin.MIMEPOSTForm, gin.MIMEMultipartPOSTForm}, contentType) {
@@ -422,18 +595,17 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		}
 		c.Set("relay_mode", relayMode)
 	}
-	if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
-		// playground chat completions
-		req, err := getModelFromRequest(c)
-		if err != nil {
-			return nil, false, err
-		}
-		modelRequest.Model = req.Model
-		modelRequest.Group = req.Group
-		common.SetContextKey(c, constant.ContextKeyTokenGroup, modelRequest.Group)
-	}
-
 	return &modelRequest, shouldSelectChannel, nil
+}
+
+func isImageGenerationPath(path string) bool {
+	return strings.HasPrefix(path, "/v1/images/generations") ||
+		strings.HasPrefix(path, "/canvas/v1/images/generations")
+}
+
+func isImageEditPath(path string) bool {
+	return strings.HasPrefix(path, "/v1/images/edits") ||
+		strings.HasPrefix(path, "/canvas/v1/images/edits")
 }
 
 // 修复 #4834: GET /v1/video/generations/:task_id && /v1/video/:task_id 此前不解析 model，
@@ -461,11 +633,45 @@ func getTaskOriginModelName(c *gin.Context) string {
 	return ""
 }
 
-func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) (newAPIError *types.NewAPIError) {
 	c.Set("original_model", modelName)
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
+	if service.IsUpstreamModelGuardModuleEnabled() {
+		ctx := context.Background()
+		if c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		enabled, err := model.IsChannelEnabledAfterUpstreamModelGuard(checkCtx, channel.Id)
+		cancel()
+		if err != nil {
+			return types.NewError(errors.New("渠道状态检查失败"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if !enabled {
+			return types.NewError(errors.New("渠道已停用"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+	}
+	requestPath := ""
+	if c.Request != nil && c.Request.URL != nil {
+		requestPath = c.Request.URL.Path
+	}
+	if !model.TaskPluginChannelMatchesPath(channel, requestPath) {
+		return types.NewError(errors.New("渠道与官方插件入口不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	if key := c.GetString("expected_task_plugin_key"); key != "" && (channel.Type != constant.ChannelTypeTaskPlugin || channel.GetSetting().TaskPluginKey != key) {
+		return types.NewError(errors.New("渠道与已固定插件身份不匹配"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	if !tryAcquireChannelConcurrencyForContext(c, channel) {
+		return types.NewError(model.ErrChannelConcurrencyLimitReached, types.ErrorCodeChannelConcurrencyLimit, types.ErrOptionWithSkipRetry())
+	}
+	defer func() {
+		// setup errors must not retain a slot for a request that never entered relay.
+		if newAPIError != nil {
+			releaseChannelConcurrencyForContext(c)
+		}
+	}()
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, channel.Type)
@@ -494,10 +700,16 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		selectedGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	}
 	common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectedGroup)
+	if selectedGroup != "" {
+		if group, err := model.GetGroupByCodeOrAlias(selectedGroup); err == nil && group != nil {
+			if !tryAcquireGroupUserConcurrencyForContext(c, group) {
+				return types.NewError(model.ErrGroupUserConcurrencyLimitReached, types.ErrorCodeChannelConcurrencyLimit, types.ErrOptionWithSkipRetry())
+			}
+		}
+	}
 
 	var key string
 	var index int
-	var newAPIError *types.NewAPIError
 	preferred, hasPreferred := common.GetContextKey(c, constant.ContextKeyChannelPreferredMultiKeyIndex)
 	if c.Keys != nil {
 		delete(c.Keys, string(constant.ContextKeyChannelPreferredMultiKeyIndex))
@@ -543,6 +755,122 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		c.Set("bot_id", channel.Other)
 	}
 	return nil
+}
+
+func tryAcquireGroupUserConcurrencyForContext(c *gin.Context, group *model.Group) bool {
+	if c == nil || group == nil {
+		return true
+	}
+	if acquired, ok := common.GetContextKey(c, constant.ContextKeyGroupUserConcurrency); ok {
+		if value, valid := acquired.(groupUserConcurrencyContextValue); valid && value.lease != nil && value.groupID == group.Id {
+			return true
+		}
+		releaseGroupUserConcurrencyForContext(c)
+	}
+	lease, acquired := model.TryAcquireGroupUserConcurrency(c.GetInt("id"), group.Id, group.SingleUserConcurrencyLimit)
+	if !acquired {
+		common.SetContextKey(c, constant.ContextKeyGroupUserConcurrencyBenefit, model.HasActiveBenefitActivityForGroup(group.Id))
+		return false
+	}
+	if lease == nil {
+		return true
+	}
+	common.SetContextKey(c, constant.ContextKeyGroupUserConcurrencyBenefit, model.HasActiveBenefitActivityForGroup(group.Id))
+	common.SetContextKey(c, constant.ContextKeyGroupUserConcurrency, groupUserConcurrencyContextValue{
+		lease: lease, groupID: group.Id,
+		isBenefit: common.GetContextKeyBool(c, constant.ContextKeyGroupUserConcurrencyBenefit),
+	})
+	return true
+}
+
+func releaseGroupUserConcurrencyForContext(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	acquired, ok := common.GetContextKey(c, constant.ContextKeyGroupUserConcurrency)
+	if c.Keys != nil {
+		delete(c.Keys, groupUserConcurrencyContextKey)
+		delete(c.Keys, string(constant.ContextKeyGroupUserConcurrencyBenefit))
+	}
+	if !ok {
+		return
+	}
+	value, ok := acquired.(groupUserConcurrencyContextValue)
+	if ok && value.lease != nil {
+		value.lease.Release()
+	}
+}
+
+func ReleaseGroupUserConcurrencyForContext(c *gin.Context) {
+	releaseGroupUserConcurrencyForContext(c)
+}
+
+func tryAcquireChannelConcurrencyForContext(c *gin.Context, channel *model.Channel) bool {
+	if acquired, ok := common.GetContextKey(c, channelConcurrencyContextKey); ok {
+		if value, ok := acquired.(channelConcurrencyContextValue); ok && value.lease != nil && value.lease.ChannelID == channel.Id {
+			return true
+		}
+	}
+	lease, acquired := model.TryAcquireChannelConcurrencyLease(channel)
+	if !acquired {
+		return false
+	}
+	releaseChannelConcurrencyForContext(c)
+	if lease != nil && common.RedisEnabled {
+		heartbeatContext := context.Background()
+		if c.Request != nil {
+			heartbeatContext = c.Request.Context()
+		}
+		heartbeatContext, stopHeartbeat := context.WithCancel(heartbeatContext)
+		common.SetContextKey(c, channelConcurrencyContextKey, channelConcurrencyContextValue{
+			lease:         lease,
+			stopHeartbeat: stopHeartbeat,
+		})
+		go renewChannelConcurrencyLease(heartbeatContext, lease)
+	} else if lease != nil {
+		common.SetContextKey(c, channelConcurrencyContextKey, channelConcurrencyContextValue{lease: lease})
+	}
+	return true
+}
+
+func releaseChannelConcurrencyForContext(c *gin.Context) {
+	acquired, ok := common.GetContextKey(c, channelConcurrencyContextKey)
+	if !ok {
+		return
+	}
+	if c.Keys != nil {
+		delete(c.Keys, channelConcurrencyContextKey)
+	}
+	value, ok := acquired.(channelConcurrencyContextValue)
+	if !ok || value.lease == nil {
+		return
+	}
+	if value.stopHeartbeat != nil {
+		value.stopHeartbeat()
+	}
+	model.ReleaseChannelConcurrencyLease(value.lease)
+}
+
+func renewChannelConcurrencyLease(ctx context.Context, lease *model.ChannelConcurrencyLease) {
+	ticker := time.NewTicker(model.ChannelConcurrencyLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !model.RenewChannelConcurrencyLease(lease) {
+				common.SysError(fmt.Sprintf("channel concurrency lease renewal lost for channel #%d", lease.ChannelID))
+			}
+		}
+	}
+}
+
+// ReleaseChannelConcurrencyForContext 释放 c 所拥有的渠道并发槽位。
+// Distribute 之外自行选渠的调用方必须按所有权释放，避免 setup 失败或重试
+// 清理时误释放后续请求占用的槽位。
+func ReleaseChannelConcurrencyForContext(c *gin.Context) {
+	releaseChannelConcurrencyForContext(c)
 }
 
 // extractModelNameFromGeminiPath 从 Gemini API URL 路径中提取模型名

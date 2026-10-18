@@ -24,10 +24,16 @@ import {
   showError,
   showInfo,
   showSuccess,
+  timestamp2string,
   verifyJSON,
 } from '../../../../helpers';
+import { useUserPermissions } from '../../../../hooks/common/useUserPermissions';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
-import { CHANNEL_OPTIONS, MODEL_FETCHABLE_CHANNEL_TYPES } from '../../../../constants';
+import {
+  CHANNEL_OPTIONS,
+  MODEL_FETCHABLE_CHANNEL_TYPES,
+  FORCE_RESPONSES_CHANNEL_TYPES,
+} from '../../../../constants';
 import {
   SideSheet,
   Space,
@@ -63,6 +69,11 @@ import {
   resolveGroupCodes,
 } from '../../../../helpers';
 import ModelSelectModal from './ModelSelectModal';
+import TaskPluginSelect from './TaskPluginSelect';
+import {
+  canConvertChannelToMultiKey,
+  buildChannelKeyUpdateFields,
+} from './multiKeyEditing';
 import SingleModelSelectModal from './SingleModelSelectModal';
 import OllamaModelModal from './OllamaModelModal';
 import CodexOAuthModal from './CodexOAuthModal';
@@ -169,6 +180,8 @@ const EditChannelModal = (props) => {
   const { t } = useTranslation();
   const channelId = props.editingChannel.id;
   const isEdit = channelId !== undefined;
+  const { permissions } = useUserPermissions();
+  const canWriteSensitive = permissions?.admin_permissions?.channel?.sensitive_write === true;
   const [loading, setLoading] = useState(isEdit);
   const isMobile = useIsMobile();
   const handleCancel = () => {
@@ -178,6 +191,7 @@ const EditChannelModal = (props) => {
     name: '',
     type: 1,
     vendor_id: 0,
+    task_plugin_key: '',
     key: '',
     openai_organization: '',
     max_input_tokens: 0,
@@ -197,6 +211,7 @@ const EditChannelModal = (props) => {
     multi_key_mode: 'random',
     // 渠道额外设置的默认值
     force_format: false,
+    force_responses: false,
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
@@ -234,6 +249,11 @@ const EditChannelModal = (props) => {
     monitor_auto_enable_enabled: 'inherit',
     monitor_disable_threshold: '',
     monitor_enable_threshold: '',
+    tokenspro_overview_sync_enabled: false,
+    tokenspro_overview_sync_interval_seconds: '',
+    tokenspro_overview_last_success_time: 0,
+    tokenspro_overview_last_allowed: null,
+    tokenspro_overview_last_error: '',
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -265,6 +285,7 @@ const EditChannelModal = (props) => {
   const [vertexFileList, setVertexFileList] = useState([]);
   const vertexErroredNames = useRef(new Set()); // 避免重复报错
   const [isMultiKeyChannel, setIsMultiKeyChannel] = useState(false);
+  const [originalChannelType, setOriginalChannelType] = useState(null);
   const [channelSearchValue, setChannelSearchValue] = useState('');
   const [useManualInput, setUseManualInput] = useState(false); // 是否使用手动输入模式
   const [keyMode, setKeyMode] = useState('append'); // 密钥模式：replace（覆盖）或 append（追加）
@@ -532,6 +553,7 @@ const EditChannelModal = (props) => {
   // 渠道额外设置状态
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
+    force_responses: false,
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
@@ -629,6 +651,15 @@ const EditChannelModal = (props) => {
   };
 
   const isIonetLocked = isIonetChannel && isEdit;
+  const canConvertToMultiKey = canConvertChannelToMultiKey({
+    isEdit,
+    isMultiKeyChannel,
+    originalType: originalChannelType,
+    type: inputs.type,
+    isIonetLocked,
+  });
+  const convertToMultiKey = canConvertToMultiKey && batch && multiToSingle;
+  const editingMultiKey = isMultiKeyChannel || convertToMultiKey;
 
   const handleInputChange = (name, value) => {
     if (
@@ -658,6 +689,9 @@ const EditChannelModal = (props) => {
     }
     setInputs((inputs) => ({ ...inputs, [name]: value }));
     if (name === 'type') {
+      if (!FORCE_RESPONSES_CHANNEL_TYPES.has(Number(value))) {
+        handleChannelSettingsChange('force_responses', false);
+      }
       let localModels = [];
       switch (value) {
         case 2:
@@ -715,7 +749,7 @@ const EditChannelModal = (props) => {
       // 重置手动输入模式状态
       setUseManualInput(false);
 
-      if (value === 57) {
+      if (value === 57 || (isEdit && !isMultiKeyChannel && value === 41)) {
         setBatch(false);
         setMultiToSingle(false);
         setMultiKeyMode('random');
@@ -876,6 +910,8 @@ const EditChannelModal = (props) => {
       const chInfo = data.channel_info || {};
       const isMulti = chInfo.is_multi_key === true;
       setIsMultiKeyChannel(isMulti);
+      setOriginalChannelType(data.type);
+      setKeyMode('append');
       if (isMulti) {
         setBatch(true);
         setMultiToSingle(true);
@@ -885,12 +921,17 @@ const EditChannelModal = (props) => {
       } else {
         setBatch(false);
         setMultiToSingle(false);
+        setMultiKeyMode('random');
+        data.multi_key_mode = 'random';
       }
       // 解析渠道额外设置并合并到data中
+      data.task_plugin_key = '';
       if (data.setting) {
         try {
           const parsedSettings = JSON.parse(data.setting);
+          data.task_plugin_key = typeof parsedSettings.task_plugin_key === 'string' ? parsedSettings.task_plugin_key : '';
           data.force_format = parsedSettings.force_format || false;
+          data.force_responses = parsedSettings.force_responses === true;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
           data.proxy = parsedSettings.proxy || '';
@@ -907,6 +948,7 @@ const EditChannelModal = (props) => {
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
+          data.force_responses = false;
           data.thinking_to_content = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
@@ -917,6 +959,7 @@ const EditChannelModal = (props) => {
         }
       } else {
         data.force_format = false;
+        data.force_responses = false;
         data.thinking_to_content = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
@@ -1007,6 +1050,23 @@ const EditChannelModal = (props) => {
             typeof parsedSettings.monitor_enable_threshold === 'number'
               ? String(parsedSettings.monitor_enable_threshold)
               : '';
+          data.tokenspro_overview_sync_enabled =
+            parsedSettings.tokenspro_overview_sync_enabled === true;
+          data.tokenspro_overview_sync_interval_seconds =
+            typeof parsedSettings.tokenspro_overview_sync_interval_seconds ===
+            'number'
+              ? String(parsedSettings.tokenspro_overview_sync_interval_seconds)
+              : '';
+          data.tokenspro_overview_last_success_time =
+            Number(parsedSettings.tokenspro_overview_last_success_time) || 0;
+          data.tokenspro_overview_last_allowed =
+            typeof parsedSettings.tokenspro_overview_last_allowed === 'number'
+              ? parsedSettings.tokenspro_overview_last_allowed
+              : null;
+          data.tokenspro_overview_last_error =
+            typeof parsedSettings.tokenspro_overview_last_error === 'string'
+              ? parsedSettings.tokenspro_overview_last_error
+              : '';
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
@@ -1036,6 +1096,11 @@ const EditChannelModal = (props) => {
           data.monitor_auto_enable_enabled = 'inherit';
           data.monitor_disable_threshold = '';
           data.monitor_enable_threshold = '';
+          data.tokenspro_overview_sync_enabled = false;
+          data.tokenspro_overview_sync_interval_seconds = '';
+          data.tokenspro_overview_last_success_time = 0;
+          data.tokenspro_overview_last_allowed = null;
+          data.tokenspro_overview_last_error = '';
         }
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
@@ -1064,6 +1129,11 @@ const EditChannelModal = (props) => {
         data.monitor_auto_enable_enabled = 'inherit';
         data.monitor_disable_threshold = '';
         data.monitor_enable_threshold = '';
+        data.tokenspro_overview_sync_enabled = false;
+        data.tokenspro_overview_sync_interval_seconds = '';
+        data.tokenspro_overview_last_success_time = 0;
+        data.tokenspro_overview_last_allowed = null;
+        data.tokenspro_overview_last_error = '';
       }
 
       if (
@@ -1090,6 +1160,7 @@ const EditChannelModal = (props) => {
       // 同步更新channelSettings状态显示
       setChannelSettings({
         force_format: data.force_format,
+        force_responses: data.force_responses,
         thinking_to_content: data.thinking_to_content,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
@@ -1141,6 +1212,7 @@ const EditChannelModal = (props) => {
         data.thinking_to_content ||
         data.pass_through_body_enabled ||
         data.force_format ||
+        data.force_responses ||
         data.http_protocol === 'http1' ||
         (data.http2_connection_shards || 1) > 1 ||
         data.claude_beta_query ||
@@ -1153,7 +1225,10 @@ const EditChannelModal = (props) => {
         data.monitor_auto_disable_enabled !== 'inherit' ||
         data.monitor_auto_enable_enabled !== 'inherit' ||
         (data.monitor_disable_threshold && data.monitor_disable_threshold.trim()) ||
-        (data.monitor_enable_threshold && data.monitor_enable_threshold.trim());
+        (data.monitor_enable_threshold && data.monitor_enable_threshold.trim()) ||
+        data.tokenspro_overview_sync_enabled ||
+        (data.tokenspro_overview_sync_interval_seconds &&
+          data.tokenspro_overview_sync_interval_seconds.trim());
       if (hasAdvancedValues) {
         setAdvancedSettingsOpen(true);
       }
@@ -1494,6 +1569,7 @@ const EditChannelModal = (props) => {
     // 重置渠道设置状态
     setChannelSettings({
       force_format: false,
+      force_responses: false,
       thinking_to_content: false,
       proxy: '',
       pass_through_body_enabled: false,
@@ -1502,6 +1578,13 @@ const EditChannelModal = (props) => {
     });
     // 重置密钥模式状态
     setKeyMode('append');
+    setBatch(false);
+    setMultiToSingle(false);
+    setMultiKeyMode('random');
+    setIsMultiKeyChannel(false);
+    setOriginalChannelType(null);
+    setIsIonetChannel(false);
+    setIonetMetadata(null);
     // 重置企业账户状态
     setIsEnterpriseAccount(false);
     // 重置豆包隐藏入口状态
@@ -1659,6 +1742,7 @@ const EditChannelModal = (props) => {
   const submit = async () => {
     const formValues = formApiRef.current ? formApiRef.current.getValues() : {};
     let localInputs = { ...formValues };
+    localInputs.task_plugin_key = inputs.task_plugin_key;
     localInputs.param_override = inputs.param_override;
 
     if (localInputs.type === 57) {
@@ -1774,6 +1858,10 @@ const EditChannelModal = (props) => {
       showInfo(t('请至少选择一个模型！'));
       return;
     }
+    if (localInputs.type === 62 && !localInputs.task_plugin_key?.trim()) {
+      showError(t('Select task plugin'));
+      return;
+    }
     if (
       localInputs.type === 45 &&
       (!localInputs.base_url || localInputs.base_url.trim() === '')
@@ -1864,6 +1952,9 @@ const EditChannelModal = (props) => {
     // 生成渠道额外设置JSON
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
+      force_responses:
+        FORCE_RESPONSES_CHANNEL_TYPES.has(Number(localInputs.type)) &&
+        localInputs.force_responses === true,
       thinking_to_content: localInputs.thinking_to_content || false,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
@@ -1872,6 +1963,10 @@ const EditChannelModal = (props) => {
       http_protocol: localInputs.http_protocol || 'auto',
       http2_connection_shards: localInputs.http2_connection_shards || 1,
     };
+    if (localInputs.type === 62) {
+      channelExtraSettings.task_plugin_key = localInputs.task_plugin_key.trim();
+    }
+    delete localInputs.task_plugin_key;
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
     // 处理 settings 字段（包括企业账户设置和字段透传控制）
@@ -2021,11 +2116,27 @@ const EditChannelModal = (props) => {
       localInputs.monitor_enable_threshold,
       true,
     );
+    settings.tokenspro_overview_sync_enabled =
+      localInputs.tokenspro_overview_sync_enabled === true;
+    const tokensProInterval = String(
+      localInputs.tokenspro_overview_sync_interval_seconds || '',
+    ).trim();
+    if (!tokensProInterval) {
+      delete settings.tokenspro_overview_sync_interval_seconds;
+    } else {
+      const parsedInterval = parseInt(tokensProInterval, 10);
+      if (Number.isFinite(parsedInterval) && parsedInterval >= 60) {
+        settings.tokenspro_overview_sync_interval_seconds = parsedInterval;
+      } else {
+        delete settings.tokenspro_overview_sync_interval_seconds;
+      }
+    }
 
     localInputs.settings = JSON.stringify(settings);
 
     // 清理不需要发送到后端的字段
     delete localInputs.force_format;
+    delete localInputs.force_responses;
     delete localInputs.thinking_to_content;
     delete localInputs.proxy;
     delete localInputs.pass_through_body_enabled;
@@ -2059,6 +2170,11 @@ const EditChannelModal = (props) => {
     delete localInputs.monitor_auto_enable_enabled;
     delete localInputs.monitor_disable_threshold;
     delete localInputs.monitor_enable_threshold;
+    delete localInputs.tokenspro_overview_sync_enabled;
+    delete localInputs.tokenspro_overview_sync_interval_seconds;
+    delete localInputs.tokenspro_overview_last_success_time;
+    delete localInputs.tokenspro_overview_last_allowed;
+    delete localInputs.tokenspro_overview_last_error;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -2077,10 +2193,21 @@ const EditChannelModal = (props) => {
     }
 
     if (isEdit) {
+      if (!canWriteSensitive) {
+        // 普通编辑不重写敏感设置，避免新增默认字段导致旧渠道保存被拒绝。
+        delete localInputs.setting;
+      }
       res = await API.put(`/api/channel/`, {
         ...localInputs,
         id: parseInt(channelId),
-        key_mode: isMultiKeyChannel ? keyMode : undefined, // 只在多key模式下传递
+        ...buildChannelKeyUpdateFields({
+          isMultiKeyChannel,
+          convertToMultiKey,
+          keyMode,
+          multiKeyMode,
+          canWriteSensitive,
+          hasNewKey: Boolean(localInputs.key?.trim()),
+        }),
       });
     } else {
       res = await API.post(`/api/channel/`, {
@@ -2190,9 +2317,25 @@ const EditChannelModal = (props) => {
     }
   };
 
-  const batchAllowed = (!isEdit || isMultiKeyChannel) && inputs.type !== 57;
+  const batchAllowed =
+    (!isEdit || isMultiKeyChannel || canConvertToMultiKey) && inputs.type !== 57;
   const batchExtra = batchAllowed ? (
     <Space>
+      {canConvertToMultiKey && (
+        <Checkbox
+          checked={convertToMultiKey}
+          onChange={(event) => {
+            const checked = event.target.checked;
+            setBatch(checked);
+            setMultiToSingle(checked);
+            setKeyMode('append');
+            setMultiKeyMode('random');
+            handleInputChange('multi_key_mode', 'random');
+          }}
+        >
+          {t('密钥聚合模式')}
+        </Checkbox>
+      )}
       {!isEdit && (
         <Checkbox
           disabled={isEdit}
@@ -2250,27 +2393,29 @@ const EditChannelModal = (props) => {
       )}
       {batch && (
         <>
-          <Checkbox
-            disabled={isEdit}
-            checked={multiToSingle}
-            onChange={() => {
-              setMultiToSingle((prev) => {
-                const nextValue = !prev;
-                setInputs((prevInputs) => {
-                  const newInputs = { ...prevInputs };
-                  if (nextValue) {
-                    newInputs.multi_key_mode = multiKeyMode;
-                  } else {
-                    delete newInputs.multi_key_mode;
-                  }
-                  return newInputs;
+          {!canConvertToMultiKey && (
+            <Checkbox
+              disabled={isEdit}
+              checked={multiToSingle}
+              onChange={() => {
+                setMultiToSingle((prev) => {
+                  const nextValue = !prev;
+                  setInputs((prevInputs) => {
+                    const newInputs = { ...prevInputs };
+                    if (nextValue) {
+                      newInputs.multi_key_mode = multiKeyMode;
+                    } else {
+                      delete newInputs.multi_key_mode;
+                    }
+                    return newInputs;
+                  });
+                  return nextValue;
                 });
-                return nextValue;
-              });
-            }}
-          >
-            {t('密钥聚合模式')}
-          </Checkbox>
+              }}
+            >
+              {t('密钥聚合模式')}
+            </Checkbox>
+          )}
 
           {inputs.type !== 41 && (
             <Button
@@ -2779,6 +2924,73 @@ const EditChannelModal = (props) => {
                       />
                     </Col>
                   </Row>
+                  <div className='mt-4 mb-2 text-sm font-medium text-gray-700'>
+                    {t('TokensPro 并发对齐')}
+                  </div>
+                  <Form.Switch
+                    field='tokenspro_overview_sync_enabled'
+                    label={t('自动对齐 TokensPro 可用并发')}
+                    checkedText={t('开')}
+                    uncheckedText={t('关')}
+                    onChange={(value) =>
+                      handleChannelMonitorSettingChange(
+                        'tokenspro_overview_sync_enabled',
+                        value,
+                      )
+                    }
+                    extraText={t(
+                      '使用渠道主 Key 轮询 TokensPro overview，把渠道并发写成 concurrency.allowed。失败不改并发和状态。allowed 为 0 时会自动禁用，恢复后只打开因此被禁用的渠道。',
+                    )}
+                  />
+                  <Row gutter={12}>
+                    <Col span={12}>
+                      <Form.Input
+                        field='tokenspro_overview_sync_interval_seconds'
+                        label={t('对齐间隔')}
+                        placeholder={t('默认 60')}
+                        suffix={t('秒')}
+                        showClear
+                        onChange={(value) =>
+                          handleChannelMonitorSettingChange(
+                            'tokenspro_overview_sync_interval_seconds',
+                            value,
+                          )
+                        }
+                        extraText={t('最短 60 秒。从未成功过的渠道每分钟重试。')}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Form.Input
+                        field='tokenspro_overview_last_allowed'
+                        label={t('上次写入的 allowed')}
+                        disabled
+                        value={
+                          inputs.tokenspro_overview_last_allowed === null ||
+                          inputs.tokenspro_overview_last_allowed === undefined
+                            ? ''
+                            : String(inputs.tokenspro_overview_last_allowed)
+                        }
+                      />
+                    </Col>
+                  </Row>
+                  <Form.Input
+                    field='tokenspro_overview_last_success_time'
+                    label={t('上次成功同步时间')}
+                    disabled
+                    value={
+                      inputs.tokenspro_overview_last_success_time
+                        ? timestamp2string(
+                            inputs.tokenspro_overview_last_success_time,
+                          )
+                        : t('尚未成功同步')
+                    }
+                  />
+                  <Form.Input
+                    field='tokenspro_overview_last_error'
+                    label={t('上次同步错误')}
+                    disabled
+                    value={inputs.tokenspro_overview_last_error || ''}
+                  />
 
                   <div className='mt-4 mb-2 text-sm font-medium text-gray-700'>
                     {t('单渠道监控设置')}
@@ -2959,6 +3171,23 @@ const EditChannelModal = (props) => {
                     <Form.Switch field='force_format' label={t('强制格式化')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('force_format', value)} extraText={t('强制将响应格式化为 OpenAI 标准格式（只适用于OpenAI渠道类型）')} />
                   )}
 
+                  {(FORCE_RESPONSES_CHANNEL_TYPES.has(Number(inputs.type)) ||
+                    inputs.force_responses) && (
+                    <Form.Switch
+                      field='force_responses'
+                      label={t('Force Responses upstream')}
+                      aria-label={t('Force Responses upstream')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      disabled={isEdit && !canWriteSensitive}
+                      onChange={(value) =>
+                        handleChannelSettingsChange('force_responses', value)
+                      }
+                      extraText={t(
+                        'Convert Chat, Claude and Gemini conversations to Responses while preserving the client response format. Overrides body passthrough and Responses-to-Chat settings. The upstream must support Responses.',
+                      )}
+                    />
+                  )}
                   <Form.Switch field='thinking_to_content' label={t('思考内容转换')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('thinking_to_content', value)} extraText={t('将 reasoning_content 转换为 <think> 标签拼接到内容中')} />
                   <Form.Switch field='pass_through_body_enabled' label={t('透传请求体')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('pass_through_body_enabled', value)} extraText={t('启用请求体透传功能')} />
 
@@ -3093,6 +3322,18 @@ const EditChannelModal = (props) => {
                       disabled={isIonetLocked}
                     />
 
+                    {inputs.type === 62 && (
+                      <TaskPluginSelect
+                        value={inputs.task_plugin_key}
+                        disabled={isIonetLocked || (isEdit && !canWriteSensitive)}
+                        onChange={(value, models) => {
+                          handleInputChange('task_plugin_key', value);
+                          if (inputs.models.length === 0 && Array.isArray(models)) {
+                            handleInputChange('models', models);
+                          }
+                        }}
+                      />
+                    )}
                     <Form.Select
                       field='vendor_id'
                       label={t('供应商')}
@@ -3275,7 +3516,7 @@ const EditChannelModal = (props) => {
                           extraText={
                             <div className='flex items-center gap-2 flex-wrap'>
                               {isEdit &&
-                                isMultiKeyChannel &&
+                                editingMultiKey &&
                                 keyMode === 'append' && (
                                   <Text type='warning' size='small'>
                                     {t(
@@ -3490,7 +3731,7 @@ const EditChannelModal = (props) => {
                                       {t('请输入完整的 JSON 格式密钥内容')}
                                     </Text>
                                     {isEdit &&
-                                      isMultiKeyChannel &&
+                                      editingMultiKey &&
                                       keyMode === 'append' && (
                                         <Text type='warning' size='small'>
                                           {t(
@@ -3571,7 +3812,7 @@ const EditChannelModal = (props) => {
                             extraText={
                               <div className='flex items-center gap-2'>
                                 {isEdit &&
-                                  isMultiKeyChannel &&
+                                  editingMultiKey &&
                                   keyMode === 'append' && (
                                     <Text type='warning' size='small'>
                                       {t(
@@ -3598,9 +3839,11 @@ const EditChannelModal = (props) => {
                       </>
                     )}
 
-                    {isEdit && isMultiKeyChannel && (
+                    {isEdit && editingMultiKey && (
                       <Form.Select
                         field='key_mode'
+                        disabled={!canWriteSensitive}
+                        initValue={keyMode}
                         label={t('密钥更新模式')}
                         placeholder={t('请选择密钥更新模式')}
                         optionList={[
@@ -3623,6 +3866,7 @@ const EditChannelModal = (props) => {
                       <>
                         <Form.Select
                           field='multi_key_mode'
+                          disabled={isEdit && !canWriteSensitive}
                           label={t('密钥聚合模式')}
                           placeholder={t('请选择多密钥使用策略')}
                           optionList={[
@@ -3863,7 +4107,7 @@ const EditChannelModal = (props) => {
                               showClear
                               disabled={isIonetLocked}
                               extraText={t(
-                                '对于官方渠道，new-api已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写',
+                                '对于官方渠道，NewAPI-Mao已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写',
                               )}
                             />
                           </div>

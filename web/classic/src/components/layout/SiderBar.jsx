@@ -22,7 +22,6 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getLucideIcon } from '../../helpers/render';
 import { ChevronLeft } from 'lucide-react';
-import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useSidebar } from '../../hooks/common/useSidebar';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
 import { API, isAdmin, isRoot, showError } from '../../helpers';
@@ -40,6 +39,7 @@ const routerMap = {
   channel: '/console/channel',
   token: '/console/token',
   redemption: '/console/redemption',
+  benefits: '/console/benefits',
   topup: '/console/topup',
   affiliate: '/console/affiliate',
   invoice: '/console/invoice',
@@ -59,6 +59,7 @@ const routerMap = {
   deployment: '/console/deployment',
   game_management: '/console/game-management',
   extension_admin: '/console/extensions',
+  task_plugins: '/console/task-plugins',
   playground: '/console/playground',
   canvas: '/console/canvas',
   personal: '/console/personal',
@@ -68,9 +69,12 @@ const routerMap = {
 
 export const CLASSIC_EXTENSION_REFRESH_EVENT = 'classic-extension-refresh';
 
-const SiderBar = ({ onNavigate = () => {} }) => {
+const SiderBar = ({
+  collapsed = false,
+  onSidebarToggle = () => {},
+  onNavigate = () => {},
+}) => {
   const { t } = useTranslation();
-  const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const {
     isModuleVisible,
     loading: sidebarLoading,
@@ -168,6 +172,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('钱包管理'),
         itemKey: 'topup',
         to: '/topup',
+      },
+      {
+        text: t('活动福利'),
+        itemKey: 'benefits',
+        to: '/console/benefits',
       },
       {
         text: t('返佣分成'),
@@ -313,6 +322,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         itemKey: 'notification_center',
         to: '/notification-center',
         className: isRoot() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('Task Plugins'),
+        itemKey: 'task_plugins',
+        to: '/console/task-plugins',
+        className: isAdmin() ? '' : 'tableHiddle',
       },
       {
         text: t('系统设置'),
@@ -642,7 +657,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           className='sidebar-nav'
           defaultIsCollapsed={collapsed}
           isCollapsed={collapsed}
-          onCollapseChange={toggleCollapsed}
+          onCollapseChange={onSidebarToggle}
           selectedKeys={selectedKeys}
           itemStyle='sidebar-nav-item'
           hoverStyle='sidebar-nav-item:hover'
@@ -783,7 +798,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
                 }}
               />
             }
-            onClick={toggleCollapsed}
+            onClick={onSidebarToggle}
             icononly={collapsed}
             style={
               collapsed

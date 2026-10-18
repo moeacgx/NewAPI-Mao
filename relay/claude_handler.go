@@ -115,8 +115,8 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		info.UpstreamModelName = request.Model
 	}
 
-	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled &&
-		!info.ChannelSetting.PassThroughBodyEnabled {
+	if info.ShouldForceResponses() || (!model_setting.GetGlobalSettings().PassThroughRequestEnabled &&
+		!info.ChannelSetting.PassThroughBodyEnabled) {
 		info.SetReasoningEffort(request.GetEfforts())
 	}
 
@@ -145,9 +145,9 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		}
 	}
 
-	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled &&
+	if info.ShouldForceResponses() || (!model_setting.GetGlobalSettings().PassThroughRequestEnabled &&
 		!info.ChannelSetting.PassThroughBodyEnabled &&
-		service.ShouldChatCompletionsUseResponsesGlobal(info.ChannelId, info.ChannelType, info.OriginModelName) {
+		service.ShouldChatCompletionsUseResponsesGlobal(info.ChannelId, info.ChannelType, info.OriginModelName)) {
 		result, convErr := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
 		if convErr != nil {
 			return types.NewError(convErr, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
@@ -162,8 +162,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 			return newApiErr
 		}
 
-		service.PostTextConsumeQuota(c, info, usage, nil)
-		return nil
+		return service.PostTextConsumeQuota(c, info, usage, nil)
 	}
 
 	var requestBody io.Reader
@@ -209,6 +208,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
 
+		info.CaptureThinkingLogBody(jsonData)
 		logger.LogDebug(c, "requestBody: %s", jsonData)
 		body, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
 		if err != nil {
@@ -244,8 +244,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		return newAPIError
 	}
 
-	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
-	return nil
+	return service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
 }
 
 func prepareClaudePassthroughBody(c *gin.Context, info *relaycommon.RelayInfo, storage common.BodyStorage) (io.Reader, io.Closer, error) {

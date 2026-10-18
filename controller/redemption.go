@@ -85,6 +85,13 @@ func AddRedemption(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgRedemptionCountMax)
 		return
 	}
+	if redemption.MaxRedeemCount <= 0 {
+		redemption.MaxRedeemCount = 1
+	}
+	if redemption.MaxRedeemCount > 100000 {
+		common.ApiErrorMsg(c, "单个兑换码最多允许 100000 人兑换")
+		return
+	}
 	if valid, msg := validateExpiredTime(c, redemption.ExpiredTime); !valid {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": msg})
 		return
@@ -93,12 +100,13 @@ func AddRedemption(c *gin.Context) {
 	for i := 0; i < redemption.Count; i++ {
 		key := common.GetUUID()
 		cleanRedemption := model.Redemption{
-			UserId:      c.GetInt("id"),
-			Name:        redemption.Name,
-			Key:         key,
-			CreatedTime: common.GetTimestamp(),
-			Quota:       redemption.Quota,
-			ExpiredTime: redemption.ExpiredTime,
+			UserId:         c.GetInt("id"),
+			Name:           redemption.Name,
+			Key:            key,
+			CreatedTime:    common.GetTimestamp(),
+			Quota:          redemption.Quota,
+			ExpiredTime:    redemption.ExpiredTime,
+			MaxRedeemCount: redemption.MaxRedeemCount,
 		}
 		err = cleanRedemption.Insert()
 		if err != nil {
@@ -132,11 +140,33 @@ func DeleteRedemption(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	recordManageAudit(c, "redemption.delete", map[string]interface{}{"id": id})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 	})
 	return
+}
+
+func BatchDeleteRedemptions(c *gin.Context) {
+	var request batchDeleteRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "批量删除兑换码参数格式错误")
+		return
+	}
+	ids, err := normalizeBatchDeleteIDs("兑换码", request.Ids)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	deleted, err := model.DeleteRedemptionsByIDs(ids)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result := buildBatchDeleteResult(ids, deleted)
+	recordManageAudit(c, "redemption.delete_batch", map[string]interface{}{"count": len(result.DeletedIds), "skipped": len(result.Skipped), "ids": result.DeletedIds})
+	common.ApiSuccess(c, result)
 }
 
 func UpdateRedemption(c *gin.Context) {
@@ -161,6 +191,17 @@ func UpdateRedemption(c *gin.Context) {
 		cleanRedemption.Name = redemption.Name
 		cleanRedemption.Quota = redemption.Quota
 		cleanRedemption.ExpiredTime = redemption.ExpiredTime
+		if redemption.MaxRedeemCount > 0 {
+			if redemption.MaxRedeemCount > 100000 {
+				common.ApiErrorMsg(c, "单个兑换码最多允许 100000 人兑换")
+				return
+			}
+			if redemption.MaxRedeemCount < cleanRedemption.RedeemedCount {
+				common.ApiErrorMsg(c, "最大兑换次数不能低于已兑换次数")
+				return
+			}
+			cleanRedemption.MaxRedeemCount = redemption.MaxRedeemCount
+		}
 	}
 	if statusOnly != "" {
 		cleanRedemption.Status = redemption.Status
@@ -184,6 +225,7 @@ func DeleteInvalidRedemption(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	recordManageAudit(c, "redemption.delete_invalid", map[string]interface{}{"count": rows})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

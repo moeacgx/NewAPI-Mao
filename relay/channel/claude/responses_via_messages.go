@@ -33,6 +33,10 @@ func ClaudeMessagesToResponsesHandler(c *gin.Context, info *relaycommon.RelayInf
 	if err := common.Unmarshal(body, &claudeResponse); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	info.SetUpstreamResponseModelName(claudeResponse.Model)
+	if claudeResponse.Message != nil {
+		info.SetUpstreamResponseModelName(claudeResponse.Message.Model)
+	}
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
 		return nil, types.WithClaudeError(*claudeError, resp.StatusCode)
 	}
@@ -58,6 +62,9 @@ func ClaudeMessagesToResponsesHandler(c *gin.Context, info *relaycommon.RelayInf
 	responseBody, err := common.Marshal(responsesResponse)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
+	}
+	if usageError := service.TextUsageError(c, info, usage); usageError != nil {
+		return usage, usageError
 	}
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 	return usage, nil
@@ -105,6 +112,10 @@ func ClaudeMessagesToResponsesStreamHandler(c *gin.Context, info *relaycommon.Re
 			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			result.Stop(streamErr)
 			return
+		}
+		info.SetUpstreamResponseModelName(claudeResponse.Model)
+		if claudeResponse.Message != nil {
+			info.SetUpstreamResponseModelName(claudeResponse.Message.Model)
 		}
 		if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
 			streamErr = types.WithClaudeError(*claudeError, resp.StatusCode)

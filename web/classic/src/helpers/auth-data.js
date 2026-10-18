@@ -32,3 +32,63 @@ export function normalizeAuthData(data) {
     ...(data.session ? { session: data.session } : {}),
   };
 }
+
+export function readStoredUser(storage) {
+  let userStorage;
+  let rawUser;
+  try {
+    userStorage = storage ?? globalThis.localStorage;
+    rawUser = userStorage.getItem('user');
+  } catch (_) {
+    return null;
+  }
+
+  if (rawUser === null || rawUser === undefined) return null;
+
+  try {
+    const user = JSON.parse(rawUser);
+    if (
+      !user ||
+      typeof user !== 'object' ||
+      Array.isArray(user) ||
+      !Number.isInteger(user.id) ||
+      user.id <= 0 ||
+      typeof user.role !== 'number' ||
+      !Number.isFinite(user.role)
+    ) {
+      throw new TypeError('Stored user must be an object');
+    }
+    return user;
+  } catch (_) {
+    try {
+      userStorage.removeItem('user');
+    } catch (_) {
+      // Storage 可能不可用，但调用方仍按未登录处理。
+    }
+    return null;
+  }
+}
+
+const authErrorMessageKeys = {
+  AUTH_SESSION_LIMIT: 'AUTH_SESSION_LIMIT',
+  AUTH_SESSION_ISSUANCE_LIMIT: 'AUTH_SESSION_ISSUANCE_LIMIT',
+};
+
+export function getAuthErrorMessage(error, translate = (key) => key) {
+  const code = error?.response?.data?.code;
+  const messageKey = authErrorMessageKeys[code];
+  if (!messageKey) return null;
+  return `${code}: ${translate(messageKey)}`;
+}
+
+// OAuth 状态请求失败时只返回字符串，避免 AxiosError 缺少 response 导致展示层再次抛错。
+export function getOAuthStateErrorMessage(error, translate = (key) => key) {
+  const authMessage = getAuthErrorMessage(error, translate);
+  if (authMessage) return authMessage;
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return translate('授权失败');
+}

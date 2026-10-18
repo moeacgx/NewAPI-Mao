@@ -129,6 +129,15 @@ func ResponsesResponseToChatCompletionsResponse(resp *dto.OpenAIResponsesRespons
 }
 
 func UsageFromResponsesUsage(src *dto.Usage) *dto.Usage {
+	usage := NormalizeResponsesUsage(src)
+	if src != nil && usage.BillingUsage == nil {
+		usage.BillingUsage = dto.NewOpenAIResponsesBillingUsage(src)
+	}
+	return usage
+}
+
+// NormalizeResponsesUsage 保留原生 usage 的详情和存在性，不凭空创建转换侧计费依据。
+func NormalizeResponsesUsage(src *dto.Usage) *dto.Usage {
 	usage := &dto.Usage{}
 	if src == nil {
 		return usage
@@ -136,9 +145,11 @@ func UsageFromResponsesUsage(src *dto.Usage) *dto.Usage {
 	usage.UsageSemantic = src.UsageSemantic
 	usage.UsageSource = src.UsageSource
 	usage.BillingUsage = dto.CloneBillingUsage(src.BillingUsage)
-	if usage.BillingUsage == nil {
-		usage.BillingUsage = dto.NewOpenAIResponsesBillingUsage(src)
-	}
+	usage.HasInputTokens = src.HasInputTokens
+	usage.HasOutputTokens = src.HasOutputTokens
+	usage.HasPromptTokens = src.HasInputTokens
+	usage.HasCompletionTokens = src.HasOutputTokens
+	usage.HasTotalTokens = src.HasTotalTokens
 	usage.Cost = src.Cost
 	if src.InputTokens != 0 {
 		usage.PromptTokens = src.InputTokens
@@ -157,10 +168,7 @@ func UsageFromResponsesUsage(src *dto.Usage) *dto.Usage {
 	if src.InputTokensDetails != nil {
 		details := *src.InputTokensDetails
 		usage.InputTokensDetails = &details
-		usage.PromptTokensDetails.CachedTokens = details.CachedTokens
-		usage.PromptTokensDetails.TextTokens = details.TextTokens
-		usage.PromptTokensDetails.ImageTokens = details.ImageTokens
-		usage.PromptTokensDetails.AudioTokens = details.AudioTokens
+		usage.PromptTokensDetails = details
 	}
 	usage.CopyCacheCreationTokensFrom(src)
 	if src.CompletionTokenDetails.ReasoningTokens != 0 ||

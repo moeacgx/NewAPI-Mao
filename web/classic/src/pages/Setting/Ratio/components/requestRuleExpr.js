@@ -102,7 +102,7 @@ export function getRequestRuleMatchOptions(source, t) {
       { value: MATCH_EQ, label: t('等于') },
       { value: MATCH_GTE, label: t('大于等于') },
       { value: MATCH_LT, label: t('小于') },
-      { value: MATCH_RANGE, label: t('跨夜范围') },
+      { value: MATCH_RANGE, label: t('时间范围') },
     ];
   }
   const base = [
@@ -233,7 +233,9 @@ function buildTimeConditionExpr(cond) {
     const s = normalized.rangeStart.trim();
     const e = normalized.rangeEnd.trim();
     if (!NUMERIC_LITERAL_REGEX.test(s) || !NUMERIC_LITERAL_REGEX.test(e)) return '';
-    return `${fn} >= ${s} || ${fn} < ${e}`;
+    // 排他上界可超出函数返回值域，例如 hour < 24。
+    const operator = Number(s) > Number(e) ? '||' : '&&';
+    return `${fn} >= ${s} ${operator} ${fn} < ${e}`;
   }
   const v = normalized.value.trim();
   if (!NUMERIC_LITERAL_REGEX.test(v)) return '';
@@ -298,24 +300,17 @@ export function buildRequestRuleExpr(groups) {
 // ---------------------------------------------------------------------------
 
 function tryParseTimeCondition(expr) {
-  // Range: hour("tz") >= s || hour("tz") < e
-  let m = expr.match(
-    /^(hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)$/,
+  const range = unwrapOuterParens(expr);
+  let m = range.match(
+    /^(hour|minute|weekday|month|day)\("([^"\n]+)"\) >= ([\d.eE+-]+) (&&|\|\|) \1\("\2"\) < ([\d.eE+-]+)$/,
   );
   if (m) {
+    // 历史运算符若与范围方向不一致，保留原表达式，不折叠成范围。
+    if (!NUMERIC_LITERAL_REGEX.test(m[3]) || !NUMERIC_LITERAL_REGEX.test(m[5]) ||
+        (Number(m[3]) > Number(m[5]) ? '||' : '&&') !== m[4]) return null;
     return {
       source: SOURCE_TIME, timeFunc: m[1], timezone: m[2],
-      mode: MATCH_RANGE, value: '', rangeStart: m[3], rangeEnd: m[4],
-    };
-  }
-  // Wrapped range: (hour("tz") >= s || hour("tz") < e)
-  m = expr.match(
-    /^\((hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)\)$/,
-  );
-  if (m) {
-    return {
-      source: SOURCE_TIME, timeFunc: m[1], timezone: m[2],
-      mode: MATCH_RANGE, value: '', rangeStart: m[3], rangeEnd: m[4],
+      mode: MATCH_RANGE, value: '', rangeStart: m[3], rangeEnd: m[5],
     };
   }
   // Simple: hour("tz") op value
@@ -376,9 +371,19 @@ function tryParseRuleGroupFactor(part) {
   const conditionStr = m[1];
   const multiplier = m[2];
 
+  const whole = tryParseTimeCondition(conditionStr);
+  if (whole) return { conditions: [normalizeCondition(whole)], multiplier };
   const andParts = splitTopLevelAnd(conditionStr);
   const conditions = [];
-  for (const ap of andParts) {
+  for (let index = 0; index < andParts.length; index += 1) {
+    const ap = andParts[index];
+    const next = andParts[index + 1];
+    const range = next && tryParseTimeCondition(`${ap.trim()} && ${next.trim()}`);
+    if (range) {
+      conditions.push(normalizeCondition(range));
+      index += 1;
+      continue;
+    }
     const cond = tryParseRequestCondition(ap.trim());
     if (!cond) return null;
     conditions.push(normalizeCondition(cond));

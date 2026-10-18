@@ -1,0 +1,243 @@
+/* Copyright (C) 2023-2026 QuantumNous；移植自 Default ApiKeysMobileList，保留上游归属。 */
+.tokens-mobile-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tokens-mobile-card {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tokens-mobile-card > * + * {
+  margin-top: 8px;
+}
+
+.tokens-mobile-card-disabled {
+  background: var(--table-disabled);
+}
+
+.tokens-mobile-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.tokens-mobile-heading h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.tokens-mobile-status .tokens-status {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tokens-mobile-key-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tokens-mobile-key {
+  flex: 1;
+  min-width: 0;
+}
+
+.tokens-page .tokens-mobile-key .tokens-key-value {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.tokens-mobile-key .tokens-key-value .semi-button-content {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tokens-mobile-actions {
+  flex-shrink: 0;
+}
+
+.tokens-mobile-group-quota {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.tokens-mobile-group {
+  min-width: 0;
+}
+
+.tokens-mobile-group .tokens-group {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tokens-mobile-group .tokens-group-name {
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.tokens-mobile-quota,
+.tokens-mobile-quota > div,
+.tokens-mobile-quota .tokens-quota-trigger,
+.tokens-mobile-quota .tokens-quota {
+  width: 100% !important;
+  min-width: 0;
+}
+
+.tokens-mobile-restrictions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+}
+
+.tokens-mobile-restrictions > div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.tokens-mobile-label {
+  color: var(--muted-foreground);
+}
+
+.tokens-mobile-restrictions .tokens-status {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tokens-mobile-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.tokens-mobile-time,
+.tokens-mobile-expiry {
+  min-width: 0;
+}
+
+.tokens-mobile-time .tokens-time {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+  gap: 4px 12px;
+}
+
+.tokens-mobile-time .tokens-time > span:nth-child(odd) {
+  color: var(--muted-foreground);
+}
+
+.tokens-mobile-time time {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.tokens-mobile-expiry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tokens-mobile-expiry .tokens-status {
+  height: auto;
+  min-height: 20px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.tokens-mobile-empty {
+  display: flex;
+  flex: 1;
+  min-height: 200px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+}
+
+.tokens-mobile-empty p {
+  margin: 0;
+}
+
+.tokens-mobile-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 150px;
+}
+
+.tokens-mobile-skeleton span {
+  display: block;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--muted);
+}
+
+.tokens-mobile-skeleton-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tokens-mobile-skeleton-heading span:first-child {
+  width: 128px;
+}
+
+.tokens-mobile-skeleton-heading span:last-child {
+  width: 64px;
+}
+
+.tokens-mobile-skeleton > span:last-child {
+  width: 112px;
+}
+
+.tokens-mobile-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

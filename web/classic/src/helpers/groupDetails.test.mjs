@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildGroupDetailsPayload,
   buildGroupSelectionPayload,
+  buildCanvasDefaultGroupOptions,
   createGroupOptions,
   createPlaygroundGroupOptions,
   createTemporaryGroupCode,
@@ -15,6 +16,8 @@ import {
   getDeletedGroupIds,
   groupDetailsToLegacyOptions,
   normalizeAutoGroupConfig,
+  normalizeGroupDetail,
+  prioritizePlaygroundGroupOptions,
   reorderAutoGroupItems,
   resolveGroupCodes,
 } from './groupDetails.js';
@@ -56,6 +59,24 @@ test('分组保存以 ID 关联并保留旧客户端兼容字段', () => {
   assert.equal(payload.groups[0].id, 42);
   assert.equal(payload.groups[0].code, 'codex-pro');
   assert.equal(payload.groups[0].name, 'Codex 高速专线');
+});
+
+test('分组详情规范化和保存 payload 保留单用户并发上限', () => {
+  const normalized = normalizeGroupDetail({
+    id: 7,
+    code: 'benefit',
+    name: '活动福利',
+    single_user_concurrency_limit: 3,
+  });
+  const payload = buildGroupDetailsPayload([normalized], []);
+
+  assert.equal(normalized.single_user_concurrency_limit, 3);
+  assert.equal(payload.groups[0].single_user_concurrency_limit, 3);
+  assert.equal(
+    normalizeGroupDetail({ single_user_concurrency_limit: -1 })
+      .single_user_concurrency_limit,
+    0,
+  );
 });
 
 test('渠道和令牌兼容 payload 同时包含有序 IDs 与旧 CSV', () => {
@@ -153,6 +174,63 @@ test('操练场显示当前名称但提交接口对象键', () => {
     },
   });
   assert.equal(duplicateDescription.fullLabel, '');
+});
+
+test('操练场当前分组置顶并在无效时回退用户分组', () => {
+  const options = createPlaygroundGroupOptions({
+    default: { name: '默认分组' },
+    vip: { name: 'VIP 分组' },
+    auto: { name: '自动选择' },
+  });
+
+  assert.deepEqual(
+    prioritizePlaygroundGroupOptions(options, 'auto', 'default').map(
+      (option) => option.value,
+    ),
+    ['auto', 'default', 'vip'],
+  );
+  assert.deepEqual(
+    prioritizePlaygroundGroupOptions(options, 'missing', 'vip').map(
+      (option) => option.value,
+    ),
+    ['vip', 'default', 'auto'],
+  );
+  assert.deepEqual(
+    prioritizePlaygroundGroupOptions(options, '', 'vip').map(
+      (option) => option.value,
+    ),
+    ['vip', 'default', 'auto'],
+  );
+  assert.deepEqual(
+    options.map((option) => option.value),
+    ['default', 'vip', 'auto'],
+  );
+});
+
+test('无限画布默认分组选项将可选 auto 放在实体分组之前', () => {
+  assert.deepEqual(
+    buildCanvasDefaultGroupOptions(
+      [
+        { code: 'default', name: '默认分组', status: 1 },
+        { code: 'disabled', name: '停用分组', status: 0 },
+      ],
+      { user_selectable: true },
+    ),
+    [
+      { value: 'auto', label: '自动选择' },
+      { value: 'default', label: '默认分组 (default)' },
+    ],
+  );
+});
+
+test('无限画布默认分组选项在 auto 不可选时不展示 auto', () => {
+  assert.deepEqual(
+    buildCanvasDefaultGroupOptions(
+      [{ code: 'default', name: '默认分组', status: 1 }],
+      { user_selectable: false },
+    ),
+    [{ value: 'default', label: '默认分组 (default)' }],
+  );
 });
 
 test('编辑记录优先按 group_ids 回填，旧记录才回退 group 字符串', () => {

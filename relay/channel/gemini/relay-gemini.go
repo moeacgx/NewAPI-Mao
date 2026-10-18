@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +21,10 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
+	goldmarkutil "github.com/yuin/goldmark/util"
 )
 
 func buildUsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTokens int) dto.Usage {
@@ -148,6 +153,7 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	var usage = &dto.Usage{}
 	var imageCount int
 	var hasBillableUsageMetadata bool
+	var streamErr *types.NewAPIError
 	responseText := strings.Builder{}
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
@@ -156,9 +162,18 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			sr.Stop(fmt.Errorf("unmarshal: %w", err))
 			return
 		}
+		info.SetUpstreamResponseModelName(geminiResponse.ModelVersion)
 
-		if len(geminiResponse.Candidates) == 0 && geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
+		if info.RelayFormat != types.RelayFormatGemini && len(geminiResponse.Candidates) == 0 && geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
+			streamErr = types.NewOpenAIError(
+				errors.New("request blocked by Gemini API: "+*geminiResponse.PromptFeedback.BlockReason),
+				types.ErrorCodePromptBlocked,
+				http.StatusBadRequest,
+			)
+			service.ResetStatusCode(streamErr, c.GetString("status_code_mapping"))
+			sr.Stop(streamErr)
+			return
 		}
 
 		markGeminiGoogleSearchCall(c, &geminiResponse)
@@ -186,6 +201,9 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			sr.Stop(fmt.Errorf("gemini callback stopped"))
 		}
 	})
+	if streamErr != nil {
+		return usage, streamErr
+	}
 
 	if !hasBillableUsageMetadata {
 		if info.ReceivedResponseCount > 0 {
@@ -322,6 +340,7 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	info.SetUpstreamResponseModelName(geminiResponse.ModelVersion)
 	markGeminiGoogleSearchCall(c, &geminiResponse)
 	if len(geminiResponse.Candidates) == 0 {
 		usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
@@ -344,19 +363,7 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		}
 
 		service.ResetStatusCode(newAPIError, c.GetString("status_code_mapping"))
-
-		switch info.RelayFormat {
-		case types.RelayFormatClaude:
-			c.JSON(newAPIError.StatusCode, gin.H{
-				"type":  "error",
-				"error": newAPIError.ToClaudeError(),
-			})
-		default:
-			c.JSON(newAPIError.StatusCode, gin.H{
-				"error": newAPIError.ToOpenAIError(),
-			})
-		}
-		return &usage, nil
+		return &usage, newAPIError
 	}
 	fullTextResponse := responseGeminiChat2OpenAI(c, &geminiResponse)
 	fullTextResponse.Model = info.UpstreamModelName
@@ -432,6 +439,170 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 
 	service.IOCopyBytesGracefully(c, resp, jsonResponse)
 	return usage, nil
+}
+
+func GeminiNativeImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	service.CloseResponseBodyGracefully(resp)
+	logger.LogDebug(c, "Gemini native image response body: %s", responseBody)
+
+	var geminiResponse dto.GeminiChatResponse
+	if err := common.Unmarshal(responseBody, &geminiResponse); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	info.SetUpstreamResponseModelName(geminiResponse.ModelVersion)
+	usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
+
+	if len(geminiResponse.Candidates) == 0 {
+		if geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
+			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
+			return &usage, types.NewOpenAIError(
+				errors.New("request blocked by Gemini API: "+*geminiResponse.PromptFeedback.BlockReason),
+				types.ErrorCodePromptBlocked,
+				http.StatusBadRequest,
+			)
+		}
+		return &usage, types.NewOpenAIError(errors.New("empty response from Gemini API"), types.ErrorCodeEmptyResponse, http.StatusInternalServerError)
+	}
+
+	openAIResponse := dto.ImageResponse{
+		Created: common.GetTimestamp(),
+		Data:    make([]dto.ImageData, 0),
+	}
+	partCount := 0
+	textPartCount := 0
+	inlineDataPartCount := 0
+	fileDataPartCount := 0
+	markdownImagePartCount := 0
+	otherPartCount := 0
+	finishReasons := make([]string, 0, len(geminiResponse.Candidates))
+	seenFinishReasons := make(map[string]struct{}, len(geminiResponse.Candidates))
+	for _, candidate := range geminiResponse.Candidates {
+		if candidate.FinishReason != nil {
+			reason := geminiDiagnosticFinishReason(*candidate.FinishReason)
+			if _, exists := seenFinishReasons[reason]; !exists {
+				seenFinishReasons[reason] = struct{}{}
+				finishReasons = append(finishReasons, reason)
+			}
+		}
+		for _, part := range candidate.Content.Parts {
+			partCount++
+			switch {
+			case part.InlineData != nil:
+				inlineDataPartCount++
+				if part.InlineData.Data == "" {
+					continue
+				}
+				openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
+					B64Json: part.InlineData.Data,
+				})
+			case part.FileData != nil:
+				fileDataPartCount++
+				fileURI := strings.TrimSpace(part.FileData.FileUri)
+				mimeType := strings.TrimSpace(part.FileData.MimeType)
+				if !isGeminiImageHTTPURL(fileURI) ||
+					(mimeType != "" && !strings.HasPrefix(strings.ToLower(mimeType), "image/")) {
+					continue
+				}
+				openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
+					Url: fileURI,
+				})
+			case part.Text != "":
+				textPartCount++
+				markdownImages, markdownImageCount := geminiMarkdownImageData(part.Text)
+				markdownImagePartCount += markdownImageCount
+				openAIResponse.Data = append(openAIResponse.Data, markdownImages...)
+			default:
+				otherPartCount++
+			}
+		}
+	}
+	if len(openAIResponse.Data) == 0 {
+		if len(finishReasons) == 0 {
+			finishReasons = append(finishReasons, "-")
+		}
+		blockReason := "-"
+		if geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
+			blockReason = geminiDiagnosticBlockReason(*geminiResponse.PromptFeedback.BlockReason)
+		}
+		shape := fmt.Sprintf(
+			"gemini_native_image_no_media candidates=%d parts=%d text=%d inline_data=%d file_data=%d markdown_image=%d other=%d finish_reasons=%s block_reason=%s",
+			len(geminiResponse.Candidates), partCount, textPartCount, inlineDataPartCount,
+			fileDataPartCount, markdownImagePartCount, otherPartCount, strings.Join(finishReasons, ","), blockReason,
+		)
+		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, shape)
+		logger.LogWarn(c, shape)
+		return &usage, types.NewOpenAIError(errors.New("no images generated"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+
+	jsonResponse, err := common.Marshal(openAIResponse)
+	if err != nil {
+		return &usage, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+
+	c.Writer.Header().Set("Content-Type", "application/json")
+	status := resp.StatusCode
+	if status == 0 {
+		status = http.StatusOK
+	}
+	c.Writer.WriteHeader(status)
+	_, _ = c.Writer.Write(jsonResponse)
+	return &usage, nil
+}
+
+func geminiMarkdownImageData(value string) ([]dto.ImageData, int) {
+	root := goldmark.New().Parser().Parse(text.NewReader([]byte(value)))
+	images := make([]dto.ImageData, 0)
+	markdownImageCount := 0
+	_ = ast.Walk(root, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		image, ok := node.(*ast.Image)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		markdownImageCount++
+		imageURL := strings.TrimSpace(string(goldmarkutil.URLEscape(image.Destination, true)))
+		if isGeminiImageHTTPURL(imageURL) {
+			images = append(images, dto.ImageData{Url: imageURL})
+		}
+		return ast.WalkContinue, nil
+	})
+	return images, markdownImageCount
+}
+
+func isGeminiImageHTTPURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && parsed.Hostname() != "" &&
+		(parsed.Scheme == "http" || parsed.Scheme == "https")
+}
+
+func geminiDiagnosticFinishReason(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case "FINISH_REASON_UNSPECIFIED", "STOP", "MAX_TOKENS", "SAFETY", "RECITATION",
+		"LANGUAGE", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII",
+		"MALFORMED_FUNCTION_CALL", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT",
+		"IMAGE_OTHER", "UNEXPECTED_TOOL_CALL", "TOO_MANY_TOOL_CALLS":
+		return value
+	default:
+		return "OTHER"
+	}
+}
+
+func geminiDiagnosticBlockReason(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case "BLOCK_REASON_UNSPECIFIED", "SAFETY", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT",
+		"IMAGE_SAFETY", "MODEL_ARMOR":
+		return value
+	default:
+		return "OTHER"
+	}
 }
 
 func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

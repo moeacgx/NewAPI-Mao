@@ -20,10 +20,11 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { history } from './history';
+import { readStoredUser } from './auth-data';
 
 export function authHeader() {
   // return authorization header with jwt token
-  let user = JSON.parse(localStorage.getItem('user'));
+  const user = readStoredUser();
 
   if (user && user.token) {
     return { Authorization: 'Bearer ' + user.token };
@@ -33,7 +34,7 @@ export function authHeader() {
 }
 
 export const AuthRedirect = ({ children }) => {
-  const user = localStorage.getItem('user');
+  const user = readStoredUser();
 
   if (user) {
     return <Navigate to='/console' replace />;
@@ -43,40 +44,30 @@ export const AuthRedirect = ({ children }) => {
 };
 
 function PrivateRoute({ children }) {
-  if (!localStorage.getItem('user')) {
+  if (!readStoredUser()) {
     return <Navigate to='/login' state={{ from: history.location }} />;
   }
   return children;
 }
 
 export function AdminRoute({ children }) {
-  const raw = localStorage.getItem('user');
-  if (!raw) {
+  const user = readStoredUser();
+  if (!user) {
     return <Navigate to='/login' state={{ from: history.location }} />;
   }
-  try {
-    const user = JSON.parse(raw);
-    if (user && typeof user.role === 'number' && user.role >= 10) {
-      return children;
-    }
-  } catch (e) {
-    // ignore
+  if (user.role >= 10) {
+    return children;
   }
   return <Navigate to='/forbidden' replace />;
 }
 
 export function RootRoute({ children }) {
-  const raw = localStorage.getItem('user');
-  if (!raw) {
+  const user = readStoredUser();
+  if (!user) {
     return <Navigate to='/login' state={{ from: history.location }} />;
   }
-  try {
-    const user = JSON.parse(raw);
-    if (user && typeof user.role === 'number' && user.role >= 100) {
-      return children;
-    }
-  } catch (e) {
-    // ignore
+  if (user.role >= 100) {
+    return children;
   }
   return <Navigate to='/forbidden' replace />;
 }

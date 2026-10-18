@@ -26,13 +26,19 @@ import MobileMenuButton from './MobileMenuButton';
 import HeaderLogo from './HeaderLogo';
 import Navigation from './Navigation';
 import ActionButtons from './ActionButtons';
+import PricingTemplateHeader from './PricingTemplateHeader';
 
-const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
+const HeaderBar = ({
+  onMobileMenuToggle,
+  drawerOpen,
+  collapsed,
+  onSidebarToggle,
+}) => {
   const {
     userState,
     statusState,
     isMobile,
-    collapsed,
+    location,
     logoLoaded,
     currentLang,
     isLoading,
@@ -52,7 +58,12 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     handleThemeToggle,
     handleMobileMenuToggle,
     t,
-  } = useHeaderBar({ onMobileMenuToggle, drawerOpen });
+  } = useHeaderBar({
+    onMobileMenuToggle,
+    drawerOpen,
+    collapsed,
+    onSidebarToggle,
+  });
 
   const {
     noticeVisible,
@@ -68,6 +79,56 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     headerNavModules,
     sidebarNavModules,
   );
+
+  const isConsoleShellRoute =
+    isConsoleRoute || location.pathname === '/notification-center';
+  const usePricingTemplateHeader =
+    location.pathname === '/pricing' || isConsoleShellRoute;
+
+  if (usePricingTemplateHeader) {
+    return (
+      <>
+        <NoticeModal
+          visible={noticeVisible}
+          onClose={handleNoticeClose}
+          isMobile={isMobile}
+          defaultTab={unreadCount > 0 ? 'system' : 'inApp'}
+          unreadKeys={getUnreadKeys()}
+        />
+        <PricingTemplateHeader
+          logo={logo}
+          logoLoaded={logoLoaded}
+          systemName={systemName}
+          mainNavLinks={mainNavLinks}
+          userState={userState}
+          pricingRequireAuth={pricingRequireAuth}
+          unreadCount={unreadCount}
+          onNoticeOpen={handleNoticeOpen}
+          theme={theme}
+          onThemeToggle={handleThemeToggle}
+          currentLang={currentLang}
+          onLanguageChange={handleLanguageChange}
+          isLoading={isLoading}
+          isSelfUseMode={isSelfUseMode}
+          logout={logout}
+          isConsoleMode={isConsoleShellRoute}
+          consoleSidebarToggle={
+            isConsoleShellRoute && isMobile ? (
+              <MobileMenuButton
+                isConsoleRoute={isConsoleShellRoute}
+                isMobile={isMobile}
+                drawerOpen={drawerOpen}
+                collapsed={collapsed}
+                onToggle={handleMobileMenuToggle}
+                t={t}
+              />
+            ) : null
+          }
+          t={t}
+        />
+      </>
+    );
+  }
 
   return (
     <header className='text-semi-color-text-0 sticky top-0 z-50 transition-colors duration-300 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-lg'>

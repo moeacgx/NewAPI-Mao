@@ -77,6 +77,14 @@ func UploadExtension(c *gin.Context) {
 		common.ApiErrorMsg(c, "module zip file is required")
 		return
 	}
+	if c.Request.MultipartForm != nil {
+		defer c.Request.MultipartForm.RemoveAll()
+	}
+	expectation, err := extensionMarketplaceUploadExpectation(c)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
 	if !strings.HasSuffix(strings.ToLower(strings.TrimSpace(fileHeader.Filename)), ".zip") {
 		common.ApiErrorMsg(c, "only .zip module archives are supported")
 		return
@@ -96,7 +104,12 @@ func UploadExtension(c *gin.Context) {
 		common.ApiErrorMsg(c, "module zip file cannot be read")
 		return
 	}
-	module, err := extension.DefaultManager.InstallArchive(readerAt, fileHeader.Size)
+	var module extension.Module
+	if expectation == nil {
+		module, err = extension.DefaultManager.InstallArchive(readerAt, fileHeader.Size)
+	} else {
+		module, err = extension.DefaultManager.InstallArchiveWithExpectation(readerAt, fileHeader.Size, *expectation)
+	}
 	if err != nil {
 		common.SysError("extension archive installation failed")
 		common.ApiErrorMsg(c, "module archive could not be installed")

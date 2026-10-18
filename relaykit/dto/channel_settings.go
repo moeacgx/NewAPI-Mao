@@ -11,12 +11,16 @@ import (
 )
 
 type ChannelSettings struct {
+	TaskPluginKey          string `json:"task_plugin_key,omitempty"`
 	ForceFormat            bool   `json:"force_format,omitempty"`
+	ForceResponses         bool   `json:"force_responses,omitempty"` // 对话请求强制使用 Responses 上游。
 	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
 	Proxy                  string `json:"proxy"`
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
-	SystemPrompt           string `json:"system_prompt,omitempty"`
-	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// ResponsesWebSocketEnabled 缺省关闭；宿主完成协议与治理集成后才可作为准入开关。
+	ResponsesWebSocketEnabled bool   `json:"responses_websocket_enabled,omitempty"`
+	SystemPrompt              string `json:"system_prompt,omitempty"`
+	SystemPromptOverride      bool   `json:"system_prompt_override,omitempty"`
 	// HTTPProtocol controls outbound HTTP version negotiation for this channel.
 	// Accepted values: "", "auto" (default), "http1".
 	HTTPProtocol string `json:"http_protocol,omitempty"`
@@ -82,6 +86,19 @@ type ChannelOtherSettings struct {
 	AllowIncludeObfuscation               bool                  `json:"allow_include_obfuscation,omitempty"`  // 是否允许 stream_options.include_obfuscation 透传（默认过滤以避免关闭流混淆保护）
 	DisableTaskPollingSleep               bool                  `json:"disable_task_polling_sleep,omitempty"` // 是否跳过异步任务轮询间隔
 	ResponsesToChatEnabled                bool                  `json:"responses_to_chat_enabled,omitempty"`  // Convert /v1/responses for OpenAI-compatible upstreams that only support Chat Completions.
+	MonitorEnabled                        *bool                 `json:"monitor_enabled,omitempty"`            // 是否纳入定时渠道监控；nil 表示继承全局策略
+	MonitorTestIntervalMinutes            *float64              `json:"monitor_test_interval_minutes,omitempty"`
+	MonitorResponseTimeThresholdSeconds   *float64              `json:"monitor_response_time_threshold_seconds,omitempty"`
+	MonitorAutoDisableEnabled             *bool                 `json:"monitor_auto_disable_enabled,omitempty"`
+	MonitorAutoEnableEnabled              *bool                 `json:"monitor_auto_enable_enabled,omitempty"`
+	MonitorDisableThreshold               *int                  `json:"monitor_disable_threshold,omitempty"`
+	MonitorEnableThreshold                *int                  `json:"monitor_enable_threshold,omitempty"`
+	TokensProOverviewSyncEnabled          *bool                 `json:"tokenspro_overview_sync_enabled,omitempty"`
+	TokensProOverviewSyncIntervalSeconds  *int                  `json:"tokenspro_overview_sync_interval_seconds,omitempty"`
+	TokensProOverviewLastSuccessTime      int64                 `json:"tokenspro_overview_last_success_time,omitempty"`
+	TokensProOverviewLastAllowed          *int                  `json:"tokenspro_overview_last_allowed,omitempty"`
+	TokensProOverviewLastError            string                `json:"tokenspro_overview_last_error,omitempty"`
+	TokensProOverviewDisabledByZero       bool                  `json:"tokenspro_overview_disabled_by_zero,omitempty"`
 	AwsKeyType                            AwsKeyType            `json:"aws_key_type,omitempty"`
 	UpstreamModelUpdateCheckEnabled       bool                  `json:"upstream_model_update_check_enabled,omitempty"`        // 是否检测上游模型更新
 	UpstreamModelUpdateAutoSyncEnabled    bool                  `json:"upstream_model_update_auto_sync_enabled,omitempty"`    // 是否自动同步上游模型更新

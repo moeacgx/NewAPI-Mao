@@ -22,13 +22,15 @@ type hostVersion struct {
 }
 
 const (
-	RuntimeTypeHTTP    = "http"
-	RuntimeTypeStatic  = "static"
-	DefaultRootDir     = "data/modules"
-	DefaultStaticDir   = "public"
-	RenderTypeNative   = "native"
-	NativeSDKV1        = "v1"
-	CapabilityUINative = "ui.native"
+	RuntimeTypeHTTP                       = "http"
+	RuntimeTypeStatic                     = "static"
+	DefaultRootDir                        = "data/modules"
+	DefaultStaticDir                      = "public"
+	RenderTypeNative                      = "native"
+	NativeSDKV1                           = "v1"
+	CapabilityUINative                    = "ui.native"
+	CapabilityUpstreamModelGuard          = "channel.upstream-model-guard"
+	CapabilityUpstreamModelGuardTolerance = "channel.upstream-model-guard-tolerance"
 )
 
 type Manifest struct {
@@ -464,6 +466,10 @@ func (m *Manifest) validateContributions() error {
 		m.Permissions.Capabilities[index] = capability
 		switch capability {
 		case CapabilityUINative:
+		case CapabilityUpstreamModelGuard, CapabilityUpstreamModelGuardTolerance:
+			if m.ID != "upstream-model-guard" || m.Runtime.Type != RuntimeTypeStatic || len(m.Permissions.Roles) != 1 || m.Permissions.Roles[0] != "root" {
+				return errors.New("channel.upstream-model-guard requires the static Root upstream-model-guard module")
+			}
 		case CapabilityNotificationEventsPublish:
 			notificationCapabilities = append(notificationCapabilities, capability)
 		default:

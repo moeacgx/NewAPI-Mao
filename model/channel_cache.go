@@ -168,49 +168,54 @@ func GetRandomSatisfiedChannelWithSelectionExclusions(group string, model string
 	if retry >= len(sortedPriorities) {
 		retry = len(sortedPriorities) - 1
 	}
-	targetPriority := int64(sortedPriorities[retry])
-	var sumWeight int
-	var targetChannels []*Channel
-	for _, channelID := range channels {
-		channel, ok := channelsIDM[channelID]
-		if !ok {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
+	sawAvailable := false
+	for priorityIndex := retry; priorityIndex < len(sortedPriorities); priorityIndex++ {
+		targetPriority := int64(sortedPriorities[priorityIndex])
+		var sumWeight int
+		var targetChannels []*Channel
+		for _, channelID := range channels {
+			channel, ok := channelsIDM[channelID]
+			if !ok {
+				return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
+			}
+			if channel.GetPriority() == targetPriority && !exclusions.excludes(channelID) && IsChannelConcurrencyAvailable(channel) {
+				sawAvailable = true
+				sumWeight += channel.GetWeight()
+				targetChannels = append(targetChannels, channel)
+			}
 		}
-		if channel.GetPriority() == targetPriority && !exclusions.excludes(channelID) {
-			sumWeight += channel.GetWeight()
-			targetChannels = append(targetChannels, channel)
+		if len(targetChannels) == 0 {
+			continue
 		}
-	}
-	if len(targetChannels) == 0 {
-		return nil, nil
-	}
 
-	smoothingFactor := 1
-	smoothingAdjustment := 0
-	if sumWeight == 0 {
-		sumWeight = len(targetChannels) * 100
-		smoothingAdjustment = 100
-	} else if sumWeight/len(targetChannels) < 10 {
-		smoothingFactor = 100
-	}
-	totalWeight := sumWeight * smoothingFactor
-	randomWeight := rand.Intn(totalWeight)
-	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
-		if randomWeight < 0 {
-			return channel, nil
+		smoothingFactor := 1
+		smoothingAdjustment := 0
+		if sumWeight == 0 {
+			sumWeight = len(targetChannels) * 100
+			smoothingAdjustment = 100
+		} else if sumWeight/len(targetChannels) < 10 {
+			smoothingFactor = 100
 		}
+		totalWeight := sumWeight * smoothingFactor
+		randomWeight := rand.Intn(totalWeight)
+		for _, channel := range targetChannels {
+			randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
+			if randomWeight < 0 {
+				return channel, nil
+			}
+		}
+	}
+	if !sawAvailable {
+		return nil, ErrChannelConcurrencyLimitReached
 	}
 	return nil, errors.New("channel not found")
 }
 
 // filterChannelsByRequestPathAndModel restricts candidates by request path and
-// model. Only Advanced Custom (type 58) channels are path-checked: they are kept
-// only when one of their configured routes matches requestPath and model. All
-// other channel types always pass. When requestPath is empty, filtering is skipped.
+// model。官方插件先隔离渠道类型和 key，再保留原有高级自定义路径过滤。
 // Caller must hold channelSyncLock (read lock). The cached slice is never mutated.
 func filterChannelsByRequestPathAndModel(channels []int, requestPath string, model string) []int {
-	if requestPath == "" || len(channels) == 0 {
+	if len(channels) == 0 {
 		return channels
 	}
 	filtered := make([]int, 0, len(channels))
@@ -221,11 +226,14 @@ func filterChannelsByRequestPathAndModel(channels []int, requestPath string, mod
 			filtered = append(filtered, channelId)
 			continue
 		}
+		if !TaskPluginChannelMatchesPath(channel, requestPath) {
+			continue
+		}
 		if channel.Type != constant.ChannelTypeAdvancedCustom {
 			filtered = append(filtered, channelId)
 			continue
 		}
-		if config := channel2advancedCustomConfig[channelId]; config != nil && config.SupportsPathForModel(requestPath, model) {
+		if config := channel2advancedCustomConfig[channelId]; requestPath == "" || config != nil && config.SupportsPathForModel(requestPath, model) {
 			filtered = append(filtered, channelId)
 		}
 	}

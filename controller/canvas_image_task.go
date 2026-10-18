@@ -568,7 +568,7 @@ func finishImageTask(task *model.Task, channelID int, recorder *httptest.Respons
 	if status >= http.StatusOK && status < http.StatusMultipleChoices {
 		status = http.StatusBadGateway
 	}
-	return failImageTask(task, status, maskImageTaskFailure(status))
+	return failImageTask(task, status, imageTaskFailureReason(status, body))
 }
 
 func validImageTaskResult(body []byte) bool {
@@ -597,16 +597,57 @@ func failImageTask(task *model.Task, statusCode int, publicReason string) bool {
 	return won
 }
 
+func imageTaskFailureReason(statusCode int, body []byte) string {
+	if statusCode >= 400 && statusCode < 500 && statusCode != http.StatusTooManyRequests {
+		if msg := extractPublicImageTaskError(body); msg != "" {
+			return msg
+		}
+	}
+	return maskImageTaskFailure(statusCode)
+}
+
+func extractPublicImageTaskError(body []byte) string {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 {
+		return ""
+	}
+	var payload struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+		Message string `json:"message"`
+	}
+	if common.Unmarshal(body, &payload) != nil {
+		return ""
+	}
+	msg := strings.TrimSpace(payload.Error.Message)
+	if msg == "" {
+		msg = strings.TrimSpace(payload.Message)
+	}
+	if msg == "" {
+		return ""
+	}
+	msg = common.MaskSensitiveInfo(msg)
+	if msg == "" || strings.Contains(strings.ToLower(msg), "sk-") {
+		return ""
+	}
+	runes := []rune(msg)
+	if len(runes) > 512 {
+		return string(runes[:512])
+	}
+	return msg
+}
+
 func maskImageTaskFailure(statusCode int) string {
 	switch {
 	case statusCode == http.StatusTooManyRequests:
-		return "image generation is temporarily rate limited"
+		return "image generation is temporarily rate limited / 图片生成暂时受到限流"
 	case statusCode >= 400 && statusCode < 500:
-		return "image generation request was rejected"
+		return "image generation request was rejected / 图片生成请求被拒绝"
 	case statusCode >= 500:
-		return "image generation service is temporarily unavailable"
+		return "image generation service is temporarily unavailable / 图片生成服务暂时不可用"
 	default:
-		return "image generation failed"
+		return "image generation failed / 图片生成失败"
 	}
 }
 

@@ -244,7 +244,9 @@ func TestSecurityFactorMutationsAdvanceUserAuthVersion(t *testing.T) {
 	assertUserAuthVersion(t, user.Id, 4)
 
 	credential := &PasskeyCredential{UserID: user.Id, CredentialID: "credential-id", PublicKey: "public-key"}
-	require.NoError(t, UpsertPasskeyCredentialWithAuthVersion(credential))
+	identity := AuthSessionIdentity{UserID: user.Id, SessionID: "factor-session", UserAuthVersion: 4, SessionVersion: 1}
+	require.NoError(t, DB.Create(&UserSession{SID: identity.SessionID, UserID: user.Id, UserAuthVersion: 4, Version: 1, Status: UserSessionStatusActive, ExpiresAt: time.Now().Add(time.Hour).Unix()}).Error)
+	require.NoError(t, RegisterPasskeyForSession(identity, credential))
 	assertUserAuthVersion(t, user.Id, 5)
 	require.NoError(t, DeletePasskeyByUserIDWithAuthVersion(user.Id))
 	assertUserAuthVersion(t, user.Id, 6)

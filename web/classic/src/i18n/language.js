@@ -37,6 +37,7 @@ export const normalizeLanguage = (language) => {
 
   if (
     lower === 'zh' ||
+    lower === 'zhcn' ||
     lower === 'zh-cn' ||
     lower === 'zh-sg' ||
     lower.startsWith('zh-hans')
@@ -46,6 +47,7 @@ export const normalizeLanguage = (language) => {
 
   if (
     lower === 'zh-tw' ||
+    lower === 'zhtw' ||
     lower === 'zh-hk' ||
     lower === 'zh-mo' ||
     lower.startsWith('zh-hant')

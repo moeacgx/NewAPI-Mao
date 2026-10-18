@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils/tests"
@@ -54,6 +55,22 @@ func createNotificationFixture(t *testing.T) (*NotificationBot, *NotificationTas
 	target := &NotificationTarget{TaskId: task.Id, ChatId: "-10001", MentionUserId: "42", MentionName: "管理员", Enabled: true}
 	require.NoError(t, CreateNotificationTarget(target))
 	return bot, task, target
+}
+
+func TestNormalizeNotificationTaskTemplateUsesCoreEventDefaults(t *testing.T) {
+	require.Equal(t, NotificationChannelDisabledTemplate,
+		NormalizeNotificationTaskTemplate(NotificationEventTypeChannelDisabled, NotificationTaskDefaultTemplate))
+	require.Equal(t, NotificationChannelEnabledTemplate,
+		NormalizeNotificationTaskTemplate(NotificationEventTypeChannelEnabled, NotificationTaskDefaultTemplate))
+	require.Equal(t, NotificationChannelDisabledTemplate,
+		NormalizeNotificationTaskTemplate(NotificationEventTypeChannelDisabled, ""))
+	require.Equal(t, NotificationChannelEnabledTemplate,
+		NormalizeNotificationTaskTemplate(NotificationEventTypeChannelEnabled, ""))
+	require.Equal(t, NotificationTaskDefaultTemplate,
+		NormalizeNotificationTaskTemplate(NotificationEventTypeInvoicePending, ""))
+	require.Equal(t, "{{total_amount}}",
+		NormalizeNotificationTaskTemplate(NotificationEventTypeChannelDisabled, "{{total_amount}}"),
+		"自定义未知变量不能被兼容逻辑放行")
 }
 
 func TestNotificationBotTokenIsNeverMarshaled(t *testing.T) {
@@ -769,4 +786,125 @@ func TestListNotificationHistoryReturnsNewestFive(t *testing.T) {
 	for index := 1; index < len(items); index++ {
 		require.Greater(t, items[index-1].Id, items[index].Id)
 	}
+}
+
+func TestNotificationTaskFilterConfigMatchesStatusAndKeywords(t *testing.T) {
+	config := NotificationTaskFilterConfig{
+		StatusCodes:   "403,500-599",
+		ErrorKeywords: []string{"insufficient account balance", "quota"},
+	}
+	payload := map[string]any{
+		"status_code":   403,
+		"error_message": "Provider: Insufficient Account Balance",
+	}
+	assert.True(t, config.Matches(payload))
+	assert.False(t, config.Matches(map[string]any{
+		"status_code":   408,
+		"error_message": "Provider: Insufficient Account Balance",
+	}))
+	assert.False(t, config.Matches(map[string]any{
+		"status_code":   403,
+		"error_message": "temporary upstream failure",
+	}))
+	assert.True(t, (NotificationTaskFilterConfig{}).Matches(payload))
+}
+
+func TestNotificationTaskFilterConfigFiltersDeliveriesAtEnqueue(t *testing.T) {
+	setupNotificationTestDB(t)
+	bot := &NotificationBot{Name: "filter bot", Token: "secret", Enabled: true}
+	require.NoError(t, CreateNotificationBot(bot))
+	tasks := []*NotificationTask{
+		{Name: "status match", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true, FilterConfig: `{"status_codes":"403"}`},
+		{Name: "keyword match", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true, FilterConfig: `{"error_keywords":["balance"]}`},
+		{Name: "no match", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true, FilterConfig: `{"status_codes":"500-599"}`},
+	}
+	for index, task := range tasks {
+		require.NoError(t, CreateNotificationTask(task))
+		require.NoError(t, CreateNotificationTarget(&NotificationTarget{TaskId: task.Id, ChatId: fmt.Sprintf("chat-%d", index), Enabled: true}))
+	}
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		return EnqueueNotificationEventTx(tx, NotificationEventTypeChannelDisabled, "channel:filter:1", map[string]any{
+			"channel_id":    1,
+			"status_code":   403,
+			"error_message": "upstream account balance is insufficient",
+		})
+	}))
+	var deliveries []NotificationDelivery
+	require.NoError(t, DB.Order("id asc").Find(&deliveries).Error)
+	require.Len(t, deliveries, 2)
+	assert.Equal(t, tasks[0].Id, deliveries[0].TaskId)
+	assert.Equal(t, tasks[1].Id, deliveries[1].TaskId)
+}
+
+func TestNotificationChannelNamePrefixUsesFirstSlashSegment(t *testing.T) {
+	assert.Equal(t, "DragAPI", NotificationChannelNamePrefix("DragAPI / Codex-Plus / 0.15x"))
+	assert.Equal(t, "天才程序员", NotificationChannelNamePrefix("  天才程序员 / Codex-Pro / 0.12x "))
+	assert.Equal(t, "tokunexAPI", NotificationChannelNamePrefix("tokunexAPI / Codex-Pro / 0.18x"))
+	assert.Equal(t, "plain-channel", NotificationChannelNamePrefix("plain-channel"))
+	assert.Equal(t, "", NotificationChannelNamePrefix("   "))
+}
+
+func TestNotificationTaskPrefixDedupFiltersSameChannelNamePrefixWithinWindow(t *testing.T) {
+	setupNotificationTestDB(t)
+	bot := &NotificationBot{Name: "prefix bot", Token: "secret", Enabled: true}
+	require.NoError(t, CreateNotificationBot(bot))
+	dedupTask := &NotificationTask{
+		Name: "balance prefix", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true,
+		FilterConfig: `{"error_keywords":["预扣费额度失败","余额不足"],"prefix_dedup_seconds":300}`,
+	}
+	passthroughTask := &NotificationTask{
+		Name: "all disables", EventType: NotificationEventTypeChannelDisabled, BotId: bot.Id, Enabled: true,
+	}
+	require.NoError(t, CreateNotificationTask(dedupTask))
+	require.NoError(t, CreateNotificationTask(passthroughTask))
+	require.NoError(t, CreateNotificationTarget(&NotificationTarget{TaskId: dedupTask.Id, ChatId: "dedup-chat", Enabled: true}))
+	require.NoError(t, CreateNotificationTarget(&NotificationTarget{TaskId: passthroughTask.Id, ChatId: "all-chat", Enabled: true}))
+
+	enqueue := func(eventKey, channelName string) {
+		t.Helper()
+		require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+			return EnqueueNotificationEventTx(tx, NotificationEventTypeChannelDisabled, eventKey, map[string]any{
+				"channel_id":    1,
+				"channel_name":  channelName,
+				"status_code":   403,
+				"error_message": "预扣费额度失败, 用户剩余额度: ¥0.004580, 需要预扣费额度: ¥0.020082",
+			})
+		}))
+	}
+
+	enqueue("channel:prefix:1", "DragAPI / Codex-Plus / 0.15x")
+	enqueue("channel:prefix:2", "DragAPI / CC-MAX-U / 1.1x")
+	enqueue("channel:prefix:3", "tokunexAPI / Codex-Pro / 0.18x")
+
+	var deliveries []NotificationDelivery
+	require.NoError(t, DB.Order("id asc").Find(&deliveries).Error)
+	require.Len(t, deliveries, 5)
+
+	dedupCount := 0
+	passthroughCount := 0
+	for _, delivery := range deliveries {
+		switch delivery.TaskId {
+		case dedupTask.Id:
+			dedupCount++
+		case passthroughTask.Id:
+			passthroughCount++
+		}
+	}
+	assert.Equal(t, 2, dedupCount)
+	assert.Equal(t, 3, passthroughCount)
+
+	var prefixReceipt NotificationEventReceipt
+	require.NoError(t, DB.Where("dedupe_key = ?", notificationPrefixDedupKey(dedupTask.Id, "DragAPI")).Take(&prefixReceipt).Error)
+	prefixReceipt.CreatedAt = nowUnix() - 301
+	require.NoError(t, DB.Save(&prefixReceipt).Error)
+	enqueue("channel:prefix:4", "DragAPI / Codex-Plus / 0.2x")
+
+	require.NoError(t, DB.Order("id asc").Find(&deliveries).Error)
+	dedupCount = 0
+	for _, delivery := range deliveries {
+		if delivery.TaskId == dedupTask.Id {
+			dedupCount++
+		}
+	}
+	assert.Equal(t, 3, dedupCount)
 }

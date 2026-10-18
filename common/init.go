@@ -27,9 +27,10 @@ var (
 const gitVersionTimeout = 2 * time.Second
 
 func printHelp() {
-	fmt.Println("NewAPI(Based OneAPI) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
+	fmt.Println("NewAPI-Mao (based on QuantumNous/new-api and One API) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
 	fmt.Println("Original Project: OneAPI by JustSong - https://github.com/songquanpeng/one-api")
-	fmt.Println("Maintainer: QuantumNous - https://github.com/QuantumNous/new-api")
+	fmt.Println("Project: moeacgx - https://github.com/moeacgx/NewAPI-Mao")
+	fmt.Println("Upstream maintainer: QuantumNous - https://github.com/QuantumNous/new-api")
 	fmt.Println("Usage: newapi [--port <port>] [--log-dir <log directory>] [--version] [--help]")
 }
 
@@ -130,11 +131,28 @@ func InitEnv() {
 	CriticalRateLimitEnable = GetEnvOrDefaultBool("CRITICAL_RATE_LIMIT_ENABLE", true)
 	CriticalRateLimitNum = GetEnvOrDefault("CRITICAL_RATE_LIMIT", 20)
 	CriticalRateLimitDuration = int64(GetEnvOrDefault("CRITICAL_RATE_LIMIT_DURATION", 20*60))
+	initTokenKeyReadRateLimitConfig()
 
 	SearchRateLimitEnable = GetEnvOrDefaultBool("SEARCH_RATE_LIMIT_ENABLE", true)
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+func initTokenKeyReadRateLimitConfig() {
+	TokenKeyReadRateLimitEnable = GetEnvOrDefaultBool("TOKEN_KEY_READ_RATE_LIMIT_ENABLE", true)
+	TokenKeyReadRateLimitNum = GetEnvOrDefault("TOKEN_KEY_READ_RATE_LIMIT", 60)
+	if TokenKeyReadRateLimitNum <= 0 {
+		SysError("TOKEN_KEY_READ_RATE_LIMIT must be positive, using default 60")
+		TokenKeyReadRateLimitNum = 60
+	}
+	TokenKeyReadRateLimitDuration = int64(GetEnvOrDefault("TOKEN_KEY_READ_RATE_LIMIT_DURATION", 60))
+	// 窗口不能长于内存桶清理周期，否则尚有效的计数可能被提前清理。
+	maxDuration := int64(RateLimitKeyExpirationDuration / time.Second)
+	if TokenKeyReadRateLimitDuration <= 0 || TokenKeyReadRateLimitDuration > maxDuration {
+		SysError(fmt.Sprintf("TOKEN_KEY_READ_RATE_LIMIT_DURATION must be between 1 and %d seconds, using default 60", maxDuration))
+		TokenKeyReadRateLimitDuration = 60
+	}
 }
 
 func resolveRuntimeVersion(envVersion, linkedVersion, versionFile string, gitDescribe func(context.Context) (string, error)) string {
@@ -226,7 +244,7 @@ func isHexHash(value string) bool {
 
 func initUserSessionSettings() {
 	UserSessionActiveLimit = positiveUserSessionEnv("USER_SESSION_ACTIVE_LIMIT", DefaultUserSessionActiveLimit)
-	UserSessionIssuanceLimit = positiveUserSessionEnv("USER_SESSION_ISSUANCE_LIMIT", DefaultUserSessionIssuanceLimit)
+	UserSessionIssuanceLimit = nonNegativeUserSessionEnv("USER_SESSION_ISSUANCE_LIMIT", DefaultUserSessionIssuanceLimit)
 	UserSessionIssuanceWindowSeconds = int64(positiveUserSessionEnv("USER_SESSION_ISSUANCE_WINDOW_SECONDS", DefaultUserSessionIssuanceWindowSeconds))
 	UserSessionRevokedRetentionDays = positiveUserSessionEnv("USER_SESSION_REVOKED_RETENTION_DAYS", DefaultUserSessionRevokedRetentionDays)
 	UserSessionHourlyAlertThreshold = positiveUserSessionEnv("USER_SESSION_HOURLY_ALERT_THRESHOLD", DefaultUserSessionHourlyAlertThreshold)
@@ -261,6 +279,15 @@ func positiveUserSessionEnv(name string, fallback int) int {
 	return value
 }
 
+func nonNegativeUserSessionEnv(name string, fallback int) int {
+	value := GetEnvOrDefault(name, fallback)
+	if value < 0 {
+		SysError(fmt.Sprintf("%s must not be negative, using default value: %d", name, fallback))
+		return fallback
+	}
+	return value
+}
+
 func initConstantEnv() {
 	constant.StreamingTimeout = GetEnvOrDefault("STREAMING_TIMEOUT", 300)
 	constant.DifyDebug = GetEnvOrDefaultBool("DIFY_DEBUG", true)
@@ -281,7 +308,7 @@ func initConstantEnv() {
 	// GenerateDefaultToken 是否生成初始令牌，默认关闭。
 	constant.GenerateDefaultToken = GetEnvOrDefaultBool("GENERATE_DEFAULT_TOKEN", false)
 	// 是否启用错误日志
-	constant.ErrorLogEnabled = GetEnvOrDefaultBool("ERROR_LOG_ENABLED", false)
+	constant.ErrorLogEnabled = GetEnvOrDefaultBool("ERROR_LOG_ENABLED", true)
 	// 任务轮询时查询的最大数量
 	constant.TaskQueryLimit = GetEnvOrDefault("TASK_QUERY_LIMIT", 1000)
 	// 异步任务超时时间（分钟），超过此时间未完成的任务将被标记为失败并退款。0 表示禁用。

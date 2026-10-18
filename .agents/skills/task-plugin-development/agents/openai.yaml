@@ -1,0 +1,4 @@
+interface:
+  display_name: "任务插件开发与验收"
+  short_description: "参照官方插件完成协议适配、计费与用量统计的端到端验证及不可变版本发布"
+  default_prompt: "使用 $task-plugin-development 对照官方实现完成任务插件适配，并验证权限、计费、用量日志与版本兼容。"

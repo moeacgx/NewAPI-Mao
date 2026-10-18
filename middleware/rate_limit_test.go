@@ -4,12 +4,15 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -37,9 +40,98 @@ func useRateLimitMiniRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 	return redisServer, redisClient
 }
 
+func TestAdminBypassCoversManagementButRetainsSecurityGA(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	useRateLimitMiniRedis(t)
+	previousEnabled, previousLimit, previousDuration := common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration
+	previousClassifier := classifyDashboardCredentialForRateLimit
+	common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration = true, 1, 30
+	classifyDashboardCredentialForRateLimit = func(*gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+		return &model.UserBase{Username: "admin", Role: common.RoleAdminUser, Status: common.UserStatusEnabled}, service.AuthIdentity{}, dashboardCredentialInternal, nil
+	}
+	t.Cleanup(func() {
+		common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration = previousEnabled, previousLimit, previousDuration
+		classifyDashboardCredentialForRateLimit = previousClassifier
+	})
+	router := gin.New()
+	router.Use(GlobalAPIRateLimitWithAdminBypass())
+	for _, path := range []string{"/api/channel/", "/api/channel/:id/key", "/api/token/search", "/api/user/2fa/stats", "/api/user/2fa/enable", "/api/user/passkey/verify/finish"} {
+		router.Any(path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	}
+	for _, path := range []string{"/api/channel/", "/api/channel/42/key", "/api/token/search", "/api/user/2fa/stats"} {
+		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut} {
+			assert.Equal(t, http.StatusNoContent, performRateLimitMethod(router, method, path, "192.0.2.90:1").Code)
+		}
+	}
+	for index, path := range []string{"/api/user/2fa/enable", "/api/user/passkey/verify/finish"} {
+		ip := "192.0.2." + strconv.Itoa(100+index) + ":1"
+		assert.Equal(t, http.StatusNoContent, performRateLimitMethod(router, http.MethodPost, path, ip).Code)
+		assert.Equal(t, http.StatusTooManyRequests, performRateLimitMethod(router, http.MethodPost, path, ip).Code)
+	}
+}
+
+func TestAdminBypassRejectsUnprivilegedCredentials(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	useRateLimitMiniRedis(t)
+	previousEnabled := common.GlobalApiRateLimitEnable
+	previousLimit := common.GlobalApiRateLimitNum
+	previousDuration := common.GlobalApiRateLimitDuration
+	previousClassifier := classifyDashboardCredentialForRateLimit
+	common.GlobalApiRateLimitEnable = true
+	common.GlobalApiRateLimitNum = 1
+	common.GlobalApiRateLimitDuration = 30
+	t.Cleanup(func() {
+		common.GlobalApiRateLimitEnable = previousEnabled
+		common.GlobalApiRateLimitNum = previousLimit
+		common.GlobalApiRateLimitDuration = previousDuration
+		classifyDashboardCredentialForRateLimit = previousClassifier
+	})
+
+	testCases := []struct {
+		name       string
+		classifier func(*gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error)
+	}{
+		{
+			name: "anonymous",
+			classifier: func(*gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+				return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
+			},
+		},
+		{
+			name: "ordinary user",
+			classifier: func(*gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+				return &model.UserBase{Username: "user", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}, service.AuthIdentity{}, dashboardCredentialInternal, nil
+			},
+		},
+		{
+			name: "invalid credential",
+			classifier: func(*gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+				return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, assert.AnError
+			},
+		},
+	}
+
+	for index, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			classifyDashboardCredentialForRateLimit = testCase.classifier
+			router := gin.New()
+			router.Use(GlobalAPIRateLimitWithAdminBypass())
+			router.Any("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+			remoteAddr := "203.0.113." + strconv.Itoa(100+index) + ":1"
+
+			assert.Equal(t, http.StatusNoContent, performRateLimitMethod(router, http.MethodPut, "/api/channel", remoteAddr).Code)
+			assert.Equal(t, http.StatusTooManyRequests, performRateLimitMethod(router, http.MethodPut, "/api/channel", remoteAddr).Code)
+		})
+	}
+}
+
 func performRateLimitRequest(router http.Handler, path string, remoteAddr string) *httptest.ResponseRecorder {
+	return performRateLimitMethod(router, http.MethodGet, path, remoteAddr)
+}
+
+func performRateLimitMethod(router http.Handler, method string, path string, remoteAddr string) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request := httptest.NewRequest(method, path, nil)
 	request.RemoteAddr = remoteAddr
 	router.ServeHTTP(recorder, request)
 	return recorder

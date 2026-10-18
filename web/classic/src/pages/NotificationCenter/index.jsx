@@ -47,6 +47,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API, timestamp2string } from '../../helpers';
+import {
+  applyInsufficientBalanceDedupPreset,
+  normalizeNotificationFilterConfig,
+} from './filter-config';
 
 const { Text, Title } = Typography;
 
@@ -76,6 +80,16 @@ const EMPTY_TASK = {
   targets: [],
   template: FALLBACK_EVENT.default_template,
   enabled: true,
+};
+
+const CHANNEL_DISABLED_EVENT = 'channel_disabled';
+
+const shouldReplaceNotificationTemplate = (currentTemplate, currentEvent) => {
+  const normalizedTemplate = (currentTemplate || '').trim();
+  return (
+    normalizedTemplate === '' ||
+    normalizedTemplate === (currentEvent?.default_template || '').trim()
+  );
 };
 
 const normalizeList = (payload) => {
@@ -176,6 +190,7 @@ const NotificationCenter = () => {
             targets: (task.targets || []).map((target) => ({ ...target })),
             template: task.template,
             enabled: task.enabled,
+            filter_config: task.filter_config,
           }
         : {
             ...EMPTY_TASK,
@@ -261,13 +276,22 @@ const NotificationCenter = () => {
       Toast.warning({ content: t('请输入消息模板') });
       return;
     }
+    const filterConfig =
+      taskForm.event_type === CHANNEL_DISABLED_EVENT
+        ? normalizeNotificationFilterConfig(taskForm.filter_config)
+        : undefined;
     setSaving(true);
     try {
       const payload = {
-        ...taskForm,
         name: taskForm.name.trim(),
+        event_type: taskForm.event_type,
+        bot_id: taskForm.bot_id,
         template: taskForm.template.trim(),
+        enabled: taskForm.enabled,
         targets,
+        ...(taskForm.event_type === CHANNEL_DISABLED_EVENT
+          ? { filter_config: filterConfig }
+          : {}),
       };
       const response = editingTask
         ? await API.put(`/api/notification/tasks/${editingTask.id}`, payload)
@@ -607,51 +631,53 @@ const NotificationCenter = () => {
   };
 
   return (
-    <div className='mx-auto mt-[60px] min-h-screen w-full max-w-7xl px-2 pb-8 lg:min-h-0'>
-      <Card bodyStyle={{ padding: 16 }}>
-        <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <div>
-            <Title heading={4}>{t('通知中心')}</Title>
-            <Text type='tertiary'>
-              {t('统一管理通知任务与 Telegram Bot。')}
-            </Text>
+    <main className='classic-console-page'>
+      <div className='classic-console-page-container'>
+        <Card className='classic-flat-page' bodyStyle={{ padding: 16 }}>
+          <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+            <div>
+              <Title heading={4}>{t('通知中心')}</Title>
+              <Text type='tertiary'>
+                {t('统一管理通知任务与 Telegram Bot。')}
+              </Text>
+            </div>
+            <Space>
+              <Button
+                theme='outline'
+                icon={<RefreshCw size={16} />}
+                loading={loading}
+                onClick={loadData}
+              >
+                {t('刷新')}
+              </Button>
+              {headerAction}
+            </Space>
           </div>
-          <Space>
-            <Button
-              theme='outline'
-              icon={<RefreshCw size={16} />}
-              loading={loading}
-              onClick={loadData}
-            >
-              {t('刷新')}
-            </Button>
-            {headerAction}
-          </Space>
-        </div>
 
-        <Spin spinning={loading}>
-          <Tabs type='line' activeKey={tab} onChange={setTab}>
-            <Tabs.TabPane tab={t('通知任务')} itemKey='tasks'>
-              {bots.length === 0 && !loading && (
-                <Banner
-                  className='mb-4'
-                  type='warning'
-                  description={t(
-                    '创建通知任务前，请先添加并测试 Telegram Bot。',
-                  )}
-                />
-              )}
-              {renderTasks()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab='Telegram Bot' itemKey='bots'>
-              {renderBots()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab={t('最近通知')} itemKey='deliveries'>
-              {renderDeliveries()}
-            </Tabs.TabPane>
-          </Tabs>
-        </Spin>
-      </Card>
+          <Spin spinning={loading}>
+            <Tabs type='line' activeKey={tab} onChange={setTab}>
+              <Tabs.TabPane tab={t('通知任务')} itemKey='tasks'>
+                {bots.length === 0 && !loading && (
+                  <Banner
+                    className='mb-4'
+                    type='warning'
+                    description={t(
+                      '创建通知任务前，请先添加并测试 Telegram Bot。',
+                    )}
+                  />
+                )}
+                {renderTasks()}
+              </Tabs.TabPane>
+              <Tabs.TabPane tab='Telegram Bot' itemKey='bots'>
+                {renderBots()}
+              </Tabs.TabPane>
+              <Tabs.TabPane tab={t('最近通知')} itemKey='deliveries'>
+                {renderDeliveries()}
+              </Tabs.TabPane>
+            </Tabs>
+          </Spin>
+        </Card>
+      </div>
 
       <Modal
         title={editingBot ? t('编辑 Telegram Bot') : t('添加 Telegram Bot')}
@@ -714,12 +740,18 @@ const NotificationCenter = () => {
       <Modal
         title={editingTask ? t('编辑通知任务') : t('新建通知任务')}
         visible={taskModalVisible}
-        width={720}
+        className='classic-notification-task-modal'
+        width='min(720px, calc(100vw - 32px))'
+        height='min(720px, calc(100vh - 32px))'
+        bodyStyle={{
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
         confirmLoading={saving}
         onCancel={() => setTaskModalVisible(false)}
         onOk={saveTask}
       >
-        <div className='max-h-[65vh] space-y-4 overflow-y-auto pr-2'>
+        <div className='classic-notification-task-body min-w-0 max-w-full space-y-4 pr-2'>
           <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
             <div>
               <Text strong>{t('任务名称')}</Text>
@@ -765,8 +797,14 @@ const NotificationCenter = () => {
                 setTaskForm((current) => ({
                   ...current,
                   event_type,
-                  template:
-                    current.template || nextEvent?.default_template || '',
+                  template: shouldReplaceNotificationTemplate(
+                    current.template,
+                    eventOptions.find(
+                      (event) => event.value === current.event_type,
+                    ),
+                  )
+                    ? nextEvent?.default_template || ''
+                    : current.template,
                 }));
               }}
             />
@@ -778,6 +816,119 @@ const NotificationCenter = () => {
               </div>
             )}
           </div>
+          {taskForm.event_type === CHANNEL_DISABLED_EVENT && (
+            <div className='rounded border p-3'>
+              <div className='flex flex-wrap items-start justify-between gap-2'>
+                <div>
+                  <Text strong>{t('筛选')}</Text>
+                  <div className='mt-1'>
+                    <Text type='tertiary' size='small'>
+                      {t(
+                        'Fills insufficient-balance keywords and a 5-minute prefix window.',
+                      )}
+                    </Text>
+                  </div>
+                </div>
+                <Button
+                  type='tertiary'
+                  onClick={() =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      name:
+                        String(current.name || '').trim() ||
+                        t('Insufficient-balance dedup notification'),
+                      filter_config: applyInsufficientBalanceDedupPreset(
+                        current.filter_config,
+                      ),
+                    }))
+                  }
+                >
+                  {t('Apply insufficient-balance dedup preset')}
+                </Button>
+              </div>
+              <div className='mt-3'>
+                <Text>{t('Status code filter')}</Text>
+                <Input
+                  className='mt-2'
+                  value={taskForm.filter_config?.status_codes || ''}
+                  placeholder='403,408,500-599'
+                  onChange={(status_codes) =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      filter_config: {
+                        ...current.filter_config,
+                        status_codes,
+                      },
+                    }))
+                  }
+                />
+                <div className='mt-1'>
+                  <Text type='tertiary' size='small'>
+                    {t('Leave empty to receive all channel disable events.')}
+                  </Text>
+                </div>
+              </div>
+              <div className='mt-3'>
+                <Text>{t('Error keyword filter')}</Text>
+                <TextArea
+                  className='mt-2'
+                  autosize={{ minRows: 3, maxRows: 8 }}
+                  value={(taskForm.filter_config?.error_keywords ?? []).join(
+                    '\n',
+                  )}
+                  placeholder={t('One keyword per line')}
+                  onChange={(value) =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      filter_config: {
+                        ...current.filter_config,
+                        error_keywords: value.split(/\r?\n/),
+                      },
+                    }))
+                  }
+                />
+                <div className='mt-1'>
+                  <Text type='tertiary' size='small'>
+                    {t('Matches any keyword in the upstream error message.')}
+                  </Text>
+                </div>
+              </div>
+              <div className='mt-3'>
+                <Text>{t('Channel name prefix dedup window (seconds)')}</Text>
+                <Input
+                  className='mt-2'
+                  type='number'
+                  min={0}
+                  max={86400}
+                  value={
+                    Number(taskForm.filter_config?.prefix_dedup_seconds) > 0
+                      ? taskForm.filter_config.prefix_dedup_seconds
+                      : ''
+                  }
+                  placeholder='300'
+                  onChange={(value) =>
+                    setTaskForm((current) => ({
+                      ...current,
+                      filter_config: {
+                        ...current.filter_config,
+                        prefix_dedup_seconds:
+                          String(value || '').trim() === ''
+                            ? undefined
+                            : Number(value),
+                      },
+                    }))
+                  }
+                />
+                <div className='mt-1'>
+                  <Text type='tertiary' size='small'>
+                    {t(
+                      'Same provider prefix only notifies once within this window. Parsed as the text before the first / in the channel name. Leave empty to disable.',
+                    )}
+                  </Text>
+                </div>
+              </div>
+            </div>
+          )}
           <div>
             <Text strong>{t('接收 Chat ID')}</Text>
             <TagInput
@@ -797,7 +948,10 @@ const NotificationCenter = () => {
             </div>
           </div>
           {taskForm.targets.map((target) => (
-            <div key={target.chat_id} className='rounded border p-3'>
+            <div
+              key={target.chat_id}
+              className='classic-notification-target-card min-w-0 max-w-full rounded border p-3'
+            >
               <Tag>{target.chat_id}</Tag>
               <div className='mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <div>
@@ -859,7 +1013,7 @@ const NotificationCenter = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </main>
   );
 };
 

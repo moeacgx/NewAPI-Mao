@@ -17,11 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
+import { API, showError } from '../../../helpers';
+import {
+  createGroupOptions,
+  createUserGroupOptions,
+  extractGroupDetailsResponse,
+} from '../../../helpers/groupDetails';
 
 const LogsFilters = ({
   formInitValues,
@@ -34,6 +40,41 @@ const LogsFilters = ({
   isAdminUser,
   t,
 }) => {
+  const [groupOptions, setGroupOptions] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [userSearchType, setUserSearchType] = useState(
+    formInitValues?.userSearchType || 'username',
+  );
+
+  useEffect(() => {
+    let active = true;
+    setGroupsLoading(true);
+    setGroupOptions([]);
+    // 管理员可查询所有分组的历史日志，普通用户只加载自己的可用分组。
+    API.get(isAdminUser ? '/api/group/details' : '/api/user/self/groups')
+      .then((res) => {
+        if (!active) return;
+        if (!res?.data?.success) {
+          showError(res?.data?.message || t('加载分组失败'));
+          return;
+        }
+        setGroupOptions(
+          isAdminUser
+            ? createGroupOptions(extractGroupDetailsResponse(res.data) || [])
+            : createUserGroupOptions(res.data.data),
+        );
+      })
+      .catch(() => {
+        if (active) showError(t('加载分组失败'));
+      })
+      .finally(() => {
+        if (active) setGroupsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdminUser, t]);
+
   return (
     <Form
       initValues={formInitValues}
@@ -84,10 +125,14 @@ const LogsFilters = ({
             size='small'
           />
 
-          <Form.Input
+          <Form.Select
             field='group'
-            prefix={<IconSearch />}
             placeholder={t('分组')}
+            aria-label={t('分组')}
+            className='w-full'
+            optionList={groupOptions}
+            loading={groupsLoading}
+            filter
             showClear
             pure
             size='small'
@@ -112,14 +157,39 @@ const LogsFilters = ({
                 pure
                 size='small'
               />
-              <Form.Input
-                field='username'
-                prefix={<IconSearch />}
-                placeholder={t('用户名称')}
-                showClear
-                pure
-                size='small'
-              />
+              <div
+                role='group'
+                aria-label={t('User filter')}
+                className='col-span-1 flex min-w-0 flex-col gap-2 sm:flex-row lg:col-span-2'
+              >
+                <span id='userSearchType-label' className='sr-only'>
+                  {t('User filter type')}
+                </span>
+                <Form.Select
+                  field='userSearchType'
+                  optionList={[
+                    { label: t('用户名'), value: 'username' },
+                    { label: t('用户 ID'), value: 'id' },
+                  ]}
+                  onChange={(value) => {
+                    setUserSearchType(value);
+                  }}
+                  className='w-full sm:min-w-0 sm:flex-1'
+                  pure
+                  size='small'
+                />
+                <Form.Input
+                  field='username'
+                  prefix={<IconSearch />}
+                  placeholder={t(
+                    userSearchType === 'id' ? '用户 ID' : '用户名',
+                  )}
+                  showClear
+                  pure
+                  size='small'
+                  className='w-full sm:min-w-0 sm:flex-1'
+                />
+              </div>
             </>
           )}
         </div>
@@ -149,6 +219,7 @@ const LogsFilters = ({
               <Form.Select.Option value='4'>{t('系统')}</Form.Select.Option>
               <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
               <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
+              <Form.Select.Option value='7'>{t('登录')}</Form.Select.Option>
             </Form.Select>
           </div>
 
@@ -166,6 +237,9 @@ const LogsFilters = ({
               onClick={() => {
                 if (formApi) {
                   formApi.reset();
+                  setUserSearchType(
+                    formInitValues?.userSearchType || 'username',
+                  );
                   setLogType(0);
                   setTimeout(() => {
                     refresh();

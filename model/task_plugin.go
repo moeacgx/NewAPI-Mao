@@ -1,0 +1,263 @@
+package model
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+type TaskPluginChannelRef struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// TaskPluginChannelMatchesPath 为数据库、缓存、亲和性和指定渠道提供相同隔离规则。
+func TaskPluginChannelMatchesPath(channel *Channel, requestPath string) bool {
+	if channel == nil {
+		return false
+	}
+	if suffix, ok := strings.CutPrefix(requestPath, "/v1/task/plugins/"); ok {
+		key, _, _ := strings.Cut(suffix, "/")
+		return key != "" && channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == key
+	}
+	// 原生 JSON 提交路由沿用官方注册表，常规入口仍排除插件渠道。
+	if binding, ok := jsplugin.DefaultRegistry.Generation().LookupDeclaredRoute("POST", requestPath); ok && binding.Plugin != nil && binding.Route.Type == jsplugin.RouteTypeSubmit {
+		return channel.Type == constant.ChannelTypeTaskPlugin && channel.GetSetting().TaskPluginKey == binding.Plugin.Meta.Key
+	}
+	return channel.Type != constant.ChannelTypeTaskPlugin
+}
+
+func GetTaskPluginUsage(key string) ([]TaskPluginChannelRef, int64, error) {
+	var channels []Channel
+	if err := DB.Where("type = ? AND status = ?", constant.ChannelTypeTaskPlugin, common.ChannelStatusEnabled).Find(&channels).Error; err != nil {
+		return nil, 0, err
+	}
+	refs := make([]TaskPluginChannelRef, 0)
+	for _, channel := range channels {
+		if channel.GetSetting().TaskPluginKey == key {
+			refs = append(refs, TaskPluginChannelRef{Id: channel.Id, Name: channel.Name})
+		}
+	}
+	var inFlight int64
+	err := DB.Model(&Task{}).Where("platform = ? AND status NOT IN ?", key, []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).Count(&inFlight).Error
+	return refs, inFlight, err
+}
+
+type TaskPlugin struct {
+	Id         int64  `json:"id"`
+	Key        string `json:"key" gorm:"size:128;not null;uniqueIndex:uk_task_plugin_key_version,priority:1"`
+	APIVersion int    `json:"api_version" gorm:"not null"`
+	Version    string `json:"version" gorm:"size:64;not null;uniqueIndex:uk_task_plugin_key_version,priority:2"`
+	Source     string `json:"source" gorm:"size:1048576;not null"`
+	SourceHash string `json:"source_hash" gorm:"size:64;not null"`
+	SourceKind string `json:"source_kind" gorm:"size:16;not null;default:'builtin'"`
+	// Icon is the plugin logo shipped as a sidecar icon.svg / icon.png next to
+	// plugin.js, stored as a data URI so one column carries both the media
+	// type and the bytes. It never travels inside list or detail JSON; the UI
+	// loads it through GET /api/plugin/task/:key/icon. size matches the
+	// 512 KiB icon cap and makes GORM emit mediumtext on MySQL (a bare TEXT
+	// column there holds only 64 KiB), varchar(524288) on PostgreSQL, and text
+	// on SQLite.
+	Icon      string `json:"-" gorm:"size:524288"`
+	Enabled   bool   `json:"enabled" gorm:"not null"`
+	Active    bool   `json:"active" gorm:"not null;index"`
+	CreatedAt int64  `json:"created_at" gorm:"not null"`
+	Remark    string `json:"remark" gorm:"type:text"`
+	// Marketplace stores credential-free provenance JSON for marketplace installs.
+	Marketplace string `json:"marketplace,omitempty" gorm:"type:text"`
+}
+
+// HasIcon reports whether this version ships a logo.
+func (plugin TaskPlugin) HasIcon() bool {
+	return plugin.Icon != ""
+}
+
+func SaveTaskPlugin(plugin *TaskPlugin) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var existing TaskPlugin
+		err := tx.Where(&TaskPlugin{Key: plugin.Key, Version: plugin.Version}).First(&existing).Error
+		if err == nil {
+			if existing.SourceHash != plugin.SourceHash {
+				return errors.New("plugin key and version already exist with different source")
+			}
+			// 相同源码的重复上传是幂等读取，不能意外停用已激活版本。
+			*plugin = existing
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		plugin.CreatedAt = time.Now().Unix()
+		var count int64
+		if err = tx.Model(&TaskPlugin{}).Where(&TaskPlugin{Key: plugin.Key, Active: true}).Count(&count).Error; err != nil {
+			return err
+		}
+		plugin.Active = count == 0 && plugin.SourceKind != "custom"
+		return tx.Create(plugin).Error
+	})
+}
+
+func ListTaskPluginVersions(key string) ([]TaskPlugin, error) {
+	var plugins []TaskPlugin
+	err := DB.Where(&TaskPlugin{Key: key}).Order("created_at DESC, id DESC").Find(&plugins).Error
+	return plugins, err
+}
+
+func ListTaskPlugins() ([]TaskPlugin, error) {
+	var plugins []TaskPlugin
+	err := DB.
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "key"}}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "created_at"}, Desc: true}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "id"}, Desc: true}).
+		Find(&plugins).Error
+	return plugins, err
+}
+
+func GetTaskPluginVersion(key, version string) (*TaskPlugin, error) {
+	var plugin TaskPlugin
+	query := DB.Where(&TaskPlugin{Key: key})
+	if version == "" {
+		query = query.Order("active DESC, created_at DESC, id DESC")
+	} else {
+		query = query.Where(&TaskPlugin{Version: version})
+	}
+	if err := query.First(&plugin).Error; err != nil {
+		return nil, err
+	}
+	return &plugin, nil
+}
+
+func ListActiveTaskPlugins() ([]TaskPlugin, error) {
+	snapshot, err := GetTaskPluginSyncSnapshot()
+	return snapshot.Plugins, err
+}
+
+type TaskPluginSyncSnapshot struct {
+	Plugins  []TaskPlugin
+	Revision string
+}
+
+// GetTaskPluginSyncSnapshot returns the enabled override set together with a
+// deterministic revision of every active database override. Nodes can compare
+// the revision even though their local routing-generation counters differ.
+func GetTaskPluginSyncSnapshot() (TaskPluginSyncSnapshot, error) {
+	var activePlugins []TaskPlugin
+	if err := DB.Where(&TaskPlugin{Active: true}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "key"}}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "version"}}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "id"}}).
+		Find(&activePlugins).Error; err != nil {
+		return TaskPluginSyncSnapshot{}, err
+	}
+
+	type revisionEntry struct {
+		Key        string `json:"key"`
+		APIVersion int    `json:"api_version"`
+		Version    string `json:"version"`
+		SourceHash string `json:"source_hash"`
+		Enabled    bool   `json:"enabled"`
+	}
+	entries := make([]revisionEntry, 0, len(activePlugins))
+	enabledPlugins := make([]TaskPlugin, 0, len(activePlugins))
+	for _, plugin := range activePlugins {
+		entries = append(entries, revisionEntry{
+			Key:        plugin.Key,
+			APIVersion: plugin.APIVersion,
+			Version:    plugin.Version,
+			SourceHash: plugin.SourceHash,
+			Enabled:    plugin.Enabled,
+		})
+		if plugin.Enabled {
+			enabledPlugins = append(enabledPlugins, plugin)
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Key != entries[j].Key {
+			return entries[i].Key < entries[j].Key
+		}
+		return entries[i].Version < entries[j].Version
+	})
+	payload, err := common.Marshal(entries)
+	if err != nil {
+		return TaskPluginSyncSnapshot{}, err
+	}
+	digest := sha256.Sum256(payload)
+	return TaskPluginSyncSnapshot{
+		Plugins:  enabledPlugins,
+		Revision: hex.EncodeToString(digest[:]),
+	}, nil
+}
+
+func ActivateTaskPlugin(key, version string) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var versions []TaskPlugin
+		if err := lockForUpdate(tx).Where(&TaskPlugin{Key: key}).Order("id").Find(&versions).Error; err != nil {
+			return err
+		}
+		var target TaskPlugin
+		if err := tx.Where(&TaskPlugin{Key: key, Version: version}).First(&target).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&TaskPlugin{}).Where(&TaskPlugin{Key: key}).Update("active", false).Error; err != nil {
+			return err
+		}
+		return tx.Model(&target).Updates(map[string]any{"active": true, "enabled": true}).Error
+	})
+}
+
+func SetTaskPluginEnabled(key string, enabled bool) error {
+	result := DB.Model(&TaskPlugin{}).Where(&TaskPlugin{Key: key, Active: true}).Update("enabled", enabled)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+type TaskPluginDeleteResult struct {
+	DeletedActive bool
+	Promoted      *TaskPlugin
+}
+
+func DeleteTaskPluginVersion(key, version string) (TaskPluginDeleteResult, error) {
+	result := TaskPluginDeleteResult{}
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var tasks []Task
+		if err := tx.Select("private_data").Where("platform = ?", key).Find(&tasks).Error; err != nil {
+			return err
+		}
+		var plugin TaskPlugin
+		if err := lockForUpdate(tx).Where(&TaskPlugin{Key: key, Version: version}).First(&plugin).Error; err != nil {
+			return err
+		}
+		for _, task := range tasks {
+			pin := task.PrivateData.Execution
+			if pin != nil && pin.TaskPlugin != nil && pin.TaskPlugin.Key == key && pin.TaskPlugin.Version == version {
+				return errors.New("历史任务仍引用该插件版本，不能删除")
+			}
+		}
+		result.DeletedActive = plugin.Active
+		if plugin.Active {
+			return errors.New("活动插件版本不能删除，请先激活其他版本")
+		}
+		if plugin.SourceKind == "builtin" {
+			return errors.New("内置插件版本不能删除")
+		}
+		if err := tx.Delete(&plugin).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return result, err
+}

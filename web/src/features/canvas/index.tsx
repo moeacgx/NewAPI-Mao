@@ -31,12 +31,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { getUserGroups } from '@/features/playground/api'
+import { getUserGroupsWithDefault } from '@/features/playground/api'
 import { useStatus } from '@/hooks/use-status'
 import { getCanvasSettingsFromSidebarModules } from '@/lib/canvas-settings'
 import { getCustomNavIcon } from '@/lib/custom-nav'
 
-import { buildCanvasLaunchUrl } from './lib'
+import {
+  buildCanvasLaunchUrl,
+  prioritizeCanvasAutoGroup,
+  resolveCanvasDefaultGroup,
+} from './lib'
 
 export function CanvasLauncher() {
   const { t } = useTranslation()
@@ -51,29 +55,32 @@ export function CanvasLauncher() {
   )
   const CanvasIcon = getCustomNavIcon(canvasSettings.canvasIcon) ?? Brush
 
-  const { data: groups = [], isLoading } = useQuery({
+  const { data: groupsData, isLoading } = useQuery({
     queryKey: ['canvas-groups'],
     queryFn: async () => {
       try {
-        return await getUserGroups()
+        return await getUserGroupsWithDefault()
       } catch (error) {
         toast.error(
           error instanceof Error
             ? error.message
             : t('Failed to load playground groups')
         )
-        return []
+        return { groups: [], defaultGroup: '' }
       }
     },
   })
+  const groups = useMemo(
+    () => prioritizeCanvasAutoGroup(groupsData?.groups ?? []),
+    [groupsData?.groups]
+  )
 
   useEffect(() => {
     if (selectedGroup || groups.length === 0) return
-    const fallback =
-      groups.find((group) => group.value === 'default')?.value ??
-      groups[0].value
-    setSelectedGroup(fallback)
-  }, [groups, selectedGroup])
+    setSelectedGroup(
+      resolveCanvasDefaultGroup(groups, groupsData?.defaultGroup ?? '')
+    )
+  }, [groups, groupsData?.defaultGroup, selectedGroup])
 
   const launchUrl = useMemo(() => {
     if (!selectedGroup || typeof window === 'undefined') return ''
@@ -99,7 +106,7 @@ export function CanvasLauncher() {
           <CardTitle>{t('Infinite Canvas')}</CardTitle>
           <CardDescription>
             {t(
-              'Choose a group and open Infinite Canvas. The canvas uses your current New API login session to call models.'
+              'Choose a group and open Infinite Canvas. The canvas uses your current NewAPI-Mao login session to call models.'
             )}
           </CardDescription>
         </CardHeader>

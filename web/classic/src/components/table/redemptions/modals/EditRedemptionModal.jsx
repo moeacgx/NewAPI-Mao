@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import RedemptionExportModal from './RedemptionExportModal';
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -62,6 +63,7 @@ const EditRedemptionModal = (props) => {
   const [loading, setLoading] = useState(isEdit);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
+  const [exportData, setExportData] = useState(null);
   const [showQuotaInput, setShowQuotaInput] = useState(false);
 
   const getInitValues = () => ({
@@ -113,10 +115,7 @@ const EditRedemptionModal = (props) => {
     setLoading(true);
     let localInputs = { ...values };
     localInputs.count = parseInt(localInputs.count) || 0;
-    localInputs.max_redeem_count = parseInt(
-      localInputs.max_redeem_count,
-      10,
-    );
+    localInputs.max_redeem_count = parseInt(localInputs.max_redeem_count, 10);
     localInputs.quota = displayAmountToQuota(localInputs.amount);
     if (localInputs.quota <= 0) {
       showError(t('请输入金额'));
@@ -170,22 +169,11 @@ const EditRedemptionModal = (props) => {
     } else {
       showError(message);
     }
-    if (!isEdit && data) {
-      let text = '';
-      for (let i = 0; i < data.length; i++) {
-        text += data[i] + '\n';
-      }
-      Modal.confirm({
-        title: t('兑换码创建成功'),
-        content: (
-          <div>
-            <p>{t('兑换码创建成功，是否下载兑换码？')}</p>
-            <p>{t('兑换码将以文本文件的形式下载，文件名为兑换码的名称。')}</p>
-          </div>
-        ),
-        onOk: () => {
-          downloadTextAsFile(text, `${localInputs.name}.txt`);
-        },
+    if (!isEdit && success && Array.isArray(data) && data.length > 0) {
+      setExportData({
+        codes: data,
+        name: localInputs.name,
+        quota: localInputs.quota,
       });
     }
     setLoading(false);
@@ -193,6 +181,12 @@ const EditRedemptionModal = (props) => {
 
   return (
     <>
+      {exportData && (
+        <RedemptionExportModal
+          data={exportData}
+          onClose={() => setExportData(null)}
+        />
+      )}
       <SideSheet
         placement={isEdit ? 'right' : 'left'}
         title={
@@ -345,7 +339,10 @@ const EditRedemptionModal = (props) => {
                           ? `▾ ${t('收起原生额度输入')}`
                           : `▸ ${t('使用原生额度输入')}`}
                       </div>
-                      <div style={{ display: showQuotaInput ? 'block' : 'none' }} className='mt-2'>
+                      <div
+                        style={{ display: showQuotaInput ? 'block' : 'none' }}
+                        className='mt-2'
+                      >
                         <Form.InputNumber
                           field='quota'
                           label={t('额度')}

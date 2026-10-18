@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Banner,
   Button,
@@ -340,13 +340,13 @@ function ConditionRow({ cond, onChange, onRemove, t }) {
 
 function PriceInput({ unitCost, field, index, onUpdate, placeholder }) {
   const priceFromModel = unitCostToPrice(unitCost);
-  const [text, setText] = useState(priceFromModel === 0 ? '' : String(priceFromModel));
+  const [text, setText] = useState(String(priceFromModel));
 
   useEffect(() => {
     const current = Number(text);
     if (text === '' && priceFromModel === 0) return;
     if (!Number.isNaN(current) && current === priceFromModel) return;
-    setText(priceFromModel === 0 ? '' : String(priceFromModel));
+    setText(String(priceFromModel));
   }, [priceFromModel]);
 
   const handleChange = (val) => {
@@ -1374,9 +1374,9 @@ function LlmPromptHelper({ t, model }) {
 export default function TieredPricingEditor({ model, onExprChange, requestRuleExpr, onRequestRuleExprChange, t }) {
   const currentExpr = model?.billingExpr || '';
 
-  const [editorMode, setEditorMode] = useState('visual');
-  const [visualConfig, setVisualConfig] = useState(null);
-  const [rawExpr, setRawExpr] = useState('');
+  const [editorMode, setEditorMode] = useState(() => currentExpr && !tryParseVisualConfig(currentExpr) ? 'raw' : 'visual');
+  const [visualConfig, setVisualConfig] = useState(() => tryParseVisualConfig(currentExpr) || createDefaultVisualConfig());
+  const [rawExpr, setRawExpr] = useState(() => combineBillingExpr(currentExpr, requestRuleExpr));
   const [promptTokens, setPromptTokens] = useState(200000);
   const [completionTokens, setCompletionTokens] = useState(10000);
   const [cacheReadTokens, setCacheReadTokens] = useState(0);
@@ -1388,6 +1388,12 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
   const [audioOutputTokens, setAudioOutputTokens] = useState(0);
 
   const currentRequestRuleExpr = requestRuleExpr || '';
+  // 区分本地编辑的回传与保存后的外部回填，避免重置小数草稿和编辑模式。
+  const syncedConfig = useRef({
+    name: model?.name,
+    expr: currentExpr,
+    rules: currentRequestRuleExpr,
+  });
   const parsedRequestRuleGroups = useMemo(
     () => tryParseRequestRuleExpr(currentRequestRuleExpr),
     [currentRequestRuleExpr],
@@ -1405,25 +1411,38 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
 
   const handleRequestRuleGroupsChange = useCallback((nextGroups) => {
     setRequestRuleGroups(nextGroups);
-    onRequestRuleExprChange(buildRequestRuleExpr(nextGroups));
+    const rules = buildRequestRuleExpr(nextGroups);
+    syncedConfig.current.rules = rules;
+    onRequestRuleExprChange(rules);
   }, [onRequestRuleExprChange]);
 
   useEffect(() => {
+    const previous = syncedConfig.current;
+    if (
+      previous.name === model?.name &&
+      previous.expr === currentExpr &&
+      previous.rules === currentRequestRuleExpr
+    ) return;
+    syncedConfig.current = {
+      name: model?.name,
+      expr: currentExpr,
+      rules: currentRequestRuleExpr,
+    };
     const parsed = tryParseVisualConfig(currentExpr);
     if (parsed) {
       setEditorMode('visual');
       setVisualConfig(parsed);
-      setRawExpr(currentExpr);
+      setRawExpr(combineBillingExpr(currentExpr, currentRequestRuleExpr));
     } else if (currentExpr) {
       setEditorMode('raw');
-      setRawExpr(currentExpr);
+      setRawExpr(combineBillingExpr(currentExpr, currentRequestRuleExpr));
       setVisualConfig(null);
     } else {
       setEditorMode('visual');
       setVisualConfig(createDefaultVisualConfig());
       setRawExpr('');
     }
-  }, [model?.name]);
+  }, [model?.name, currentExpr, currentRequestRuleExpr]);
 
   const effectiveExpr = useMemo(() => {
     if (editorMode === 'visual') {
@@ -1433,44 +1452,49 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
     return billingExpr;
   }, [editorMode, visualConfig, rawExpr]);
 
-  useEffect(() => {
-    if (effectiveExpr !== currentExpr) {
-      onExprChange(effectiveExpr);
-    }
-  }, [effectiveExpr]);
-
   const handleVisualChange = useCallback((newConfig) => {
     setVisualConfig(newConfig);
-  }, []);
+    const expr = generateExprFromVisualConfig(newConfig);
+    syncedConfig.current.expr = expr;
+    onExprChange(expr);
+  }, [onExprChange]);
 
   const handleRawChange = useCallback((val) => {
     setRawExpr(val);
-    const { requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(val);
+    const { billingExpr, requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(val);
+    syncedConfig.current.expr = billingExpr;
+    syncedConfig.current.rules = ruleStr;
+    onExprChange(billingExpr);
     onRequestRuleExprChange(ruleStr);
-  }, [onRequestRuleExprChange]);
+  }, [onExprChange, onRequestRuleExprChange]);
 
   const handleModeSwitch = useCallback(
     (e) => {
       const newMode = e.target.value;
       if (newMode === 'visual') {
-        const { billingExpr, requestRuleExpr: ruleStr } = splitBillingExprAndRequestRules(rawExpr);
+        const unchanged = rawExpr === combineBillingExpr(currentExpr, currentRequestRuleExpr);
+        const { billingExpr, requestRuleExpr: ruleStr } = unchanged
+          ? { billingExpr: currentExpr, requestRuleExpr: currentRequestRuleExpr }
+          : splitBillingExprAndRequestRules(rawExpr);
         const parsed = tryParseVisualConfig(billingExpr);
         if (parsed) {
           setVisualConfig(parsed);
         } else {
-          setVisualConfig(createDefaultVisualConfig());
+          // 未识别的公式保持原文，不能用默认价格替换。
+          return;
         }
         const parsedGroups = tryParseRequestRuleExpr(ruleStr);
         setRequestRuleGroups(parsedGroups || []);
+        syncedConfig.current.rules = ruleStr;
         onRequestRuleExprChange(ruleStr);
       } else {
-        const expr = generateExprFromVisualConfig(visualConfig);
-        const ruleExpr = buildRequestRuleExpr(requestRuleGroups);
+        const expr = currentExpr || generateExprFromVisualConfig(visualConfig);
+        const ruleExpr = currentRequestRuleExpr;
         setRawExpr(combineBillingExpr(expr, ruleExpr) || expr);
       }
       setEditorMode(newMode);
     },
-    [rawExpr, visualConfig, requestRuleGroups, onRequestRuleExprChange],
+    [rawExpr, visualConfig, currentExpr, currentRequestRuleExpr, onRequestRuleExprChange],
   );
 
   const applyPreset = useCallback(
@@ -1487,9 +1511,12 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
         setVisualConfig(null);
       }
       setRequestRuleGroups(presetGroups);
+      syncedConfig.current.expr = preset.expr;
+      syncedConfig.current.rules = ruleExpr;
+      onExprChange(preset.expr);
       onRequestRuleExprChange(ruleExpr);
     },
-    [onRequestRuleExprChange],
+    [onExprChange, onRequestRuleExprChange],
   );
 
   const extraTokenValues = {

@@ -93,6 +93,13 @@ export function isViolationFeeLog(other: LogOtherData | null): boolean {
   )
 }
 
+/** 判断使用日志是否明确记录为 WebSocket 请求。 */
+export function isWebSocketLog(
+  other: LogOtherData | null | undefined
+): boolean {
+  return other?.ws === true
+}
+
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
@@ -166,6 +173,22 @@ export function parseLogOther(other: string): LogOtherData | null {
     console.error('Failed to parse log other field:', error)
     return null
   }
+}
+
+/**
+ * Return the model identifier declared by the upstream response.
+ *
+ * This is distinct from `upstream_model_name`, which is the mapped model sent
+ * in the request. Empty or malformed values are omitted from the admin-only
+ * usage-log column and details view.
+ */
+export function getUpstreamResponseModelName(
+  other: LogOtherData | null | undefined
+): string | undefined {
+  const modelName = other?.upstream_response_model_name
+  if (typeof modelName !== 'string') return undefined
+  const trimmed = modelName.trim()
+  return trimmed || undefined
 }
 
 export function getReasoningEffortVariant(

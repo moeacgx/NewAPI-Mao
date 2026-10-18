@@ -81,7 +81,7 @@ const Canvas = () => {
       setLoading(true);
       try {
         const res = await API.get(API_ENDPOINTS.USER_GROUPS);
-        const { success, message, data } = res.data;
+        const { success, message, data, canvas_default_group } = res.data;
         if (!success) {
           showError(t(message));
           return;
@@ -90,10 +90,13 @@ const Canvas = () => {
         const userGroup =
           userState?.user?.group ||
           JSON.parse(localStorage.getItem('user') || '{}')?.group;
-        const groupOptions = processGroupsData(data, userGroup);
+        // 入口下拉框始终将自动选择置顶，同时保留用户分组作为次级偏好。
+        const groupOptions = processGroupsData(data, 'auto', userGroup);
         setGroups(groupOptions);
 
         const fallback =
+          groupOptions.find((group) => group.value === canvas_default_group)
+            ?.value ||
           groupOptions.find((group) => group.value === 'default')?.value ||
           groupOptions[0]?.value ||
           '';

@@ -34,6 +34,7 @@ import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import Channel from './pages/Channel';
 import Token from './pages/Token';
 import Redemption from './pages/Redemption';
+import Benefits from './pages/Benefits';
 import TopUp from './pages/TopUp';
 import Affiliate from './pages/Affiliate';
 import AffiliateAdmin from './pages/AffiliateAdmin';
@@ -59,6 +60,7 @@ import SetupCheck from './components/layout/SetupCheck';
 import NotificationCenter from './pages/NotificationCenter';
 
 const Home = lazy(() => import('./pages/Home'));
+const TaskPlugins = lazy(() => import('./pages/TaskPlugins'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
@@ -183,6 +185,16 @@ function App() {
           }
         />
         <Route
+          path='/console/task-plugins'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <TaskPlugins />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
           path='/console/extensions/:moduleId/:pageKey'
           element={
             <PrivateRoute>
@@ -228,6 +240,14 @@ function App() {
             <AdminRoute>
               <Redemption />
             </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/benefits'
+          element={
+            <PrivateRoute>
+              <Benefits />
+            </PrivateRoute>
           }
         />
         <Route

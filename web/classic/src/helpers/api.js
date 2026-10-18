@@ -26,12 +26,16 @@ import {
 } from './utils';
 import axios from 'axios';
 import { MESSAGE_ROLES } from '../constants/playground.constants';
-import { createPlaygroundGroupOptions } from './groupDetails';
+import {
+  createPlaygroundGroupOptions,
+  prioritizePlaygroundGroupOptions,
+} from './groupDetails';
 import {
   clearInvitationCredentials,
   getInvitationCredentials,
 } from './invitation';
-import { normalizeAuthData } from './auth-data';
+import { getOAuthStateErrorMessage, normalizeAuthData } from './auth-data';
+import { t } from 'i18next';
 
 function storedAccessToken() {
   try {
@@ -44,9 +48,8 @@ function storedAccessToken() {
 
 function storedSessionId() {
   try {
-    return (
-      JSON.parse(localStorage.getItem('user') || 'null')?.session?.id || ''
-    );
+    const session = JSON.parse(localStorage.getItem('user') || 'null')?.session;
+    return session?.sid || session?.id || '';
   } catch {
     return '';
   }
@@ -165,10 +168,13 @@ function attachApiInterceptors(instance) {
           if (user?.token)
             config.headers.Authorization = `Bearer ${user.token}`;
           return API.request(config);
-        } catch {}
+        } catch (refreshError) {
+          // 刷新失败不等于登录失效，调用方也必须收到实际的刷新错误。
+          error = refreshError;
+        }
       }
       // 如果请求配置中显式要求跳过全局错误处理，则不弹出默认错误提示
-      if (error.config && error.config.skipErrorHandler) {
+      if (config?.skipErrorHandler) {
         return Promise.reject(error);
       }
       showError(error);
@@ -267,7 +273,7 @@ export const handleApiError = (error, response = null) => {
 
 // 处理模型数据
 export const processModelsData = (data, currentModel) => {
-  const modelOptions = data.map((model) => ({
+  const modelOptions = (Array.isArray(data) ? data : []).map((model) => ({
     label: model,
     value: model,
   }));
@@ -278,13 +284,13 @@ export const processModelsData = (data, currentModel) => {
   const selectedModel =
     hasCurrentModel && modelOptions.length > 0
       ? currentModel
-      : modelOptions[0]?.value;
+      : modelOptions[0]?.value || '';
 
   return { modelOptions, selectedModel };
 };
 
 // 处理分组数据
-export const processGroupsData = (data, userGroup) => {
+export const processGroupsData = (data, selectedGroup, userGroup) => {
   let groupOptions = createPlaygroundGroupOptions(data);
 
   if (groupOptions.length === 0) {
@@ -295,50 +301,76 @@ export const processGroupsData = (data, userGroup) => {
         ratio: 1,
       },
     ];
-  } else if (userGroup) {
-    const userGroupIndex = groupOptions.findIndex((g) => g.value === userGroup);
-    if (userGroupIndex > -1) {
-      const userGroupOption = groupOptions.splice(userGroupIndex, 1)[0];
-      groupOptions.unshift(userGroupOption);
-    }
   }
 
-  return groupOptions;
+  return prioritizePlaygroundGroupOptions(
+    groupOptions,
+    selectedGroup,
+    userGroup,
+  );
 };
 
 // 原来components中的utils.js
 
-export async function getOAuthState() {
+export async function getOAuthState(provider, intent = 'login') {
+  if (!provider) {
+    return 'legacy-nonstandard-oauth';
+  }
+
   const invitation = getInvitationCredentials();
-  const res = await API.get('/api/oauth/state', {
-    params: {
-      aff: invitation?.aff || '',
-    },
-  });
+  const aff = invitation?.aff || '';
+  let res;
+  try {
+    res = await API.post(
+      '/api/oauth/state',
+      {
+        provider,
+        intent,
+        aff: intent === 'login' ? aff : undefined,
+      },
+      { skipErrorHandler: true },
+    );
+  } catch (error) {
+    showError(getOAuthStateErrorMessage(error, t));
+    return '';
+  }
   const { success, message, data } = res.data;
-  if (success && data) {
-    clearInvitationCredentials();
-    return data;
+  const flowToken = typeof data === 'string' ? data : data?.flow_token;
+  if (success && flowToken) {
+    if (intent === 'login') {
+      clearInvitationCredentials();
+    }
+    return flowToken;
   } else {
     showError(message);
     return '';
   }
 }
 
-async function prepareOAuthState(options = {}) {
-  const { shouldLogout = false } = options;
-  if (shouldLogout) {
+async function prepareOAuthState(options = {}, provider) {
+  const { shouldLogout = false, intent = 'login' } = options;
+  if (shouldLogout && intent === 'login') {
     try {
       await API.post('/api/user/auth/logout', null, { skipErrorHandler: true });
     } catch (err) {}
     localStorage.removeItem('user');
     updateAPI();
   }
-  return await getOAuthState();
+  const state = await getOAuthState(provider, intent);
+  if (state && intent === 'bind') {
+    try {
+      // 绑定回调必须保留原操作意图，不能把异常登录响应切换为另一个账号。
+      sessionStorage.setItem(`oauth:bind:${provider}:${state}`, 'bind');
+    } catch (error) {
+      showError(t('授权失败'));
+      return '';
+    }
+  }
+  return state;
 }
 
 export async function onDiscordOAuthClicked(client_id, options = {}) {
-  const state = await prepareOAuthState(options);
+  const state = await prepareOAuthState(options, 'discord');
   if (!state) return;
   const redirect_uri = `${window.location.origin}/oauth/discord`;
   const response_type = 'code';
@@ -354,7 +386,7 @@ export async function onOIDCClicked(
   openInNewTab = false,
   options = {},
 ) {
-  const state = await prepareOAuthState(options);
+  const state = await prepareOAuthState(options, 'oidc');
   if (!state) return;
   const url = new URL(auth_url);
   url.searchParams.set('client_id', client_id);
@@ -366,7 +398,7 @@ export async function onOIDCClicked(
 }
 
 export async function onGitHubOAuthClicked(github_client_id, options = {}) {
-  const state = await prepareOAuthState(options);
+  const state = await prepareOAuthState(options, 'github');
   if (!state) return;
   redirectToOAuthUrl(
     `https://github.com/login/oauth/authorize?client_id=${github_client_id}&state=${state}&scope=user:email`,
@@ -377,7 +409,7 @@ export async function onLinuxDOOAuthClicked(
   linuxdo_client_id,
   options = { shouldLogout: false },
 ) {
-  const state = await prepareOAuthState(options);
+  const state = await prepareOAuthState(options, 'linuxdo');
   if (!state) return;
   redirectToOAuthUrl(
     `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${linuxdo_client_id}&state=${state}`,
@@ -395,7 +427,7 @@ export async function onLinuxDOOAuthClicked(
  * @param {boolean} options.shouldLogout - Whether to logout first
  */
 export async function onCustomOAuthClicked(provider, options = {}) {
-  const state = await prepareOAuthState(options);
+  const state = await prepareOAuthState(options, provider.slug);
   if (!state) return;
 
   try {

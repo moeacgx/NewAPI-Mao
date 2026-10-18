@@ -30,6 +30,8 @@ import {
   buildRegistrationResult,
   isPasskeySupported,
   setUserData,
+  updateAPI,
+  normalizeAuthData,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { Modal } from '@douyinfe/semi-ui';
@@ -47,6 +49,7 @@ import AccountDeleteModal from './personal/modals/AccountDeleteModal';
 import ChangePasswordModal from './personal/modals/ChangePasswordModal';
 import SecureVerificationModal from '../common/modals/SecureVerificationModal';
 import { useSecureVerification } from '../../hooks/common/useSecureVerification';
+import { SecureVerificationService } from '../../services/secureVerification';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -70,6 +73,7 @@ const PersonalSetting = () => {
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [emailTurnstileKey, setEmailTurnstileKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -159,7 +163,7 @@ const PersonalSetting = () => {
       }
     })();
 
-    getUserData();
+    getUserData().catch((error) => showError(error.message));
 
     isPasskeySupported()
       .then(setPasskeySupported)
@@ -237,6 +241,22 @@ const PersonalSetting = () => {
     }
   };
 
+  const applyAuthDataUpdate = (data) => {
+    if (!data || typeof data !== 'object') return;
+
+    let storedUser = null;
+    try {
+      storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+    } catch (error) {}
+
+    const currentUser = normalizeAuthData(userState?.user || storedUser || {});
+    const normalized = normalizeAuthData(data);
+    const nextUser = data.user ? normalized : { ...currentUser, ...normalized };
+    userDispatch({ type: 'login', payload: nextUser });
+    setUserData(nextUser);
+    updateAPI();
+  };
+
   const startPasskeyManagementVerification = async (apiCall, options = {}) => {
     const methods = await checkPasskeyVerificationMethods();
     const requiredMethod = methods.has2FA
@@ -256,10 +276,14 @@ const PersonalSetting = () => {
     }
 
     setPasskeyRequiredVerificationMethod(requiredMethod);
+    SecureVerificationService.setVerificationScope(
+      options.scope || 'passkey.delete',
+    );
+    const { scope, ...verificationOptions } = options;
     await startPasskeyVerification(apiCall, {
       preferredMethod: requiredMethod,
       title: t('安全验证'),
-      ...options,
+      ...verificationOptions,
     });
   };
 
@@ -275,6 +299,7 @@ const PersonalSetting = () => {
     }
 
     setPasskeyRequiredVerificationMethod('2fa');
+    SecureVerificationService.setVerificationScope('passkey.register');
     await startPasskeyVerification(registerPasskey, {
       preferredMethod: '2fa',
       title: t('安全验证'),
@@ -284,10 +309,23 @@ const PersonalSetting = () => {
   const registerPasskey = async () => {
     setPasskeyRegisterLoading(true);
     try {
-      const beginRes = await API.post('/api/user/passkey/register/begin');
+      const proofHeaders =
+        SecureVerificationService.getProofHeaders('passkey.register');
+      const beginRes = await API.post(
+        '/api/user/passkey/register/begin',
+        null,
+        {
+          headers: proofHeaders,
+        },
+      );
       const { success, message, data } = beginRes.data;
       if (!success) {
         throw new Error(message || t('无法发起 Passkey 注册'));
+      }
+
+      const flowToken = data?.flow_token;
+      if (!flowToken) {
+        throw new Error(t('Passkey 注册流程已过期，请重试'));
       }
 
       const publicKey = prepareCredentialCreationOptions(
@@ -301,13 +339,15 @@ const PersonalSetting = () => {
 
       const finishRes = await API.post(
         '/api/user/passkey/register/finish',
-        payload,
+        { flow_token: flowToken, credential: payload },
+        { headers: proofHeaders },
       );
       if (!finishRes.data.success) {
         throw new Error(
           finishRes.data.message || t('Passkey 注册失败，请重试'),
         );
       }
+      applyAuthDataUpdate(finishRes.data?.data);
 
       showSuccess(t('Passkey 注册成功'));
       await loadPasskeyStatus();
@@ -334,11 +374,14 @@ const PersonalSetting = () => {
   const removePasskey = async () => {
     setPasskeyDeleteLoading(true);
     try {
-      const res = await API.delete('/api/user/passkey');
+      const res = await API.delete('/api/user/passkey', {
+        headers: SecureVerificationService.getProofHeaders('passkey.delete'),
+      });
       const { success, message } = res.data;
       if (!success) {
         throw new Error(message || t('操作失败，请重试'));
       }
+      applyAuthDataUpdate(res.data?.data);
 
       showSuccess(t('Passkey 已解绑'));
       await loadPasskeyStatus();
@@ -360,14 +403,46 @@ const PersonalSetting = () => {
   };
 
   const getUserData = async () => {
-    let res = await API.get(`/api/user/self`);
+    const initialUser = normalizeAuthData(
+      JSON.parse(localStorage.getItem('user') || 'null'),
+    );
+    if (
+      !initialUser?.id ||
+      (userState.user?.id && initialUser.id !== userState.user.id)
+    ) {
+      throw new Error(t('未登录或登录已过期，请重新登录'));
+    }
+    const res = await API.get('/api/user/self', { disableDuplicate: true });
     const { success, message, data } = res.data;
     if (success) {
-      userDispatch({ type: 'login', payload: data });
-      setUserData(data);
+      const currentUser = normalizeAuthData(
+        JSON.parse(localStorage.getItem('user') || 'null'),
+      );
+      // 资料接口不签发登录凭证，保留刷新后的令牌，并拒绝覆盖途中切换的账号。
+      if (
+        !data ||
+        data.id !== initialUser.id ||
+        currentUser?.id !== initialUser.id ||
+        (currentUser?.session?.sid || currentUser?.session?.id) !==
+          (initialUser.session?.sid || initialUser.session?.id)
+      ) {
+        throw new Error(t('未登录或登录已过期，请重新登录'));
+      }
+      const nextUser = {
+        ...currentUser,
+        ...data,
+        token: currentUser.token,
+        access_token: currentUser.access_token,
+        token_type: currentUser.token_type,
+        access_expires_at: currentUser.access_expires_at,
+        session: currentUser.session,
+      };
+      userDispatch({ type: 'login', payload: nextUser });
+      setUserData(nextUser);
+      updateAPI();
       await loadPasskeyStatus();
     } else {
-      showError(message);
+      throw new Error(message || t('操作失败'));
     }
   };
 
@@ -388,7 +463,7 @@ const PersonalSetting = () => {
 
     if (success) {
       showSuccess(t('账户已删除！'));
-      await API.get('/api/user/logout');
+      await API.post('/api/user/auth/logout', null, { skipErrorHandler: true });
       userDispatch({ type: 'logout' });
       localStorage.removeItem('user');
       navigate('/login');
@@ -443,47 +518,84 @@ const PersonalSetting = () => {
   };
 
   const sendVerificationCode = async () => {
+    if (loading || disableButton) return;
     if (inputs.email === '') {
       showError(t('请输入邮箱！'));
       return;
     }
-    setDisableButton(true);
     if (turnstileEnabled && turnstileToken === '') {
       showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
       return;
     }
     setLoading(true);
-    const res = await API.get(
-      `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
-    );
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('验证码发送成功，请检查邮箱！'));
-    } else {
-      showError(message);
+    try {
+      const res = await API.get('/api/verification', {
+        params: { email: inputs.email, turnstile: turnstileToken },
+        skipErrorHandler: true,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        setCountdown(30);
+        setDisableButton(true);
+        showSuccess(t('验证码发送成功，请检查邮箱！'));
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(
+        error.response?.data?.message || error.message || t('操作失败'),
+      );
+    } finally {
+      if (turnstileEnabled) {
+        setTurnstileToken('');
+        setEmailTurnstileKey((previous) => previous + 1);
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const bindEmail = async () => {
+    if (loading) return;
+    if (!inputs.email.trim()) {
+      showError(t('请输入邮箱！'));
+      return;
+    }
     if (inputs.email_verification_code === '') {
       showError(t('请输入邮箱验证码！'));
       return;
     }
     setLoading(true);
-    const res = await API.post('/api/oauth/email/bind', {
-      email: inputs.email,
-      code: inputs.email_verification_code,
-    });
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('邮箱账户绑定成功！'));
-      setShowEmailBindModal(false);
-      userState.user.email = inputs.email;
-    } else {
-      showError(message);
+    try {
+      const res = await API.post(
+        '/api/oauth/email/bind',
+        {
+          email: inputs.email,
+          code: inputs.email_verification_code,
+        },
+        { skipErrorHandler: true },
+      );
+      const { success, message } = res.data;
+      if (success) {
+        setShowEmailBindModal(false);
+        setInputs((previous) => ({
+          ...previous,
+          email: '',
+          email_verification_code: '',
+        }));
+        setDisableButton(false);
+        setCountdown(30);
+        await getUserData();
+        showSuccess(t('邮箱账户绑定成功！'));
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(
+        error.response?.data?.message || error.message || t('操作失败'),
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const copyText = async (text) => {
@@ -542,59 +654,58 @@ const PersonalSetting = () => {
   };
 
   return (
-    <div className='mt-[60px]'>
-      <div className='flex justify-center'>
-        <div className='w-full max-w-7xl mx-auto px-2'>
-          {/* 顶部用户信息区域 */}
-          <UserInfoHeader t={t} userState={userState} />
+    <main className='classic-console-page'>
+      <div className='classic-console-page-container'>
+        {/* 顶部用户信息区域 */}
+        <UserInfoHeader t={t} userState={userState} />
 
-          {/* 签到日历 - 仅在启用时显示 */}
-          {status?.checkin_enabled && (
-            <div className='mt-4 md:mt-6'>
-              <CheckinCalendar
-                t={t}
-                status={status}
-                turnstileEnabled={turnstileEnabled}
-                turnstileSiteKey={turnstileSiteKey}
-              />
-            </div>
-          )}
-
-          {/* 账户管理和其他设置 */}
-          <div className='grid grid-cols-1 xl:grid-cols-2 items-start gap-4 md:gap-6 mt-4 md:mt-6'>
-            {/* 左侧：账户管理设置 */}
-            <div className='flex flex-col gap-4 md:gap-6'>
-              <AccountManagement
-                t={t}
-                userState={userState}
-                status={status}
-                systemToken={systemToken}
-                setShowEmailBindModal={setShowEmailBindModal}
-                setShowWeChatBindModal={setShowWeChatBindModal}
-                generateAccessToken={generateAccessToken}
-                handleSystemTokenClick={handleSystemTokenClick}
-                setShowChangePasswordModal={setShowChangePasswordModal}
-                setShowAccountDeleteModal={setShowAccountDeleteModal}
-                passkeyStatus={passkeyStatus}
-                passkeySupported={passkeySupported}
-                passkeyRegisterLoading={passkeyRegisterLoading}
-                passkeyDeleteLoading={passkeyDeleteLoading}
-                onPasskeyRegister={handleRegisterPasskey}
-                onPasskeyDelete={handleRemovePasskey}
-              />
-
-              {/* 偏好设置（语言等） */}
-              <PreferencesSettings t={t} />
-            </div>
-
-            {/* 右侧：其他设置 */}
-            <NotificationSettings
+        {/* 签到日历 - 仅在启用时显示 */}
+        {status?.checkin_enabled && (
+          <div className='mt-4 md:mt-6'>
+            <CheckinCalendar
               t={t}
-              notificationSettings={notificationSettings}
-              handleNotificationSettingChange={handleNotificationSettingChange}
-              saveNotificationSettings={saveNotificationSettings}
+              status={status}
+              turnstileEnabled={turnstileEnabled}
+              turnstileSiteKey={turnstileSiteKey}
             />
           </div>
+        )}
+
+        {/* 账户管理和其他设置 */}
+        <div className='grid grid-cols-1 xl:grid-cols-2 items-start gap-4 md:gap-6 mt-4 md:mt-6'>
+          {/* 左侧：账户管理设置 */}
+          <div className='flex flex-col gap-4 md:gap-6'>
+            <AccountManagement
+              t={t}
+              userState={userState}
+              status={status}
+              systemToken={systemToken}
+              setShowEmailBindModal={setShowEmailBindModal}
+              setShowWeChatBindModal={setShowWeChatBindModal}
+              generateAccessToken={generateAccessToken}
+              handleSystemTokenClick={handleSystemTokenClick}
+              setShowChangePasswordModal={setShowChangePasswordModal}
+              setShowAccountDeleteModal={setShowAccountDeleteModal}
+              passkeyStatus={passkeyStatus}
+              passkeySupported={passkeySupported}
+              passkeyRegisterLoading={passkeyRegisterLoading}
+              passkeyDeleteLoading={passkeyDeleteLoading}
+              onPasskeyRegister={handleRegisterPasskey}
+              onPasskeyDelete={handleRemovePasskey}
+              onBindingUpdate={getUserData}
+            />
+
+            {/* 偏好设置（语言等） */}
+            <PreferencesSettings t={t} />
+          </div>
+
+          {/* 右侧：其他设置 */}
+          <NotificationSettings
+            t={t}
+            notificationSettings={notificationSettings}
+            handleNotificationSettingChange={handleNotificationSettingChange}
+            saveNotificationSettings={saveNotificationSettings}
+          />
         </div>
       </div>
 
@@ -613,6 +724,7 @@ const PersonalSetting = () => {
         turnstileEnabled={turnstileEnabled}
         turnstileSiteKey={turnstileSiteKey}
         setTurnstileToken={setTurnstileToken}
+        turnstileWidgetKey={emailTurnstileKey}
       />
 
       <WeChatBindModal
@@ -661,7 +773,7 @@ const PersonalSetting = () => {
         title={passkeyVerificationState.title}
         description={passkeyVerificationState.description}
       />
-    </div>
+    </main>
   );
 };
 

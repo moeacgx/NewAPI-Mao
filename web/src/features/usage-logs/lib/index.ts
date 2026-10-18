@@ -23,12 +23,14 @@ For commercial licensing, please contact support@quantumnous.com
 // Format utilities (usage-logs specific)
 export {
   parseLogOther,
+  getUpstreamResponseModelName,
   getTimeColor,
   formatModelName,
   formatDuration,
   getParamOverrideActionLabel,
   parseAuditLine,
   isViolationFeeLog,
+  isWebSocketLog,
 } from './format'
 
 // Filter utilities

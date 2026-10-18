@@ -65,7 +65,7 @@ func main() {
 		return
 	}
 
-	common.SysLog("New API " + common.Version + " started")
+	common.SysLog("NewAPI-Mao " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -159,6 +159,8 @@ func main() {
 
 	// 按保留天数小批量清理数据库业务日志。
 	service.StartLogRetentionCleanupTask()
+	// 清理已超过扩展保留期的对话归档，避免正文长期占用数据库空间。
+	service.StartConversationArchiveCleanupTask()
 
 	// Wire task polling adaptor factory (breaks service -> relay import cycle).
 	// Must run before the system task runner starts: the async_task_poll handler
@@ -170,6 +172,7 @@ func main() {
 		}
 		return a
 	}
+	service.GetPinnedTaskAdaptorFunc = func(task *model.Task) (service.TaskPollingAdaptor, error) { return relay.GetPinnedTaskAdaptor(task) }
 
 	// Register the periodic channel test, upstream model update, and async task
 	// polling (Midjourney / Suno / video) jobs as scheduled system tasks
@@ -210,7 +213,7 @@ func main() {
 		common.SysLog(fmt.Sprintf("panic detected: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": gin.H{
-				"message": "Internal server error. Please submit a issue here: https://github.com/Calcium-Ion/new-api",
+				"message": "Internal server error. Please submit a issue here: https://github.com/moeacgx/NewAPI-Mao/issues",
 				"type":    "new_api_panic",
 			},
 		})
@@ -357,6 +360,9 @@ func InitResources() error {
 		}
 	}
 	model.InitOptionMap()
+	if err := service.InitTaskPlugins(); err != nil {
+		return fmt.Errorf("initialize task plugins: %w", err)
+	}
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()

@@ -26,9 +26,12 @@ const (
 	ginKeyChannelAffinityMeta       = "channel_affinity_meta"
 	ginKeyChannelAffinityLogInfo    = "channel_affinity_log_info"
 	ginKeyChannelAffinitySkipRetry  = "channel_affinity_skip_retry_on_failure"
+	ginKeyChannelAffinityCandidate  = "channel_affinity_candidate_binding"
+	ginKeyChannelAffinityHitBinding = "channel_affinity_hit_binding"
+	ginKeyChannelAffinityFailed     = "channel_affinity_failed"
 
 	channelAffinityCacheNamespace           = "new-api:channel_affinity:v2"
-	channelAffinityUsageCacheStatsNamespace = "new-api:channel_affinity_usage_cache_stats:v1"
+	channelAffinityUsageCacheStatsNamespace = "new-api:channel_affinity_usage_cache_stats:v2"
 )
 
 var (
@@ -47,10 +50,22 @@ var (
 // channelAffinityBinding is a version-compatible extension of the historical
 // channel-id cache value. Legacy integer entries remain readable.
 type channelAffinityBinding struct {
-	Version       int  `json:"version"`
-	ChannelID     int  `json:"channel_id"`
-	MultiKeyIndex int  `json:"multi_key_index,omitempty"`
-	BindMultiKey  bool `json:"bind_multi_key,omitempty"`
+	Version       int    `json:"version"`
+	ChannelID     int    `json:"channel_id"`
+	MultiKeyIndex int    `json:"multi_key_index,omitempty"`
+	BindMultiKey  bool   `json:"bind_multi_key,omitempty"`
+	Revision      string `json:"revision,omitempty"`
+}
+
+type channelAffinityCandidate struct {
+	Binding      channelAffinityBinding
+	BindingCache bool
+}
+
+type channelAffinityHitBinding struct {
+	CacheKey     string
+	Binding      channelAffinityBinding
+	BindingCache bool
 }
 
 type channelAffinityMeta struct {
@@ -548,8 +563,11 @@ func buildChannelAffinityKeyHint(s string) string {
 	}
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
+	if len(s) <= 4 {
+		return strings.Repeat("*", len(s))
+	}
 	if len(s) <= 12 {
-		return s
+		return s[:2] + "..." + s[len(s)-2:]
 	}
 	return s[:4] + "..." + s[len(s)-4:]
 }
@@ -715,14 +733,20 @@ func GetPreferredChannelAffinityBinding(c *gin.Context, modelName string, usingG
 			KeyFingerprint: affinityFingerprint(affinityValue), UsingGroup: usingGroup, ModelName: modelName,
 			RequestPath: path, BindMultiKey: rule.BindMultiKeyIndex,
 		})
+		c.Set(ginKeyChannelAffinityCandidate, nil)
 		if rule.BindMultiKeyIndex {
 			if binding, found, err := getChannelAffinityBindingCache().Get(cacheKeySuffix); err == nil && found && binding.ChannelID > 0 {
 				if binding.Version == 0 {
 					binding.Version = 1
 				}
+				c.Set(ginKeyChannelAffinityCandidate, channelAffinityCandidate{Binding: binding, BindingCache: true})
 				return binding, true
 			}
 		} else {
+			if binding, found, err := getChannelAffinityBindingCache().Get(cacheKeySuffix); err == nil && found && binding.Version >= 3 && !binding.BindMultiKey && binding.ChannelID > 0 {
+				c.Set(ginKeyChannelAffinityCandidate, channelAffinityCandidate{Binding: binding, BindingCache: true})
+				return binding, true
+			}
 			_, _ = getChannelAffinityBindingCache().DeleteMany([]string{cacheKeySuffix})
 		}
 		channelID, found, err := getChannelAffinityCache().Get(cacheKeySuffix)
@@ -731,7 +755,9 @@ func GetPreferredChannelAffinityBinding(c *gin.Context, modelName string, usingG
 			return channelAffinityBinding{}, false
 		}
 		if found && channelID > 0 {
-			return channelAffinityBinding{Version: 1, ChannelID: channelID}, true
+			binding := channelAffinityBinding{Version: 1, ChannelID: channelID}
+			c.Set(ginKeyChannelAffinityCandidate, channelAffinityCandidate{Binding: binding})
+			return binding, true
 		}
 		return channelAffinityBinding{}, false
 	}
@@ -789,6 +815,65 @@ func ClearCurrentChannelAffinityCache(c *gin.Context) bool {
 	return false
 }
 
+// EvictChannelAffinityBindingForFailure only removes the affinity binding
+// selected by this request. Compare-and-delete keeps a concurrent successful
+// request from losing a newer replacement binding.
+func EvictChannelAffinityBindingForFailure(c *gin.Context, channelID int) bool {
+	if c == nil || channelID <= 0 {
+		return false
+	}
+	hitAny, found := c.Get(ginKeyChannelAffinityHitBinding)
+	if !found {
+		return false
+	}
+	hit, ok := hitAny.(channelAffinityHitBinding)
+	if !ok || hit.CacheKey == "" || hit.Binding.ChannelID != channelID {
+		return false
+	}
+	if hit.Binding.BindMultiKey && hit.Binding.MultiKeyIndex != common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex) {
+		return false
+	}
+
+	var (
+		deleted bool
+		err     error
+	)
+	if hit.BindingCache {
+		deleted, err = getChannelAffinityBindingCache().CompareAndDelete(hit.CacheKey, hit.Binding)
+		if deleted {
+			_, err = getChannelAffinityCache().CompareAndDelete(hit.CacheKey, hit.Binding.ChannelID)
+		}
+	} else {
+		deleted, err = getChannelAffinityCache().CompareAndDelete(hit.CacheKey, hit.Binding.ChannelID)
+	}
+	if err != nil {
+		common.SysError(fmt.Sprintf("channel affinity compare-delete failed: channel_id=%d, err=%v", channelID, err))
+		return false
+	}
+	if !deleted {
+		return false
+	}
+	c.Set(ginKeyChannelAffinityHitBinding, nil)
+	if anyInfo, exists := c.Get(ginKeyChannelAffinityLogInfo); exists {
+		if info, infoOK := anyInfo.(map[string]interface{}); infoOK {
+			info["evicted_on_retryable_failure"] = true
+		}
+	}
+	return true
+}
+
+func MarkChannelAffinityFailure(c *gin.Context) {
+	if c != nil {
+		c.Set(ginKeyChannelAffinityFailed, true)
+	}
+}
+
+func MarkChannelAffinitySuccess(c *gin.Context) {
+	if c != nil {
+		c.Set(ginKeyChannelAffinityFailed, false)
+	}
+}
+
 func ShouldKeepChannelAffinityOnChannelDisabled() bool {
 	setting := operation_setting.GetChannelAffinitySetting()
 	if setting == nil {
@@ -805,11 +890,21 @@ func MarkChannelAffinityUsed(c *gin.Context, selectedGroup string, channelID int
 	if !ok {
 		return
 	}
+	if candidateAny, found := c.Get(ginKeyChannelAffinityCandidate); found {
+		if candidate, candidateOK := candidateAny.(channelAffinityCandidate); candidateOK && candidate.Binding.ChannelID == channelID {
+			c.Set(ginKeyChannelAffinityHitBinding, channelAffinityHitBinding{
+				CacheKey:     meta.CacheKeySuffix,
+				Binding:      candidate.Binding,
+				BindingCache: candidate.BindingCache,
+			})
+		}
+	}
 	c.Set(ginKeyChannelAffinitySkipRetry, meta.SkipRetry)
 	info := map[string]interface{}{
 		"reason": meta.RuleName, "rule_name": meta.RuleName, "using_group": meta.UsingGroup,
 		"selected_group": selectedGroup, "model": meta.ModelName, "request_path": meta.RequestPath,
 		"channel_id": channelID, "key_source": meta.KeySourceType, "key_key": meta.KeySourceKey,
+		"key_path": meta.KeySourcePath, "key_hint": meta.KeyHint, "key_fp": meta.KeyFingerprint,
 		"bind_multi_key": meta.BindMultiKey,
 	}
 	if meta.BindMultiKey && common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey) {
@@ -833,6 +928,9 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 	if channelID <= 0 {
 		return
 	}
+	if c != nil && c.GetBool(ginKeyChannelAffinityFailed) {
+		return
+	}
 	setting := operation_setting.GetChannelAffinitySetting()
 	if setting == nil || !setting.Enabled {
 		return
@@ -846,7 +944,10 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 	if !ok {
 		return
 	}
-	meta, _ := getChannelAffinityMeta(c)
+	meta, metaFound := getChannelAffinityMeta(c)
+	if !metaFound {
+		return
+	}
 	if ttlSeconds <= 0 {
 		ttlSeconds = setting.DefaultTTLSeconds
 	}
@@ -854,19 +955,18 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 		ttlSeconds = 3600
 	}
 	ttl := time.Duration(ttlSeconds) * time.Second
+	binding := channelAffinityBinding{Version: 3, ChannelID: channelID, Revision: common.GetUUID()}
+	selectedChannelID := common.GetContextKeyInt(c, constant.ContextKeyChannelId)
+	if meta.BindMultiKey && common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey) && selectedChannelID == channelID {
+		binding.MultiKeyIndex = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
+		binding.BindMultiKey = true
+	}
+	if err := getChannelAffinityBindingCache().SetWithTTL(meta.CacheKeySuffix, binding, ttl); err != nil {
+		common.SysError(fmt.Sprintf("channel affinity binding cache set failed: err=%v", err))
+		return
+	}
 	if err := getChannelAffinityCache().SetWithTTL(cacheKey, channelID, ttl); err != nil {
 		common.SysError(fmt.Sprintf("channel affinity cache set failed: err=%v", err))
-	}
-	if meta.BindMultiKey {
-		binding := channelAffinityBinding{Version: 2, ChannelID: channelID}
-		selectedChannelID := common.GetContextKeyInt(c, constant.ContextKeyChannelId)
-		if common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey) && selectedChannelID == channelID {
-			binding.MultiKeyIndex = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
-			binding.BindMultiKey = true
-		}
-		if err := getChannelAffinityBindingCache().SetWithTTL(meta.CacheKeySuffix, binding, ttl); err != nil {
-			common.SysError(fmt.Sprintf("channel affinity binding cache set failed: err=%v", err))
-		}
 	}
 }
 
@@ -886,6 +986,12 @@ type ChannelAffinityUsageCacheStats struct {
 	CachedTokens         int64 `json:"cached_tokens"`
 	PromptCacheHitTokens int64 `json:"prompt_cache_hit_tokens"`
 	LastSeenAt           int64 `json:"last_seen_at"`
+
+	PromptTokensPresent         bool `json:"-"`
+	CompletionTokensPresent     bool `json:"-"`
+	TotalTokensPresent          bool `json:"-"`
+	CachedTokensPresent         bool `json:"-"`
+	PromptCacheHitTokensPresent bool `json:"-"`
 }
 
 type ChannelAffinityUsageCacheCounters struct {
@@ -901,6 +1007,41 @@ type ChannelAffinityUsageCacheCounters struct {
 	CachedTokens         int64 `json:"cached_tokens"`
 	PromptCacheHitTokens int64 `json:"prompt_cache_hit_tokens"`
 	LastSeenAt           int64 `json:"last_seen_at"`
+
+	PromptTokensPresent         bool `json:"prompt_tokens_present,omitempty"`
+	CompletionTokensPresent     bool `json:"completion_tokens_present,omitempty"`
+	TotalTokensPresent          bool `json:"total_tokens_present,omitempty"`
+	CachedTokensPresent         bool `json:"cached_tokens_present,omitempty"`
+	PromptCacheHitTokensPresent bool `json:"prompt_cache_hit_tokens_present,omitempty"`
+}
+
+func (s ChannelAffinityUsageCacheStats) MarshalJSON() ([]byte, error) {
+	payload := map[string]interface{}{
+		"rule_name":              s.RuleName,
+		"using_group":            s.UsingGroup,
+		"key_fp":                 s.KeyFingerprint,
+		"cached_token_rate_mode": s.CachedTokenRateMode,
+		"hit":                    s.Hit,
+		"total":                  s.Total,
+		"window_seconds":         s.WindowSeconds,
+		"last_seen_at":           s.LastSeenAt,
+	}
+	if s.PromptTokensPresent {
+		payload["prompt_tokens"] = s.PromptTokens
+	}
+	if s.CompletionTokensPresent {
+		payload["completion_tokens"] = s.CompletionTokens
+	}
+	if s.TotalTokensPresent {
+		payload["total_tokens"] = s.TotalTokens
+	}
+	if s.CachedTokensPresent {
+		payload["cached_tokens"] = s.CachedTokens
+	}
+	if s.PromptCacheHitTokensPresent {
+		payload["prompt_cache_hit_tokens"] = s.PromptCacheHitTokens
+	}
+	return common.Marshal(payload)
 }
 
 var channelAffinityUsageCacheStatsLocks [64]sync.Mutex
@@ -942,19 +1083,24 @@ func GetChannelAffinityUsageCacheStats(ruleName, usingGroup, keyFp string) Chann
 		}
 	}
 	return ChannelAffinityUsageCacheStats{
-		CachedTokenRateMode:  v.CachedTokenRateMode,
-		RuleName:             ruleName,
-		UsingGroup:           usingGroup,
-		KeyFingerprint:       keyFp,
-		Hit:                  v.Hit,
-		Total:                v.Total,
-		WindowSeconds:        v.WindowSeconds,
-		PromptTokens:         v.PromptTokens,
-		CompletionTokens:     v.CompletionTokens,
-		TotalTokens:          v.TotalTokens,
-		CachedTokens:         v.CachedTokens,
-		PromptCacheHitTokens: v.PromptCacheHitTokens,
-		LastSeenAt:           v.LastSeenAt,
+		CachedTokenRateMode:         v.CachedTokenRateMode,
+		RuleName:                    ruleName,
+		UsingGroup:                  usingGroup,
+		KeyFingerprint:              keyFp,
+		Hit:                         v.Hit,
+		Total:                       v.Total,
+		WindowSeconds:               v.WindowSeconds,
+		PromptTokens:                v.PromptTokens,
+		CompletionTokens:            v.CompletionTokens,
+		TotalTokens:                 v.TotalTokens,
+		CachedTokens:                v.CachedTokens,
+		PromptCacheHitTokens:        v.PromptCacheHitTokens,
+		LastSeenAt:                  v.LastSeenAt,
+		PromptTokensPresent:         v.PromptTokensPresent || v.PromptTokens != 0,
+		CompletionTokensPresent:     v.CompletionTokensPresent || v.CompletionTokens != 0,
+		TotalTokensPresent:          v.TotalTokensPresent || v.TotalTokens != 0,
+		CachedTokensPresent:         v.CachedTokensPresent || v.CachedTokens != 0,
+		PromptCacheHitTokensPresent: v.PromptCacheHitTokensPresent || v.PromptCacheHitTokens != 0,
 	}
 }
 
@@ -999,11 +1145,26 @@ func observeChannelAffinityUsageCache(statsCtx ChannelAffinityStatsContext, usag
 	}
 	next.WindowSeconds = windowSeconds
 	next.LastSeenAt = time.Now().Unix()
-	next.CachedTokens += cachedTokens
-	next.PromptCacheHitTokens += promptCacheHitTokens
-	next.PromptTokens += int64(usagePromptTokens(usage))
-	next.CompletionTokens += int64(usageCompletionTokens(usage))
-	next.TotalTokens += int64(usageTotalTokens(usage))
+	if cachedTokensPresent(usage) {
+		next.CachedTokensPresent = true
+		next.CachedTokens += cachedTokens
+	}
+	if promptCacheHitTokensPresent(usage) {
+		next.PromptCacheHitTokensPresent = true
+		next.PromptCacheHitTokens += promptCacheHitTokens
+	}
+	if tokens, present := usagePromptTokensWithPresence(usage); present {
+		next.PromptTokensPresent = true
+		next.PromptTokens += int64(tokens)
+	}
+	if tokens, present := usageCompletionTokensWithPresence(usage); present {
+		next.CompletionTokensPresent = true
+		next.CompletionTokens += int64(tokens)
+	}
+	if tokens, present := usageTotalTokensWithPresence(usage); present {
+		next.TotalTokensPresent = true
+		next.TotalTokens += int64(tokens)
+	}
 	_ = cache.SetWithTTL(entryKey, next, ttl)
 }
 
@@ -1047,16 +1208,77 @@ func usageCacheSignals(usage *dto.Usage) (hit bool, cachedTokens int64, promptCa
 	}
 
 	cached := int64(0)
-	if usage.PromptTokensDetails.CachedTokens > 0 {
+	if usage.PromptTokensDetails.HasCachedTokens || usage.PromptTokensDetails.CachedTokens != 0 {
 		cached = int64(usage.PromptTokensDetails.CachedTokens)
-	} else if usage.InputTokensDetails != nil && usage.InputTokensDetails.CachedTokens > 0 {
+	} else if usage.InputTokensDetails != nil && (usage.InputTokensDetails.HasCachedTokens || usage.InputTokensDetails.CachedTokens != 0) {
 		cached = int64(usage.InputTokensDetails.CachedTokens)
 	}
 	pcht := int64(0)
-	if usage.PromptCacheHitTokens > 0 {
+	if usage.HasPromptCacheHitTokens || usage.PromptCacheHitTokens != 0 {
 		pcht = int64(usage.PromptCacheHitTokens)
 	}
+	if cached < 0 {
+		cached = 0
+	}
+	if pcht < 0 {
+		pcht = 0
+	}
 	return cached > 0 || pcht > 0, cached, pcht
+}
+
+func cachedTokensPresent(usage *dto.Usage) bool {
+	if usage == nil {
+		return false
+	}
+	return usage.PromptTokensDetails.HasCachedTokens ||
+		usage.PromptTokensDetails.CachedTokens != 0 ||
+		(usage.InputTokensDetails != nil &&
+			(usage.InputTokensDetails.HasCachedTokens || usage.InputTokensDetails.CachedTokens != 0))
+}
+
+func promptCacheHitTokensPresent(usage *dto.Usage) bool {
+	return usage != nil && (usage.HasPromptCacheHitTokens || usage.PromptCacheHitTokens != 0)
+}
+
+func usagePromptTokensWithPresence(usage *dto.Usage) (int, bool) {
+	if usage == nil {
+		return 0, false
+	}
+	if usage.HasPromptTokens || usage.PromptTokens != 0 {
+		return usage.PromptTokens, true
+	}
+	if usage.HasInputTokens || usage.InputTokens != 0 {
+		return usage.InputTokens, true
+	}
+	return 0, false
+}
+
+func usageCompletionTokensWithPresence(usage *dto.Usage) (int, bool) {
+	if usage == nil {
+		return 0, false
+	}
+	if usage.HasCompletionTokens || usage.CompletionTokens != 0 {
+		return usage.CompletionTokens, true
+	}
+	if usage.HasOutputTokens || usage.OutputTokens != 0 {
+		return usage.OutputTokens, true
+	}
+	return 0, false
+}
+
+func usageTotalTokensWithPresence(usage *dto.Usage) (int, bool) {
+	if usage == nil {
+		return 0, false
+	}
+	if usage.HasTotalTokens || usage.TotalTokens != 0 {
+		return usage.TotalTokens, true
+	}
+	prompt, promptPresent := usagePromptTokensWithPresence(usage)
+	completion, completionPresent := usageCompletionTokensWithPresence(usage)
+	if promptPresent || completionPresent {
+		return prompt + completion, true
+	}
+	return 0, false
 }
 
 func usagePromptTokens(usage *dto.Usage) int {

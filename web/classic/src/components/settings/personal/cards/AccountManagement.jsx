@@ -40,7 +40,7 @@ import {
 } from '@douyinfe/semi-icons';
 import { SiTelegram, SiWechat, SiLinux, SiDiscord } from 'react-icons/si';
 import { UserPlus, ShieldCheck } from 'lucide-react';
-import TelegramLoginButton from 'react-telegram-login';
+import TelegramBindModal from '../modals/TelegramBindModal';
 import {
   API,
   showError,
@@ -71,6 +71,7 @@ const AccountManagement = ({
   passkeyDeleteLoading,
   onPasskeyRegister,
   onPasskeyDelete,
+  onBindingUpdate,
 }) => {
   const renderAccountInfo = (accountId, label) => {
     if (!accountId || accountId === '') {
@@ -112,7 +113,9 @@ const AccountManagement = ({
         showError(res.data.message || t('获取绑定信息失败'));
       }
     } catch (error) {
-      showError(error.response?.data?.message || error.message || t('获取绑定信息失败'));
+      showError(
+        error.response?.data?.message || error.message || t('获取绑定信息失败'),
+      );
     }
   };
 
@@ -126,7 +129,9 @@ const AccountManagement = ({
       onOk: async () => {
         setCustomOAuthLoading((prev) => ({ ...prev, [providerId]: true }));
         try {
-          const res = await API.delete(`/api/user/oauth/bindings/${providerId}`);
+          const res = await API.delete(
+            `/api/user/oauth/bindings/${providerId}`,
+          );
           if (res.data.success) {
             showSuccess(t('解绑成功'));
             await loadCustomOAuthBindings();
@@ -134,7 +139,9 @@ const AccountManagement = ({
             showError(res.data.message);
           }
         } catch (error) {
-          showError(error.response?.data?.message || error.message || t('操作失败'));
+          showError(
+            error.response?.data?.message || error.message || t('操作失败'),
+          );
         } finally {
           setCustomOAuthLoading((prev) => ({ ...prev, [providerId]: false }));
         }
@@ -144,19 +151,23 @@ const AccountManagement = ({
 
   // Handle bind custom OAuth
   const handleBindCustomOAuth = (provider) => {
-    onCustomOAuthClicked(provider);
+    onCustomOAuthClicked(provider, { intent: 'bind' });
   };
 
   // Check if custom OAuth provider is bound
   const isCustomOAuthBound = (providerId) => {
     const normalizedId = Number(providerId);
-    return customOAuthBindings.some((b) => Number(b.provider_id) === normalizedId);
+    return customOAuthBindings.some(
+      (b) => Number(b.provider_id) === normalizedId,
+    );
   };
 
   // Get binding info for a provider
   const getCustomOAuthBinding = (providerId) => {
     const normalizedId = Number(providerId);
-    return customOAuthBindings.find((b) => Number(b.provider_id) === normalizedId);
+    return customOAuthBindings.find(
+      (b) => Number(b.provider_id) === normalizedId,
+    );
   };
 
   React.useEffect(() => {
@@ -304,7 +315,9 @@ const AccountManagement = ({
                       theme='outline'
                       size='small'
                       onClick={() =>
-                        onGitHubOAuthClicked(status.github_client_id)
+                        onGitHubOAuthClicked(status.github_client_id, {
+                          intent: 'bind',
+                        })
                       }
                       disabled={
                         isBound(userState.user?.github_id) ||
@@ -345,7 +358,9 @@ const AccountManagement = ({
                       theme='outline'
                       size='small'
                       onClick={() =>
-                        onDiscordOAuthClicked(status.discord_client_id)
+                        onDiscordOAuthClicked(status.discord_client_id, {
+                          intent: 'bind',
+                        })
                       }
                       disabled={
                         isBound(userState.user?.discord_id) ||
@@ -389,6 +404,8 @@ const AccountManagement = ({
                         onOIDCClicked(
                           status.oidc_authorization_endpoint,
                           status.oidc_client_id,
+                          false,
+                          { intent: 'bind' },
                         )
                       }
                       disabled={
@@ -457,24 +474,12 @@ const AccountManagement = ({
                   </div>
                 </div>
               </Card>
-              <Modal
-                title={t('绑定 Telegram')}
+              <TelegramBindModal
                 visible={showTelegramBindModal}
                 onCancel={() => setShowTelegramBindModal(false)}
-                footer={null}
-              >
-                <div className='my-3 text-sm text-gray-600'>
-                  {t('点击下方按钮通过 Telegram 完成绑定')}
-                </div>
-                <div className='flex justify-center'>
-                  <div className='scale-90'>
-                    <TelegramLoginButton
-                      dataAuthUrl='/api/oauth/telegram/bind'
-                      botName={status.telegram_bot_name}
-                    />
-                  </div>
-                </div>
-              </Modal>
+                botName={status.telegram_bot_name}
+                onSuccess={onBindingUpdate}
+              />
 
               {/* LinuxDO绑定 */}
               <Card className='!rounded-xl'>
@@ -504,7 +509,9 @@ const AccountManagement = ({
                       theme='outline'
                       size='small'
                       onClick={() =>
-                        onLinuxDOOAuthClicked(status.linuxdo_client_id)
+                        onLinuxDOOAuthClicked(status.linuxdo_client_id, {
+                          intent: 'bind',
+                        })
                       }
                       disabled={
                         isBound(userState.user?.linux_do_id) ||
@@ -554,7 +561,10 @@ const AccountManagement = ({
                               size='small'
                               loading={customOAuthLoading[provider.id]}
                               onClick={() =>
-                                handleUnbindCustomOAuth(provider.id, provider.name)
+                                handleUnbindCustomOAuth(
+                                  provider.id,
+                                  provider.name,
+                                )
                               }
                             >
                               {t('解绑')}

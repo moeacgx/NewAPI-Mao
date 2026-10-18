@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -86,7 +87,7 @@ type PromoCodeDiscountResult struct {
 	OriginalAmount  float64 `json:"original_amount"`
 	DiscountAmount  float64 `json:"discount_amount"`
 	PaidAmount      float64 `json:"paid_amount"`
-	ActualPaidQuota int     `json:"actual_paid_quota"`
+	ActualPaidQuota int64   `json:"actual_paid_quota"`
 }
 
 func normalizePromoCode(code string) string {
@@ -345,6 +346,59 @@ func DeletePromoCodeById(id int) error {
 	})
 }
 
+// DeletePromoCodesByIDs 批量软删除优惠码，逐条写入 deleted_id 以保持历史唯一键契约。
+func DeletePromoCodesByIDs(ids []int) ([]int, error) {
+	if len(ids) == 0 {
+		return nil, errors.New("优惠码 ID 不能为空")
+	}
+	deleted := make([]int, 0, len(ids))
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var promos []PromoCode
+		if err := lockForUpdate(tx).Where("id IN ?", ids).Find(&promos).Error; err != nil {
+			return err
+		}
+		for i := range promos {
+			promo := &promos[i]
+			if err := tx.Model(promo).UpdateColumn("deleted_id", promo.Id).Error; err != nil {
+				return err
+			}
+			if err := tx.Delete(promo).Error; err != nil {
+				return err
+			}
+			deleted = append(deleted, promo.Id)
+		}
+		return nil
+	})
+	sort.Ints(deleted)
+	return deleted, err
+}
+
+func DeleteInvalidPromoCodes(now int64) ([]int, error) {
+	if now <= 0 {
+		now = common.GetTimestamp()
+	}
+	var ids []int
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var promos []PromoCode
+		if err := lockForUpdate(tx).Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time <= ?)", []int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now).Find(&promos).Error; err != nil {
+			return err
+		}
+		for i := range promos {
+			promo := &promos[i]
+			if err := tx.Model(promo).UpdateColumn("deleted_id", promo.Id).Error; err != nil {
+				return err
+			}
+			if err := tx.Delete(promo).Error; err != nil {
+				return err
+			}
+			ids = append(ids, promo.Id)
+		}
+		return nil
+	})
+	sort.Ints(ids)
+	return ids, err
+}
+
 func promoAppliesToTarget(promo *PromoCode, target string, planId int) bool {
 	switch target {
 	case PromoCodeTargetTopUp:
@@ -418,7 +472,7 @@ func calculatePromoCodeDiscountTx(tx *gorm.DB, code string, target string, planI
 		paid = decimal.Zero
 	}
 	paidFloat := paid.InexactFloat64()
-	actualPaidQuota, err := common.QuotaFromDecimalStrict(paid.Mul(decimal.NewFromFloat(common.QuotaPerUnit)))
+	actualPaidQuota, err := common.WalletQuotaFromDecimalStrict(paid.Mul(decimal.NewFromFloat(common.QuotaPerUnit)))
 	if err != nil {
 		return nil, errors.New("优惠码折后额度超出系统可表示范围")
 	}
@@ -469,14 +523,14 @@ func ApplyPromoCodeResultToSubscriptionOrder(order *SubscriptionOrder, discount 
 	order.AffiliateSourceQuota = discount.ActualPaidQuota
 }
 
-func topUpAffiliateSourceQuota(topUp *TopUp, fallbackQuota int) int {
+func topUpAffiliateSourceQuota[T walletQuotaValue](topUp *TopUp, fallbackQuota T) int64 {
 	if topUp != nil && topUp.AffiliateSourceQuota > 0 {
 		return topUp.AffiliateSourceQuota
 	}
-	return fallbackQuota
+	return int64(fallbackQuota)
 }
 
-func TopUpAffiliateSourceQuota(topUp *TopUp, fallbackQuota int) int {
+func TopUpAffiliateSourceQuota[T walletQuotaValue](topUp *TopUp, fallbackQuota T) int64 {
 	return topUpAffiliateSourceQuota(topUp, fallbackQuota)
 }
 

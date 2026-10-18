@@ -33,9 +33,11 @@ func GetAllTask(c *gin.Context) {
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
 		ChannelID:      c.Query("channel_id"),
+		Username:       c.Query("username"),
+		ModelName:      c.Query("model_name"),
 	}
 
-	items := model.TaskGetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
+	items := model.TaskGetAllTasksForLog(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.TaskCountAllTasks(queryParams)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(tasksToDto(items, true))
@@ -57,9 +59,10 @@ func GetUserTask(c *gin.Context) {
 		Action:         c.Query("action"),
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
+		ModelName:      c.Query("model_name"),
 	}
 
-	items := model.TaskGetAllUserTask(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
+	items := model.TaskGetAllUserTaskForLog(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.TaskCountAllUserTask(userId, queryParams)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(tasksToDto(items, false))
@@ -84,14 +87,7 @@ func loadTaskGroupDisplayNameMap(tasks []*model.Task) map[string]string {
 }
 
 func taskGroupDisplayName(group string, groupNames map[string]string) string {
-	group = strings.TrimSpace(group)
-	if group == "" {
-		return ""
-	}
-	if name := strings.TrimSpace(groupNames[group]); name != "" {
-		return name
-	}
-	return group
+	return model.FormatGroupDisplayNames(group, groupNames)
 }
 
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
@@ -122,6 +118,7 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			item = relay.TaskModel2DtoForUser(task)
 		}
 		item.GroupName = taskGroupDisplayName(task.Group, groupNames)
+		item.ResultDiscarded = task.PrivateData.ResultDiscarded
 		prepareImageTaskLog(item, task)
 		result[i] = item
 	}

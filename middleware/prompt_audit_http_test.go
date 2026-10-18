@@ -361,6 +361,54 @@ func TestPromptAuditAsyncExtractionFailureDoesNotAffectRequest(t *testing.T) {
 	require.EqualValues(t, 1, downstreamCalls.Load())
 }
 
+func TestPromptAuditStoresCleanConversationArchiveAfterRequest(t *testing.T) {
+	guard := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"Safety: Safe\nCategories: None"}}]}`)
+	}))
+	defer guard.Close()
+	setupPromptAuditHTTPTestDB(t, guard.URL)
+	config, err := service.GetConversationArchiveConfig(t.Context())
+	require.NoError(t, err)
+	_, err = service.SaveConversationArchiveConfig(t.Context(), service.ConversationArchiveConfigUpdate{
+		ExpectedConfigVersion: config.ConfigVersion,
+		Enabled:               true,
+		MaxBodyBytes:          service.ConversationArchiveMaxContentBytes,
+		RetentionDays:         30,
+	}, 1)
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/v1/chat/completions",
+		func(c *gin.Context) {
+			c.Set(common.RequestIdKey, "http-conversation-archive")
+			common.SetContextKey(c, constant.ContextKeyUserId, 10)
+			common.SetContextKey(c, constant.ContextKeyUserGroupId, 1)
+			common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+			common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
+			common.SetContextKey(c, constant.ContextKeyTokenId, 20)
+			c.Next()
+		},
+		PromptAudit(),
+		func(c *gin.Context) { c.Status(http.StatusNoContent) },
+	)
+	body := `{"model":"gpt-test","messages":[{"role":"user","content":[{"type":"text","text":"hello"},{"type":"image_url","image_url":{"url":"data:image/png;base64,SECRET"}}]},{"role":"assistant","content":"world","tool_calls":[{"function":{"name":"secret_tool","parameters":{"token":"SECRET"}}}]}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusNoContent, response.Code)
+
+	var row model.ConversationArchive
+	require.NoError(t, model.DB.First(&row, "request_id = ?", "http-conversation-archive").Error)
+	detail, err := service.GetConversationArchive(t.Context(), row.Id)
+	require.NoError(t, err)
+	require.Contains(t, string(detail.Content), `"text":"hello"`)
+	require.Contains(t, string(detail.Content), `"text":"world"`)
+	require.NotContains(t, string(detail.Content), "SECRET")
+}
+
 func TestInferPromptAuditProtocolCoversModerationsInput(t *testing.T) {
 	protocol, provider := inferPromptAuditProtocol("/v1/moderations")
 	require.Equal(t, "embedding", protocol)
@@ -383,25 +431,25 @@ func TestWritePromptAuditRelayErrorFinalClientView(t *testing.T) {
 		wantMessage string
 	}{
 		{
-			name:      "blocked decision replaces status and decorates request id",
+			name:      "blocked decision ignores replacement and decorates request id",
 			requestID: "http-audit-request",
 			rules:     `[{"status_code":403,"match":"internal blocked message","mode":"exact","replace":"public blocked message","replace_status_code":429}]`,
 			decision: service.PromptAuditDecision{
 				Allow: false, ErrorCode: service.PromptGuardBlockedCode,
 				HTTPStatus: http.StatusForbidden, Message: "internal blocked message",
 			},
-			wantStatus:  http.StatusTooManyRequests,
-			wantMessage: "public blocked message (request id: http-audit-request)",
+			wantStatus:  http.StatusForbidden,
+			wantMessage: "internal blocked message (request id: http-audit-request)",
 		},
 		{
-			name:  "fail closed decision leaves empty request id undecorated",
+			name:  "fail closed decision ignores replacement without request id",
 			rules: `[{"status_code":503,"match":"internal fail closed message","mode":"exact","replace":"public unavailable message"}]`,
 			decision: service.PromptAuditDecision{
 				Allow: false, ErrorCode: service.PromptGuardUnavailableCode,
 				HTTPStatus: http.StatusServiceUnavailable, Message: "internal fail closed message",
 			},
 			wantStatus:  http.StatusServiceUnavailable,
-			wantMessage: "public unavailable message",
+			wantMessage: "internal fail closed message",
 		},
 	}
 

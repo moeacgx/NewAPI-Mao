@@ -295,10 +295,7 @@ func GetChannelAnalyticsStability(query dto.ChannelAnalyticsStabilityQuery) (dto
 			item.ChannelTypeName = constant.GetChannelTypeName(current.Type)
 		}
 		if item.Group != "" {
-			item.GroupName = groupNames[item.Group]
-			if item.GroupName == "" {
-				item.GroupName = item.Group
-			}
+			item.GroupName = model.FormatGroupDisplayNames(item.Group, groupNames)
 		}
 		items = append(items, *item)
 	}

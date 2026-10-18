@@ -44,33 +44,136 @@ const (
 
 type AffiliateRecord struct {
 	Id                int    `json:"id"`
-	UserId            int    `json:"user_id" gorm:"index"`
+	UserId            int    `json:"user_id" gorm:"index;uniqueIndex:idx_affiliate_record_source,priority:3"`
 	InviteeId         int    `json:"invitee_id" gorm:"index"`
-	Level             int    `json:"level" gorm:"index;uniqueIndex:idx_affiliate_record_source,priority:3"`
+	Level             int    `json:"level" gorm:"index;uniqueIndex:idx_affiliate_record_source,priority:4"`
 	SourceType        string `json:"source_type" gorm:"type:varchar(32);index;uniqueIndex:idx_affiliate_record_source,priority:1"`
 	SourceId          string `json:"source_id" gorm:"type:varchar(255);index;uniqueIndex:idx_affiliate_record_source,priority:2"`
-	SourceQuota       int    `json:"source_quota"`
-	RewardQuota       int    `json:"reward_quota"`
+	SourceQuota       int64  `json:"source_quota" gorm:"type:bigint"`
+	RewardQuota       int64  `json:"reward_quota" gorm:"type:bigint"`
 	Ratio             int    `json:"ratio"`
 	Status            string `json:"status" gorm:"type:varchar(32);index"`
-	BalanceAfterQuota int    `json:"balance_after_quota"`
+	BalanceAfterQuota int64  `json:"balance_after_quota" gorm:"type:bigint"`
 	AvailableTime     int64  `json:"available_time" gorm:"index"`
 	SettledTime       int64  `json:"settled_time"`
 	CreatedAt         int64  `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt         int64  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
+const affiliateRecordSourceIndex = "idx_affiliate_record_source"
+
+var affiliateRecordSourceIndexColumns = []string{"source_type", "source_id", "user_id", "level"}
+
+func migrateAffiliateRecordSourceIndex(db *gorm.DB) error {
+	if db == nil {
+		return errors.New("???????")
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&AffiliateRecord{}) || !migrator.HasColumn(&AffiliateRecord{}, "user_id") {
+		return nil
+	}
+
+	exists, matches, err := affiliateRecordSourceIndexState(db)
+	if err != nil {
+		return fmt.Errorf("????????????: %w", err)
+	}
+	if matches {
+		return nil
+	}
+	if exists {
+		// PostgreSQL ????? uniqueIndex ??? UNIQUE CONSTRAINT?
+		// ????????????????????
+		if db.Dialector.Name() == "postgres" && migrator.HasConstraint(&AffiliateRecord{}, affiliateRecordSourceIndex) {
+			if err := migrator.DropConstraint(&AffiliateRecord{}, affiliateRecordSourceIndex); err != nil {
+				return fmt.Errorf("??????????????: %w", err)
+			}
+		}
+		if migrator.HasIndex(&AffiliateRecord{}, affiliateRecordSourceIndex) {
+			if err := migrator.DropIndex(&AffiliateRecord{}, affiliateRecordSourceIndex); err != nil {
+				return fmt.Errorf("??????????????: %w", err)
+			}
+		}
+	}
+
+	if err := migrator.CreateIndex(&AffiliateRecord{}, affiliateRecordSourceIndex); err != nil {
+		return fmt.Errorf("???????????????: %w", err)
+	}
+	return nil
+}
+
+func affiliateRecordSourceIndexState(db *gorm.DB) (exists bool, matches bool, err error) {
+	indexes, err := db.Migrator().GetIndexes(&AffiliateRecord{})
+	if err == nil {
+		for _, index := range indexes {
+			if index.Name() != affiliateRecordSourceIndex {
+				continue
+			}
+			unique, uniqueKnown := index.Unique()
+			return true, uniqueKnown && unique && affiliateRecordSourceIndexColumnsMatch(index.Columns()), nil
+		}
+		return false, false, nil
+	}
+	if db.Dialector.Name() != "sqlite" {
+		return false, false, err
+	}
+	return affiliateRecordSourceIndexStateSQLite(db)
+}
+
+func affiliateRecordSourceIndexStateSQLite(db *gorm.DB) (exists bool, matches bool, err error) {
+	type sqliteIndex struct {
+		Name   string `gorm:"column:name"`
+		Unique int    `gorm:"column:unique"`
+	}
+	var indexes []sqliteIndex
+	if err := db.Raw("PRAGMA index_list('affiliate_records')").Scan(&indexes).Error; err != nil {
+		return false, false, err
+	}
+	for _, index := range indexes {
+		if index.Name != affiliateRecordSourceIndex {
+			continue
+		}
+		indexName := strings.ReplaceAll(index.Name, "'", "''")
+		type sqliteIndexColumn struct {
+			Seq  int    `gorm:"column:seqno"`
+			Name string `gorm:"column:name"`
+		}
+		var columns []sqliteIndexColumn
+		if err := db.Raw("PRAGMA index_info('" + indexName + "')").Scan(&columns).Error; err != nil {
+			return true, false, err
+		}
+		sort.Slice(columns, func(i, j int) bool { return columns[i].Seq < columns[j].Seq })
+		columnNames := make([]string, len(columns))
+		for i, column := range columns {
+			columnNames[i] = column.Name
+		}
+		return true, index.Unique == 1 && affiliateRecordSourceIndexColumnsMatch(columnNames), nil
+	}
+	return false, false, nil
+}
+
+func affiliateRecordSourceIndexColumnsMatch(columns []string) bool {
+	if len(columns) != len(affiliateRecordSourceIndexColumns) {
+		return false
+	}
+	for i, column := range columns {
+		if !strings.EqualFold(column, affiliateRecordSourceIndexColumns[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 type AffiliateBalance struct {
 	Id               int   `json:"id"`
 	UserId           int   `json:"user_id" gorm:"uniqueIndex"`
-	PendingQuota     int   `json:"pending_quota"`
-	AvailableQuota   int   `json:"available_quota"`
-	FrozenQuota      int   `json:"frozen_quota"`
-	RiskFrozenQuota  int   `json:"risk_frozen_quota"`
-	ConfiscatedQuota int   `json:"confiscated_quota"`
-	WithdrawnQuota   int   `json:"withdrawn_quota"`
-	TransferredQuota int   `json:"transferred_quota"`
-	TotalQuota       int   `json:"total_quota"`
+	PendingQuota     int64 `json:"pending_quota" gorm:"type:bigint"`
+	AvailableQuota   int64 `json:"available_quota" gorm:"type:bigint"`
+	FrozenQuota      int64 `json:"frozen_quota" gorm:"type:bigint"`
+	RiskFrozenQuota  int64 `json:"risk_frozen_quota" gorm:"type:bigint"`
+	ConfiscatedQuota int64 `json:"confiscated_quota" gorm:"type:bigint"`
+	WithdrawnQuota   int64 `json:"withdrawn_quota" gorm:"type:bigint"`
+	TransferredQuota int64 `json:"transferred_quota" gorm:"type:bigint"`
+	TotalQuota       int64 `json:"total_quota" gorm:"type:bigint"`
 	CreatedAt        int64 `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt        int64 `json:"updated_at" gorm:"autoUpdateTime"`
 }
@@ -103,21 +206,39 @@ type AffiliatePayoutAccount struct {
 }
 
 type AffiliateWithdrawal struct {
-	Id              int     `json:"id"`
-	UserId          int     `json:"user_id" gorm:"index"`
-	Quota           int     `json:"quota"`
-	DisplayAmount   float64 `json:"display_amount"`
-	DisplayCurrency string  `json:"display_currency" gorm:"type:varchar(32)"`
-	Method          string  `json:"method" gorm:"type:varchar(32);index"`
-	PayoutSnapshot  string  `json:"payout_snapshot" gorm:"type:text"`
-	Status          string  `json:"status" gorm:"type:varchar(32);index"`
-	AdminId         int     `json:"admin_id"`
-	AdminRemark     string  `json:"admin_remark" gorm:"type:varchar(500)"`
-	ApprovedTime    int64   `json:"approved_time"`
-	PaidTime        int64   `json:"paid_time"`
-	RejectedTime    int64   `json:"rejected_time"`
-	CreatedAt       int64   `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       int64   `json:"updated_at" gorm:"autoUpdateTime"`
+	Id                 int                    `json:"id"`
+	UserId             int                    `json:"user_id" gorm:"index"`
+	Quota              int64                  `json:"quota" gorm:"type:bigint"`
+	DisplayAmount      float64                `json:"display_amount"`
+	DisplayCurrency    string                 `json:"display_currency" gorm:"type:varchar(32)"`
+	PayoutFiatAmount   float64                `json:"payout_fiat_amount"`
+	PayoutFiatCurrency string                 `json:"payout_fiat_currency" gorm:"type:varchar(32)"`
+	PayoutRate         float64                `json:"payout_rate"`
+	PayoutRateSource   string                 `json:"payout_rate_source" gorm:"type:varchar(64)"`
+	PayoutRateFallback bool                   `json:"payout_rate_fallback"`
+	PayoutRateAt       int64                  `json:"payout_rate_at"`
+	Method             string                 `json:"method" gorm:"type:varchar(32);index"`
+	PayoutSnapshot     string                 `json:"payout_snapshot" gorm:"type:text"`
+	PayoutDetails      map[string]interface{} `json:"payout_details" gorm:"-"`
+	Status             string                 `json:"status" gorm:"type:varchar(32);index"`
+	AdminId            int                    `json:"admin_id"`
+	AdminRemark        string                 `json:"admin_remark" gorm:"type:varchar(500)"`
+	ApprovedTime       int64                  `json:"approved_time"`
+	PaidTime           int64                  `json:"paid_time"`
+	RejectedTime       int64                  `json:"rejected_time"`
+	CreatedAt          int64                  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          int64                  `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+type AffiliateWithdrawalPayout struct {
+	Amount       float64
+	Currency     string
+	FiatAmount   float64
+	FiatCurrency string
+	Rate         float64
+	RateSource   string
+	RateFallback bool
+	RateAt       int64
 }
 
 type AffiliateLeaderboardItem struct {
@@ -127,7 +248,7 @@ type AffiliateLeaderboardItem struct {
 	DisplayName     string `json:"display_name"`
 	MaskedName      string `json:"masked_name"`
 	InviteCount     int    `json:"invite_count"`
-	CommissionQuota int    `json:"commission_quota"`
+	CommissionQuota int64  `json:"commission_quota"`
 }
 
 type AffiliateSourceDetail struct {
@@ -143,7 +264,7 @@ type AffiliateSourceDetail struct {
 	PromoCode       string  `json:"promo_code,omitempty"`
 	PaymentProvider string  `json:"payment_provider,omitempty"`
 	PaymentMethod   string  `json:"payment_method,omitempty"`
-	Quota           int     `json:"quota,omitempty"`
+	Quota           int64   `json:"quota,omitempty"`
 }
 
 type AffiliateRecordWithDetail struct {
@@ -164,9 +285,9 @@ type AffiliateUserInfo struct {
 type AffiliateInvitationItem struct {
 	Invitee         AffiliateUserInfo `json:"invitee"`
 	TopUpCount      int               `json:"topup_count"`
-	TopUpQuota      int               `json:"topup_quota"`
+	TopUpQuota      int64             `json:"topup_quota"`
 	LastTopUpTime   int64             `json:"last_topup_time"`
-	CommissionQuota int               `json:"commission_quota"`
+	CommissionQuota int64             `json:"commission_quota"`
 }
 
 type AffiliateAdminUserInfo struct {
@@ -193,17 +314,17 @@ type AffiliateAdminInvitationItem struct {
 	InviteeStatus    int     `json:"invitee_status"`
 	InviteeCreatedAt int64   `json:"invitee_created_at"`
 	TopUpCount       int     `json:"topup_count"`
-	TopUpQuota       int     `json:"topup_quota"`
+	TopUpQuota       int64   `json:"topup_quota"`
 	RechargeAmount   float64 `json:"recharge_amount"`
 	LastTopUpTime    int64   `json:"last_topup_time"`
-	CommissionQuota  int     `json:"commission_quota"`
+	CommissionQuota  int64   `json:"commission_quota"`
 }
 
 type AffiliateAdminInvitationSummary struct {
 	MatchedInviterCount int              `json:"matched_inviter_count"`
 	MatchedInviteeCount int              `json:"matched_invitee_count"`
 	TopUpCount          int              `json:"topup_count"`
-	TopUpQuota          int              `json:"topup_quota"`
+	TopUpQuota          int64            `json:"topup_quota"`
 	RechargeAmount      float64          `json:"recharge_amount"`
 	Balance             AffiliateBalance `json:"balance"`
 }
@@ -381,9 +502,10 @@ func GetAffiliateBalance(userId int) (*AffiliateBalance, error) {
 	return balance, err
 }
 
-func CreateAffiliateRewardsForPayment(inviteeId int, sourceType string, sourceId string, sourceQuota int) error {
+func CreateAffiliateRewardsForPayment[T walletQuotaValue](inviteeId int, sourceType string, sourceId string, sourceQuota T) error {
+	sourceQuota64 := int64(sourceQuota)
 	return DB.Transaction(func(tx *gorm.DB) error {
-		return CreateAffiliateRewardsForPaymentTx(tx, inviteeId, sourceType, sourceId, sourceQuota)
+		return CreateAffiliateRewardsForPaymentTx(tx, inviteeId, sourceType, sourceId, sourceQuota64)
 	})
 }
 
@@ -391,12 +513,13 @@ func CreateAffiliateRewardsForPayment(inviteeId int, sourceType string, sourceId
 // payment settlement transaction. Callers must pass only the purchased
 // business entitlement; invoice fees and other pass-through charges are not
 // commissionable.
-func CreateAffiliateRewardsForPaymentTx(tx *gorm.DB, inviteeId int, sourceType string, sourceId string, sourceQuota int) error {
+func CreateAffiliateRewardsForPaymentTx[T walletQuotaValue](tx *gorm.DB, inviteeId int, sourceType string, sourceId string, sourceQuota T) error {
+	sourceQuota64 := int64(sourceQuota)
 	if tx == nil {
 		return errors.New("tx is nil")
 	}
 	sourceId = strings.TrimSpace(sourceId)
-	if inviteeId <= 0 || sourceId == "" || sourceQuota <= 0 {
+	if inviteeId <= 0 || sourceId == "" || sourceQuota64 <= 0 {
 		return nil
 	}
 	if !isAffiliateSourceEnabled(sourceType) {
@@ -434,7 +557,7 @@ func CreateAffiliateRewardsForPaymentTx(tx *gorm.DB, inviteeId int, sourceType s
 	}
 
 	if affiliateSetting.FirstLevelEnabled && affiliateSetting.FirstLevelRatio > 0 {
-		if err := createAffiliateRewardRecordTx(tx, parent.Id, inviteeId, 1, sourceType, sourceId, sourceQuota, affiliateSetting.FirstLevelRatio); err != nil {
+		if err := createAffiliateRewardRecordTx(tx, parent.Id, inviteeId, 1, sourceType, sourceId, sourceQuota64, affiliateSetting.FirstLevelRatio); err != nil {
 			return err
 		}
 	}
@@ -453,14 +576,17 @@ func CreateAffiliateRewardsForPaymentTx(tx *gorm.DB, inviteeId int, sourceType s
 	if !secondLevelAllowed {
 		return nil
 	}
-	return createAffiliateRewardRecordTx(tx, parent.InviterId, inviteeId, 2, sourceType, sourceId, sourceQuota, affiliateSetting.SecondLevelRatio)
+	return createAffiliateRewardRecordTx(tx, parent.InviterId, inviteeId, 2, sourceType, sourceId, sourceQuota64, affiliateSetting.SecondLevelRatio)
 }
 
-func createAffiliateRewardRecordTx(tx *gorm.DB, userId int, inviteeId int, level int, sourceType string, sourceId string, sourceQuota int, ratio int) error {
+func createAffiliateRewardRecordTx(tx *gorm.DB, userId int, inviteeId int, level int, sourceType string, sourceId string, sourceQuota int64, ratio int) error {
 	if userId <= 0 || rewardRatioInvalid(ratio) {
 		return nil
 	}
-	rewardQuota := sourceQuota * ratio / 100
+	if sourceQuota > common.MaxWalletQuota/int64(ratio) {
+		return errors.New("affiliate reward quota exceeds int64 range")
+	}
+	rewardQuota := sourceQuota * int64(ratio) / 100
 	if rewardQuota <= 0 {
 		return nil
 	}
@@ -496,6 +622,7 @@ func createAffiliateRewardRecordTx(tx *gorm.DB, userId int, inviteeId int, level
 		Columns: []clause.Column{
 			{Name: "source_type"},
 			{Name: "source_id"},
+			{Name: "user_id"},
 			{Name: "level"},
 		},
 		DoNothing: true,
@@ -623,7 +750,7 @@ func settleMatureAffiliateRecordsTx(tx *gorm.DB, userId int) error {
 		Find(&records).Error; err != nil {
 		return err
 	}
-	quotaByUser := make(map[int]int, len(userIds))
+	quotaByUser := make(map[int]int64, len(userIds))
 	for _, record := range records {
 		result := tx.Model(&AffiliateRecord{}).
 			Where("id = ? AND status = ?", record.Id, AffiliateRecordStatusPending).
@@ -852,7 +979,7 @@ func GetAdminAffiliateInvitations(keyword string, pageInfo *common.PageInfo) ([]
 
 type affiliateAdminTopUpAgg struct {
 	TopUpCount     int
-	TopUpQuota     int
+	TopUpQuota     int64
 	RechargeAmount float64
 	LastTopUpTime  int64
 }
@@ -892,15 +1019,15 @@ func getAffiliateTopUpAggByInviteeIds(inviteeIds []int) (map[int]affiliateAdminT
 	return topupByInvitee, nil
 }
 
-func getAffiliateRecordSourceQuotaByTopUpTradeNos(tradeNos []string) (map[string]int, error) {
-	sourceQuotaByTradeNo := make(map[string]int)
+func getAffiliateRecordSourceQuotaByTopUpTradeNos(tradeNos []string) (map[string]int64, error) {
+	sourceQuotaByTradeNo := make(map[string]int64)
 	tradeNos = uniqueStrings(tradeNos)
 	if len(tradeNos) == 0 {
 		return sourceQuotaByTradeNo, nil
 	}
 	type sourceQuotaRow struct {
 		SourceId    string
-		SourceQuota int
+		SourceQuota int64
 	}
 	var rows []sourceQuotaRow
 	if err := DB.Model(&AffiliateRecord{}).
@@ -916,7 +1043,7 @@ func getAffiliateRecordSourceQuotaByTopUpTradeNos(tradeNos []string) (map[string
 	return sourceQuotaByTradeNo, nil
 }
 
-func affiliateAdminTopUpQuota(topup *TopUp, recordSourceQuota int) int {
+func affiliateAdminTopUpQuota(topup *TopUp, recordSourceQuota int64) int64 {
 	if topup == nil {
 		return 0
 	}
@@ -926,7 +1053,7 @@ func affiliateAdminTopUpQuota(topup *TopUp, recordSourceQuota int) int {
 	if recordSourceQuota > 0 {
 		return recordSourceQuota
 	}
-	return int(topup.Amount)
+	return topup.Amount
 }
 
 func affiliateTopUpRechargeAmount(topup *TopUp) float64 {
@@ -999,15 +1126,15 @@ func GetAdminAffiliateInvitationSummary(keyword string) (*AffiliateAdminInvitati
 	return summary, nil
 }
 
-func getAffiliateCommissionQuotaByInviteeIds(inviteeIds []int, userId int) (map[int]int, error) {
-	commissionByInvitee := make(map[int]int)
+func getAffiliateCommissionQuotaByInviteeIds(inviteeIds []int, userId int) (map[int]int64, error) {
+	commissionByInvitee := make(map[int]int64)
 	inviteeIds = uniqueInts(inviteeIds)
 	if len(inviteeIds) == 0 {
 		return commissionByInvitee, nil
 	}
 	type commissionAggRow struct {
 		InviteeId       int
-		CommissionQuota int
+		CommissionQuota int64
 	}
 	var commissionRows []commissionAggRow
 	query := DB.Model(&AffiliateRecord{}).
@@ -1215,7 +1342,7 @@ func attachAffiliateSourceDetails(records []*AffiliateRecordWithDetail) error {
 				PromoCode:       topup.PromoCode,
 				PaymentProvider: topup.PaymentProvider,
 				PaymentMethod:   topup.PaymentMethod,
-				Quota:           int(topup.Amount),
+				Quota:           topup.Amount,
 			}
 		}
 	}
@@ -1594,6 +1721,9 @@ func GetAffiliateWithdrawals(userId int, pageInfo *common.PageInfo) ([]*Affiliat
 	}
 	var withdrawals []*AffiliateWithdrawal
 	err := query.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&withdrawals).Error
+	for _, withdrawal := range withdrawals {
+		withdrawal.decodePayoutDetails()
+	}
 	return withdrawals, total, err
 }
 
@@ -1608,7 +1738,20 @@ func GetAllAffiliateWithdrawals(status string, pageInfo *common.PageInfo) ([]*Af
 	}
 	var withdrawals []*AffiliateWithdrawal
 	err := query.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&withdrawals).Error
+	for _, withdrawal := range withdrawals {
+		withdrawal.decodePayoutDetails()
+	}
 	return withdrawals, total, err
+}
+
+func (withdrawal *AffiliateWithdrawal) decodePayoutDetails() {
+	if withdrawal == nil || strings.TrimSpace(withdrawal.PayoutSnapshot) == "" {
+		return
+	}
+	var details map[string]interface{}
+	if err := common.Unmarshal([]byte(withdrawal.PayoutSnapshot), &details); err == nil {
+		withdrawal.PayoutDetails = details
+	}
 }
 
 func GetAffiliatePayoutAccount(userId int) (*AffiliatePayoutAccount, error) {
@@ -1713,9 +1856,24 @@ func SetAffiliatePayoutQrPath(userId int, method string, qrPath string) (*Affili
 	return saved, err
 }
 
-func CreateAffiliateWithdrawal(userId int, method string, quota int) (*AffiliateWithdrawal, error) {
-	if quota <= 0 {
+func CreateAffiliateWithdrawal[T walletQuotaValue](userId int, method string, quota T) (*AffiliateWithdrawal, error) {
+	quota64 := int64(quota)
+	return CreateAffiliateWithdrawalWithPayout(userId, method, quota64, AffiliateWithdrawalPayout{
+		Amount:       float64(quota64) / common.QuotaPerUnit,
+		Currency:     "USD",
+		FiatAmount:   float64(quota64) / common.QuotaPerUnit,
+		FiatCurrency: "USD",
+	})
+}
+
+func CreateAffiliateWithdrawalWithPayout(userId int, method string, quota64 int64, payout AffiliateWithdrawalPayout) (*AffiliateWithdrawal, error) {
+	if quota64 <= 0 {
 		return nil, errors.New("提现额度必须大于 0")
+	}
+	if payout.Amount <= 0 || math.IsNaN(payout.Amount) || math.IsInf(payout.Amount, 0) ||
+		payout.FiatAmount <= 0 || math.IsNaN(payout.FiatAmount) || math.IsInf(payout.FiatAmount, 0) ||
+		strings.TrimSpace(payout.Currency) == "" || strings.TrimSpace(payout.FiatCurrency) == "" {
+		return nil, errors.New("实际打款金额无效")
 	}
 	if minAmount := setting.GetAffiliateSetting().MinWithdrawalAmount; minAmount > 0 {
 		minimumQuota := decimal.NewFromInt(int64(minAmount))
@@ -1730,11 +1888,11 @@ func CreateAffiliateWithdrawal(userId int, method string, quota int) (*Affiliate
 				Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
 				Floor()
 		}
-		minQuota, err := common.QuotaFromDecimalStrict(minimumQuota)
+		minQuota, err := common.WalletQuotaFromDecimalStrict(minimumQuota)
 		if err != nil || minQuota <= 0 {
 			return nil, errors.New("提现最低金额配置超出系统可表示范围")
 		}
-		if quota < minQuota {
+		if quota64 < minQuota {
 			return nil, fmt.Errorf("提现金额不能小于 %d", minAmount)
 		}
 	}
@@ -1762,7 +1920,7 @@ func CreateAffiliateWithdrawal(userId int, method string, quota int) (*Affiliate
 		if frozen {
 			return errors.New("返佣资产已被冻结，暂不能提现")
 		}
-		if balance.AvailableQuota < quota {
+		if balance.AvailableQuota < quota64 {
 			return errors.New("可提现额度不足")
 		}
 
@@ -1770,23 +1928,49 @@ func CreateAffiliateWithdrawal(userId int, method string, quota int) (*Affiliate
 		if err != nil {
 			return err
 		}
+		var snapshotData map[string]interface{}
+		if err := common.Unmarshal([]byte(snapshot), &snapshotData); err != nil {
+			return err
+		}
+		snapshotData["payout_amount"] = payout.Amount
+		snapshotData["payout_currency"] = payout.Currency
+		snapshotData["payout_fiat_amount"] = payout.FiatAmount
+		snapshotData["payout_fiat_currency"] = payout.FiatCurrency
+		snapshotData["payout_rate"] = payout.Rate
+		snapshotData["payout_rate_source"] = payout.RateSource
+		snapshotData["payout_rate_fallback"] = payout.RateFallback
+		snapshotData["payout_rate_at"] = payout.RateAt
+		snapshotBytes, err := common.Marshal(snapshotData)
+		if err != nil {
+			return err
+		}
+		snapshot = string(snapshotBytes)
 		withdrawal = &AffiliateWithdrawal{
-			UserId:          userId,
-			Quota:           quota,
-			DisplayAmount:   float64(quota) / common.QuotaPerUnit,
-			DisplayCurrency: "USD",
-			Method:          method,
-			PayoutSnapshot:  snapshot,
-			Status:          AffiliateWithdrawalStatusPending,
+			UserId:             userId,
+			Quota:              quota64,
+			DisplayAmount:      payout.Amount,
+			DisplayCurrency:    payout.Currency,
+			PayoutFiatAmount:   payout.FiatAmount,
+			PayoutFiatCurrency: payout.FiatCurrency,
+			PayoutRate:         payout.Rate,
+			PayoutRateSource:   payout.RateSource,
+			PayoutRateFallback: payout.RateFallback,
+			PayoutRateAt:       payout.RateAt,
+			Method:             method,
+			PayoutSnapshot:     snapshot,
+			Status:             AffiliateWithdrawalStatusPending,
 		}
 		if err := tx.Create(withdrawal).Error; err != nil {
 			return err
 		}
 
-		balance.AvailableQuota -= quota
-		balance.FrozenQuota += quota
+		balance.AvailableQuota -= quota64
+		balance.FrozenQuota += quota64
 		return saveAffiliateBalanceTx(tx, balance)
 	})
+	if err == nil && withdrawal != nil {
+		withdrawal.decodePayoutDetails()
+	}
 	return withdrawal, err
 }
 
@@ -1919,8 +2103,9 @@ func updateAffiliateWithdrawalStatus(withdrawalId int, adminId int, remark strin
 	})
 }
 
-func TransferAffiliateQuotaToBalance(userId int, quota int) error {
-	if quota <= 0 {
+func TransferAffiliateQuotaToBalance[T walletQuotaValue](userId int, quota T) error {
+	quota64 := int64(quota)
+	if quota64 <= 0 {
 		return errors.New("转入额度必须大于 0")
 	}
 	if err := SettleMatureAffiliateRecords(userId); err != nil {
@@ -1938,20 +2123,20 @@ func TransferAffiliateQuotaToBalance(userId int, quota int) error {
 		if frozen {
 			return errors.New("返佣资产已被冻结，暂不能转入余额")
 		}
-		if balance.AvailableQuota < quota {
+		if balance.AvailableQuota < quota64 {
 			return errors.New("可转入额度不足")
 		}
-		if err := creditTopUpQuota(tx, userId, quota, nil); err != nil {
+		if err := creditTopUpQuota(tx, userId, quota64, nil); err != nil {
 			return err
 		}
-		balance.AvailableQuota -= quota
-		balance.TransferredQuota += quota
+		balance.AvailableQuota -= quota64
+		balance.TransferredQuota += quota64
 		return saveAffiliateBalanceTx(tx, balance)
 	})
 	if err != nil {
 		return err
 	}
-	syncCreditUserQuotaCache(userId, quota, "affiliate transfer")
+	syncCreditUserQuotaCache(userId, quota64, "affiliate transfer")
 	return nil
 }
 
@@ -2072,7 +2257,7 @@ func buildAffiliateLeaderboardByMetric(period string, sortBy string, metric stri
 	}
 	type commissionRow struct {
 		UserId          int
-		CommissionQuota int
+		CommissionQuota int64
 	}
 
 	var inviteRows []inviteRow

@@ -35,6 +35,7 @@ import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedAffiliateIndexRouteImport } from './routes/_authenticated/affiliate/index'
+import { Route as AuthenticatedBenefitsIndexRouteImport } from './routes/_authenticated/benefits/index'
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
@@ -57,6 +58,7 @@ import { Route as AuthenticatedSecurityAuditIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
 import { Route as AuthenticatedSystemInfoIndexRouteImport } from './routes/_authenticated/system-info/index'
 import { Route as AuthenticatedSystemSettingsIndexRouteImport } from './routes/_authenticated/system-settings/index'
+import { Route as AuthenticatedTaskPluginsIndexRouteImport } from './routes/_authenticated/task-plugins/index'
 import { Route as AuthenticatedUsageLogsIndexRouteImport } from './routes/_authenticated/usage-logs/index'
 import { Route as AuthenticatedUsageLogsSectionRouteImport } from './routes/_authenticated/usage-logs/$section'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
@@ -210,6 +212,12 @@ const AuthenticatedAffiliateIndexRoute =
     path: '/affiliate/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBenefitsIndexRoute =
+  AuthenticatedBenefitsIndexRouteImport.update({
+    id: '/benefits/',
+    path: '/benefits/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCanvasIndexRoute =
   AuthenticatedCanvasIndexRouteImport.update({
     id: '/canvas/',
@@ -339,6 +347,12 @@ const AuthenticatedSystemSettingsIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedSystemSettingsRouteRoute,
+  } as any)
+const AuthenticatedTaskPluginsIndexRoute =
+  AuthenticatedTaskPluginsIndexRouteImport.update({
+    id: '/task-plugins/',
+    path: '/task-plugins/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedUsageLogsIndexRoute =
   AuthenticatedUsageLogsIndexRouteImport.update({
@@ -501,6 +515,7 @@ export interface FileRoutesByFullPath {
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/affiliate/': typeof AuthenticatedAffiliateIndexRoute
+  '/benefits/': typeof AuthenticatedBenefitsIndexRoute
   '/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -519,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-info/': typeof AuthenticatedSystemInfoIndexRoute
   '/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
+  '/task-plugins/': typeof AuthenticatedTaskPluginsIndexRoute
   '/usage-logs/': typeof AuthenticatedUsageLogsIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/wallet/': typeof AuthenticatedWalletIndexRoute
@@ -570,6 +586,7 @@ export interface FileRoutesByTo {
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/affiliate': typeof AuthenticatedAffiliateIndexRoute
+  '/benefits': typeof AuthenticatedBenefitsIndexRoute
   '/canvas': typeof AuthenticatedCanvasIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -588,6 +605,7 @@ export interface FileRoutesByTo {
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-info': typeof AuthenticatedSystemInfoIndexRoute
   '/system-settings': typeof AuthenticatedSystemSettingsIndexRoute
+  '/task-plugins': typeof AuthenticatedTaskPluginsIndexRoute
   '/usage-logs': typeof AuthenticatedUsageLogsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/wallet': typeof AuthenticatedWalletIndexRoute
@@ -643,6 +661,7 @@ export interface FileRoutesById {
   '/_authenticated/models/$section': typeof AuthenticatedModelsSectionRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/affiliate/': typeof AuthenticatedAffiliateIndexRoute
+  '/_authenticated/benefits/': typeof AuthenticatedBenefitsIndexRoute
   '/_authenticated/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -661,6 +680,7 @@ export interface FileRoutesById {
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/_authenticated/system-info/': typeof AuthenticatedSystemInfoIndexRoute
   '/_authenticated/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
+  '/_authenticated/task-plugins/': typeof AuthenticatedTaskPluginsIndexRoute
   '/_authenticated/usage-logs/': typeof AuthenticatedUsageLogsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/wallet/': typeof AuthenticatedWalletIndexRoute
@@ -715,6 +735,7 @@ export interface FileRouteTypes {
     | '/models/$section'
     | '/usage-logs/$section'
     | '/affiliate/'
+    | '/benefits/'
     | '/canvas/'
     | '/channels/'
     | '/dashboard/'
@@ -733,6 +754,7 @@ export interface FileRouteTypes {
     | '/subscriptions/'
     | '/system-info/'
     | '/system-settings/'
+    | '/task-plugins/'
     | '/usage-logs/'
     | '/users/'
     | '/wallet/'
@@ -784,6 +806,7 @@ export interface FileRouteTypes {
     | '/models/$section'
     | '/usage-logs/$section'
     | '/affiliate'
+    | '/benefits'
     | '/canvas'
     | '/channels'
     | '/dashboard'
@@ -802,6 +825,7 @@ export interface FileRouteTypes {
     | '/subscriptions'
     | '/system-info'
     | '/system-settings'
+    | '/task-plugins'
     | '/usage-logs'
     | '/users'
     | '/wallet'
@@ -856,6 +880,7 @@ export interface FileRouteTypes {
     | '/_authenticated/models/$section'
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/affiliate/'
+    | '/_authenticated/benefits/'
     | '/_authenticated/canvas/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
@@ -874,6 +899,7 @@ export interface FileRouteTypes {
     | '/_authenticated/subscriptions/'
     | '/_authenticated/system-info/'
     | '/_authenticated/system-settings/'
+    | '/_authenticated/task-plugins/'
     | '/_authenticated/usage-logs/'
     | '/_authenticated/users/'
     | '/_authenticated/wallet/'
@@ -1100,6 +1126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAffiliateIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/benefits/': {
+      id: '/_authenticated/benefits/'
+      path: '/benefits'
+      fullPath: '/benefits/'
+      preLoaderRoute: typeof AuthenticatedBenefitsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/canvas/': {
       id: '/_authenticated/canvas/'
       path: '/canvas'
@@ -1253,6 +1286,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/system-settings/'
       preLoaderRoute: typeof AuthenticatedSystemSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSystemSettingsRouteRoute
+    }
+    '/_authenticated/task-plugins/': {
+      id: '/_authenticated/task-plugins/'
+      path: '/task-plugins'
+      fullPath: '/task-plugins/'
+      preLoaderRoute: typeof AuthenticatedTaskPluginsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/usage-logs/': {
       id: '/_authenticated/usage-logs/'
@@ -1506,6 +1546,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedModelsSectionRoute: typeof AuthenticatedModelsSectionRoute
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedAffiliateIndexRoute: typeof AuthenticatedAffiliateIndexRoute
+  AuthenticatedBenefitsIndexRoute: typeof AuthenticatedBenefitsIndexRoute
   AuthenticatedCanvasIndexRoute: typeof AuthenticatedCanvasIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
@@ -1523,6 +1564,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSecurityAuditIndexRoute: typeof AuthenticatedSecurityAuditIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
   AuthenticatedSystemInfoIndexRoute: typeof AuthenticatedSystemInfoIndexRoute
+  AuthenticatedTaskPluginsIndexRoute: typeof AuthenticatedTaskPluginsIndexRoute
   AuthenticatedUsageLogsIndexRoute: typeof AuthenticatedUsageLogsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedWalletIndexRoute: typeof AuthenticatedWalletIndexRoute
@@ -1540,6 +1582,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedModelsSectionRoute: AuthenticatedModelsSectionRoute,
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedAffiliateIndexRoute: AuthenticatedAffiliateIndexRoute,
+  AuthenticatedBenefitsIndexRoute: AuthenticatedBenefitsIndexRoute,
   AuthenticatedCanvasIndexRoute: AuthenticatedCanvasIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
@@ -1560,6 +1603,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSecurityAuditIndexRoute: AuthenticatedSecurityAuditIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,
   AuthenticatedSystemInfoIndexRoute: AuthenticatedSystemInfoIndexRoute,
+  AuthenticatedTaskPluginsIndexRoute: AuthenticatedTaskPluginsIndexRoute,
   AuthenticatedUsageLogsIndexRoute: AuthenticatedUsageLogsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedWalletIndexRoute: AuthenticatedWalletIndexRoute,

@@ -63,6 +63,7 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 }
 
 const clientHeaderPlaceholderPrefix = "{client_header:"
+const downstreamRequestIDHeader = "X-Downstream-Request-ID"
 
 const (
 	headerPassthroughAllKey        = "*"
@@ -310,13 +311,68 @@ func applyHeaderOverrideToRequest(req *http.Request, headerOverride map[string]s
 	}
 }
 
+func isOpenAICompatibleRelay(info *common.RelayInfo) bool {
+	if info == nil {
+		return false
+	}
+	switch info.RelayFormat {
+	case types.RelayFormatOpenAI,
+		types.RelayFormatOpenAIResponses,
+		types.RelayFormatOpenAIResponsesCompaction,
+		types.RelayFormatOpenAIAudio,
+		types.RelayFormatOpenAIImage,
+		types.RelayFormatOpenAIRealtime:
+		return true
+	}
+	switch info.RelayMode {
+	case constant.RelayModeChatCompletions,
+		constant.RelayModeCompletions,
+		constant.RelayModeEmbeddings,
+		constant.RelayModeModerations,
+		constant.RelayModeImagesGenerations,
+		constant.RelayModeImagesEdits,
+		constant.RelayModeEdits,
+		constant.RelayModeAudioSpeech,
+		constant.RelayModeAudioTranscription,
+		constant.RelayModeAudioTranslation,
+		constant.RelayModeResponses,
+		constant.RelayModeResponsesCompact,
+		constant.RelayModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+func applyDownstreamRequestIDHeader(c *gin.Context, req *http.Request, info *common.RelayInfo) {
+	if c == nil || req == nil || !isOpenAICompatibleRelay(info) {
+		return
+	}
+
+	req.Header.Del(downstreamRequestIDHeader)
+	requestID := strings.TrimSpace(c.GetString(common2.RequestIdKey))
+	if requestID == "" {
+		return
+	}
+	req.Header.Set(downstreamRequestIDHeader, requestID)
+}
+
+// newRelayHTTPRequest 继承入口请求上下文，使客户端断开或入口超时能够及时取消上游请求。
+func newRelayHTTPRequest(c *gin.Context, method string, target string, body io.Reader) (*http.Request, error) {
+	ctx := context.Background()
+	if c != nil && c.Request != nil {
+		ctx = c.Request.Context()
+	}
+	return http.NewRequestWithContext(ctx, method, target, body)
+}
+
 func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
 	logger.LogDebug(c, "fullRequestURL: %s", common.SanitizeURLForLog(fullRequestURL))
-	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
+	req, err := newRelayHTTPRequest(c, c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
@@ -333,6 +389,7 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	applyDownstreamRequestIDHeader(c, req, info)
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
@@ -346,7 +403,7 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
 	logger.LogDebug(c, "fullRequestURL: %s", common.SanitizeURLForLog(fullRequestURL))
-	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
+	req, err := newRelayHTTPRequest(c, c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
@@ -365,6 +422,7 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	applyDownstreamRequestIDHeader(c, req, info)
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
@@ -391,6 +449,9 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	for key, value := range headerOverride {
 		targetHeader.Set(key, value)
 	}
+	targetReq := &http.Request{Header: targetHeader}
+	applyDownstreamRequestIDHeader(c, targetReq, info)
+	targetHeader = targetReq.Header
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
 	callIndex := service.BeginChannelMetricUpstreamCall(c)
 	targetConn, response, err := websocket.DefaultDialer.Dial(fullRequestURL, targetHeader)
@@ -557,6 +618,8 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if resp == nil {
 		return nil, errors.New("resp is nil")
 	}
+	// 在正文转换或流式转发前采集上游声明，不依赖具体适配器解析正文。
+	info.CaptureCodexResponseHeaders(resp)
 	if common2.DebugEnabled {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, fmt.Sprintf(
@@ -583,7 +646,7 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, req
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
+	req, err := newRelayHTTPRequest(c, c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
@@ -601,6 +664,7 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, req
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
+	applyDownstreamRequestIDHeader(c, req, info)
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)

@@ -1,7 +1,7 @@
 {
-  "name": "new-api-electron",
+  "name": "newapi-mao-electron",
   "version": "1.0.0",
-  "description": "New API - AI Model Gateway Desktop Application",
+  "description": "NewAPI-Mao - AI Model Gateway Desktop Application",
   "main": "main.js",
   "scripts": {
     "start-app": "electron .",
@@ -21,7 +21,7 @@
   "author": "QuantumNous",
   "repository": {
     "type": "git",
-    "url": "https://github.com/QuantumNous/new-api"
+    "url": "https://github.com/moeacgx/NewAPI-Mao"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
@@ -30,7 +30,7 @@
   },
   "build": {
     "appId": "com.newapi.desktop",
-    "productName": "New-API-App",
+    "productName": "NewAPI-Mao",
     "publish": null,
     "directories": {
       "output": "dist"

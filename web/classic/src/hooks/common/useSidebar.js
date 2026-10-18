@@ -58,6 +58,7 @@ export const DEFAULT_ADMIN_CONFIG = {
   personal: {
     enabled: true,
     topup: true,
+    benefits: true,
     affiliate: true,
     invoice: true,
     personal: true,
@@ -76,6 +77,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     affiliate_admin: true,
     notification_center: true,
     extension_admin: true,
+    task_plugins: true,
     security_audit: true,
     setting: true,
   },

@@ -17,90 +17,130 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useRef } from 'react';
-import { Form, Button } from '@douyinfe/semi-ui';
-import { IconSearch } from '@douyinfe/semi-icons';
-
-const TokensFilters = ({
+import React, { useRef, useEffect, useState } from 'react';
+import { Form, Button, Popover } from '@douyinfe/semi-ui';
+import { CirclePlus, X } from 'lucide-react';
+export default function TokensFilters({
   formInitValues,
   setFormApi,
   searchTokens,
-  loading,
-  searching,
   t,
-}) => {
-  // Handle form reset and immediate search
-  const formApiRef = useRef(null);
-
-  const handleReset = () => {
-    if (!formApiRef.current) return;
-    formApiRef.current.reset();
-    setTimeout(() => {
-      searchTokens();
-    }, 100);
-  };
-
+}) {
+  const formApiRef = useRef(null),
+    searchRef = useRef(searchTokens),
+    debounceRef = useRef(null);
+  const [statusOpen, setStatusOpen] = useState(false);
+  searchRef.current = searchTokens;
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
   return (
     <Form
       initValues={formInitValues}
       getFormApi={(api) => {
-        setFormApi(api);
         formApiRef.current = api;
+        setFormApi(api);
       }}
-      onSubmit={() => searchTokens(1)}
-      allowEmpty={true}
+      onSubmit={() => {
+        clearTimeout(debounceRef.current);
+        searchRef.current(1);
+      }}
+      onValueChange={() => {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => searchRef.current(1), 300);
+      }}
       autoComplete='off'
       layout='horizontal'
-      trigger='change'
-      stopValidateWithError={false}
-      className='w-full md:w-auto order-1 md:order-2'
+      className='tokens-filters-form'
     >
-      <div className='flex flex-col md:flex-row items-center gap-2 w-full md:w-auto'>
-        <div className='relative w-full md:w-56'>
-          <Form.Input
-            field='searchKeyword'
-            prefix={<IconSearch />}
-            placeholder={t('搜索关键字')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-
-        <div className='relative w-full md:w-56'>
-          <Form.Input
-            field='searchToken'
-            prefix={<IconSearch />}
-            placeholder={t('密钥')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-
-        <div className='flex gap-2 w-full md:w-auto'>
-          <Button
-            type='tertiary'
-            htmlType='submit'
-            loading={loading || searching}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
+      {({ values }) => (
+        <div className='tokens-filters'>
+          <div className='tokens-filter-input'>
+            <Form.Input
+              field='searchKeyword'
+              placeholder={t('Filter by name...')}
+              aria-label={t('Filter by name...')}
+              pure
+              size='small'
+            />
+          </div>
+          <div className='tokens-filter-input'>
+            <Form.Input
+              field='searchToken'
+              placeholder={t('Filter by API key...')}
+              aria-label={t('Filter by API key...')}
+              pure
+              size='small'
+            />
+          </div>
+          <Popover
+            trigger='click'
+            position='bottomLeft'
+            visible={statusOpen}
+            onVisibleChange={setStatusOpen}
+            content={
+              <div
+                className='tokens-default-overlay tokens-status-options'
+                role='radiogroup'
+                aria-label={t('状态')}
+              >
+                {[
+                  [0, '全部'],
+                  [1, '已启用'],
+                  [2, '已禁用'],
+                  [3, '已过期'],
+                  [4, '已耗尽'],
+                ].map(([value, label]) => (
+                  <label key={value}>
+                    <input
+                      type='radio'
+                      name='token-status-filter'
+                      checked={Number(values.searchStatus || 0) === value}
+                      onChange={() => {
+                        formApiRef.current.setValue('searchStatus', value);
+                        setStatusOpen(false);
+                      }}
+                    />
+                    {t(label)}
+                  </label>
+                ))}
+              </div>
+            }
           >
-            {t('查询')}
-          </Button>
-
-          <Button
-            type='tertiary'
-            onClick={handleReset}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
-          >
-            {t('重置')}
-          </Button>
+            <Button
+              className='tokens-status-filter'
+              data-active={!!values.searchStatus}
+              theme='outline'
+              type='tertiary'
+              size='small'
+              icon={<CirclePlus size={16} />}
+            >
+              <span>{t('状态')}</span>
+              {!!values.searchStatus && (
+                <span className='tokens-filter-value'>
+                  {t(
+                    { 1: '已启用', 2: '已禁用', 3: '已过期', 4: '已耗尽' }[
+                      values.searchStatus
+                    ],
+                  )}
+                </span>
+              )}
+            </Button>
+          </Popover>
+          {values.searchKeyword || values.searchToken || values.searchStatus ? (
+            <Button
+              theme='borderless'
+              type='tertiary'
+              size='small'
+              icon={<X size={14} />}
+              onClick={() => {
+                formApiRef.current.reset();
+                formApiRef.current.setValue('searchStatus', 0);
+              }}
+            >
+              {t('重置')}
+            </Button>
+          ) : null}
         </div>
-      </div>
+      )}
     </Form>
   );
-};
-
-export default TokensFilters;
+}

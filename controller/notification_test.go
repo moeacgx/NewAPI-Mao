@@ -116,6 +116,100 @@ func TestNotificationTaskControllerRequestAndResponseSchema(t *testing.T) {
 	require.Contains(t, response, `"bot_name":"bot"`)
 	require.Contains(t, response, `"targets":[{"id":1,"task_id":1,"chat_id":"-10001","mention_user_id":"42","mention_name":"Ops","enabled":true`)
 }
+
+func TestNotificationEventDefinitionsIncludeChannelStatusEvents(t *testing.T) {
+	disabled, ok := findNotificationEventDefinition(model.NotificationEventTypeChannelDisabled)
+	require.True(t, ok)
+	require.Equal(t, "Channel disabled", disabled.Label)
+	require.Contains(t, disabled.Variables, "channel_name")
+	require.Contains(t, disabled.Variables, "status_code")
+	require.Contains(t, disabled.Variables, "error_code")
+	require.Contains(t, disabled.Variables, "error_message")
+	require.Contains(t, disabled.Variables, "reason")
+
+	enabled, ok := findNotificationEventDefinition(model.NotificationEventTypeChannelEnabled)
+	require.True(t, ok)
+	require.Equal(t, "Channel enabled", enabled.Label)
+	require.Contains(t, enabled.Variables, "channel_name")
+	require.NotContains(t, enabled.Variables, "reason")
+	require.Contains(t, enabled.DefaultTemplate, "{{channel_id}}")
+}
+
+func TestNotificationTaskControllerAcceptsChannelFilters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupNotificationControllerTestDB(t)
+	bot := &model.NotificationBot{Name: "channel bot", Token: "secret", Enabled: true}
+	require.NoError(t, model.CreateNotificationBot(bot))
+	body := fmt.Sprintf(`{"name":"channel task","event_type":"%s","bot_id":%d,"template":"{{channel_name}} {{status_code}} {{error_message}}","filter_config":{"status_codes":"403,500-599","error_keywords":["balance","quota"]},"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`, model.NotificationEventTypeChannelDisabled, bot.Id)
+	create := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", body, 0)
+	require.Contains(t, create.Body.String(), `"success":true`)
+
+	list := invokeNotificationHandler(ListNotificationTasks, common.RoleRootUser, http.MethodGet, "/api/notification/tasks", "", 0)
+	var response struct {
+		Data []notificationTaskResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(list.Body.Bytes(), &response))
+	require.Len(t, response.Data, 1)
+	require.NotNil(t, response.Data[0].FilterConfig)
+	require.Equal(t, "403,500-599", response.Data[0].FilterConfig.StatusCodes)
+	require.Equal(t, []string{"balance", "quota"}, response.Data[0].FilterConfig.ErrorKeywords)
+}
+
+func TestNotificationTaskControllerAcceptsPrefixDedupFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupNotificationControllerTestDB(t)
+	bot := &model.NotificationBot{Name: "channel bot", Token: "secret", Enabled: true}
+	require.NoError(t, model.CreateNotificationBot(bot))
+	body := fmt.Sprintf(`{"name":"balance dedup","event_type":"%s","bot_id":%d,"template":"{{channel_name}} {{error_message}}","filter_config":{"error_keywords":["预扣费额度失败","余额不足"],"prefix_dedup_seconds":300},"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`, model.NotificationEventTypeChannelDisabled, bot.Id)
+	create := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", body, 0)
+	require.Contains(t, create.Body.String(), `"success":true`)
+
+	list := invokeNotificationHandler(ListNotificationTasks, common.RoleRootUser, http.MethodGet, "/api/notification/tasks", "", 0)
+	var response struct {
+		Data []notificationTaskResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(list.Body.Bytes(), &response))
+	require.Len(t, response.Data, 1)
+	require.NotNil(t, response.Data[0].FilterConfig)
+	require.Equal(t, []string{"预扣费额度失败", "余额不足"}, response.Data[0].FilterConfig.ErrorKeywords)
+	require.Equal(t, 300, response.Data[0].FilterConfig.PrefixDedupSeconds)
+
+	invalid := fmt.Sprintf(`{"name":"too long","event_type":"%s","bot_id":%d,"template":"{{channel_name}}","filter_config":{"prefix_dedup_seconds":90000},"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`, model.NotificationEventTypeChannelDisabled, bot.Id)
+	rejected := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", invalid, 0)
+	require.Contains(t, rejected.Body.String(), `"success":false`)
+	require.Contains(t, rejected.Body.String(), "前缀去重窗口")
+}
+
+func TestNotificationTaskControllerMigratesLegacyTemplateAndRejectsCustomUnknownVariable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupNotificationControllerTestDB(t)
+	bot := &model.NotificationBot{Name: "channel bot", Token: "secret", Enabled: true}
+	require.NoError(t, model.CreateNotificationBot(bot))
+
+	legacyBody := fmt.Sprintf(`{"name":"legacy channel task","event_type":"%s","bot_id":%d,"template":%q,"enabled":true,"targets":[{"chat_id":"-10001","enabled":true}]}`,
+		model.NotificationEventTypeChannelDisabled, bot.Id, model.NotificationTaskDefaultTemplate)
+	created := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", legacyBody, 0)
+	require.Contains(t, created.Body.String(), `"success":true`)
+
+	var stored model.NotificationTask
+	require.NoError(t, model.DB.First(&stored).Error)
+	require.Equal(t, model.NotificationChannelDisabledTemplate, stored.Template)
+
+	list := invokeNotificationHandler(ListNotificationTasks, common.RoleRootUser, http.MethodGet, "/api/notification/tasks", "", 0)
+	var listed struct {
+		Data []notificationTaskResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(list.Body.Bytes(), &listed))
+	require.Len(t, listed.Data, 1)
+	require.Equal(t, model.NotificationChannelDisabledTemplate, listed.Data[0].Template)
+
+	unknownBody := fmt.Sprintf(`{"name":"invalid channel task","event_type":"%s","bot_id":%d,"template":"{{total_amount}}","enabled":true,"targets":[{"chat_id":"-10002","enabled":true}]}`,
+		model.NotificationEventTypeChannelDisabled, bot.Id)
+	unknown := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", unknownBody, 0)
+	require.Contains(t, unknown.Body.String(), `"success":false`)
+	require.Contains(t, unknown.Body.String(), "unknown notification template variable: total_amount")
+}
+
 func TestNotificationMutationBodiesAreCappedBeforeHandlerWork(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	setupNotificationControllerTestDB(t)

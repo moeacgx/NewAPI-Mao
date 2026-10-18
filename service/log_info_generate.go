@@ -80,12 +80,25 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["model_price"] = modelPrice
 	other["user_group_ratio"] = userGroupRatio
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
-	if relayInfo.ReasoningEffort != "" {
-		other["reasoning_effort"] = relayInfo.ReasoningEffort
+	logEffort := relayInfo.ReasoningEffort
+	if thinking := relayInfo.ThinkingLog; thinking != nil {
+		logEffort = thinking.DisplayEffort()
+		if thinking.Type != "" {
+			other["thinking_type"] = thinking.Type
+		}
+		if thinking.BudgetTokens != nil {
+			other["thinking_budget_tokens"] = *thinking.BudgetTokens
+		}
+	}
+	if logEffort != "" {
+		other["reasoning_effort"] = logEffort
 	}
 	if relayInfo.IsModelMapped {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = relayInfo.UpstreamModelName
+	}
+	if upstreamResponseModelName := strings.TrimSpace(relayInfo.UpstreamResponseModelName); upstreamResponseModelName != "" {
+		other["upstream_response_model_name"] = upstreamResponseModelName
 	}
 
 	isSystemPromptOverwritten := common.GetContextKeyBool(ctx, constant.ContextKeySystemPromptOverride)
@@ -95,6 +108,9 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 
 	adminInfo := make(map[string]interface{})
 	adminInfo["use_channel"] = ctx.GetStringSlice("use_channel")
+	if relayInfo.CodexFasterModelName != "" {
+		adminInfo["codex_faster_model"] = relayInfo.CodexFasterModelName
+	}
 	isMultiKey := common.GetContextKeyBool(ctx, constant.ContextKeyChannelIsMultiKey)
 	if isMultiKey {
 		adminInfo["is_multi_key"] = true
@@ -159,6 +175,16 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	// billing_source: "wallet" or "subscription"
 	if relayInfo.BillingSource != "" {
 		other["billing_source"] = relayInfo.BillingSource
+	}
+	if breakdown := relayInfo.BillingBreakdown; breakdown != nil {
+		other["billing_breakdown"] = map[string]interface{}{
+			"voucher_quota":       breakdown.VoucherQuota,
+			"subscription_quota":  breakdown.SubscriptionQuota,
+			"wallet_quota":        breakdown.WalletQuota,
+			"activity_id":         breakdown.ActivityID,
+			"voucher_id":          breakdown.VoucherID,
+			"voucher_allocations": breakdown.VoucherAllocations,
+		}
 	}
 	if relayInfo.UserSetting.BillingPreference != "" {
 		other["billing_preference"] = relayInfo.UserSetting.BillingPreference
@@ -316,8 +342,28 @@ func InjectTieredBillingInfo(other map[string]interface{}, relayInfo *relaycommo
 	other["expr_b64"] = base64.StdEncoding.EncodeToString([]byte(snap.ExprString))
 	if result != nil {
 		other["matched_tier"] = result.MatchedTier
+		other["actual_quota_before_group"] = result.ActualQuotaBeforeGroup
+		other["actual_quota_after_group"] = result.ActualQuotaAfterGroup
+		other["estimated_tier"] = snap.EstimatedTier
+		other["estimated_quota_before_group"] = snap.EstimatedQuotaBeforeGroup
+		other["estimated_quota_after_group"] = snap.EstimatedQuotaAfterGroup
+		other["quota_per_unit"] = snap.QuotaPerUnit
+		other["group_ratio"] = snap.GroupRatio
+		other["crossed_tier"] = result.CrossedTier
+		other["tiered_token_params"] = result.TokenParams
 		if len(result.RequestRules) > 0 {
 			other["request_rules"] = result.RequestRules
+			other["request_multiplier"] = matchedTieredRequestMultiplier(result.RequestRules)
 		}
 	}
+}
+
+func matchedTieredRequestMultiplier(rules []billingexpr.RequestRuleTrace) float64 {
+	multiplier := 1.0
+	for _, rule := range rules {
+		if rule.Matched {
+			multiplier *= rule.Multiplier
+		}
+	}
+	return multiplier
 }

@@ -16,6 +16,8 @@ import (
 // action 的 params 填充。本地化展示文案在前端 i18n 模板中维护，本表是语言中立的
 // 英文基线——调用方因此无需在每个埋点处手写句子（避免与 params 重复书写同一份值）。
 var auditContentTemplates = map[string]string{
+	"access_token.generate": "Generated a personal access token",
+	"access_token.revoke":   "Revoked a personal access token",
 	"user.create":           "Created user ${username} (role ${role})",
 	"user.update":           "Updated user ${username} (ID: ${id})",
 	"user.delete":           "Deleted user ${username} (ID: ${id})",
@@ -45,7 +47,24 @@ var auditContentTemplates = map[string]string{
 	"channel.upstream_apply":     "Applied upstream model changes to channel (ID: ${id})",
 	"channel.upstream_apply_all": "Applied upstream model changes to ${count} channels",
 
-	"redemption.create": "Created ${count} redemption codes named ${name} (${quota} each)",
+	"redemption.create":             "Created ${count} redemption codes named ${name} (${quota} each)",
+	"redemption.delete_batch":       "Batch deleted ${count} redemption codes",
+	"redemption.delete":             "Deleted redemption code (ID: ${id})",
+	"redemption.delete_invalid":     "Deleted invalid redemption codes (${count})",
+	"promo_code.delete":             "Deleted promo code (ID: ${id})",
+	"promo_code.delete_batch":       "Batch deleted ${count} promo codes",
+	"promo_code.delete_invalid":     "Deleted invalid promo codes (${count})",
+	"benefit.activity.delete":       "Deleted benefit activity (ID: ${id})",
+	"benefit.voucher.void_batch":    "Batch voided ${count} benefit vouchers (skipped ${skipped})",
+	"benefit.activity.create":       "Created benefit activity ${name} (ID: ${id})",
+	"benefit.activity.delete_batch": "Batch deleted ${count} benefit activities (skipped ${skipped})",
+	"benefit.activity.update":       "Updated benefit activity (ID: ${id})",
+	"benefit.activity.publish":      "Published benefit activity (ID: ${id})",
+	"benefit.activity.pause":        "Paused benefit activity (ID: ${id})",
+	"benefit.activity.resume":       "Resumed benefit activity (ID: ${id})",
+	"benefit.activity.end":          "Ended benefit activity (ID: ${id})",
+	"benefit.activity.terminate":    "Terminated benefit activity (ID: ${id}, mode ${mode}, reason ${reason})",
+	"benefit.voucher.void":          "Voided benefit voucher (ID: ${id}, reason ${reason})",
 
 	"subscription.plan_reset":      "Reset active subscriptions for plan ${plan_id}",
 	"subscription.user_plan_reset": "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
@@ -105,6 +124,13 @@ func recordManageAuditFor(c *gin.Context, targetUserId int, action string, param
 		params["target_user_id"] = targetUserId
 	}
 	model.RecordOperationAuditLog(operatorUserId, auditContentEN(action, params), c.ClientIP(), action, params, auditOperatorInfo(c), nil)
+	markAuditLogged(c)
+}
+
+// recordTargetUserManageAudit 记录影响用户账户的管理操作。日志归属目标用户，
+// 供用户核对余额变更；管理员身份仅保存在管理员可见的 admin_info 中。
+func recordTargetUserManageAudit(c *gin.Context, targetUserId int, action string, params map[string]interface{}) {
+	model.RecordOperationAuditLog(targetUserId, auditContentEN(action, params), c.ClientIP(), action, params, auditOperatorInfo(c), nil)
 	markAuditLogged(c)
 }
 

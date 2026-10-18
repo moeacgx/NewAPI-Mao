@@ -641,7 +641,7 @@ function ArchiveTargetCard({
               />
               <FieldDescription>
                 {t(
-                  'Use an absolute directory path on the server running New API.'
+                  'Use an absolute directory path on the server running NewAPI-Mao.'
                 )}
               </FieldDescription>
             </Field>
@@ -928,6 +928,10 @@ export function SecurityAuditRequestArchiveView() {
       {
         value: 'upstream_policy',
         label: t('Official risk control (cyber_policy)'),
+      },
+      {
+        value: 'biological_risk',
+        label: t('Biological risk (upstream)'),
       },
       { value: 'sensitive_word', label: t('Sensitive words') },
       { value: 'prompt_guard', label: t('Prompt Guard') },

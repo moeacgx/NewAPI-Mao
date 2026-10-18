@@ -87,6 +87,44 @@ test('classic canvas launcher exposes optional capability groups', () => {
   assert.match(source, /showClear/);
 });
 
+test('classic canvas launcher prefers the permitted configured default group', () => {
+  const source = readSource('pages/Canvas/index.jsx');
+
+  assert.match(source, /canvas_default_group/);
+  assert.match(
+    source,
+    /groupOptions\.find\([\s\S]*?group\.value === canvas_default_group/,
+  );
+});
+
+test('classic canvas launcher puts auto group first in the group selector', () => {
+  const source = readSource('pages/Canvas/index.jsx');
+
+  assert.match(source, /processGroupsData\(data,\s*'auto',\s*userGroup\)/);
+});
+
+test('classic model settings expose the canvas default group selector', () => {
+  const source = readSource('pages/Setting/Model/SettingGlobalModel.jsx');
+
+  assert.match(source, /global\.canvas_default_group/);
+  assert.match(
+    source,
+    /用户首次打开无限画布时会自动选中此分组，仍可手动切换。/,
+  );
+});
+
+test('classic model settings include the selectable auto group option', () => {
+  const modelSettingSource = readSource('components/settings/ModelSetting.jsx');
+  const globalSettingSource = readSource(
+    'pages/Setting/Model/SettingGlobalModel.jsx',
+  );
+
+  assert.match(modelSettingSource, /res\.data\.auto_group/);
+  assert.match(modelSettingSource, /autoGroup=\{autoGroup\}/);
+  assert.match(globalSettingSource, /buildCanvasDefaultGroupOptions/);
+  assert.match(globalSettingSource, /group\.value === 'auto'/);
+});
+
 test('classic group selector displays group names instead of descriptions', () => {
   const source = readSource('helpers/api.js');
   const renderSource = readSource('helpers/render.jsx');

@@ -92,6 +92,35 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 		openAITools = append(openAITools, openAITool)
 	}
 	openAIRequest.Tools = openAITools
+	if claudeRequest.ToolChoice != nil {
+		choice, err := kitutil.Any2Type[struct {
+			Type                   string `json:"type"`
+			Name                   string `json:"name"`
+			DisableParallelToolUse *bool  `json:"disable_parallel_tool_use"`
+		}](claudeRequest.ToolChoice)
+		if err != nil {
+			return nil, fmt.Errorf("invalid tool_choice: %w", err)
+		}
+		switch choice.Type {
+		case "auto", "none":
+			openAIRequest.ToolChoice = choice.Type
+		case "any":
+			openAIRequest.ToolChoice = "required"
+		case "tool":
+			if strings.TrimSpace(choice.Name) == "" {
+				return nil, fmt.Errorf("tool_choice name is required for type tool")
+			}
+			openAIRequest.ToolChoice = map[string]any{
+				"type":     "function",
+				"function": map[string]any{"name": choice.Name},
+			}
+		default:
+			return nil, fmt.Errorf("unsupported tool_choice type %q", choice.Type)
+		}
+		if choice.DisableParallelToolUse != nil {
+			openAIRequest.ParallelTooCalls = kitutil.GetPointer(!*choice.DisableParallelToolUse)
+		}
+	}
 
 	openAIMessages := make([]dto.Message, 0)
 	if claudeRequest.System != nil {

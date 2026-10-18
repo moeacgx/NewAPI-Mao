@@ -288,7 +288,7 @@ type SubscriptionOrder struct {
 	PaidAmountCNY        float64 `json:"paid_amount_cny"`
 	PromoCodeId          int     `json:"promo_code_id" gorm:"index"`
 	PromoCode            string  `json:"promo_code" gorm:"type:varchar(64);default:''"`
-	AffiliateSourceQuota int     `json:"affiliate_source_quota"`
+	AffiliateSourceQuota int64   `json:"affiliate_source_quota" gorm:"type:bigint"`
 	InvoiceRequired      bool    `json:"invoice_required"`
 	InvoiceType          string  `json:"invoice_type" gorm:"type:varchar(32);default:''"`
 	InvoiceKind          string  `json:"invoice_kind" gorm:"type:varchar(32);default:''"`
@@ -474,7 +474,7 @@ type SubscriptionSummary struct {
 
 // subscriptionOrderAffiliateSourceQuota returns only the business entitlement snapshot.
 // Invoice fees and provider-side totals are intentionally excluded.
-func subscriptionOrderAffiliateSourceQuota(order *SubscriptionOrder) int {
+func subscriptionOrderAffiliateSourceQuota(order *SubscriptionOrder) int64 {
 	if order == nil || order.AffiliateSourceQuota <= 0 {
 		return 0
 	}
@@ -938,7 +938,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
-	var logRequestIP string
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
@@ -1004,7 +1003,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
-		logRequestIP = order.RequestIP
 		return nil
 	})
 	if err != nil {
@@ -1015,7 +1013,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
-		RecordTopupLog(logUserId, msg, logRequestIP, logPaymentMethod, expectedPaymentProvider)
+		RecordTopupLog(logUserId, msg, logPaymentMethod, expectedPaymentProvider)
 	}
 	return nil
 }
@@ -1032,7 +1030,6 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
-	var logRequestIP string
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
@@ -1090,7 +1087,6 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
-		logRequestIP = order.RequestIP
 		return nil
 	})
 	if err != nil {
@@ -1104,7 +1100,7 @@ func CompleteFreeSubscriptionOrder(tradeNo string, expectedPaymentProvider strin
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
-		RecordTopupLog(logUserId, msg, logRequestIP, logPaymentMethod, expectedPaymentProvider)
+		RecordTopupLog(logUserId, msg, logPaymentMethod, expectedPaymentProvider)
 	}
 	return nil
 }
@@ -1239,7 +1235,7 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	return "", nil
 }
 
-func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
+func calcSubscriptionBalanceQuota(priceAmount float64) (int64, error) {
 	if priceAmount <= 0 {
 		return 0, nil
 	}
@@ -1249,7 +1245,7 @@ func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 	quota := decimal.NewFromFloat(priceAmount).
 		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
 		Ceil()
-	return common.QuotaFromDecimalStrict(quota)
+	return common.WalletQuotaFromDecimalStrict(quota)
 }
 
 // PurchaseSubscriptionWithBalance creates a subscription by deducting the user's wallet quota.
@@ -1275,7 +1271,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, promoCode string, r
 
 	var logPlanTitle string
 	var logMoney float64
-	var chargedQuota int
+	var chargedQuota int64
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
@@ -1407,7 +1403,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, promoCode string, r
 		refreshSubscriptionUserGroupCache(userId, "subscription balance purchase")
 	}
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
-	RecordTopupLog(userId, msg, requestIP, PaymentMethodBalance, PaymentProviderBalance)
+	RecordTopupLog(userId, msg, PaymentMethodBalance, PaymentProviderBalance)
 	return nil
 }
 
@@ -1441,6 +1437,34 @@ func HasActiveUserSubscription(userId int) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// GetUserSubscriptionAvailableQuota returns the currently reservable quota
+// across active subscriptions. A non-positive AmountTotal is treated as
+// unlimited and returns MaxInt64 so composite billing can consume the
+// requested amount directly.
+func GetUserSubscriptionAvailableQuota(userId int) (int64, error) {
+	if userId <= 0 {
+		return 0, errors.New("invalid userId")
+	}
+	now := GetDBTimestamp()
+	var subscriptions []UserSubscription
+	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).Find(&subscriptions).Error; err != nil {
+		return 0, err
+	}
+	var available int64
+	for _, subscription := range subscriptions {
+		if subscription.AmountTotal <= 0 {
+			return int64(^uint64(0) >> 1), nil
+		}
+		if remain := subscription.AmountTotal - subscription.AmountUsed; remain > 0 {
+			if available > int64(^uint64(0)>>1)-remain {
+				return int64(^uint64(0) >> 1), nil
+			}
+			available += remain
+		}
+	}
+	return available, nil
 }
 
 // UserActiveSubscriptionsAllowWalletOverflow returns whether wallet balance may be used

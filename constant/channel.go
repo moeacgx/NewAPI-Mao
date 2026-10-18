@@ -58,9 +58,21 @@ const (
 	ChannelTypeAdvancedCustom = 58
 	ChannelTypeSub2API        = 59
 	ChannelTypeNewAPI         = 60
-	ChannelTypeDummy          // this one is only for count, do not add any channel after this
+	ChannelTypeAtlasCloud     = 61
+	ChannelTypeTaskPlugin     = 62
+	ChannelTypeDummy          = 63 // this one is only for count, do not add any channel after this
 
 )
+
+// SupportsForceResponses 仅允许最终请求仍为 Responses 的上游适配器。
+func SupportsForceResponses(channelType int) bool {
+	switch channelType {
+	case ChannelTypeOpenAI, ChannelTypeAzure, ChannelTypeXai, ChannelTypeCodex, ChannelTypeSub2API, ChannelTypeNewAPI:
+		return true
+	default:
+		return false
+	}
+}
 
 var ChannelBaseURLs = []string{
 	"",                                    // 0
@@ -124,6 +136,9 @@ var ChannelBaseURLs = []string{
 	"",                                          //58
 	"",                                          //59
 	"",                                          //60
+	"https://api.atlascloud.ai",                 //61
+	"",                                          // 62 ?? JS Task Plugin
+
 }
 
 var ChannelTypeNames = map[int]string{
@@ -184,6 +199,8 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeAdvancedCustom: "Advanced Custom",
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "New API",
+	ChannelTypeAtlasCloud:     "AtlasCloud",
+	ChannelTypeTaskPlugin:     "TaskPlugin",
 }
 
 func GetChannelTypeName(channelType int) string {

@@ -267,6 +267,27 @@ type GeminiFileData struct {
 	FileUri  string `json:"fileUri,omitempty"`
 }
 
+// UnmarshalJSON allows GeminiFileData to accept both snake_case and camelCase fields.
+func (d *GeminiFileData) UnmarshalJSON(data []byte) error {
+	type Alias GeminiFileData
+	var aux struct {
+		Alias
+		MimeTypeSnake string `json:"mime_type,omitempty"`
+		FileURISnake  string `json:"file_uri,omitempty"`
+	}
+	if err := kitutil.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*d = GeminiFileData(aux.Alias)
+	if aux.MimeTypeSnake != "" {
+		d.MimeType = aux.MimeTypeSnake
+	}
+	if aux.FileURISnake != "" {
+		d.FileUri = aux.FileURISnake
+	}
+	return nil
+}
+
 type GeminiPart struct {
 	Text             string                  `json:"text,omitempty"`
 	Thought          bool                    `json:"thought,omitempty"`
@@ -289,6 +310,7 @@ func (p *GeminiPart) UnmarshalJSON(data []byte) error {
 	var aux struct {
 		Alias
 		InlineDataSnake *GeminiInlineData `json:"inline_data,omitempty"` // snake_case variant
+		FileDataSnake   *GeminiFileData   `json:"file_data,omitempty"`
 	}
 
 	if err := kitutil.Unmarshal(data, &aux); err != nil {
@@ -303,6 +325,9 @@ func (p *GeminiPart) UnmarshalJSON(data []byte) error {
 		p.InlineData = aux.InlineDataSnake
 	} else if aux.InlineData != nil { // Fallback to camelCase from Alias
 		p.InlineData = aux.InlineData
+	}
+	if aux.FileDataSnake != nil {
+		p.FileData = aux.FileDataSnake
 	}
 	// Other fields like Text, FunctionCall etc. are already populated via aux.Alias
 
@@ -464,6 +489,7 @@ type GeminiChatResponse struct {
 	Candidates       []GeminiChatCandidate     `json:"candidates"`
 	PromptFeedback   *GeminiChatPromptFeedback `json:"promptFeedback,omitempty"`
 	UsageMetadata    GeminiUsageMetadata       `json:"usageMetadata"`
+	ModelVersion     string                    `json:"modelVersion,omitempty"`
 	HasUsageMetadata bool                      `json:"-"`
 }
 
@@ -478,12 +504,14 @@ func (r *GeminiChatResponse) UnmarshalJSON(data []byte) error {
 		Candidates     []GeminiChatCandidate     `json:"candidates"`
 		PromptFeedback *GeminiChatPromptFeedback `json:"promptFeedback,omitempty"`
 		UsageMetadata  *GeminiUsageMetadata      `json:"usageMetadata"`
+		ModelVersion   string                    `json:"modelVersion,omitempty"`
 	}
 	if err := kitutil.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 	r.Candidates = aux.Candidates
 	r.PromptFeedback = aux.PromptFeedback
+	r.ModelVersion = aux.ModelVersion
 	r.HasUsageMetadata = aux.UsageMetadata != nil
 	if aux.UsageMetadata != nil {
 		r.UsageMetadata = *aux.UsageMetadata

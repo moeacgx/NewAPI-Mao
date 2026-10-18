@@ -25,6 +25,8 @@ import {
   Toast,
   Typography,
   Select,
+  Popover,
+  Checkbox,
 } from '@douyinfe/semi-ui';
 import {
   API,
@@ -32,16 +34,15 @@ import {
   getModelCategories,
   selectFilter,
 } from '../../../helpers';
-import CardPro from '../../common/ui/CardPro';
+import './tokens.css';
+import TokensPagination from './TokensPagination';
 import TokensTable from './TokensTable';
 import TokensActions from './TokensActions';
 import TokensFilters from './TokensFilters';
-import TokensDescription from './TokensDescription';
+
 import EditTokenModal from './modals/EditTokenModal';
 import CCSwitchModal from './modals/CCSwitchModal';
 import { useTokensData } from '../../../hooks/tokens/useTokensData';
-import { useIsMobile } from '../../../hooks/common/useIsMobile';
-import { createCardProPagination } from '../../../helpers/utils';
 
 function TokensPage() {
   // Define the function first, then pass it into the hook to avoid TDZ errors
@@ -51,7 +52,33 @@ function TokensPage() {
     (key) => openFluentNotificationRef.current?.(key),
     (key) => openCCSwitchModalRef.current?.(key),
   );
-  const isMobile = useIsMobile();
+  const pageRef = useRef(null);
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    const resize = () =>
+      page.style.setProperty(
+        '--tokens-available-height',
+        Math.max(
+          400,
+          window.innerHeight - page.getBoundingClientRect().top - 16,
+        ) + 'px',
+      );
+    resize();
+    window.addEventListener('resize', resize);
+    const observer = new ResizeObserver(resize);
+    observer.observe(page.parentElement);
+    return () => {
+      window.removeEventListener('resize', resize);
+      observer.disconnect();
+    };
+  }, []);
+  const [visibleColumns, setVisibleColumns] = useState([
+    'model_limits',
+    'allow_ips',
+    'activity_time',
+    'expired_time',
+  ]);
   const latestRef = useRef({
     tokens: [],
     selectedKeys: [],
@@ -367,10 +394,6 @@ function TokensPage() {
     loading,
     searching,
 
-    // Description state
-    compactMode,
-    setCompactMode,
-
     // Translation
     t,
   } = tokensData;
@@ -391,51 +414,68 @@ function TokensPage() {
         modelOptions={modelOptions}
       />
 
-      <CardPro
-        type='type1'
-        descriptionArea={
-          <TokensDescription
-            compactMode={compactMode}
-            setCompactMode={setCompactMode}
+      <section ref={pageRef} className='tokens-page'>
+        <header className='tokens-page-header'>
+          <h1>{t('API keys')}</h1>
+          <TokensActions
+            selectedKeys={selectedKeys}
+            setEditingToken={setEditingToken}
+            setShowEdit={setShowEdit}
+            batchCopyTokens={batchCopyTokens}
+            batchDeleteTokens={batchDeleteTokens}
             t={t}
           />
-        }
-        actionsArea={
-          <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
-            <TokensActions
-              selectedKeys={selectedKeys}
-              setEditingToken={setEditingToken}
-              setShowEdit={setShowEdit}
-              batchCopyTokens={batchCopyTokens}
-              batchDeleteTokens={batchDeleteTokens}
-              t={t}
-            />
-
-            <div className='w-full md:w-full lg:w-auto order-1 md:order-2'>
-              <TokensFilters
-                formInitValues={formInitValues}
-                setFormApi={setFormApi}
-                searchTokens={searchTokens}
-                loading={loading}
-                searching={searching}
-                t={t}
-              />
-            </div>
-          </div>
-        }
-        paginationArea={createCardProPagination({
-          currentPage: tokensData.activePage,
-          pageSize: tokensData.pageSize,
-          total: tokensData.tokenCount,
-          onPageChange: tokensData.handlePageChange,
-          onPageSizeChange: tokensData.handlePageSizeChange,
-          isMobile: isMobile,
-          t: tokensData.t,
-        })}
-        t={tokensData.t}
-      >
-        <TokensTable {...tokensData} />
-      </CardPro>
+        </header>
+        <div className='tokens-page-toolbar'>
+          <TokensFilters
+            formInitValues={formInitValues}
+            setFormApi={setFormApi}
+            searchTokens={searchTokens}
+            loading={loading}
+            searching={searching}
+            t={t}
+          />
+          <Popover
+            trigger='click'
+            position='bottomRight'
+            content={
+              <div className='tokens-view-content'>
+                {[
+                  ['model_limits', '可用模型'],
+                  ['allow_ips', 'IP限制'],
+                  ['activity_time', '时间'],
+                  ['expired_time', '过期时间'],
+                ].map(([key, label]) => (
+                  <Checkbox
+                    key={key}
+                    checked={visibleColumns.includes(key)}
+                    onChange={(e) =>
+                      setVisibleColumns((current) =>
+                        e.target.checked
+                          ? [...current, key]
+                          : current.filter((item) => item !== key),
+                      )
+                    }
+                  >
+                    {t(label)}
+                  </Checkbox>
+                ))}
+              </div>
+            }
+          >
+            <Button
+              className='tokens-view'
+              theme='outline'
+              type='tertiary'
+              size='small'
+            >
+              {t('查看')}
+            </Button>
+          </Popover>
+        </div>
+        <TokensTable {...tokensData} visibleColumns={visibleColumns} />
+        <TokensPagination {...tokensData} />
+      </section>
     </>
   );
 }

@@ -122,7 +122,7 @@ func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
 //  2. 连续的 % 合并为单个 %
 //  3. 最多允许 2 个 %
 //  4. 含 % 时（模糊搜索），去掉 % 后关键词长度必须 >= 2
-//  5. 不含 % 时按精确匹配
+//  5. 不含 % 时默认执行包含匹配
 func sanitizeLikePattern(input string) (string, error) {
 	// 1. 先转义 ESCAPE 字符 ! 自身，再转义 _
 	//    使用 ! 而非 \ 作为 ESCAPE 字符，避免 MySQL 中反斜杠的字符串转义问题
@@ -133,7 +133,11 @@ func sanitizeLikePattern(input string) (string, error) {
 		return "", err
 	}
 
-	// 5. 无 % 时，精确全匹配
+	// 普通关键词按字面量包含匹配，显式 % 通配符仍按原样使用。
+	if !strings.Contains(input, "%") {
+		return "%" + input + "%", nil
+	}
+
 	return input, nil
 }
 
@@ -162,7 +166,7 @@ func validateLikePattern(input string) error {
 
 const searchHardLimit = 100
 
-func SearchUserTokens(userId int, keyword string, token string, offset int, limit int) (tokens []*Token, total int64, err error) {
+func SearchUserTokens(userId int, keyword string, token string, offset int, limit int, statuses ...int) (tokens []*Token, total int64, err error) {
 	// model 层强制截断
 	if limit <= 0 || limit > searchHardLimit {
 		limit = searchHardLimit
@@ -190,6 +194,9 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	}
 
 	baseQuery := DB.Model(&Token{}).Where("user_id = ?", userId)
+	if len(statuses) > 0 && statuses[0] > 0 {
+		baseQuery = baseQuery.Where("status = ?", statuses[0])
+	}
 
 	// 非空才加 LIKE 条件，空则跳过（不过滤该字段）
 	if keyword != "" {

@@ -89,7 +89,7 @@ func TestBepusdtAttemptAmountToleranceIsBounded(t *testing.T) {
 
 func TestCompleteTopUpPaymentAttemptRetainsAtomicMaxQuotaGuard(t *testing.T) {
 	db := setupTopUpPaymentAttemptTestDB(t)
-	user := User{Id: 19, Username: "attempt-limit-user", Quota: common.MaxQuota - 5, Status: common.UserStatusEnabled, Group: "default"}
+	user := User{Id: 19, Username: "attempt-limit-user", Quota: common.MaxWalletQuota - 5, Status: common.UserStatusEnabled, Group: "default"}
 	require.NoError(t, db.Create(&user).Error)
 	topUp := TopUp{UserId: user.Id, Amount: 1, Money: 7.2, CreditedQuota: 10, TradeNo: "limit-order", PaymentMethod: PaymentMethodOkpay, PaymentProvider: PaymentProviderOkpay, CreateTime: common.GetTimestamp(), Status: common.TopUpStatusPending}
 	require.NoError(t, db.Create(&topUp).Error)
@@ -97,11 +97,11 @@ func TestCompleteTopUpPaymentAttemptRetainsAtomicMaxQuotaGuard(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, MarkTopUpPaymentAttemptLaunched(attempt.Id, "provider-limit"))
 
-	_, err = CompleteTopUpPaymentAttempt(attempt.Id, topUp.TradeNo, PaymentProviderOkpay, PaymentMethodOkpay, "127.0.0.1")
+	_, err = CompleteTopUpPaymentAttempt(attempt.Id, topUp.TradeNo, PaymentProviderOkpay, PaymentMethodOkpay)
 
 	require.ErrorIs(t, err, ErrTopUpQuotaLimitExceeded)
 	require.NoError(t, db.First(&user, user.Id).Error)
-	require.Equal(t, common.MaxQuota-5, user.Quota)
+	require.EqualValues(t, common.MaxWalletQuota-5, user.Quota)
 	require.NoError(t, db.First(&topUp, topUp.Id).Error)
 	require.Equal(t, common.TopUpStatusPending, topUp.Status)
 	require.NoError(t, db.First(&attempt, attempt.Id).Error)
@@ -139,7 +139,7 @@ func TestTopUpPaymentAttemptCallbackEligibilityUsesQueryWindow(t *testing.T) {
 			}
 
 			require.ErrorIs(t, err, ErrTopUpPaymentAttemptNotFound)
-			_, err = CompleteTopUpPaymentAttempt(attempt.Id, topUp.TradeNo, PaymentProviderOkpay, PaymentMethodOkpay, "127.0.0.1")
+			_, err = CompleteTopUpPaymentAttempt(attempt.Id, topUp.TradeNo, PaymentProviderOkpay, PaymentMethodOkpay)
 			require.ErrorIs(t, err, ErrTopUpPaymentAttemptNotFound)
 			require.NoError(t, db.First(&topUp, topUp.Id).Error)
 			require.Equal(t, common.TopUpStatusPending, topUp.Status)

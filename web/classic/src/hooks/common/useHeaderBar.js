@@ -26,15 +26,19 @@ import { useSetTheme, useTheme, useActualTheme } from '../../context/Theme';
 import { getLogo, getSystemName, API, showSuccess } from '../../helpers';
 import { normalizeLanguage } from '../../i18n/language';
 import { useIsMobile } from './useIsMobile';
-import { useSidebarCollapsed } from './useSidebarCollapsed';
 import { useMinimumLoadingTime } from './useMinimumLoadingTime';
+import { isConsolePath } from '../../components/layout/headerbar/consoleHeaderBehavior';
 
-export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
+export const useHeaderBar = ({
+  onMobileMenuToggle,
+  drawerOpen,
+  collapsed,
+  onSidebarToggle,
+}) => {
   const { t, i18n } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
   const isMobile = useIsMobile();
-  const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [currentLang, setCurrentLang] = useState(
     normalizeLanguage(i18n.language),
@@ -103,7 +107,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     return false; // 默认不需要登录
   }, [headerNavModules]);
 
-  const isConsoleRoute = location.pathname.startsWith('/console');
+  const isConsoleRoute = isConsolePath(location.pathname);
 
   const theme = useTheme();
   const actualTheme = useActualTheme();
@@ -155,7 +159,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 
   // Actions
   const logout = useCallback(async () => {
-    await API.get('/api/user/logout');
+    await API.post('/api/user/auth/logout', null);
     showSuccess(t('注销成功!'));
     userDispatch({ type: 'logout' });
     localStorage.removeItem('user');
@@ -227,17 +231,16 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   const handleMobileMenuToggle = useCallback(() => {
     if (isMobile) {
       onMobileMenuToggle();
-    } else {
-      toggleCollapsed();
+      return;
     }
-  }, [isMobile, onMobileMenuToggle, toggleCollapsed]);
+    onSidebarToggle();
+  }, [isMobile, onMobileMenuToggle, onSidebarToggle]);
 
   return {
     // State
     userState,
     statusState,
     isMobile,
-    collapsed,
     logoLoaded,
     currentLang,
     location,

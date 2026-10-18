@@ -53,7 +53,9 @@ export const useModelPricingData = () => {
   const [currency, setCurrency] = useState('USD');
   const [showWithRecharge, setShowWithRecharge] = useState(false);
   const [tokenUnit, setTokenUnit] = useState('M');
+  const [sortBy, setSortBy] = useState('name');
   const [models, setModels] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [vendorsMap, setVendorsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [groupRatio, setGroupRatio] = useState({});
@@ -84,7 +86,7 @@ export const useModelPricingData = () => {
     [statusState],
   );
 
-  // 默认货币与站点展示类型同步；TOKENS 由视图层走倍率展示
+  // 默认货币与站点展示类型同步；TOKENS 额度模式默认使用美元价格
   const siteDisplayType = useMemo(
     () => statusState?.status?.quota_display_type || 'USD',
     [statusState],
@@ -101,7 +103,6 @@ export const useModelPricingData = () => {
 
   useEffect(() => {
     if (siteDisplayType === 'TOKENS') {
-      setShowWithRecharge(false);
       setCurrency('USD');
     }
   }, [siteDisplayType]);
@@ -166,11 +167,33 @@ export const useModelPricingData = () => {
             model.description.toLowerCase().includes(searchTerm)) ||
           (model.tags && model.tags.toLowerCase().includes(searchTerm)) ||
           (model.vendor_name &&
-            model.vendor_name.toLowerCase().includes(searchTerm)),
+            model.vendor_name.toLowerCase().includes(searchTerm)) ||
+          (Array.isArray(model.supported_endpoint_types) &&
+            model.supported_endpoint_types.some((endpoint) =>
+              String(endpoint).toLowerCase().includes(searchTerm),
+            )),
       );
     }
 
-    return result;
+    const sortedResult = [...result];
+    const getSortPrice = (model) => {
+      const value =
+        model.quota_type === 0 ? model.model_ratio : model.model_price;
+      const price = Number(value);
+      return Number.isFinite(price) ? price : 0;
+    };
+
+    if (sortBy === 'price-low') {
+      sortedResult.sort((a, b) => getSortPrice(a) - getSortPrice(b));
+    } else if (sortBy === 'price-high') {
+      sortedResult.sort((a, b) => getSortPrice(b) - getSortPrice(a));
+    } else {
+      sortedResult.sort((a, b) =>
+        String(a.model_name || '').localeCompare(String(b.model_name || '')),
+      );
+    }
+
+    return sortedResult;
   }, [
     models,
     searchValue,
@@ -179,6 +202,7 @@ export const useModelPricingData = () => {
     filterEndpointType,
     filterVendor,
     filterTag,
+    sortBy,
   ]);
 
   const rowSelection = useMemo(
@@ -249,7 +273,7 @@ export const useModelPricingData = () => {
       success,
       message,
       data,
-      vendors,
+      vendors: pricingVendors,
       group_ratio,
       group_names,
       usable_group,
@@ -269,11 +293,12 @@ export const useModelPricingData = () => {
       setSelectedGroup('all');
       // 构建供应商 Map 方便查找
       const vendorMap = {};
-      if (Array.isArray(vendors)) {
-        vendors.forEach((v) => {
+      if (Array.isArray(pricingVendors)) {
+        pricingVendors.forEach((v) => {
           vendorMap[v.id] = v;
         });
       }
+      setVendors(Array.isArray(pricingVendors) ? pricingVendors : []);
       setVendorsMap(vendorMap);
       setEndpointMap(supported_endpoint || {});
       setAutoGroups(auto_groups || []);
@@ -380,6 +405,7 @@ export const useModelPricingData = () => {
     filterVendor,
     filterTag,
     searchValue,
+    sortBy,
   ]);
 
   return {
@@ -419,7 +445,10 @@ export const useModelPricingData = () => {
     setShowWithRecharge,
     tokenUnit,
     setTokenUnit,
+    sortBy,
+    setSortBy,
     models,
+    vendors,
     loading,
     groupRatio,
     groupNames,

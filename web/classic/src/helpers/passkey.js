@@ -148,30 +148,6 @@ export function buildAssertionResult(assertion) {
 }
 
 export async function isPasskeySupported() {
-  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-    return false;
-  }
-  if (
-    typeof window.PublicKeyCredential.isConditionalMediationAvailable ===
-    'function'
-  ) {
-    try {
-      const available =
-        await window.PublicKeyCredential.isConditionalMediationAvailable();
-      if (available) return true;
-    } catch (error) {
-      // ignore
-    }
-  }
-  if (
-    typeof window.PublicKeyCredential
-      .isUserVerifyingPlatformAuthenticatorAvailable === 'function'
-  ) {
-    try {
-      return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    } catch (error) {
-      return false;
-    }
-  }
-  return true;
+  // 平台认证器不可用时，仍允许 USB/NFC 密钥及跨设备认证。
+  return typeof window !== 'undefined' && Boolean(window.PublicKeyCredential);
 }

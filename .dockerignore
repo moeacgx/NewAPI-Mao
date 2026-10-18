@@ -15,4 +15,6 @@ docs
 **/dist
 **/.vite
 **/package-lock.json
+/maolaonewapi-extensions
+/maolaonewapi-plugins
 !THIRD-PARTY-LICENSES.md

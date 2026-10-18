@@ -116,6 +116,11 @@ func UsageFromResponsesUsage(src *dto.Usage) *dto.Usage {
 	return oairesponses.UsageFromResponsesUsage(src)
 }
 
+// NormalizeResponsesUsage 归一原生 Responses 结算字段，不新建协议转换计费快照。
+func NormalizeResponsesUsage(src *dto.Usage) *dto.Usage {
+	return oairesponses.NormalizeResponsesUsage(src)
+}
+
 func ExtractOutputTextFromResponses(resp *dto.OpenAIResponsesResponse) string {
 	return oairesponses.ExtractOutputTextFromResponses(resp)
 }

@@ -68,6 +68,8 @@ export interface DrawingLogFilters extends CommonFilters {
  */
 export interface TaskLogFilters extends CommonFilters {
   taskId?: string
+  model?: string
+  username?: string
 }
 
 /**
@@ -84,6 +86,7 @@ export type LogFilters = CommonLogFilters | DrawingLogFilters | TaskLogFilters
  */
 export interface ChannelAffinityInfo {
   rule_name?: string
+  reason?: string
   selected_group?: string
   key_source?: string
   key_path?: string
@@ -119,6 +122,19 @@ export interface ToolSurchargeItem {
   price: number
 }
 
+export interface TieredBillingTokenParams {
+  p?: number
+  c?: number
+  len?: number
+  cr?: number
+  cc?: number
+  cc1h?: number
+  img?: number
+  img_o?: number
+  ai?: number
+  ao?: number
+}
+
 export interface LogOtherData {
   [key: `billing_formula_calc_${string}`]: string | number | undefined
   [key: `billing_formula_var_${string}`]: string | number | undefined
@@ -151,6 +167,13 @@ export interface LogOtherData {
       original: number
       clamped: number
     }
+  }
+  billing_breakdown?: {
+    voucher_quota?: number
+    subscription_quota?: number
+    wallet_quota?: number
+    activity_id?: number
+    voucher_id?: number
   }
   // Language-independent operation descriptor (audit/login logs).
   // Frontend renders localized content from action + params via i18n templates.
@@ -208,6 +231,8 @@ export interface LogOtherData {
   cache_creation_ratio_1h?: number
   is_model_mapped?: boolean
   upstream_model_name?: string
+  /** 上游响应声明的模型标识（仅管理员日志视图可见）。 */
+  upstream_response_model_name?: string
   audio_ratio?: number
   audio_completion_ratio?: number
   frt?: number
@@ -218,6 +243,15 @@ export interface LogOtherData {
   // settlement run.
   billing_mode?: string
   expr_b64?: string
+  actual_quota_before_group?: number
+  actual_quota_after_group?: number
+  estimated_tier?: string
+  estimated_quota_before_group?: number
+  estimated_quota_after_group?: number
+  quota_per_unit?: number
+  request_multiplier?: number
+  crossed_tier?: boolean
+  tiered_token_params?: TieredBillingTokenParams
   matched_tier?: string
   request_rules?: RequestRuleTrace[]
   reasoning_effort?: string
@@ -421,6 +455,8 @@ export interface GetTaskLogsParams {
   page_size?: number
   channel_id?: string
   task_id?: string
+  model_name?: string
+  username?: string
   start_timestamp?: number
   end_timestamp?: number
 }

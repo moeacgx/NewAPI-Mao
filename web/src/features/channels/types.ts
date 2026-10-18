@@ -89,7 +89,9 @@ export type Channel = z.infer<typeof channelSchema>
 // ============================================================================
 
 export interface ChannelSettings {
+  task_plugin_key?: string
   force_format?: boolean
+  force_responses?: boolean
   thinking_to_content?: boolean
   proxy?: string
   pass_through_body_enabled?: boolean
@@ -208,6 +210,8 @@ export interface ChannelTestResponse {
   message?: string
   error_code?: string
   time?: number
+  /** 上游响应实际声明的模型名称（仅管理员渠道测试返回）。 */
+  upstream_response_model_name?: string
   data?: {
     response_time?: number
     error?: string

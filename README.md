@@ -1,8 +1,13 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+<img src="./docs/images/telegram-panel-banner.jpg" alt="Telegram Panel multi-account operations" width="100%" />
 
-# New API
+![NewAPI-Mao](/web/public/logo.png)
+
+# NewAPI-Mao
+
+本仓库为 [NewAPI-Mao](https://github.com/moeacgx/NewAPI-Mao)，基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 二次开发。上游版权与归属保留。
+项目身份、镜像迁移及保留标识见[开发说明](docs/developer/project-identity.md)。当前部署示例使用已发布的旧 GHCR 兼容路径，新路径须在首次发布验证后使用。
 
 🍥 **Next-Generation LLM Gateway and AI Asset Management System**
 
@@ -18,11 +23,11 @@
   <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
     <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
+  --><a href="https://github.com/moeacgx/NewAPI-Mao/releases/latest">
+    <img src="https://img.shields.io/github/v/release/moeacgx/NewAPI-Mao?color=brightgreen&include_prereleases" alt="release">
   </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
-    <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
+  --><a href="https://github.com/moeacgx/NewAPI-Mao/pkgs/container/maolaonewapi">
+    <img src="https://img.shields.io/badge/docker-GHCR-blue" alt="docker">
   </a>
   <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
     <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/badge.svg"/>
@@ -30,6 +35,7 @@
 </p>
 
 <p align="center">
+  <span>上游 QuantumNous/new-api：</span>
   <a href="https://trendshift.io/repositories/20180" target="_blank">
     <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
   </a>
@@ -54,6 +60,15 @@
 </div>
 
 ## 📝 Project Description
+
+### NewAPI-Mao companion repositories
+
+| Repository | Purpose |
+| --- | --- |
+| [Extension modules](https://github.com/moeacgx/maolaonewapi-extensions) | Dashboard module sources, versioned ZIP packages, checksums and installation catalog |
+| [Task plugins](https://github.com/moeacgx/maolaonewapi-plugins) | Task Plugin adapters and the existing task-plugin marketplace source |
+
+See [repository roles and installation](docs/developer/extension-repositories.md). The two package formats use separate installation flows; modules still require compatible host capabilities.
 
 > [!IMPORTANT]
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.
@@ -112,8 +127,8 @@
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/moeacgx/NewAPI-Mao.git
+cd NewAPI-Mao
 
 # Edit docker-compose.yml configuration
 nano docker-compose.yml
@@ -127,14 +142,15 @@ docker-compose up -d
 
 ```bash
 # Pull the latest image
-docker pull calciumion/new-api:latest
+# NewAPI-Mao 更名前的已发布兼容镜像路径
+docker pull ghcr.io/moeacgx/maolaonewapi:latest
 
 # Using SQLite (default)
 docker run --name new-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 
 # Using MySQL
 docker run --name new-api -d --restart always \
@@ -142,7 +158,7 @@ docker run --name new-api -d --restart always \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 > **💡 Tip:** `-v ./data:/data` will save data in the `data` folder of the current directory, you can also change it to an absolute path like `-v /your/custom/path:/data`
@@ -296,7 +312,8 @@ docker run --name new-api -d --restart always \
 ## 🚢 Deployment
 
 > [!TIP]
-> **Latest Docker image:** `calciumion/new-api:latest`
+> **Latest Docker image:** `ghcr.io/moeacgx/maolaonewapi:latest`
+> NewAPI-Mao 更名前的已发布兼容镜像路径；新镜像发布验收前继续使用。
 
 ### 📋 Deployment Requirements
 
@@ -319,8 +336,8 @@ docker run --name new-api -d --restart always \
 | `SESSION_COOKIE_TRUSTED_URL` | Required with Secure mode: comma-separated exact HTTPS Origins allowed to call refresh/logout; not a relay CORS allowlist | - |
 | `TRUSTED_PROXIES` | Unset/blank trusts loopback, RFC 1918 and IPv6 ULA with a startup warning; `none` trusts no proxies; an explicit proxy IP/CIDR list replaces the defaults | `127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7` |
 | `USER_SESSION_ACTIVE_LIMIT` | Maximum active login Sessions per user | `50` |
-| `USER_SESSION_ISSUANCE_LIMIT` | Maximum Sessions created per user within the issuance window, including revoked Sessions | `100` |
-| `USER_SESSION_ISSUANCE_WINDOW_SECONDS` | Per-user Session issuance window; clamped to the revoked retention period when configured higher | `86400` |
+| `USER_SESSION_ISSUANCE_LIMIT` | Maximum Sessions created per user within the issuance window, including revoked Sessions; `0` disables issuance limiting | `0` |
+| `USER_SESSION_ISSUANCE_WINDOW_SECONDS` | Per-user Session issuance window; even with `USER_SESSION_ISSUANCE_LIMIT=0`, it protects expired/revoked Session cleanup; values above revoked retention are always clamped | `86400` |
 | `USER_SESSION_REVOKED_RETENTION_DAYS` | Days to retain revoked Session rows for audit and issuance accounting | `7` |
 | `USER_SESSION_HOURLY_ALERT_THRESHOLD` | Global Sessions created per hour that triggers an alert only; it never blocks login | `5000` |
 | `CRYPTO_SECRET` | HMAC secret for cache keys; nodes sharing Redis must use the same effective value | Defaults to `SESSION_SECRET` |
@@ -351,8 +368,8 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/moeacgx/NewAPI-Mao.git
+cd NewAPI-Mao
 
 # Edit configuration
 nano docker-compose.yml
@@ -372,7 +389,7 @@ docker run --name new-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 **Using MySQL:**
@@ -382,7 +399,7 @@ docker run --name new-api -d --restart always \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  ghcr.io/moeacgx/maolaonewapi:latest
 ```
 
 > **💡 Path explanation:**
@@ -492,7 +509,7 @@ If your organization's policies do not permit the use of AGPLv3-licensed softwar
 
 <div align="center">
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=moeacgx/NewAPI-Mao&type=Date)](https://star-history.com/#moeacgx/NewAPI-Mao&Date)
 
 </div>
 
@@ -500,11 +517,11 @@ If your organization's policies do not permit the use of AGPLv3-licensed softwar
 
 <div align="center">
 
-### 💖 Thank you for using New API
+### 💖 Thank you for using NewAPI-Mao
 
 If this project is helpful to you, welcome to give us a ⭐️ Star！
 
-**[Official Documentation](https://docs.newapi.pro/en/docs)** • **[Issue Feedback](https://github.com/Calcium-Ion/new-api/issues)** • **[Latest Release](https://github.com/Calcium-Ion/new-api/releases)**
+**[Official Documentation](https://docs.newapi.pro/en/docs)** • **[Issue Feedback](https://github.com/moeacgx/NewAPI-Mao/issues)** • **[Latest Release](https://github.com/moeacgx/NewAPI-Mao/releases)**
 
 <sub>Built with ❤️ by QuantumNous</sub>
 

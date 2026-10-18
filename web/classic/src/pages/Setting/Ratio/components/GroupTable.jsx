@@ -35,6 +35,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import CardTable from '../../../../components/common/ui/CardTable';
 import { createTemporaryGroupCode } from '../../../../helpers';
+import GroupTagFilter from '../../../../components/common/group-tags/GroupTagFilter';
+import useGroupTags from '../../../../hooks/common/useGroupTags';
+import { filterGroupsByTag } from '../../../../helpers/groupTags';
 
 const { Text } = Typography;
 
@@ -61,6 +64,8 @@ export default function GroupTable({
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState(() => buildRows(groups));
+  const { tags } = useGroupTags();
+  const [selectedTag, setSelectedTag] = useState('all');
   const reservedCodesRef = useRef(
     new Set(
       (Array.isArray(groups) ? groups : [])
@@ -130,6 +135,7 @@ export default function GroupTable({
           ratio: 1,
           user_selectable: true,
           exclusive: false,
+          single_user_concurrency_limit: 0,
           status: 1,
           auto_enabled: false,
           auto_order: 0,
@@ -255,6 +261,32 @@ export default function GroupTable({
           ),
       },
       {
+        title: t('单用户并发上限'),
+        dataIndex: 'single_user_concurrency_limit',
+        key: 'single_user_concurrency_limit',
+        width: 130,
+        render: (_, record) =>
+          record._virtualAuto ? (
+            <Text type='tertiary'>0</Text>
+          ) : (
+            <InputNumber
+              size='small'
+              min={0}
+              step={1}
+              value={record.single_user_concurrency_limit ?? 0}
+              disabled={disabled}
+              style={{ width: '100%' }}
+              onChange={(value) =>
+                updateRow(
+                  record._rowId,
+                  'single_user_concurrency_limit',
+                  Math.max(0, Number(value) || 0),
+                )
+              }
+            />
+          ),
+      },
+      {
         title: t('描述'),
         dataIndex: 'description',
         key: 'description',
@@ -312,9 +344,17 @@ export default function GroupTable({
 
   return (
     <div>
+      <GroupTagFilter
+        tags={tags}
+        groups={rows}
+        value={selectedTag}
+        onChange={setSelectedTag}
+        disabled={disabled}
+        compact
+      />
       <CardTable
         columns={columns}
-        dataSource={displayRows}
+        dataSource={filterGroupsByTag(displayRows, tags, selectedTag)}
         rowKey='_rowId'
         hidePagination
         size='small'
@@ -343,7 +383,10 @@ export default function GroupTable({
           icon={<IconPlus />}
           theme='outline'
           disabled={disabled}
-          onClick={addRow}
+          onClick={() => {
+            setSelectedTag('all');
+            addRow();
+          }}
         >
           {t('添加分组')}
         </Button>

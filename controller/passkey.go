@@ -103,8 +103,7 @@ func PasskeyRegisterBegin(c *gin.Context) {
 	}
 	flowToken, expiresAt, err := passkeysvc.CreateSessionDataFlow(
 		model.AuthFlowPurposePasskeyRegister,
-		user.Id,
-		identity.SessionID,
+		identity,
 		securityProofScopePasskeyRegister,
 		sessionData,
 	)
@@ -179,8 +178,7 @@ func PasskeyRegisterFinish(c *gin.Context) {
 	sessionData, _, err := passkeysvc.PopSessionDataFlow(
 		request.FlowToken,
 		model.AuthFlowPurposePasskeyRegister,
-		user.Id,
-		identity.SessionID,
+		identity,
 	)
 	if err != nil {
 		common.ApiError(c, err)
@@ -200,7 +198,7 @@ func PasskeyRegisterFinish(c *gin.Context) {
 		return
 	}
 
-	if err := model.UpsertPasskeyCredentialWithAuthVersion(passkeyCredential); err != nil {
+	if err := model.RegisterPasskeyForSession(identity, passkeyCredential); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -316,8 +314,7 @@ func PasskeyLoginBegin(c *gin.Context) {
 
 	flowToken, expiresAt, err := passkeysvc.CreateSessionDataFlow(
 		model.AuthFlowPurposePasskeyLogin,
-		0,
-		"",
+		service.AuthIdentity{},
 		"",
 		sessionData,
 	)
@@ -366,8 +363,7 @@ func PasskeyLoginFinish(c *gin.Context) {
 	sessionData, _, err := passkeysvc.PopSessionDataFlow(
 		request.FlowToken,
 		model.AuthFlowPurposePasskeyLogin,
-		0,
-		"",
+		service.AuthIdentity{},
 	)
 	if err != nil {
 		common.ApiError(c, err)
@@ -540,8 +536,7 @@ func PasskeyVerifyBegin(c *gin.Context) {
 	}
 	flowToken, expiresAt, err := passkeysvc.CreateSessionDataFlow(
 		model.AuthFlowPurposePasskeyStepUp,
-		user.Id,
-		identity.SessionID,
+		identity,
 		request.Scope,
 		sessionData,
 	)
@@ -613,8 +608,7 @@ func PasskeyVerifyFinish(c *gin.Context) {
 	sessionData, scope, err := passkeysvc.PopSessionDataFlow(
 		request.FlowToken,
 		model.AuthFlowPurposePasskeyStepUp,
-		user.Id,
-		identity.SessionID,
+		identity,
 	)
 	if err != nil {
 		common.ApiError(c, err)

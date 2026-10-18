@@ -47,6 +47,7 @@ export type GroupDetail = {
   ratio: number;
   user_selectable: boolean;
   exclusive: boolean;
+  single_user_concurrency_limit?: number;
   status: number;
   auto_enabled: boolean;
   auto_order: number;
@@ -235,6 +236,7 @@ export type SiteSettings = {
   "theme.frontend": string;
   Notice: string;
   SystemName: string;
+  SystemDescription: string;
   Logo: string;
   Footer: string;
   About: string;
@@ -319,6 +321,7 @@ export type ModelSettings = {
   "global.pass_through_request_enabled": boolean;
   "global.thinking_model_blacklist": string;
   "global.chat_completions_to_responses_policy": string;
+  "global.canvas_default_group": string;
   "general_setting.ping_interval_enabled": boolean;
   "general_setting.ping_interval_seconds": number;
   "gemini.safety_settings": string;

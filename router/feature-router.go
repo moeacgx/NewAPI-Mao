@@ -20,7 +20,7 @@ func registerExtensionRoutes(apiRouter *gin.RouterGroup) {
 	extensionRoute := apiRouter.Group("/extensions")
 	extensionRoute.Use(middleware.UserSessionAuth(), middleware.DisableCache())
 	{
-		extensionRoute.GET("/", controller.ListExtensions)
+		extensionRoute.GET("/", middleware.IssueExtensionSessionCookie(), controller.ListExtensions)
 		extensionRoute.GET("/host/me", controller.GetExtensionHostContext)
 		extensionRoute.GET("/:id/native/:pageKey/:target/:asset", controller.GetExtensionNativeAsset)
 		extensionRoute.Any("/:id/proxy/*path", controller.ProxyExtension)
@@ -29,7 +29,7 @@ func registerExtensionRoutes(apiRouter *gin.RouterGroup) {
 	apiRouter.POST(
 		"/extensions/:id/notification-events",
 		middleware.RootAuth(),
-		middleware.CriticalRateLimit(),
+		middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()),
 		middleware.DisableCache(),
 		controller.PublishExtensionNotificationEvent,
 	)
@@ -38,12 +38,13 @@ func registerExtensionRoutes(apiRouter *gin.RouterGroup) {
 	extensionAdminRoute.Use(middleware.RootAuth())
 	{
 		extensionAdminRoute.GET("/", controller.ListExtensions)
-		extensionAdminRoute.POST("/refresh", middleware.CriticalRateLimit(), controller.RefreshExtensions)
-		extensionAdminRoute.POST("/upload", middleware.CriticalRateLimit(), controller.UploadExtension)
-		extensionAdminRoute.PUT("/:id/enabled", middleware.CriticalRateLimit(), controller.SetExtensionEnabled)
-		extensionAdminRoute.DELETE("/:id", middleware.CriticalRateLimit(), controller.UninstallExtension)
+		extensionAdminRoute.GET("/marketplace", middleware.DisableCache(), controller.GetExtensionMarketplace)
+		extensionAdminRoute.POST("/refresh", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.RefreshExtensions)
+		extensionAdminRoute.POST("/upload", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.UploadExtension)
+		extensionAdminRoute.PUT("/:id/enabled", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.SetExtensionEnabled)
+		extensionAdminRoute.DELETE("/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.UninstallExtension)
 		extensionAdminRoute.GET("/okx-alipay-rate/config", controller.GetOkxAlipayRateConfig)
-		extensionAdminRoute.PUT("/okx-alipay-rate/config", middleware.CriticalRateLimit(), controller.SaveOkxAlipayRateConfig)
+		extensionAdminRoute.PUT("/okx-alipay-rate/config", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.SaveOkxAlipayRateConfig)
 		extensionAdminRoute.GET("/okx-alipay-rate/quote", controller.PreviewOkxAlipayRate)
 	}
 }
@@ -67,9 +68,9 @@ func registerGameRoutes(apiRouter *gin.RouterGroup) {
 	gameAdminRoute.Use(middleware.AdminAuth())
 	{
 		gameAdminRoute.GET("/predictions", middleware.RequirePermission(authz.GameAdminRead), controller.AdminListGamePredictions)
-		gameAdminRoute.POST("/predictions", middleware.RequirePermission(authz.GameAdminWrite), middleware.UserCriticalRateLimit("game-admin-create"), mutationBodyLimit, controller.AdminCreateGamePrediction)
-		gameAdminRoute.PUT("/predictions/:id/answer", middleware.RequirePermission(authz.GameAdminWrite), middleware.UserCriticalRateLimit("game-admin-answer"), mutationBodyLimit, controller.AdminSetGamePredictionAnswer)
-		gameAdminRoute.POST("/predictions/:id/settle", middleware.RequirePermission(authz.GameAdminWrite), middleware.UserCriticalRateLimit("game-admin-settle"), controller.AdminSettleGamePrediction)
+		gameAdminRoute.POST("/predictions", middleware.RequirePermission(authz.GameAdminWrite), middleware.AdminRateLimitBypass(middleware.UserCriticalRateLimit("game-admin-create")), mutationBodyLimit, controller.AdminCreateGamePrediction)
+		gameAdminRoute.PUT("/predictions/:id/answer", middleware.RequirePermission(authz.GameAdminWrite), middleware.AdminRateLimitBypass(middleware.UserCriticalRateLimit("game-admin-answer")), mutationBodyLimit, controller.AdminSetGamePredictionAnswer)
+		gameAdminRoute.POST("/predictions/:id/settle", middleware.RequirePermission(authz.GameAdminWrite), middleware.AdminRateLimitBypass(middleware.UserCriticalRateLimit("game-admin-settle")), controller.AdminSettleGamePrediction)
 	}
 }
 
@@ -83,13 +84,13 @@ func registerNotificationRoutes(apiRouter *gin.RouterGroup) {
 		notificationRoute.GET("/tasks", controller.ListNotificationTasks)
 		notificationRoute.GET("/deliveries", controller.ListNotificationDeliveries)
 
-		notificationRoute.POST("/bots", middleware.CriticalRateLimit(), mutationBodyLimit, controller.CreateNotificationBot)
-		notificationRoute.PUT("/bots/:id", middleware.CriticalRateLimit(), mutationBodyLimit, controller.UpdateNotificationBot)
-		notificationRoute.DELETE("/bots/:id", middleware.CriticalRateLimit(), controller.DisableNotificationBot)
-		notificationRoute.POST("/bots/:id/test", middleware.CriticalRateLimit(), mutationBodyLimit, controller.TestNotificationBot)
-		notificationRoute.POST("/tasks", middleware.CriticalRateLimit(), mutationBodyLimit, controller.CreateNotificationTask)
-		notificationRoute.PUT("/tasks/:id", middleware.CriticalRateLimit(), mutationBodyLimit, controller.UpdateNotificationTask)
-		notificationRoute.DELETE("/tasks/:id", middleware.CriticalRateLimit(), controller.DisableNotificationTask)
+		notificationRoute.POST("/bots", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.CreateNotificationBot)
+		notificationRoute.PUT("/bots/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.UpdateNotificationBot)
+		notificationRoute.DELETE("/bots/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DisableNotificationBot)
+		notificationRoute.POST("/bots/:id/test", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.TestNotificationBot)
+		notificationRoute.POST("/tasks", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.CreateNotificationTask)
+		notificationRoute.PUT("/tasks/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.UpdateNotificationTask)
+		notificationRoute.DELETE("/tasks/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), controller.DisableNotificationTask)
 	}
 }
 

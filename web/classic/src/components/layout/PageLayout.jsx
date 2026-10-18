@@ -31,14 +31,16 @@ import { useTranslation } from 'react-i18next';
 import {
   API,
   getLogo,
-  getSystemName,
   showError,
   setStatusData,
+  readStoredUser,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
 import { normalizeLanguage } from '../../i18n/language';
+import { isConsolePath } from './headerbar/consoleHeaderBehavior';
+import { applySiteMetadataFromStatus } from '../../helpers/siteMetadata';
 const { Sider, Content, Header } = Layout;
 
 const CLASSIC_FRONTEND_VERSION_KEY = 'classic_frontend_version';
@@ -79,7 +81,7 @@ const PageLayout = () => {
   const [userState, userDispatch] = useContext(UserContext);
   const [, statusDispatch] = useContext(StatusContext);
   const isMobile = useIsMobile();
-  const [collapsed, , setCollapsed] = useSidebarCollapsed();
+  const [collapsed, toggleCollapsed, setCollapsed] = useSidebarCollapsed();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { i18n } = useTranslation();
   const location = useLocation();
@@ -102,13 +104,13 @@ const PageLayout = () => {
     location.pathname === '/notification-center';
 
   const shouldInnerPadding =
-    (location.pathname.includes('/console') || isNotificationCenterRoute) &&
+    (isConsolePath(location.pathname) || isNotificationCenterRoute) &&
     !location.pathname.startsWith('/console/chat') &&
     location.pathname !== '/console/playground' &&
     location.pathname !== '/console/canvas';
 
   const isConsoleRoute =
-    location.pathname.startsWith('/console') || isNotificationCenterRoute;
+    isConsolePath(location.pathname) || isNotificationCenterRoute;
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);
 
   useEffect(() => {
@@ -118,10 +120,9 @@ const PageLayout = () => {
   }, [isMobile, drawerOpen, collapsed, setCollapsed]);
 
   const loadUser = () => {
-    let user = localStorage.getItem('user');
+    const user = readStoredUser();
     if (user) {
-      let data = JSON.parse(user);
-      userDispatch({ type: 'login', payload: data });
+      userDispatch({ type: 'login', payload: user });
     }
   };
 
@@ -133,6 +134,7 @@ const PageLayout = () => {
         if (syncClassicFrontendVersion(data?.version)) {
           return;
         }
+        applySiteMetadataFromStatus(data);
         statusDispatch({ type: 'set', payload: data });
         setStatusData(data);
       } else {
@@ -146,10 +148,6 @@ const PageLayout = () => {
   useEffect(() => {
     loadUser();
     loadStatus().catch(console.error);
-    let systemName = getSystemName();
-    if (systemName) {
-      document.title = systemName;
-    }
     let logo = getLogo();
     if (logo) {
       let linkElement = document.querySelector("link[rel~='icon']");
@@ -209,6 +207,8 @@ const PageLayout = () => {
         <HeaderBar
           onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
           drawerOpen={drawerOpen}
+          collapsed={collapsed}
+          onSidebarToggle={toggleCollapsed}
         />
       </Header>
       <Layout
@@ -232,6 +232,8 @@ const PageLayout = () => {
             }}
           >
             <SiderBar
+              collapsed={collapsed}
+              onSidebarToggle={toggleCollapsed}
               onNavigate={() => {
                 if (isMobile) {
                   window.setTimeout(() => setDrawerOpen(false), 0);

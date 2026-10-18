@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -9,11 +10,340 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+func setupLegacyChannelStatusUpdateTestDB(t *testing.T) *model.Channel {
+	t.Helper()
+
+	oldDB := model.DB
+	oldLogDB := model.LOG_DB
+	oldMainType := common.MainDatabaseType()
+	oldLogType := common.LogDatabaseType()
+	oldMemoryCache := common.MemoryCacheEnabled
+	oldRedisEnabled := common.RedisEnabled
+
+	dsn := "file:" + strings.NewReplacer("/", "_", " ", "_").Replace(t.Name()) + "?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+
+	model.DB = db
+	model.LOG_DB = db
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	model.InitDBColumns()
+	common.MemoryCacheEnabled = false
+	common.RedisEnabled = false
+
+	t.Cleanup(func() {
+		model.DB = oldDB
+		model.LOG_DB = oldLogDB
+		common.SetDatabaseTypes(oldMainType, oldLogType)
+		model.InitDBColumns()
+		common.MemoryCacheEnabled = oldMemoryCache
+		common.RedisEnabled = oldRedisEnabled
+		_ = sqlDB.Close()
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}, &model.Log{}))
+	require.NoError(t, db.Create(&model.User{Id: 1, Username: "admin", Password: "password123"}).Error)
+
+	channel := &model.Channel{
+		Name:   "legacy-status-channel",
+		Key:    "legacy-status-key",
+		Type:   constant.ChannelTypeOpenAI,
+		Models: "gpt-4o",
+		Group:  "default",
+		Status: common.ChannelStatusEnabled,
+	}
+	require.NoError(t, db.Create(channel).Error)
+
+	return channel
+}
+
+func setupChannelGroupDisplayControllerTestDB(t *testing.T) (*model.Group, *model.Channel) {
+	t.Helper()
+
+	oldDB := model.DB
+	oldLogDB := model.LOG_DB
+	oldMainType := common.MainDatabaseType()
+	oldLogType := common.LogDatabaseType()
+	oldMemoryCache := common.MemoryCacheEnabled
+	oldRedisEnabled := common.RedisEnabled
+
+	dsn := "file:" + strings.NewReplacer("/", "_", " ", "_").Replace(t.Name()) + "?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+
+	model.DB = db
+	model.LOG_DB = db
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	model.InitDBColumns()
+	common.MemoryCacheEnabled = false
+	common.RedisEnabled = false
+
+	t.Cleanup(func() {
+		model.DB = oldDB
+		model.LOG_DB = oldLogDB
+		common.SetDatabaseTypes(oldMainType, oldLogType)
+		model.InitDBColumns()
+		common.MemoryCacheEnabled = oldMemoryCache
+		common.RedisEnabled = oldRedisEnabled
+		_ = sqlDB.Close()
+	})
+
+	require.NoError(t, db.AutoMigrate(
+		&model.Option{}, &model.Group{}, &model.GroupAlias{}, &model.AutoGroupMember{},
+		&model.ChannelGroupBinding{}, &model.TokenGroupBinding{},
+		&model.User{}, &model.Channel{}, &model.Ability{}, &model.Log{},
+	))
+
+	group := &model.Group{
+		Code:   "group_2",
+		Name:   "Tokens-Pro 生图专用",
+		Ratio:  1,
+		Status: model.GroupStatusActive,
+	}
+	require.NoError(t, db.Create(group).Error)
+	tag := "display-tag"
+	channel := &model.Channel{
+		Name:   "group-display-channel",
+		Key:    "group-display-key",
+		Type:   constant.ChannelTypeOpenAI,
+		Models: "gpt-4o",
+		Group:  group.Code,
+		Tag:    &tag,
+		Status: common.ChannelStatusEnabled,
+	}
+	require.NoError(t, db.Create(channel).Error)
+	require.NoError(t, db.Create(&model.ChannelGroupBinding{ChannelId: channel.Id, GroupId: group.Id, Position: 0}).Error)
+
+	return group, channel
+}
+
+func TestGetAllChannelsIncludesGroupDisplayDetails(t *testing.T) {
+	group, channel := setupChannelGroupDisplayControllerTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/?p=1&page_size=10", nil)
+
+	GetAllChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []struct {
+				Id           int                    `json:"id"`
+				Group        string                 `json:"group"`
+				GroupDetails []model.GroupReference `json:"group_details"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	item := response.Data.Items[0]
+	assert.Equal(t, channel.Id, item.Id)
+	assert.Equal(t, group.Code, item.Group)
+	require.Len(t, item.GroupDetails, 1)
+	assert.Equal(t, group.Id, item.GroupDetails[0].Id)
+	assert.Equal(t, group.Code, item.GroupDetails[0].Code)
+	assert.Equal(t, group.Name, item.GroupDetails[0].Name)
+}
+
+func TestGetAllChannelsFiltersAndCountsByVendor(t *testing.T) {
+	_, channel := setupChannelGroupDisplayControllerTestDB(t)
+	vendorOne := 42
+	vendorTwo := 43
+	channel.VendorID = &vendorOne
+	require.NoError(t, model.DB.Save(channel).Error)
+	second := &model.Channel{
+		Name:     "second-vendor-channel",
+		Key:      "second-vendor-key",
+		Type:     constant.ChannelTypeOpenAI,
+		Models:   "gpt-4o",
+		Group:    "default",
+		Status:   common.ChannelStatusEnabled,
+		VendorID: &vendorTwo,
+	}
+	require.NoError(t, model.DB.Create(second).Error)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/?p=1&page_size=10&vendor=42", nil)
+
+	GetAllChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items        []model.Channel  `json:"items"`
+			VendorCounts map[string]int64 `json:"vendor_counts"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, channel.Id, response.Data.Items[0].Id)
+	assert.Equal(t, int64(1), response.Data.VendorCounts["42"])
+	assert.Equal(t, int64(1), response.Data.VendorCounts["43"])
+}
+
+func TestSearchChannelsFiltersByVendor(t *testing.T) {
+	_, channel := setupChannelGroupDisplayControllerTestDB(t)
+	vendorOne := 42
+	vendorTwo := 43
+	channel.Name = "search-vendor-one"
+	channel.VendorID = &vendorOne
+	require.NoError(t, model.DB.Save(channel).Error)
+	second := &model.Channel{
+		Name:     "search-vendor-two",
+		Key:      "search-vendor-key",
+		Type:     constant.ChannelTypeOpenAI,
+		Models:   "gpt-4o",
+		Group:    "default",
+		Status:   common.ChannelStatusEnabled,
+		VendorID: &vendorTwo,
+	}
+	require.NoError(t, model.DB.Create(second).Error)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/search?keyword=search-vendor&vendor=42&page_size=10", nil)
+
+	SearchChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []model.Channel `json:"items"`
+			Total int             `json:"total"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Equal(t, 1, response.Data.Total)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, channel.Id, response.Data.Items[0].Id)
+}
+
+func TestGetAllChannelsIncludesMultipleGroupDisplayDetails(t *testing.T) {
+	group, channel := setupChannelGroupDisplayControllerTestDB(t)
+	secondGroup := &model.Group{
+		Code:   "voice",
+		Name:   "语音专用",
+		Ratio:  1,
+		Status: model.GroupStatusActive,
+	}
+	require.NoError(t, model.DB.Create(secondGroup).Error)
+	require.NoError(t, model.DB.Create(&model.ChannelGroupBinding{
+		ChannelId: channel.Id,
+		GroupId:   secondGroup.Id,
+		Position:  1,
+	}).Error)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/?p=1&page_size=10", nil)
+
+	GetAllChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []struct {
+				Id           int                    `json:"id"`
+				Group        string                 `json:"group"`
+				GroupDetails []model.GroupReference `json:"group_details"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	item := response.Data.Items[0]
+	assert.Equal(t, channel.Id, item.Id)
+	assert.Equal(t, group.Code+","+secondGroup.Code, item.Group)
+	require.Len(t, item.GroupDetails, 2)
+	assert.Equal(t, model.GroupReference{Id: group.Id, Code: group.Code, Name: group.Name}, item.GroupDetails[0])
+	assert.Equal(t, model.GroupReference{Id: secondGroup.Id, Code: secondGroup.Code, Name: secondGroup.Name}, item.GroupDetails[1])
+}
+
+func TestGetAllChannelsTagModeIncludesGroupDisplayDetails(t *testing.T) {
+	group, channel := setupChannelGroupDisplayControllerTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/?p=1&page_size=10&tag_mode=true", nil)
+
+	GetAllChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []struct {
+				Id           int                    `json:"id"`
+				GroupDetails []model.GroupReference `json:"group_details"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, channel.Id, response.Data.Items[0].Id)
+	require.Len(t, response.Data.Items[0].GroupDetails, 1)
+	assert.Equal(t, group.Name, response.Data.Items[0].GroupDetails[0].Name)
+}
+
+func TestSearchChannelsTagModeIncludesGroupDisplayDetails(t *testing.T) {
+	group, channel := setupChannelGroupDisplayControllerTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel/search?keyword=group-display&page_size=10&tag_mode=true", nil)
+
+	SearchChannels(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []struct {
+				Id           int                    `json:"id"`
+				GroupDetails []model.GroupReference `json:"group_details"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, channel.Id, response.Data.Items[0].Id)
+	require.Len(t, response.Data.Items[0].GroupDetails, 1)
+	assert.Equal(t, group.Name, response.Data.Items[0].GroupDetails[0].Name)
+}
 
 func TestChannelHasSensitiveChanges(t *testing.T) {
 	baseURL := "https://api.example.com"
@@ -129,14 +459,46 @@ func TestClearChannelReadOnlyFields(t *testing.T) {
 	assert.Equal(t, "default", channel.Group)
 }
 
-func TestUpdateChannelRejectsStatusField(t *testing.T) {
+func TestUpdateChannelAcceptsLegacyStatusOnlyPayload(t *testing.T) {
+	channel := setupLegacyChannelStatusUpdateTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1)
+	ctx.Request = httptest.NewRequest(
+		http.MethodPut,
+		"/api/channel/",
+		bytes.NewBufferString(fmt.Sprintf(`{"id":%d,"status":%d}`, channel.Id, common.ChannelStatusManuallyDisabled)),
+	)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	UpdateChannel(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Status int `json:"status"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.True(t, response.Success)
+	assert.Equal(t, common.ChannelStatusManuallyDisabled, response.Data.Status)
+
+	var stored model.Channel
+	require.NoError(t, model.DB.First(&stored, channel.Id).Error)
+	assert.Equal(t, common.ChannelStatusManuallyDisabled, stored.Status)
+}
+
+func TestUpdateChannelRejectsMixedStatusField(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(
 		http.MethodPut,
 		"/api/channel/",
-		bytes.NewBufferString(`{"id":1,"status":2}`),
+		bytes.NewBufferString(`{"id":1,"status":2,"models":"gpt-4o"}`),
 	)
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
@@ -146,6 +508,27 @@ func TestUpdateChannelRejectsStatusField(t *testing.T) {
 	var response struct {
 		Success bool   `json:"success"`
 		Message string `json:"message"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.False(t, response.Success)
+}
+
+func TestUpdateChannelRejectsStatusWithoutChannelID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(
+		http.MethodPut,
+		"/api/channel/",
+		bytes.NewBufferString(`{"status":1,"name":"missing-id"}`),
+	)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	UpdateChannel(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
 	}
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 	assert.False(t, response.Success)

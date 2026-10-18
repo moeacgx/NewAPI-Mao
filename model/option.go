@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
@@ -145,6 +146,7 @@ func InitOptionMap() {
 	common.OptionMap["HomePageContent"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
+	common.OptionMap["SystemDescription"] = ""
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["ServerAddress"] = ""
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
@@ -346,6 +348,17 @@ func SyncOptions(frequency int) {
 
 func validateOptionValue(key string, value string) error {
 	switch key {
+	case "SystemDescription":
+		if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 200 {
+			return errors.New("网站描述不能超过 200 个字符")
+		}
+		return nil
+	case setting.TaskPluginMarketplaceSourcesKey:
+		var sources []setting.TaskPluginMarketplaceSource
+		if err := common.UnmarshalJsonStr(value, &sources); err != nil {
+			return err
+		}
+		return setting.ValidateTaskPluginMarketplaceSources(sources)
 	case operation_setting.ToolPriceOptionKey:
 		return operation_setting.ValidateToolPricesJSON(value)
 	case "MaxTokenAutoGroups":
@@ -547,8 +560,11 @@ func updateOptionMapWithModelRateLimit(key string, value string, publishRateLimi
 		return nil
 	}
 	common.OptionMapRWMutex.Lock()
-	defer common.OptionMapRWMutex.Unlock()
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
 	common.OptionMap[key] = value
+	common.OptionMapRWMutex.Unlock()
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
@@ -971,7 +987,12 @@ func handleConfigUpdate(key, value string) bool {
 		ratio_setting.InvalidateExposedDataCache()
 	} else if configName == "theme" {
 		system_setting.UpdateAndSyncTheme()
+		common.OptionMapRWMutex.Lock()
+		if common.OptionMap == nil {
+			common.OptionMap = make(map[string]string)
+		}
 		common.OptionMap[key] = system_setting.GetThemeSettings().Frontend
+		common.OptionMapRWMutex.Unlock()
 	}
 
 	return true // 已处理

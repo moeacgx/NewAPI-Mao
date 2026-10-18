@@ -1,9 +1,10 @@
 {
-  "name": "react-template",
+  "name": "newapi-mao-classic",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "dependencies": {
+    "@fontsource-variable/public-sans": "^5.2.7",
     "@douyinfe/semi-icons": "^2.63.1",
     "@douyinfe/semi-ui": "^2.69.1",
     "@lobehub/icons": "1.97.2",
@@ -49,6 +50,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:native": "node --test scripts/conversation-archive-native.test.mjs scripts/conversation-archive-i18n.test.mjs scripts/native-sdk-live-api.test.mjs scripts/security-audit-load-data.test.mjs",
     "lint": "prettier . --check",
     "lint:fix": "prettier . --write",
     "eslint": "bunx eslint \"**/*.{js,jsx}\" --cache",
@@ -57,7 +59,8 @@
     "i18n:extract": "bunx i18next-cli extract",
     "i18n:status": "bunx i18next-cli status",
     "i18n:sync": "bunx i18next-cli sync",
-    "i18n:lint": "bunx i18next-cli lint"
+    "i18n:lint": "bunx i18next-cli lint",
+    "test:compat": "node scripts/run-compat-tests.mjs"
   },
   "eslintConfig": {
     "extends": [
@@ -80,6 +83,8 @@
   "devDependencies": {
     "@douyinfe/vite-plugin-semi": "^2.74.0-alpha.6",
     "@so1ve/prettier-config": "^3.1.0",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.21",
     "code-inspector-plugin": "^1.3.3",
@@ -87,11 +92,14 @@
     "eslint-plugin-header": "^3.1.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "i18next-cli": "^1.10.3",
+    "jsdom": "25.0.1",
     "postcss": "^8.5.3",
     "prettier": "^3.0.0",
+    "react-test-renderer": "18.3.1",
     "tailwindcss": "^3",
     "typescript": "4.4.2",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "vitest": "2.1.9"
   },
   "prettier": {
     "singleQuote": true,

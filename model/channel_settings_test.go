@@ -9,6 +9,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestChannelForceResponsesSaveAndRead(t *testing.T) {
+	for _, channelType := range []int{constant.ChannelTypeOpenAI, constant.ChannelTypeAzure, constant.ChannelTypeXai, constant.ChannelTypeCodex, constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI} {
+		channel := &Channel{Type: channelType}
+		assert.False(t, channel.GetSetting().ForceResponses)
+		channel.SetSetting(dto.ChannelSettings{ForceResponses: true})
+		require.NoError(t, channel.ValidateSettings())
+		assert.True(t, channel.GetSetting().ForceResponses)
+		channel.SetSetting(dto.ChannelSettings{})
+		require.NoError(t, channel.ValidateSettings())
+		assert.False(t, channel.GetSetting().ForceResponses)
+	}
+	for _, channelType := range []int{constant.ChannelTypeAnthropic, constant.ChannelTypeGemini, constant.ChannelTypeCustom, constant.ChannelTypeAdvancedCustom, constant.ChannelTypeTaskPlugin} {
+		channel := &Channel{Type: channelType}
+		channel.SetSetting(dto.ChannelSettings{ForceResponses: true})
+		require.ErrorContains(t, channel.ValidateSettings(), "force_responses")
+	}
+}
+
 func TestChannelValidateSettingsRejectsInvalidHTTPTransport(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -72,9 +72,16 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 
 	passThroughGlobal := model_setting.GetGlobalSettings().PassThroughRequestEnabled
 	if info.RelayMode == relayconstant.RelayModeChatCompletions &&
-		!passThroughGlobal &&
-		!info.ChannelSetting.PassThroughBodyEnabled &&
-		service.ShouldChatCompletionsUseResponsesGlobal(info.ChannelId, info.ChannelType, info.OriginModelName) {
+		(info.ShouldForceResponses() || (!passThroughGlobal &&
+			!info.ChannelSetting.PassThroughBodyEnabled &&
+			service.ShouldChatCompletionsUseResponsesForRequest(
+				model_setting.GetGlobalSettings().ChatCompletionsToResponsesPolicy,
+				info.ChannelType,
+				info.IsPlayground,
+				info.ChannelId,
+				info.OriginModelName,
+				info.UpstreamModelName,
+			))) {
 		applySystemPromptIfNeeded(c, info, request)
 		usage, newApiErr := chatCompletionsViaResponses(c, info, adaptor, request)
 		if newApiErr != nil {
@@ -85,16 +92,15 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 		var containsAudioRatios = ratio_setting.ContainsAudioRatio(info.OriginModelName) || ratio_setting.ContainsAudioCompletionRatio(info.OriginModelName)
 
 		if containAudioTokens && containsAudioRatios {
-			service.PostAudioConsumeQuota(c, info, usage, "")
+			return service.PostAudioConsumeQuota(c, info, usage, "")
 		} else {
-			service.PostTextConsumeQuota(c, info, usage, nil)
+			return service.PostTextConsumeQuota(c, info, usage, nil)
 		}
-		return nil
 	}
 
 	var requestBody io.Reader
 
-	if passThroughGlobal || info.ChannelSetting.PassThroughBodyEnabled {
+	if !shouldConvertChatRequest(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -173,6 +179,7 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 			}
 		}
 
+		info.CaptureThinkingLogBody(jsonData)
 		logger.LogDebug(c, "text request body: %s", jsonData)
 
 		body, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
@@ -214,9 +221,37 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 	var containsAudioRatios = ratio_setting.ContainsAudioRatio(info.OriginModelName) || ratio_setting.ContainsAudioCompletionRatio(info.OriginModelName)
 
 	if containAudioTokens && containsAudioRatios {
-		service.PostAudioConsumeQuota(c, info, usage.(*dto.Usage), "")
+		return service.PostAudioConsumeQuota(c, info, usage.(*dto.Usage), "")
 	} else {
-		service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
+		return service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
 	}
-	return nil
+}
+
+func shouldConvertChatRequest(info *relaycommon.RelayInfo) bool {
+	if info == nil {
+		return true
+	}
+	passThrough := model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled
+	if !passThrough {
+		return true
+	}
+	return usesGeminiNativeChatProtocol(info)
+}
+
+func usesGeminiNativeChatProtocol(info *relaycommon.RelayInfo) bool {
+	if info == nil || info.ChannelMeta == nil {
+		return false
+	}
+	switch info.ApiType {
+	case constant.APITypeGemini:
+		return true
+	case constant.APITypeVertexAi:
+		model := strings.ToLower(info.UpstreamModelName)
+		if strings.HasPrefix(model, "claude") || strings.Contains(model, "llama") || strings.Contains(model, "-maas") {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
 }

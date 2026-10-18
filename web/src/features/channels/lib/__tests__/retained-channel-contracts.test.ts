@@ -22,8 +22,14 @@ import { channelSchema } from '../../types'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   transformChannelToFormDefaults,
+  transformFormDataToCreatePayload,
   transformFormDataToUpdatePayload,
 } from '../channel-form'
+import {
+  aggregateChannelsByTag,
+  buildGroupDisplayNameMap,
+  parseGroupsList,
+} from '../channel-utils'
 import { categorizeModels, getModelCategory } from '../model-categories'
 
 const channel = channelSchema.parse({
@@ -55,6 +61,11 @@ const channel = channelSchema.parse({
     monitor_test_interval_minutes: 5,
     monitor_auto_disable_enabled: false,
     monitor_disable_threshold: 3,
+    tokenspro_overview_sync_enabled: true,
+    tokenspro_overview_sync_interval_seconds: 120,
+    tokenspro_overview_last_success_time: 1700000000,
+    tokenspro_overview_last_allowed: 4,
+    tokenspro_overview_last_error: 'previous error',
   }),
 })
 
@@ -73,6 +84,11 @@ describe('retained channel contracts', () => {
       monitor_test_interval_minutes: '5',
       monitor_auto_disable_enabled: 'disabled',
       monitor_disable_threshold: '3',
+      tokenspro_overview_sync_enabled: true,
+      tokenspro_overview_sync_interval_seconds: '120',
+      tokenspro_overview_last_success_time: 1700000000,
+      tokenspro_overview_last_allowed: 4,
+      tokenspro_overview_last_error: 'previous error',
     })
   })
 
@@ -101,6 +117,40 @@ describe('retained channel contracts', () => {
     expect(settings.monitor_test_interval_minutes).toBeUndefined()
     expect(settings.monitor_auto_disable_enabled).toBe(false)
     expect(settings.claude_code_version).toBe('2.1.0')
+    expect(settings.tokenspro_overview_sync_enabled).toBe(true)
+    expect(settings.tokenspro_overview_sync_interval_seconds).toBe(120)
+    expect(settings.tokenspro_overview_last_allowed).toBe(4)
+    expect(settings.tokenspro_overview_last_success_time).toBe(1700000000)
+    expect(settings.tokenspro_overview_last_error).toBe('previous error')
+  })
+
+  test('serializes a selected vendor when creating a channel', () => {
+    const payload = transformFormDataToCreatePayload({
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      name: 'Vendor channel',
+      type: 14,
+      vendor_id: 3,
+      key: 'secret',
+      models: 'claude-3-7-sonnet',
+      group: ['default'],
+      status: 1,
+    })
+
+    expect(payload.channel.vendor_id).toBe(3)
+  })
+
+  test('serializes an empty vendor selection as null when updating a channel', () => {
+    const payload = transformFormDataToUpdatePayload(
+      {
+        ...CHANNEL_FORM_DEFAULT_VALUES,
+        name: 'Unassigned channel',
+        type: 14,
+        vendor_id: undefined,
+      },
+      7
+    )
+
+    expect(payload.vendor_id).toBeNull()
   })
 
   test('classifies Qwen TTS before the catch-all category', () => {
@@ -113,5 +163,54 @@ describe('retained channel contracts', () => {
 
   test('keeps zero concurrency as an intentional unlimited value', () => {
     expect(CHANNEL_FORM_DEFAULT_VALUES.concurrency_limit).toBe(0)
+  })
+
+  test('maps each channel group to display name and falls back to code', () => {
+    const labels = buildGroupDisplayNameMap([
+      { id: 1, code: 'default', name: '默认分组' },
+      { id: 2, code: 'group_2', name: 'Tokens-Pro 生图专用' },
+      { id: 3, code: 'missing-name', name: 'missing-name' },
+    ])
+    const rendered = parseGroupsList(
+      'group_2,missing-name,deleted-code,default'
+    ).map((group) => labels.get(group) || group)
+
+    expect(rendered).toEqual([
+      '默认分组',
+      'deleted-code',
+      'Tokens-Pro 生图专用',
+      'missing-name',
+    ])
+    expect(labels.get('group_2')).toBe('Tokens-Pro 生图专用')
+    expect(labels.get('missing-name')).toBeUndefined()
+  })
+
+  test('tag aggregate rows keep display names for groups from every child', () => {
+    const imageChannel = channelSchema.parse({
+      ...channel,
+      id: 8,
+      tag: 'shared',
+      group: 'image',
+      group_ids: [2],
+      group_details: [{ id: 2, code: 'image', name: '生图专用' }],
+    })
+    const audioChannel = channelSchema.parse({
+      ...channel,
+      id: 9,
+      tag: 'shared',
+      group: 'audio',
+      group_ids: [3],
+      group_details: [{ id: 3, code: 'audio', name: '音频专用' }],
+    })
+
+    const [tagRow] = aggregateChannelsByTag([imageChannel, audioChannel])
+    const labels = buildGroupDisplayNameMap(tagRow.group_details)
+    const rendered = parseGroupsList(tagRow.group).map(
+      (group) => labels.get(group) || group
+    )
+
+    expect(tagRow.group).toBe('image,audio')
+    expect(rendered).toEqual(['音频专用', '生图专用'])
+    expect(tagRow.group_ids).toEqual([2, 3])
   })
 })

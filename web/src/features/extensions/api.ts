@@ -18,6 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
+import type {
+  ExtensionMarketplaceConfig,
+  ExtensionCatalogModule,
+} from './marketplace-download'
 import type { ExtensionListResponse, ExtensionModule } from './types'
 
 export { getExtensionPageUrl } from './urls'
@@ -55,6 +59,41 @@ export async function uploadExtension(file: File) {
     formData,
     { skipBusinessError: true }
   )
+  return res.data
+}
+
+export async function getExtensionMarketplaceConfig(): Promise<ExtensionMarketplaceConfig> {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: ExtensionMarketplaceConfig
+  }>('/api/extension-admin/marketplace', { skipErrorHandler: true })
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to load online modules')
+  }
+  return res.data.data
+}
+
+export async function uploadMarketplaceExtension(
+  file: File,
+  entry: ExtensionCatalogModule,
+  catalogUrl: string
+) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('archiveSha256', entry.sha256.toLowerCase())
+  formData.append('expectedId', entry.id)
+  formData.append('expectedVersion', entry.version)
+  formData.append('catalogUrl', catalogUrl)
+  formData.append('archivePath', entry.path)
+  const res = await api.post<ExtensionListResponse>(
+    '/api/extension-admin/upload',
+    formData,
+    { skipErrorHandler: true }
+  )
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to install online module')
+  }
   return res.data
 }
 

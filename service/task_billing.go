@@ -4,22 +4,60 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
+// TaskTokenUsage 只转换同步成功响应的实际 token 事实，不使用预估量或任务计费单位。
+func TaskTokenUsage(facts map[string]any) *kitdto.Usage {
+	usage := &kitdto.Usage{}
+	for _, field := range []string{"input_tokens", "output_tokens"} {
+		value, exists := facts[field]
+		if !exists {
+			continue
+		}
+		number, ok := value.(float64)
+		if !ok || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 || number > math.MaxInt32 || math.Trunc(number) != number {
+			common.SysError("忽略同步任务的非法实际 token 用量字段：" + field)
+			continue
+		}
+		// 已验证为非负 int32 整数，不能用额度饱和值冒充上游真实 token 数。
+		if field == "input_tokens" {
+			usage.PromptTokens = int(number)
+			usage.HasPromptTokens = true
+		} else {
+			usage.CompletionTokens = int(number)
+			usage.HasCompletionTokens = true
+		}
+	}
+	if !usage.HasPromptTokens && !usage.HasCompletionTokens {
+		return nil
+	}
+	// 导出统计仍以 int 相加；统一限制整组用量，避免 32 位主机得到负数。
+	if int64(usage.PromptTokens)+int64(usage.CompletionTokens) > math.MaxInt32 {
+		common.SysError("忽略同步任务的实际 token 用量：输入与输出总和超出日志整数上限")
+		return nil
+	}
+	return usage
+}
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
-func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
+func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo, usage *kitdto.Usage) {
 	tokenName := c.GetString("token_name")
 	logContent := fmt.Sprintf("操作 %s", info.Action)
 	// 支持任务仅按次计费
@@ -53,16 +91,45 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	InjectTieredBillingInfo(other, info, info.TaskBillingResult)
+	if snap := info.TieredBillingSnapshot; snap != nil && snap.TaskUsageBilling {
+		other["task_usage_billing"] = true
+		other["usage_facts"] = snap.UsageFacts
+	}
+	var promptTokens, completionTokens int
+	if usage != nil {
+		actualTokens := make(map[string]int, 2)
+		if usage.HasPromptTokens {
+			promptTokens = usage.PromptTokens
+			actualTokens["input_tokens"] = promptTokens
+		}
+		if usage.HasCompletionTokens {
+			completionTokens = usage.CompletionTokens
+			actualTokens["output_tokens"] = completionTokens
+		}
+		if len(actualTokens) > 0 {
+			// 只记录存在的字段，保留显式零值与缺失用量的区别。
+			other["task_token_usage"] = actualTokens
+		}
+	}
 	attachQuotaSaturation(c, info, other)
+	AppendTaskPluginContextAuditInfo(c, other)
+	var useTimeSeconds int
+	if !info.StartTime.IsZero() {
+		useTimeSeconds = max(0, int(time.Since(info.StartTime)/time.Second))
+	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-		ChannelId: info.ChannelId,
-		ModelName: info.OriginModelName,
-		TokenName: tokenName,
-		Quota:     info.PriceData.Quota,
-		Content:   logContent,
-		TokenId:   info.TokenId,
-		Group:     info.UsingGroup,
-		Other:     other,
+		UseTimeSeconds:   useTimeSeconds,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		ChannelId:        info.ChannelId,
+		ModelName:        info.OriginModelName,
+		TokenName:        tokenName,
+		Quota:            info.PriceData.Quota,
+		Content:          logContent,
+		TokenId:          info.TokenId,
+		Group:            info.UsingGroup,
+		Other:            other,
 	})
 	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.PriceData.Quota)
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
@@ -126,6 +193,9 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
 func taskBillingOther(task *model.Task) map[string]interface{} {
 	other := make(map[string]interface{})
+	if task.PrivateData.Execution != nil {
+		AppendTaskPluginAuditInfo(other, task.PrivateData.Execution.TaskPlugin)
+	}
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
 		if bc.ModelRatio > 0 {
@@ -219,7 +289,7 @@ func reconcileImageTaskRefund(ctx context.Context, taskID int64) error {
 		return fmt.Errorf("refund accounting remains incomplete")
 	}
 	if marker.BillingSource != BillingSourceSubscription && !marker.CacheRepairDone {
-		if err := model.RepairUserQuotaCache(marker.UserId, marker.WalletQuotaVersion, marker.WalletQuota, marker.Amount); err != nil {
+		if err := model.RepairUserQuotaCache(marker.UserId, marker.WalletQuotaVersion, marker.WalletQuota, int64(marker.Amount)); err != nil {
 			return fmt.Errorf("repair wallet cache: %w", err)
 		}
 		refreshed, err := model.MarkImageTaskRefundCacheRepaired(ctx, taskID)
@@ -417,4 +487,19 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason, clamp)
+}
+
+// EvaluateTaskCompletionUsage 按冻结表达式合并实际用量，不修改原快照或移动资金。
+func EvaluateTaskCompletionUsage(snap *billingexpr.BillingSnapshot, facts map[string]any) (billingexpr.TieredResult, map[string]any, error) {
+	if snap == nil {
+		return billingexpr.TieredResult{}, nil, fmt.Errorf("task billing snapshot is missing")
+	}
+	usage := make(map[string]any, len(snap.UsageFacts)+len(facts))
+	maps.Copy(usage, snap.UsageFacts)
+	maps.Copy(usage, facts)
+	result, err := billingexpr.ComputeTieredQuotaWithRequest(snap, billingexpr.TokenParams{}, billingexpr.RequestInput{Usage: usage})
+	if err == nil && (result.ActualQuotaBeforeGroup < 0 || math.IsNaN(result.ActualQuotaBeforeGroup)) {
+		err = fmt.Errorf("task completion expression produced an invalid cost")
+	}
+	return result, usage, err
 }

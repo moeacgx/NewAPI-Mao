@@ -15,14 +15,20 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 const (
-	NotificationEndpointTypeTelegram    = "telegram"
-	NotificationEventTypeInvoicePending = "invoice_pending"
-	SystemTaskTypeNotificationDispatch  = "notification_dispatch"
+	NotificationEndpointTypeTelegram     = "telegram"
+	NotificationEventTypeInvoicePending  = "invoice_pending"
+	NotificationEventTypeChannelDisabled = "channel_disabled"
+	NotificationEventTypeChannelEnabled  = "channel_enabled"
+	SystemTaskTypeNotificationDispatch   = "notification_dispatch"
+
+	NotificationChannelDisabledTemplate = "{{mention}} 渠道「{{channel_name}}」（#{{channel_id}}）已被禁用\n原因：{{reason}}"
+	NotificationChannelEnabledTemplate  = "{{mention}} 渠道「{{channel_name}}」（#{{channel_id}}）已被启用"
 
 	NotificationDeliveryPending  = "pending"
 	NotificationDeliveryClaimed  = "claimed"
@@ -36,15 +42,35 @@ const (
 	NotificationEnqueueDuplicate                 = "duplicate"
 	NotificationEnqueueAcceptedWithoutSubscriber = "accepted_without_subscriber"
 
-	NotificationEventReceiptTTLSeconds = 90 * 24 * 60 * 60
-	notificationReceiptCleanupLimit    = 100
-	notificationClaimRetryDelaySeconds = 10
-	notificationSequenceLockKey        = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	notificationTokenCipherPrefix      = "enc:v1:"
+	NotificationEventReceiptTTLSeconds       = 90 * 24 * 60 * 60
+	NotificationChannelPrefixDedupMaxSeconds = 24 * 60 * 60
+	notificationReceiptCleanupLimit          = 100
+	notificationClaimRetryDelaySeconds       = 10
+	notificationSequenceLockKey              = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	notificationTokenCipherPrefix            = "enc:v1:"
 )
 
 // NotificationTaskDefaultTemplate 是发票待开票通知的默认内容。
 const NotificationTaskDefaultTemplate = "{{mention}} 来新的发票订单啦~\n订单：{{invoice_id}}\n金额：{{total_amount}}"
+
+// NormalizeNotificationTaskTemplate 将核心事件的空模板或历史发票默认模板
+// 归一化为目标事件默认模板。仅兼容已知默认值，不能绕过事件变量校验。
+func NormalizeNotificationTaskTemplate(eventType, template string) string {
+	template = strings.TrimSpace(template)
+	if template != "" && template != NotificationTaskDefaultTemplate {
+		return template
+	}
+	switch strings.TrimSpace(eventType) {
+	case NotificationEventTypeInvoicePending:
+		return NotificationTaskDefaultTemplate
+	case NotificationEventTypeChannelDisabled:
+		return NotificationChannelDisabledTemplate
+	case NotificationEventTypeChannelEnabled:
+		return NotificationChannelEnabledTemplate
+	default:
+		return template
+	}
+}
 
 var (
 	ErrNotificationStorageUnavailable = errors.New("notification storage is unavailable")
@@ -76,6 +102,12 @@ type NotificationBotView struct {
 	TokenConfigured bool `json:"token_configured" gorm:"-"`
 }
 
+type NotificationTaskFilterConfig struct {
+	StatusCodes        string   `json:"status_codes,omitempty"`
+	ErrorKeywords      []string `json:"error_keywords,omitempty"`
+	PrefixDedupSeconds int      `json:"prefix_dedup_seconds,omitempty"`
+}
+
 type NotificationTask struct {
 	Id                 int    `json:"id" gorm:"primaryKey"`
 	Name               string `json:"name" gorm:"type:varchar(128);not null"`
@@ -83,6 +115,7 @@ type NotificationTask struct {
 	BotId              int    `json:"bot_id" gorm:"not null;index"`
 	Template           string `json:"template" gorm:"type:text;not null"`
 	Enabled            bool   `json:"enabled" gorm:"not null;default:false;index"`
+	FilterConfig       string `json:"-" gorm:"type:text"`
 	ActiveAfterEventId int    `json:"-" gorm:"not null;default:0;index"`
 	CreatedAt          int64  `json:"created_at" gorm:"index"`
 	UpdatedAt          int64  `json:"updated_at"`
@@ -138,6 +171,145 @@ type NotificationDeliveryWork struct {
 }
 
 func nowUnix() int64 { return time.Now().Unix() }
+
+func (config NotificationTaskFilterConfig) IsEmpty() bool {
+	return strings.TrimSpace(config.StatusCodes) == "" && len(config.ErrorKeywords) == 0 && config.PrefixDedupSeconds <= 0
+}
+
+// NotificationChannelNamePrefix 取渠道显示名第一个 `/` 之前的供应商前缀。
+// 运营侧常把同一上游拆成「供应商 / 分组 / 倍率」多条渠道，余额不足时会连续失败。
+func NotificationChannelNamePrefix(channelName string) string {
+	name := strings.TrimSpace(channelName)
+	if name == "" {
+		return ""
+	}
+	prefix, _, found := strings.Cut(name, "/")
+	prefix = strings.TrimSpace(prefix)
+	if !found || prefix == "" {
+		return name
+	}
+	return prefix
+}
+
+func (config NotificationTaskFilterConfig) Matches(payload map[string]any) bool {
+	if config.IsEmpty() {
+		return true
+	}
+	if strings.TrimSpace(config.StatusCodes) != "" {
+		ranges, err := operation_setting.ParseHTTPStatusCodeRanges(config.StatusCodes)
+		if err != nil || !notificationStatusCodeInRanges(notificationPayloadStatusCode(payload), ranges) {
+			return false
+		}
+	}
+	if len(config.ErrorKeywords) > 0 {
+		message := strings.ToLower(strings.TrimSpace(fmt.Sprint(payload["error_message"])))
+		reason := strings.ToLower(strings.TrimSpace(fmt.Sprint(payload["reason"])))
+		matched := false
+		for _, keyword := range config.ErrorKeywords {
+			keyword = strings.ToLower(strings.TrimSpace(keyword))
+			if keyword != "" && (strings.Contains(message, keyword) || strings.Contains(reason, keyword)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+func notificationPayloadStatusCode(payload map[string]any) int {
+	value, ok := payload["status_code"]
+	if !ok {
+		return 0
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case string:
+		var code int
+		_, _ = fmt.Sscanf(strings.TrimSpace(typed), "%d", &code)
+		return code
+	default:
+		return 0
+	}
+}
+
+func notificationStatusCodeInRanges(code int, ranges []operation_setting.StatusCodeRange) bool {
+	for _, item := range ranges {
+		if code >= item.Start && code <= item.End {
+			return true
+		}
+	}
+	return false
+}
+
+func notificationTaskFilterMatches(raw string, payload map[string]any) bool {
+	if strings.TrimSpace(raw) == "" {
+		return true
+	}
+	var config NotificationTaskFilterConfig
+	if err := common.UnmarshalJsonStr(raw, &config); err != nil {
+		return false
+	}
+	return config.Matches(payload)
+}
+
+func parseNotificationTaskFilterConfig(raw string) (NotificationTaskFilterConfig, bool) {
+	if strings.TrimSpace(raw) == "" {
+		return NotificationTaskFilterConfig{}, true
+	}
+	var config NotificationTaskFilterConfig
+	if err := common.UnmarshalJsonStr(raw, &config); err != nil {
+		return NotificationTaskFilterConfig{}, false
+	}
+	return config, true
+}
+
+func notificationPrefixDedupKey(taskID int, prefix string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("channel_name_prefix_dedup\x00%d\x00%s", taskID, strings.ToLower(prefix))))
+	return hex.EncodeToString(sum[:])
+}
+
+func notificationTaskPrefixDeduped(tx *gorm.DB, taskID int, rawFilter string, payload map[string]any, now int64) (bool, error) {
+	config, ok := parseNotificationTaskFilterConfig(rawFilter)
+	if !ok || config.PrefixDedupSeconds <= 0 || taskID <= 0 {
+		return false, nil
+	}
+	channelName, _ := payload["channel_name"].(string)
+	prefix := NotificationChannelNamePrefix(channelName)
+	if prefix == "" {
+		return false, nil
+	}
+	key := notificationPrefixDedupKey(taskID, prefix)
+	var stored NotificationEventReceipt
+	err := tx.Where("dedupe_key = ?", key).Take(&stored).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		receipt := NotificationEventReceipt{DedupeKey: key, ClaimToken: common.GetUUID(), CreatedAt: now}
+		if createErr := tx.Create(&receipt).Error; createErr != nil {
+			return false, createErr
+		}
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if now-stored.CreatedAt < int64(config.PrefixDedupSeconds) {
+		return true, nil
+	}
+	if err := tx.Model(&NotificationEventReceipt{}).Where("id = ?", stored.Id).Updates(map[string]any{
+		"created_at":  now,
+		"claim_token": common.GetUUID(),
+	}).Error; err != nil {
+		return false, err
+	}
+	return false, nil
+}
 
 // LockNotificationSequenceTx 串行化订阅激活和事件入队。
 // SQLite 由锁行写入串行化，MySQL 和 PostgreSQL 再显式锁定该行。
@@ -385,6 +557,7 @@ func CreateNotificationTask(task *NotificationTask) error {
 	if task == nil || strings.TrimSpace(task.Name) == "" || strings.TrimSpace(task.EventType) == "" || task.BotId <= 0 {
 		return errors.New("notification task name, event type and bot are required")
 	}
+	task.Template = NormalizeNotificationTaskTemplate(task.EventType, task.Template)
 	if task.Template == "" {
 		task.Template = NotificationTaskDefaultTemplate
 	}
@@ -448,6 +621,7 @@ func UpdateNotificationTask(task *NotificationTask) error {
 	if task == nil || task.Id <= 0 || task.BotId <= 0 || strings.TrimSpace(task.Name) == "" || strings.TrimSpace(task.EventType) == "" {
 		return errors.New("invalid notification task")
 	}
+	task.Template = NormalizeNotificationTaskTemplate(task.EventType, task.Template)
 	if strings.TrimSpace(task.Template) == "" {
 		task.Template = NotificationTaskDefaultTemplate
 	}
@@ -621,6 +795,17 @@ func DeleteNotificationTarget(id int) error {
 	})
 }
 
+// EnqueueNotificationEvent 在独立事务中写入幂等事件和投递记录。
+// 渠道状态等非事务业务事件使用此入口；通知存储尚未迁移时静默跳过。
+func EnqueueNotificationEvent(eventType, eventKey string, payload map[string]any) error {
+	if DB == nil {
+		return ErrNotificationStorageUnavailable
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		return EnqueueNotificationEventTx(tx, eventType, eventKey, payload)
+	})
+}
+
 // EnqueueNotificationEventTx 在业务事务内写入幂等事件和投递记录。
 // 旧业务调用在迁移表尚未创建时跳过可选通知，避免影响主事务。
 func EnqueueNotificationEventTx(tx *gorm.DB, eventType, eventKey string, payload map[string]any) error {
@@ -764,25 +949,47 @@ func enqueueNotificationEventTx(tx *gorm.DB, eventType, eventKey string, payload
 	if err := tx.Create(&event).Error; err != nil {
 		return NotificationEnqueueResult{}, err
 	}
-	var targets []NotificationTarget
+	type notificationSubscriber struct {
+		TargetId      int    `gorm:"column:target_id"`
+		TaskId        int    `gorm:"column:task_id"`
+		ChatId        string `gorm:"column:chat_id"`
+		MentionUserId string `gorm:"column:mention_user_id"`
+		MentionName   string `gorm:"column:mention_name"`
+		FilterConfig  string `gorm:"column:filter_config"`
+	}
+	var subscribers []notificationSubscriber
 	if err := tx.Table("notification_targets AS target").
-		Select("target.*").
+		Select("target.id AS target_id, target.task_id, target.chat_id, target.mention_user_id, target.mention_name, task.filter_config").
 		Joins("JOIN notification_tasks AS task ON task.id = target.task_id").
 		Joins("JOIN notification_bots AS bot ON bot.id = task.bot_id").
 		Where("task.enabled = ? AND target.enabled = ? AND bot.enabled = ? AND task.event_type = ? AND task.active_after_event_id < ?", true, true, true, eventType, event.Id).
-		Find(&targets).Error; err != nil {
+		Find(&subscribers).Error; err != nil {
 		return NotificationEnqueueResult{}, err
 	}
-	if len(targets) == 0 {
-		// 没有启用的接收目标时只保留哈希收据，不积累事件 payload。
+	filtered := subscribers[:0]
+	for _, subscriber := range subscribers {
+		if !notificationTaskFilterMatches(subscriber.FilterConfig, payload) {
+			continue
+		}
+		skipped, dedupErr := notificationTaskPrefixDeduped(tx, subscriber.TaskId, subscriber.FilterConfig, payload, now)
+		if dedupErr != nil {
+			return NotificationEnqueueResult{}, dedupErr
+		}
+		if skipped {
+			continue
+		}
+		filtered = append(filtered, subscriber)
+	}
+	if len(filtered) == 0 {
+		// 没有启用的接收目标或没有匹配筛选条件时不积累事件 payload。
 		if err := tx.Delete(&event).Error; err != nil {
 			return NotificationEnqueueResult{}, err
 		}
 		return NotificationEnqueueResult{Status: NotificationEnqueueAcceptedWithoutSubscriber}, nil
 	}
 	deliveryCount := 0
-	for _, target := range targets {
-		delivery := NotificationDelivery{EventId: event.Id, TaskId: target.TaskId, TargetId: target.Id, Status: NotificationDeliveryPending, NextAttemptAt: now, CreatedAt: now, UpdatedAt: now}
+	for _, subscriber := range filtered {
+		delivery := NotificationDelivery{EventId: event.Id, TaskId: subscriber.TaskId, TargetId: subscriber.TargetId, Status: NotificationDeliveryPending, NextAttemptAt: now, CreatedAt: now, UpdatedAt: now}
 		if err := tx.Create(&delivery).Error; err != nil {
 			return NotificationEnqueueResult{}, err
 		}

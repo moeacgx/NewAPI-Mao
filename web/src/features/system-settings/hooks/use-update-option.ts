@@ -20,7 +20,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 
+import type { SystemStatus } from '@/features/auth/types'
 import { withCCSwitchAPIAddress } from '@/features/keys/lib/cc-switch'
+import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
@@ -56,6 +58,50 @@ export function useUpdateOption() {
       if (data.success) {
         // Always refresh system-options
         queryClient.invalidateQueries({ queryKey: ['system-options'] })
+
+        if (
+          variables.key === 'SystemName' ||
+          variables.key === 'SystemDescription'
+        ) {
+          const statusKey =
+            variables.key === 'SystemName'
+              ? 'system_name'
+              : 'system_description'
+          const statusValue = String(variables.value)
+          let storedStatus: SystemStatus = {}
+          try {
+            const raw = window.localStorage.getItem('status')
+            const parsed: unknown = raw ? JSON.parse(raw) : null
+            if (
+              parsed &&
+              typeof parsed === 'object' &&
+              !Array.isArray(parsed)
+            ) {
+              storedStatus = parsed as SystemStatus
+            }
+          } catch {
+            // 旧缓存损坏或存储不可用时仍更新正在展示的状态。
+          }
+          // status 查询保存的是 data 本身，不是 API 响应封装。
+          const nextStatus = queryClient.setQueryData<SystemStatus>(
+            ['status'],
+            (current) => ({
+              ...storedStatus,
+              ...current,
+              [statusKey]: statusValue,
+            })
+          )
+          try {
+            window.localStorage.setItem('status', JSON.stringify(nextStatus))
+          } catch {
+            // 本地存储失败不影响已保存的设置和内存状态。
+          }
+          if (variables.key === 'SystemName') {
+            useSystemConfigStore
+              .getState()
+              .setConfig({ systemName: statusValue })
+          }
+        }
 
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.has(variables.key)) {

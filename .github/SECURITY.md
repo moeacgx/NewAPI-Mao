@@ -1,5 +1,7 @@
 # Security Policy
 
+本页的邮件地址属于上游 QuantumNous；NewAPI-Mao 问题请优先通过本仓库下方的安全报告入口提交。
+
 > [!IMPORTANT]
 > **Bulk Reporting Policy:** If you need to submit multiple vulnerability reports in bulk, **you must contact us first** ([support@quantumnous.com](mailto:support@quantumnous.com)) to coordinate the submission process. Uncoordinated bulk submissions have caused significant disruption to our team, and we will take the following actions:
 >
@@ -29,7 +31,7 @@ We take security vulnerability reports very seriously. If you discover a securit
 
 **Do NOT** report security vulnerabilities in public GitHub Issues.
 
-To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/QuantumNous/new-api/security/advisories/new)". This is the preferred method as it provides a built-in private communication channel.
+To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/moeacgx/NewAPI-Mao/security/advisories/new)". This is the preferred method as it provides a built-in private communication channel.
 
 Alternatively, you can report via email:
 
@@ -58,7 +60,7 @@ To help us understand and resolve the issue more quickly, please include the fol
 
 ## Security Best Practices
 
-When deploying and using New API, we recommend following these security best practices:
+When deploying and using NewAPI-Mao, we recommend following these security best practices:
 
 ### Deployment Security
 

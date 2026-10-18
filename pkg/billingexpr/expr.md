@@ -28,23 +28,23 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 
 **输入侧变量：**
 
-| 变量 | 含义 |
-|------|------|
-| `p` | 输入 token 数（**计价用**）。**自动排除**表达式中单独计价的子类别（见下方说明） |
-| `len` | 输入上下文总长度（**条件判断用**）。不受自动排除影响，始终反映完整输入长度。非 Claude：等于原始 `prompt_tokens`；Claude：等于文本输入 + 缓存读取 + 缓存创建 |
-| `cr` | 缓存命中（读取）token 数 |
-| `cc` | 缓存创建 token 数（Claude 5分钟 TTL / 通用） |
-| `cc1h` | 缓存创建 token 数 — 1小时 TTL（Claude 专用） |
-| `img` | 图片输入 token 数 |
-| `ai` | 音频输入 token 数 |
+| 变量   | 含义                                                                                                                                                        |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p`    | 输入 token 数（**计价用**）。**自动排除**表达式中单独计价的子类别（见下方说明）                                                                             |
+| `len`  | 输入上下文总长度（**条件判断用**）。不受自动排除影响，始终反映完整输入长度。非 Claude：等于原始 `prompt_tokens`；Claude：等于文本输入 + 缓存读取 + 缓存创建 |
+| `cr`   | 缓存命中（读取）token 数                                                                                                                                    |
+| `cc`   | 缓存创建 token 数（Claude 5分钟 TTL / 通用）                                                                                                                |
+| `cc1h` | 缓存创建 token 数 — 1小时 TTL（Claude 专用）                                                                                                                |
+| `img`  | 图片输入 token 数                                                                                                                                           |
+| `ai`   | 音频输入 token 数                                                                                                                                           |
 
 **输出侧变量：**
 
-| 变量 | 含义 |
-|------|------|
-| `c` | 输出 token 数。**自动排除**表达式中单独计价的子类别（见下方说明） |
-| `img_o` | 图片输出 token 数 |
-| `ao` | 音频输出 token 数 |
+| 变量    | 含义                                                              |
+| ------- | ----------------------------------------------------------------- |
+| `c`     | 输出 token 数。**自动排除**表达式中单独计价的子类别（见下方说明） |
+| `img_o` | 图片输出 token 数                                                 |
+| `ao`    | 音频输出 token 数                                                 |
 
 #### `p` 和 `c` 的自动排除机制
 
@@ -56,39 +56,39 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 
 举例说明（假设上游返回的原始数据：prompt_tokens=1000，其中包含 200 cache read、100 image）：
 
-| 表达式 | `p` 的值 | 说明 |
-|--------|---------|------|
-| `p * 3 + c * 15` | 1000 | 没用 `cr`/`img`，所以缓存和图片都包含在 `p` 里，全按 $3 计费 |
-| `p * 3 + c * 15 + cr * 0.3` | 800 | 用了 `cr`，缓存 200 从 `p` 中扣除，按 $0.3 单独计费；图片仍在 `p` 里按 $3 计费 |
-| `p * 3 + c * 15 + cr * 0.3 + img * 2` | 700 | 用了 `cr` 和 `img`，都从 `p` 中扣除，各自按自己的价格计费 |
+| 表达式                                | `p` 的值 | 说明                                                                           |
+| ------------------------------------- | -------- | ------------------------------------------------------------------------------ |
+| `p * 3 + c * 15`                      | 1000     | 没用 `cr`/`img`，所以缓存和图片都包含在 `p` 里，全按 $3 计费                   |
+| `p * 3 + c * 15 + cr * 0.3`           | 800      | 用了 `cr`，缓存 200 从 `p` 中扣除，按 $0.3 单独计费；图片仍在 `p` 里按 $3 计费 |
+| `p * 3 + c * 15 + cr * 0.3 + img * 2` | 700      | 用了 `cr` 和 `img`，都从 `p` 中扣除，各自按自己的价格计费                      |
 
 输出侧同理（假设 completion_tokens=500，其中包含 100 audio output）：
 
-| 表达式 | `c` 的值 | 说明 |
-|--------|---------|------|
-| `p * 3 + c * 15` | 500 | 没用 `ao`，音频输出包含在 `c` 里按 $15 计费 |
-| `p * 3 + c * 15 + ao * 50` | 400 | 用了 `ao`，音频 100 从 `c` 中扣除按 $50 计费 |
+| 表达式                     | `c` 的值 | 说明                                         |
+| -------------------------- | -------- | -------------------------------------------- |
+| `p * 3 + c * 15`           | 500      | 没用 `ao`，音频输出包含在 `c` 里按 $15 计费  |
+| `p * 3 + c * 15 + ao * 50` | 400      | 用了 `ao`，音频 100 从 `c` 中扣除按 $50 计费 |
 
 > **注意：** 这个自动排除仅针对 GPT/OpenAI 格式的 API（prompt_tokens 包含所有子类别）。Claude 格式的 API（input_tokens 本身就只包含纯文本）不做任何减法。系统根据上游返回格式自动判断，表达式作者无需关心。
 
 ### Built-in Functions
 
-| Function | Signature | Purpose |
-|----------|-----------|---------|
-| `tier` | `tier(name, value) → float64` | Records which pricing tier matched; must wrap the cost expression |
-| `param` | `param(path) → any` | Reads a JSON path from the request body (uses gjson) |
-| `header` | `header(key) → string` | Reads a request header value |
-| `has` | `has(source, substr) → bool` | Substring check |
-| `hour` | `hour(tz) → int` | Current hour in timezone (0-23) |
-| `minute` | `minute(tz) → int` | Current minute (0-59) |
-| `weekday` | `weekday(tz) → int` | Day of week (0=Sunday, 6=Saturday) |
-| `month` | `month(tz) → int` | Month (1-12) |
-| `day` | `day(tz) → int` | Day of month (1-31) |
-| `max` | `max(a, b) → float64` | Math max |
-| `min` | `min(a, b) → float64` | Math min |
-| `abs` | `abs(x) → float64` | Absolute value |
-| `ceil` | `ceil(x) → float64` | Ceiling |
-| `floor` | `floor(x) → float64` | Floor |
+| Function  | Signature                     | Purpose                                                           |
+| --------- | ----------------------------- | ----------------------------------------------------------------- |
+| `tier`    | `tier(name, value) → float64` | Records which pricing tier matched; must wrap the cost expression |
+| `param`   | `param(path) → any`           | Reads a JSON path from the request body (uses gjson)              |
+| `header`  | `header(key) → string`        | Reads a request header value                                      |
+| `has`     | `has(source, substr) → bool`  | Substring check                                                   |
+| `hour`    | `hour(tz) → int`              | Current hour in timezone (0-23)                                   |
+| `minute`  | `minute(tz) → int`            | Current minute (0-59)                                             |
+| `weekday` | `weekday(tz) → int`           | Day of week (0=Sunday, 6=Saturday)                                |
+| `month`   | `month(tz) → int`             | Month (1-12)                                                      |
+| `day`     | `day(tz) → int`               | Day of month (1-31)                                               |
+| `max`     | `max(a, b) → float64`         | Math max                                                          |
+| `min`     | `min(a, b) → float64`         | Math min                                                          |
+| `abs`     | `abs(x) → float64`            | Absolute value                                                    |
+| `ceil`    | `ceil(x) → float64`           | Ceiling                                                           |
+| `floor`   | `floor(x) → float64`          | Floor                                                             |
 
 ### Expression Examples
 
@@ -157,6 +157,7 @@ Frontend Editor → Storage → Pre-consume → Settlement → Log Display
 **File**: `web/src/pages/Setting/Ratio/components/TieredPricingEditor.jsx`
 
 Two editing modes:
+
 - **Visual mode**: Fill in prices per variable, conditions per tier. Generates expression via `generateExprFromVisualConfig()`.
 - **Raw mode**: Edit the expression string directly. Includes preset templates for common models.
 
@@ -167,10 +168,12 @@ The editor outputs a billing expression string and an optional request rule expr
 **File**: `setting/billing_setting/tiered_billing.go`
 
 Two option maps stored in the `options` DB table:
+
 - `ModelBillingMode`: `{ "model-name": "tiered_expr" }` — activates tiered billing for a model
 - `ModelBillingExpr`: `{ "model-name": "tier(\"base\", p * 2.5 + c * 15)" }` — the expression
 
 On save, the expression is validated:
+
 1. Compiled via `billingexpr.CompileFromCache()` — syntax check
 2. Smoke-tested with sample token vectors — ensures non-negative results
 
@@ -179,6 +182,7 @@ On save, the expression is validated:
 **File**: `relay/helper/price.go` → `modelPriceHelperTiered()`
 
 When a request arrives and the model uses `tiered_expr` billing:
+
 1. Loads expression from `billing_setting.GetBillingExpr()`
 2. Builds `RequestInput` (headers + body) for `param()` / `header()` functions
 3. Runs expression with estimated tokens: `RunExprWithRequest(expr, {P, C}, requestInput)`
@@ -217,12 +221,14 @@ Frontend: Detects `billing_mode === "tiered_expr"`, decodes `expr_b64`, parses t
 ### Token Normalization via AST Introspection
 
 Different upstream APIs report `prompt_tokens` differently:
+
 - **OpenAI/GPT**: `prompt_tokens` = total (text + cache + image + audio)
 - **Claude**: `input_tokens` = text only (cache reported separately)
 
 The system normalizes `p` to mean "tokens not separately priced" by subtracting sub-categories **only when the expression references them**. This is determined by walking the compiled AST to find `IdentifierNode` references — zero runtime cost after first compilation (cached).
 
 Example: `p * 2.5 + c * 15 + cr * 0.25`
+
 - Expression uses `cr` → cache read tokens subtracted from `p`
 - Expression doesn't use `img` → image tokens stay in `p`, priced at $2.50
 
@@ -231,6 +237,7 @@ Example: `p * 2.5 + c * 15 + cr * 0.25`
 `len` represents the total input context length, designed for **tier condition evaluation** (e.g. `len <= 200000 ? ...`). Unlike `p`, `len` is never reduced by sub-category exclusion.
 
 **Computation rules:**
+
 - **Non-Claude (GPT/OpenAI format)**: `len = prompt_tokens` (the raw total from the upstream response)
 - **Claude format**: `len = input_tokens + cache_read_tokens + cache_creation_tokens` (since Claude's `input_tokens` is text-only, cache must be added back to reflect full context length)
 
@@ -251,6 +258,7 @@ This matches the per-call billing pattern: `quota = modelPrice * QuotaPerUnit * 
 Expressions can carry a version prefix: `v1:tier(...)`. No prefix = v1.
 
 Version controls:
+
 - Compile environment (available variables and functions)
 - Token normalization logic
 - Quota conversion formula
@@ -261,14 +269,20 @@ This enables future evolution without breaking existing expressions.
 
 ## File Map
 
-| Layer | Files |
-|-------|-------|
-| Expression engine | `pkg/billingexpr/compile.go`, `run.go`, `settle.go`, `round.go`, `types.go` |
-| Storage | `setting/billing_setting/tiered_billing.go` |
-| Pre-consume | `relay/helper/price.go`, `relay/helper/billing_expr_request.go` |
-| Settlement | `service/tiered_settle.go`, `service/quota.go` |
-| Log injection | `service/log_info_generate.go` |
-| Frontend editor | `web/src/pages/Setting/Ratio/components/TieredPricingEditor.jsx` |
-| Frontend display | `web/src/helpers/render.jsx`, `web/src/helpers/utils.jsx` |
-| Model detail | `web/src/components/table/model-pricing/modal/components/DynamicPricingBreakdown.jsx` |
-| Log display | `web/src/hooks/usage-logs/useUsageLogsData.jsx`, `web/src/components/table/usage-logs/UsageLogsColumnDefs.jsx` |
+| Layer             | Files                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| Expression engine | `pkg/billingexpr/compile.go`, `run.go`, `settle.go`, `round.go`, `types.go`                                    |
+| Storage           | `setting/billing_setting/tiered_billing.go`                                                                    |
+| Pre-consume       | `relay/helper/price.go`, `relay/helper/billing_expr_request.go`                                                |
+| Settlement        | `service/tiered_settle.go`, `service/quota.go`                                                                 |
+| Log injection     | `service/log_info_generate.go`                                                                                 |
+| Frontend editor   | `web/src/pages/Setting/Ratio/components/TieredPricingEditor.jsx`                                               |
+| Frontend display  | `web/src/helpers/render.jsx`, `web/src/helpers/utils.jsx`                                                      |
+| Model detail      | `web/src/components/table/model-pricing/modal/components/DynamicPricingBreakdown.jsx`                          |
+| Log display       | `web/src/hooks/usage-logs/useUsageLogsData.jsx`, `web/src/components/table/usage-logs/UsageLogsColumnDefs.jsx` |
+
+## 任务插件用量公式
+
+`u(name)` 读取 `RequestInput.Usage` 中的宿主校验后用量事实，支持数值、枚举和布尔值，缺失值返回 nil。原生同步任务通过 `BillingSnapshot.TaskUsageBilling` 明确区分计价单位：任务公式直接返回美元，额度为 `结果 * QuotaPerUnit * groupRatio`；原有聊天公式仍按每百万 token 单价换算，不能混用。
+
+估算事实存入 `UsageFacts`，同步成功使用实际事实覆盖同名估算字段后求值；表达式、分组倍率和额度单位使用提交时快照。实现来源与配置、范围、验证见 [原生同步任务用量计费](../../docs/workflows/2026-09/23_task_plugin_usage_billing.md)。

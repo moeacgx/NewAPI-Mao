@@ -104,6 +104,13 @@ type RelayInfo struct {
 	UsePrice         bool
 	RelayMode        int
 	OriginModelName  string
+	// UpstreamResponseModelName 是上游响应声明的模型标识。
+	// 它与请求中发送的映射模型 UpstreamModelName 分开保存。
+	UpstreamResponseModelName string
+	// CodexFasterModelName 单独保留头部声明，不覆盖响应正文模型。
+	CodexFasterModelName string
+	// OnUpstreamModelEvidence 同步通知宿主策略，并区分正文和响应头来源。
+	OnUpstreamModelEvidence func(*RelayInfo, UpstreamModelEvidence) `json:"-"`
 	// OriginalRequestURLPath preserves the exact incoming path and query for
 	// auditing/routing rules. RequestURLPath is the upstream-facing path.
 	OriginalRequestURLPath string
@@ -119,9 +126,10 @@ type RelayInfo struct {
 	IsFirstRequest         bool
 	AudioUsage             bool
 	ReasoningEffort        string
+	ThinkingLog            *ThinkingLogSnapshot
 	UserSetting            dto.UserSetting
 	UserEmail              string
-	UserQuota              int
+	UserQuota              int64
 	RelayFormat            types.RelayFormat
 	SendResponseCount      int
 	ReceivedResponseCount  int
@@ -135,7 +143,8 @@ type RelayInfo struct {
 	Billing BillingSettler
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
-	BillingSource string
+	BillingSource    string
+	BillingBreakdown *BillingBreakdown
 	// SubscriptionId is the user_subscriptions.id used when BillingSource == "subscription"
 	SubscriptionId int
 	// SubscriptionPreConsumed is the amount pre-consumed on subscription item (quota units or 1)
@@ -169,7 +178,9 @@ type RelayInfo struct {
 	// Auto-group retries refresh its group-dependent fields before each attempt
 	// and again before settlement. Non-nil only when billing mode is "tiered_expr".
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
-	BillingRequestInput   *billingexpr.RequestInput
+	// TaskBillingResult 保存同步任务实际用量结算，供消费日志复用。
+	TaskBillingResult   *billingexpr.TieredResult
+	BillingRequestInput *billingexpr.RequestInput
 
 	Request dto.Request
 
@@ -194,7 +205,31 @@ type RelayInfo struct {
 	*TaskRelayInfo
 }
 
+// ShouldForceResponses 限定对话端点，避免影响图片、音频及其他独立业务接口。
+func (info *RelayInfo) ShouldForceResponses() bool {
+	if info == nil || info.ChannelMeta == nil || !info.ChannelSetting.ForceResponses || !constant.SupportsForceResponses(info.ChannelType) {
+		return false
+	}
+	if info.RelayFormat == types.RelayFormatClaude {
+		return true
+	}
+	switch info.RelayMode {
+	case relayconstant.RelayModeChatCompletions, relayconstant.RelayModeGemini, relayconstant.RelayModeResponses:
+		return true
+	default:
+		return false
+	}
+}
+
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
+	// 重试选渠后重新记录协议，避免沿用上一渠道的转换与计费语义。
+	info.FinalRequestRelayFormat = ""
+	info.RequestConversionChain = nil
+	info.InitRequestConversionChain()
+	// 每次选定（或重试切换）渠道时清除上一次尝试的响应模型，避免
+	// 当前渠道未声明模型时把旧渠道的值写入最终日志。
+	info.UpstreamResponseModelName = ""
+	info.CodexFasterModelName = ""
 	channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
 	paramOverride := common.GetContextKeyStringMap(c, constant.ContextKeyChannelParamOverride)
 	headerOverride := common.GetContextKeyStringMap(c, constant.ContextKeyChannelHeaderOverride)
@@ -243,7 +278,8 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// Channel identity feeds the converter options snapshot (e.g.
 	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled {
+	info.ThinkingLog = thinkingLogFromRequest(info.Request)
+	if !info.ShouldForceResponses() && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled) {
 		info.ReasoningEffort = ""
 	} else {
 		info.ReasoningEffort = reasoningEffortFromRequest(info.Request)
@@ -272,6 +308,7 @@ func (info *RelayInfo) ToString() string {
 	fmt.Fprintf(b, "OriginalRequestURLPath: %q, ", info.OriginalRequestURLPath)
 	fmt.Fprintf(b, "RequestURLPath: %q, ", info.RequestURLPath)
 	fmt.Fprintf(b, "OriginModelName: %q, ", info.OriginModelName)
+	fmt.Fprintf(b, "UpstreamResponseModelName: %q, ", info.UpstreamResponseModelName)
 	fmt.Fprintf(b, "EstimatePromptTokens: %d, ", info.estimatePromptTokens)
 	fmt.Fprintf(b, "ShouldIncludeUsage: %t, ", info.ShouldIncludeUsage)
 	fmt.Fprintf(b, "DisablePing: %t, ", info.DisablePing)
@@ -521,12 +558,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request:         request,
 		ReasoningEffort: reasoningEffort,
+		ThinkingLog:     thinkingLogFromRequest(request),
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
-		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
+		UserQuota:  common.GetContextKeyInt64(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
@@ -767,6 +805,22 @@ func (info *RelayInfo) GetUpstreamModelName() string {
 	return info.UpstreamModelName
 }
 
+// SetUpstreamResponseModelName 记录上游响应返回的非空模型标识。
+// 空值会被忽略，避免后续不带模型的生命周期事件覆盖已有值。
+func (info *RelayInfo) SetUpstreamResponseModelName(modelName string) {
+	if info == nil {
+		return
+	}
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return
+	}
+	info.UpstreamResponseModelName = modelName
+	if info.OnUpstreamModelEvidence != nil {
+		info.OnUpstreamModelEvidence(info, UpstreamModelEvidence{Model: modelName, Source: constant.UpstreamModelSourceResponseBody})
+	}
+}
+
 func (info *RelayInfo) HasChannelMeta() bool { return info != nil && info.ChannelMeta != nil }
 
 func (info *RelayInfo) GetChannelID() int {
@@ -871,9 +925,22 @@ func (info *RelayInfo) HasSendResponse() bool {
 	return info.FirstResponseTime.After(info.StartTime)
 }
 
+type OriginTaskRef struct {
+	TaskID         string
+	UpstreamTaskID string
+	Action         string
+	Status         string
+	Data           []byte
+}
+
 type TaskRelayInfo struct {
-	Action       string
-	OriginTaskID string
+	// UpstreamRequestSent 区分本地配置/预扣失败与真正进入供应商传输阶段的请求。
+	UpstreamRequestSent bool
+	OriginTasks         []OriginTaskRef
+	Action              string
+	OriginTaskID        string
+	// 保存已授权源任务的倍率快照，供每次价格重建后恢复，避免重试累乘。
+	OriginTaskOtherRatios map[string]float64
 	// PublicTaskID 是提交时预生成的 task_xxxx 格式公开 ID，
 	// 供 DoResponse 在返回给客户端时使用（避免暴露上游真实 ID）。
 	PublicTaskID string
@@ -983,15 +1050,17 @@ func (t *TaskSubmitReq) UnmarshalMetadata(v any) error {
 }
 
 type TaskInfo struct {
-	Code             int    `json:"code"`
-	TaskID           string `json:"task_id"`
-	Status           string `json:"status"`
-	Reason           string `json:"reason,omitempty"`
-	Url              string `json:"url,omitempty"`
-	RemoteUrl        string `json:"remote_url,omitempty"`
-	Progress         string `json:"progress,omitempty"`
-	CompletionTokens int    `json:"completion_tokens,omitempty"` // 用于按倍率计费
-	TotalTokens      int    `json:"total_tokens,omitempty"`      // 用于按倍率计费
+	UsageFacts       map[string]any `json:"usage_facts,omitempty"`
+	PluginState      []byte         `json:"plugin_state,omitempty"`
+	Code             int            `json:"code"`
+	TaskID           string         `json:"task_id"`
+	Status           string         `json:"status"`
+	Reason           string         `json:"reason,omitempty"`
+	Url              string         `json:"url,omitempty"`
+	RemoteUrl        string         `json:"remote_url,omitempty"`
+	Progress         string         `json:"progress,omitempty"`
+	CompletionTokens int            `json:"completion_tokens,omitempty"` // 用于按倍率计费
+	TotalTokens      int            `json:"total_tokens,omitempty"`      // 用于按倍率计费
 }
 
 func FailTaskInfo(reason string) *TaskInfo {
@@ -1008,8 +1077,8 @@ func FailTaskInfo(reason string) *TaskInfo {
 // store: 数据存储授权字段，涉及用户隐私（仅 OpenAI、Responses API 支持，默认允许透传，禁用后可能导致 Codex 无法使用）
 // safety_identifier: 安全标识符，用于向 OpenAI 报告违规用户（仅 OpenAI 支持，涉及用户隐私）
 // stream_options.include_obfuscation: 响应流混淆控制字段（仅 OpenAI Responses API 支持）
-func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool) ([]byte, error) {
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled {
+func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool, forceFilter ...bool) ([]byte, error) {
+	if !(len(forceFilter) > 0 && forceFilter[0]) && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled) {
 		return jsonData, nil
 	}
 	if !hasRemovableDisabledField(jsonData, channelOtherSettings) {
