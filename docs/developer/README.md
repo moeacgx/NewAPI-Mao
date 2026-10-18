@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [流式性能统计与上游响应头等待优化](../workflows/2026-10/06_stream_metrics_response_header_timeout.md)：正常完成流的取消收尾统计，以及可配置的上游响应头等待上限。
+
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 
 - [兑换码多人兑换修复](../workflows/2026-10/01_redemption_multi_user_limit.md)：每码兑换上限持久化、唯一用户记录、限额并发保护与历史一次性码兼容。
