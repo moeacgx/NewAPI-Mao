@@ -223,6 +223,10 @@ func UpstreamAddresses(c *gin.Context) []string {
 			addresses = append(addresses, address)
 		}
 	}
+	// 空集合仍表示已知当前请求的作用域，不能退回旧调用的全量域名脱敏。
+	if len(addresses) == 0 {
+		return []string{""}
+	}
 	return addresses
 }
 

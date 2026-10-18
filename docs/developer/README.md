@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
+
 - [自定义上游地址错误脱敏](../workflows/2026-10/08_custom_upstream_error_masking.md)：错误响应保留公共链接可读性，并脱敏自定义上游、代理和凭据。
 
 - [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
