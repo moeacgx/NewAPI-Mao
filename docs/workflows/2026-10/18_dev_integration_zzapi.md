@@ -93,3 +93,22 @@ Go 测试单次设置 `-timeout 60s`，独立 relaykit 使用 `GOWORK=off`。
 | DeepSeek V4.1、Search/Fetch | 有对应供应商需求时采纳，独立端点价与聊天工具费分离  | 有对应供应商需求时采纳，核对模型与计费路由          |
 | 通知独立开关                | 有同类用户通知设置时采纳，保留原频控                | 有同类通知中心时评估，避免误改自动启停通知          |
 | 渠道优先级拖拽              | 使用兼容 Default 表格时评估，需覆盖并发与跨视图状态 | 使用兼容 Default 表格时评估，不能直接套用到 Classic |
+
+### maolaoapi 生产滚动更新（2026-10-18）
+
+- 按 `maolaoapi-slave-1`、`maolaoapi-slave-2`、`maolaoapi` 顺序逐个更新，
+  只重建三个应用容器，未重建 PostgreSQL/Redis。
+- 三个应用最终均为 `dev-320e44fcfd0b`，固定镜像 ID 为
+  `sha256:0575842e7d69d04f18a2b97c07d916c3909ec906981a4e19835feeeddaf05bbd`，
+  healthy、重启数 0；PostgreSQL/Redis 容器 ID 与 2026-10-17 启动时间保持不变。
+- 生产备份目录为 `/home/docker/maolaoapi/backups/prod-dev-20261018-1708`，
+  PostgreSQL 自洽备份 SHA-256 为
+  `27cdaf02bc71b42c8568ba4b91151c7b83168b98bbe4ec69eb30aa6cc524525b`，
+  `pg_restore --list` 为 1017 条目录项。部署前 users/channels/tokens 为
+  10105/215/15802；十分钟观察后为 10106/215/15803，变化来自观察期间正常业务写入，
+  不是迁移或回滚操作。
+- 十分钟滚动日志观察无 panic、fatal error、migration failed 或数据库连接失败。
+  三节点合计匹配到 `context canceled` 12 次、499/502 字样 32 次；未匹配到
+  `upstream prematurely closed`、超时、broken pipe 或 connection reset。该统计是日志字样计数，
+  不能单独证明每条 499/502 的完整请求链路原因。
+- 未执行登录态浏览器、真实付费上游或持续负载测试；本次生产观察也没有证明 499 已消失。
