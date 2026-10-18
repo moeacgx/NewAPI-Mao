@@ -12,7 +12,7 @@
 
 - [Claude 显式零用量与缓存计费修正](../workflows/2026-10/07_claude_cache_billing.md)：保留缓存-only 用量、显式零值和流中断估算边界，确保结算快照一致。
 
-- [DeepSeek V4.1 与 Search/Fetch 接入](../workflows/2026-10/07_deepseek_v41_search_fetch.md)：V4.1 模型思考后缀、Search/Fetch 路由、原始请求体转发和按次计费边界。
+- [DeepSeek V4.1 与 Search/Fetch 接入](../workflows/2026-10/07_deepseek_v41_search_fetch.md)：V4.1 模型思考后缀、Search/Fetch 路由、独立按次价与聊天工具附加费边界，以及免费调用审计统计。
 
 - [渠道优先级拖拽排序](../workflows/2026-10/07_channel_priority_drag.md)：Default 渠道表格/卡片拖拽、revision 并发冲突、权限边界和多数据库重排契约。
 
