@@ -377,7 +377,7 @@ export function NotificationTab({
                 </Label>
                 <p className='text-muted-foreground text-xs sm:text-sm'>
                   {t(
-                    'When a channel is disabled or re-enabled automatically, or a test of all channels finishes'
+                    'When a test of all channels finishes'
                   )}
                 </p>
               </div>

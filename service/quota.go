@@ -495,8 +495,15 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
 	gopool.Go(func() {
 		userSetting := relayInfo.UserSetting
-		balanceAfter := relayInfo.UserQuota - int64(quota+preConsumedQuota)
-		if quotaReminderDue(userSetting, relayInfo.UserQuota, balanceAfter) {
+		balanceBefore := relayInfo.UserQuota
+		balanceAfter := balanceBefore - int64(quota+preConsumedQuota)
+		// Concurrent requests can share the same relay snapshot. Refresh the
+		// committed wallet balance before deciding whether the threshold was
+		// crossed, so the request that observes the combined drop can notify.
+		if current, err := model.GetUserQuota(relayInfo.UserId, false); err == nil {
+			balanceAfter = current
+		}
+		if quotaReminderDue(userSetting, balanceBefore, balanceAfter) {
 			prompt := "您的额度即将用尽"
 			topUpLink := PaymentReturnURL("/wallet")
 
