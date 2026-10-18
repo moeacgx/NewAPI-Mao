@@ -1,6 +1,8 @@
 # NewAPI-Mao 开发文档
 
-- [通知类型独立开关](notifications.md)：站点/用户余额提醒、管理员渠道通知和上游模型更新通知的独立控制及兼容规则。
+- [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：低余额提醒候选沿用既有频控，个人全渠道测试开关与通知中心事件独立管理。
+
+- [通知类型独立开关](notifications.md)：站点和个人余额提醒、全渠道测试与模型更新开关，以及独立的 Telegram 自动启停事件。
 
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 

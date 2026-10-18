@@ -7233,12 +7233,12 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
-    "Channel notifications": "Channel notifications",
-    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
-    "Low balance reminder": "Low balance reminder",
-    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
-    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
-    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
-    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
+    "Low balance reminder": "Alerte de solde faible",
+    "Send notifications when a user balance falls below the threshold": "Envoyer une notification lorsque le solde d’un utilisateur passe sous le seuil",
+    "Reminder threshold cannot be negative": "Le seuil de rappel ne peut pas être négatif",
+    "All-channel test notifications": "Notifications des tests de tous les canaux",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "Me prévenir à la fin du test de tous les canaux. Les notifications de changement automatique d’état des canaux se gèrent dans le centre de notifications.",
+    "Remind me when my remaining quota is below the threshold": "Me prévenir lorsque mon quota restant est inférieur au seuil",
+    "Reminders are sent below this value, subject to notification rate limits": "Les rappels sont envoyés sous cette valeur, dans la limite de fréquence des notifications"
   }
 }

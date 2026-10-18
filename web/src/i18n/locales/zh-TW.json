@@ -7233,12 +7233,12 @@
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
     "Zoom": "縮放",
-    "Channel notifications": "Channel notifications",
-    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
-    "Low balance reminder": "Low balance reminder",
-    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
-    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
-    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
-    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
+    "Low balance reminder": "餘額不足提醒",
+    "Send notifications when a user balance falls below the threshold": "使用者餘額低於門檻時傳送通知",
+    "Reminder threshold cannot be negative": "提醒門檻不能為負數",
+    "All-channel test notifications": "全渠道測試通知",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "全渠道測試完成時通知我。渠道自動啟停通知在通知中心管理。",
+    "Remind me when my remaining quota is below the threshold": "剩餘額度低於門檻時提醒我",
+    "Reminders are sent below this value, subject to notification rate limits": "剩餘額度低於此值時提醒，傳送次數受通知頻率限制"
   }
 }

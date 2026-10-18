@@ -7233,12 +7233,12 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
-    "Channel notifications": "Channel notifications",
-    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
-    "Low balance reminder": "Low balance reminder",
-    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
-    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
-    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
-    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
+    "Low balance reminder": "Nhắc nhở số dư thấp",
+    "Send notifications when a user balance falls below the threshold": "Gửi thông báo khi số dư người dùng thấp hơn ngưỡng",
+    "Reminder threshold cannot be negative": "Ngưỡng nhắc nhở không được là số âm",
+    "All-channel test notifications": "Thông báo kiểm tra tất cả kênh",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "Thông báo khi kiểm tra tất cả kênh hoàn tất. Thông báo tự động bật hoặc tắt kênh được quản lý trong trung tâm thông báo.",
+    "Remind me when my remaining quota is below the threshold": "Nhắc tôi khi hạn mức còn lại thấp hơn ngưỡng",
+    "Reminders are sent below this value, subject to notification rate limits": "Gửi nhắc nhở khi hạn mức còn lại thấp hơn giá trị này, theo giới hạn tần suất thông báo"
   }
 }

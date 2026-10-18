@@ -7233,12 +7233,12 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
-    "Channel notifications": "Channel notifications",
-    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
-    "Low balance reminder": "Low balance reminder",
-    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
-    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
-    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
-    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
+    "Low balance reminder": "Напоминание о низком балансе",
+    "Send notifications when a user balance falls below the threshold": "Отправлять уведомления, когда баланс пользователя ниже порога",
+    "Reminder threshold cannot be negative": "Порог напоминания не может быть отрицательным",
+    "All-channel test notifications": "Уведомления о проверке всех каналов",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "Уведомлять о завершении проверки всех каналов. Уведомления об автоматическом включении и отключении каналов настраиваются в центре уведомлений.",
+    "Remind me when my remaining quota is below the threshold": "Уведомлять, когда остаток квоты ниже порога",
+    "Reminders are sent below this value, subject to notification rate limits": "Напоминания отправляются при остатке ниже этого значения с учётом ограничения частоты уведомлений"
   }
 }

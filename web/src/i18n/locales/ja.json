@@ -7233,12 +7233,12 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
     "Zoom": "ズーム",
-    "Channel notifications": "Channel notifications",
-    "Get notified once when balance falls below this value": "Get notified once when balance falls below this value",
-    "Low balance reminder": "Low balance reminder",
-    "Remind me once when my balance drops below the threshold": "Remind me once when my balance drops below the threshold",
-    "When a channel is disabled or re-enabled automatically, or a test of all channels finishes": "When a channel is disabled or re-enabled automatically, or a test of all channels finishes",
-    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
-    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative"
+    "Low balance reminder": "残高不足の通知",
+    "Send notifications when a user balance falls below the threshold": "ユーザーの残高がしきい値を下回ったら通知を送信する",
+    "Reminder threshold cannot be negative": "通知のしきい値に負の値は指定できません",
+    "All-channel test notifications": "全チャネルテストの通知",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "全チャネルのテスト完了時に通知します。チャネルの自動有効化・無効化の通知は通知センターで管理します。",
+    "Remind me when my remaining quota is below the threshold": "残りのクォータがしきい値を下回ったら通知する",
+    "Reminders are sent below this value, subject to notification rate limits": "残りのクォータがこの値を下回ると、通知頻度の制限内でお知らせします"
   }
 }
