@@ -125,7 +125,6 @@ func TestExtensionMarketplaceUploadRejectsMismatchWithoutReplacingEnabledModule(
 		{name: "真实版本不同", expectedVersion: "3.0.0"},
 		{name: "固定来源不同", catalog: "http://127.0.0.1:1/catalog.json"},
 		{name: "归档路径不同", path: "published/wrong.zip"},
-		{name: "宿主不兼容", host: extension.HostCompat{Min: "v9.0.0"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			manager := extension.NewManager(t.TempDir())
@@ -175,6 +174,33 @@ func TestExtensionMarketplaceUploadRejectsMismatchWithoutReplacingEnabledModule(
 			assert.Equal(t, "1.0.0", installed.Version)
 		})
 	}
+}
+
+func TestExtensionMarketplaceUploadAllowsDevelopmentHostVersion(t *testing.T) {
+	previousManager, previousVersion := extension.DefaultManager, common.Version
+	common.Version = "dev-320e44fcfd0b"
+	t.Cleanup(func() { extension.DefaultManager, common.Version = previousManager, previousVersion })
+
+	manager := extension.NewManager(t.TempDir())
+	extension.DefaultManager = manager
+	archive := marketplaceArchiveFixture(t, "dev-market-demo", "2.0.0", extension.HostCompat{Min: "v9.0.0", Max: "v10.0.0"})
+	values := map[string][]string{
+		"archiveSha256":   {fmt.Sprintf("%x", sha256.Sum256(archive))},
+		"expectedId":      {"dev-market-demo"},
+		"expectedVersion": {"2.0.0"},
+		"catalogUrl":      {ExtensionMarketplaceCatalogURL},
+		"archivePath":     {"published/dev-market-demo/2.0.0/dev-market-demo-2.0.0.zip"},
+	}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = marketplaceUploadRequest(t, archive, values)
+	ctx.Set("role", common.RoleRootUser)
+	UploadExtension(ctx)
+	require.Contains(t, recorder.Body.String(), `"success":true`)
+	module, ok := manager.Get("dev-market-demo")
+	require.True(t, ok)
+	require.Empty(t, module.Error)
+	require.Equal(t, "2.0.0", module.Version)
 }
 
 func TestExtensionMarketplaceUploadRejectsArchiveAboveLimit(t *testing.T) {

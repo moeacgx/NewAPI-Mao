@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/QuantumNous/new-api/common"
 )
 
 var hostVersionPattern = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
@@ -200,31 +198,6 @@ func compareHostVersions(left, right hostVersion) int {
 		return 1
 	}
 	return 0
-}
-
-func hostCompatibilityError(manifest Manifest) error {
-	minText := strings.TrimSpace(manifest.Host.Min)
-	maxText := strings.TrimSpace(manifest.Host.Max)
-	if minText == "" && maxText == "" {
-		return nil
-	}
-	current, err := parseHostVersion(common.Version)
-	if err != nil {
-		return errors.New("module host compatibility cannot be determined")
-	}
-	if minText != "" {
-		minimum, parseErr := parseHostVersion(minText)
-		if parseErr != nil || compareHostVersions(current, minimum) < 0 {
-			return errors.New("module is incompatible with current host version")
-		}
-	}
-	if maxText != "" {
-		maximum, parseErr := parseHostVersion(maxText)
-		if parseErr != nil || compareHostVersions(current, maximum) > 0 {
-			return errors.New("module is incompatible with current host version")
-		}
-	}
-	return nil
 }
 
 func (m *Manifest) Validate() error {

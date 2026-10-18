@@ -8,6 +8,9 @@
 
 - [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
 
+- [渠道可观测性中心模块与渲染排查](../workflows/2026-10/18_channel_observability_admin_render.md)：核对 `channel-quality` 模块版本、双模板原生资源、宿主兼容门禁与 Default 管理员路由。
+- [扩展宿主版本门禁移除](../workflows/2026-10/18_extension_host_version_gate_removal.md)：移除 `host.min/max` 运行时门禁，保留清单格式、权限、能力与 Native SDK 校验，支持 `dev-*` 宿主。
+
 - [流式性能统计与上游响应头等待优化](../workflows/2026-10/06_stream_metrics_response_header_timeout.md)：正常完成流的取消收尾统计，以及可配置的上游响应头等待上限。
 
 - [容器资源过载保护](../workflows/2026-10/07_container_overload_guard.md)：按 cgroup 容器口径采样 CPU/内存，并要求连续约 15 秒超阈值后才拒绝请求。
