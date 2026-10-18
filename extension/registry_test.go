@@ -193,8 +193,8 @@ func TestInstallBuiltinModulesRefreshesOlderBuiltinVersion(t *testing.T) {
 	if err := common.Unmarshal(manifestBytes, &manifest); err != nil {
 		t.Fatalf("parse refreshed manifest: %v", err)
 	}
-	if manifest.Version != "0.3.0" {
-		t.Fatalf("expected refreshed builtin version 0.3.0, got %q", manifest.Version)
+	if manifest.Version != "0.3.1" {
+		t.Fatalf("expected refreshed builtin version 0.3.1, got %q", manifest.Version)
 	}
 	pageBytes, err := os.ReadFile(filepath.Join(moduleDir, "public", "index.html"))
 	if err != nil {
@@ -704,7 +704,7 @@ func TestInstallBuiltinModulesIncludesOkxAlipayRateNativeAssets(t *testing.T) {
 	require.True(t, exists)
 	require.Empty(t, module.Error)
 	require.NotEmpty(t, module.AssetRevision)
-	require.Equal(t, "0.3.0", module.Version)
+	require.Equal(t, "0.3.1", module.Version)
 	for _, asset := range []string{"default.mjs", "default.css", "classic.mjs", "classic.css"} {
 		require.True(t, regularFileExists(filepath.Join(rootDir, "okx-alipay-rate", "public", "native", asset)), asset)
 	}
@@ -735,37 +735,33 @@ func TestManifestValidatesStrictHostBounds(t *testing.T) {
 	require.ErrorContains(t, manifest.Validate(), "host.min must not exceed host.max")
 }
 
-func TestManagerHostCompatibilityFailsClosedAcrossOperations(t *testing.T) {
-	setTestHostVersion(t, "v1.0.0-rc.10.1.10.204")
+func TestManagerHostVersionBoundsDoNotBlockDevelopmentHost(t *testing.T) {
+	setTestHostVersion(t, "dev-320e44fcfd0b")
 	rootDir := t.TempDir()
-	writeManifest(t, rootDir, "incompatible", Manifest{
-		ID: "incompatible", Name: "Incompatible", Version: "1.0.0",
+	writeManifest(t, rootDir, "development-host", Manifest{
+		ID: "development-host", Name: "Development host", Version: "1.0.0",
 		Host: HostCompat{Min: "v2.0.0"}, Runtime: Runtime{BaseURL: "https://example.com"},
 	})
 	manager := NewManager(rootDir)
 	require.NoError(t, manager.Scan())
-	module, exists := manager.Get("incompatible")
+	module, exists := manager.Get("development-host")
 	require.True(t, exists)
-	require.Equal(t, "module is incompatible with current host version", module.Error)
-	require.Empty(t, module.Path)
-	require.Empty(t, manager.List(common.RoleCommonUser, false))
-	listed := manager.List(common.RoleRootUser, true)
-	require.Len(t, listed, 1)
-	require.Equal(t, "module is incompatible with current host version", listed[0].Error)
-	_, err := manager.SetEnabled("incompatible", true)
-	require.ErrorContains(t, err, "incompatible")
+	require.Empty(t, module.Error)
+	_, err := manager.SetEnabled("development-host", true)
+	require.NoError(t, err)
+	require.Len(t, manager.List(common.RoleRootUser, false), 1)
 
 	archive := buildModuleArchiveWithManifest(t, Manifest{
-		ID: "archive-incompatible", Name: "Archive Incompatible", Version: "1.0.0",
+		ID: "archive-development-host", Name: "Archive development host", Version: "1.0.0",
 		Host: HostCompat{Max: "v0.9.0"}, Runtime: Runtime{BaseURL: "https://example.com"},
 	})
 	_, err = manager.InstallArchive(bytes.NewReader(archive), int64(len(archive)))
-	require.ErrorContains(t, err, "incompatible")
-	require.False(t, regularFileExists(filepath.Join(rootDir, "archive-incompatible")))
+	require.NoError(t, err)
+	require.True(t, regularFileExists(filepath.Join(rootDir, "archive-development-host", "manifest.json")))
 }
 
-func TestManagerHostCompatibilityAllowsCompatibleModule(t *testing.T) {
-	setTestHostVersion(t, "v1.0.0-rc.10.1.10.205")
+func TestManagerHostVersionBoundsRemainValidManifestMetadata(t *testing.T) {
+	setTestHostVersion(t, "dev-320e44fcfd0b")
 	rootDir := t.TempDir()
 	writeManifest(t, rootDir, "compatible", Manifest{
 		ID: "compatible", Name: "Compatible", Version: "1.0.0",
@@ -778,6 +774,22 @@ func TestManagerHostCompatibilityAllowsCompatibleModule(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, module.Enabled)
 	require.Len(t, manager.List(common.RoleRootUser, false), 1)
+}
+
+func TestManagerHostVersionBoundsDoNotBlockDevelopmentPrerelease(t *testing.T) {
+	setTestHostVersion(t, "v1.0.0-rc.10.1.10.348-dev.320e44fcfd0b")
+	rootDir := t.TempDir()
+	writeManifest(t, rootDir, "dev-compatible", Manifest{
+		ID: "dev-compatible", Name: "Development compatible", Version: "1.0.0",
+		Host:    HostCompat{Min: "v1.0.0-rc.10.1.10.204"},
+		Runtime: Runtime{BaseURL: "https://example.com"},
+	})
+
+	manager := NewManager(rootDir)
+	require.NoError(t, manager.Scan())
+	module, err := manager.SetEnabled("dev-compatible", true)
+	require.NoError(t, err)
+	require.True(t, module.Enabled)
 }
 
 func buildModuleArchiveWithManifest(t *testing.T, manifest Manifest) []byte {

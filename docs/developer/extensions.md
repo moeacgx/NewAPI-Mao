@@ -42,9 +42,10 @@ Default 与 Classic 的 Root 扩展管理页在操作区提供“在线模块”
 浏览器核对包大小和 SHA-256 后，将 ZIP 连同 `archiveSha256`、`expectedId`、`expectedVersion`、
 `catalogUrl`、`archivePath` 发送原 `POST /api/extension-admin/upload`。
 五项元数据必须全部存在或全部省略；仅接受固定目录与同目录 `published/<id>/<version>/<id>-<version>.zip` 路径。
-服务器不访问上传的 URL，而是在替换文件前检查实际字节 hash、清单 ID/版本、宿主兼容和原有安全解包规则。
+服务器不访问上传的 URL，而是在替换文件前检查实际字节 hash、清单 ID/版本和原有安全解包规则。
 失败保留已安装内容和启用状态，首次安装关闭，更新沿用原启用状态。SHA-256 只表示完整性，不是发布者签名。
-兼容错误仍可能由宿主最终拒绝；公开目录存在不代表任意旧站点已有所需宿主接口。
+清单中的 `host.min`/`host.max` 仅作为兼容性元数据展示并进行格式校验，不参与宿主运行时的扫描、安装、启用或代理门禁；因此 `dev-*` 宿主也可安装模块。实际 Native SDK、后端接口、权限和能力声明仍由各自运行路径检查。
+公开目录存在不代表任意旧站点已有所需宿主接口；缺少实际接口时模块会显示依赖未就绪或返回对应错误。
 
 固定源和双端交互/失败矩阵见 [在线安装工作记录](../workflows/2026-09/18_extension_repository_marketplace.md)。
 

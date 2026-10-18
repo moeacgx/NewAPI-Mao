@@ -184,13 +184,6 @@ func (m *Manager) scanLocked() error {
 			nextModules[directoryID] = invalidModule(directoryID, moduleDir)
 			continue
 		}
-		if err := hostCompatibilityError(manifest); err != nil {
-			nextModules[directoryID] = Module{
-				Manifest: manifest,
-				Error:    "module is incompatible with current host version",
-			}
-			continue
-		}
 		assetRevision, err := nativeAssetRevision(moduleDir, manifest)
 		if err != nil {
 			nextModules[directoryID] = invalidModule(directoryID, moduleDir)
@@ -235,12 +228,6 @@ func (m *Manager) List(role int, includeDisabled bool) []PublicModule {
 
 	result := make([]PublicModule, 0, len(m.modules))
 	for _, module := range m.modules {
-		if module.Error == "" {
-			if err := hostCompatibilityError(module.Manifest); err != nil {
-				module.Enabled = false
-				module.Error = "module is incompatible with current host version"
-			}
-		}
 		if !includeDisabled && (!module.Enabled || module.Error != "") {
 			continue
 		}
@@ -272,15 +259,7 @@ func (m *Manager) SetEnabled(id string, enabled bool) (Module, error) {
 		return Module{}, errors.New("module not found")
 	}
 	if module.Error != "" {
-		if module.Error == "module is incompatible with current host version" {
-			return Module{}, errors.New("module is incompatible with current host version")
-		}
 		return Module{}, errors.New("module manifest is invalid")
-	}
-	if enabled {
-		if err := hostCompatibilityError(module.Manifest); err != nil {
-			return Module{}, errors.New("module is incompatible with current host version")
-		}
 	}
 	previousModule := module
 	previousState, hadState := m.state.Modules[id]
@@ -420,9 +399,6 @@ func (m *Manager) installArchive(readerAt io.ReaderAt, size int64, expectation *
 	}
 	if expectation != nil && (manifest.ID != expectation.ExpectedID || manifest.Version != expectation.ExpectedVersion) {
 		return Module{}, errors.New("module manifest does not match expected identity or version")
-	}
-	if err := hostCompatibilityError(manifest); err != nil {
-		return Module{}, errors.New("module is incompatible with current host version")
 	}
 	if _, err := nativeAssetRevision(sourceDir, manifest); err != nil {
 		return Module{}, errors.New("native module resources are invalid")

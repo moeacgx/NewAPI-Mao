@@ -2,8 +2,6 @@
   'use strict'
 
   const API_ROOT = '/api/channel-analytics'
-  const HOST_CONTEXT_API = '/api/extensions/host/me'
-  const REQUIRED_HOST_VERSION = 'v1.0.0-rc.10.1.10.200'
   const REQUIRED_CAPABILITY_API = `${API_ROOT}/filters/models?model_dimension=requested&page=1&page_size=1`
   const MODULE_VERSION = '0.3.7'
   const UI_ASSET_VERSION = MODULE_VERSION
@@ -162,7 +160,6 @@
     controller: null,
     initialized: false,
     hostCompatible: false,
-    hostVersion: '',
     filtersLoaded: false,
     channels: [],
     expandedChannels: new Set(),
@@ -346,56 +343,12 @@
     return body ?? {}
   }
 
-  function hostVersionAtLeast(current, required) {
-    // 宿主版本包含 rc 段，按全部数字片段逐段比较。
-    const currentParts = String(current || '').match(/\d+/g)?.map(Number) || []
-    const requiredParts = String(required || '').match(/\d+/g)?.map(Number) || []
-    if (!currentParts.length || !requiredParts.length) return true
-    const length = Math.max(currentParts.length, requiredParts.length)
-    for (let index = 0; index < length; index += 1) {
-      const currentPart = currentParts[index] || 0
-      const requiredPart = requiredParts[index] || 0
-      if (currentPart !== requiredPart) return currentPart > requiredPart
-    }
-    return true
-  }
-
-  function hostCompatibilityError(currentVersion) {
-    const error = new Error(
-      `当前宿主为 ${currentVersion || '未知版本'}，` +
-      `渠道可观测性 ${MODULE_VERSION} 要求至少 ${REQUIRED_HOST_VERSION}，请先升级所有后端节点后再使用。`,
-    )
-    error.hostCompatibility = true
-    return error
-  }
-
-  async function verifyHostCompatibility(signal) {
+  async function verifyAnalyticsCapability(signal) {
     if (state.hostCompatible) return
 
-    // 旧版宿主只会读取 manifest.host，不会真正执行最低版本约束。
-    // 因此必须在任何统计查询前探测当前模块依赖的新接口，避免把
-    // 404 或旧版查询参数错误误报成统计数据故障。
-    const [hostResult, capabilityResult] = await Promise.allSettled([
-      requestJson(HOST_CONTEXT_API, { signal }),
-      requestJson(REQUIRED_CAPABILITY_API, { signal }),
-    ])
-
-    if (hostResult.status === 'fulfilled') {
-      state.hostVersion = String(firstDefined(hostResult.value, ['version'], '')).trim()
-    }
-    if (state.hostVersion && !hostVersionAtLeast(state.hostVersion, REQUIRED_HOST_VERSION)) {
-      throw hostCompatibilityError(state.hostVersion)
-    }
-    if (capabilityResult.status === 'fulfilled') {
-      state.hostCompatible = true
-      return
-    }
-
-    const capabilityError = capabilityResult.reason
-    if (capabilityError?.name === 'AbortError') throw capabilityError
-    if (capabilityError?.status !== 404) throw capabilityError
-
-    throw hostCompatibilityError(state.hostVersion)
+    // 不再按宿主版本拦截；只探测实际使用的渠道统计接口。
+    await requestJson(REQUIRED_CAPABILITY_API, { signal })
+    state.hostCompatible = true
   }
 
   function showToast(message) {
@@ -738,10 +691,8 @@
   }
 
   function showError(error) {
-    const message = error?.hostCompatibility
-      ? error.message
-      : error?.status === 404
-      ? '宿主程序尚未提供渠道统计接口，请先升级后端并确认指标采集已启用。'
+    const message = error?.status === 404
+      ? '宿主程序尚未提供渠道统计接口，请确认渠道可观测性后端接口和指标采集已启用。'
       : error?.message || '请稍后重试。'
     $('errorMessage').textContent = message
     $('errorState').classList.remove('is-hidden')
@@ -2077,7 +2028,7 @@
     setLoading(true)
 
     try {
-      await verifyHostCompatibility(signal)
+      await verifyAnalyticsCapability(signal)
       if (!state.filtersLoaded) await loadFilterOptions()
       let result
       if (state.view === 'overview') result = await loadOverview(signal)
