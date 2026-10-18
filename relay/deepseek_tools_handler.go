@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
+	deepseekchannel "github.com/QuantumNous/new-api/relay/channel/deepseek"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -122,13 +123,19 @@ func DeepSeekToolsHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIErr
 		return nil
 	}
 
-	// Search/Fetch responses have no token usage. Settle the fixed request
-	// reservation directly; the normal text path would reject zero-token usage
-	// before reaching the request-price billing unit on older hosts.
-	if info.Billing != nil {
-		if err := info.Billing.Settle(info.PriceData.QuotaToPreConsume); err != nil {
-			return types.NewError(err, types.ErrorCodePreConsumeTokenQuotaFailed)
-		}
+	// Search/Fetch responses have no token usage, but the fixed tool call is
+	// billable. Use the normal text settlement path so the consume log, user and
+	// channel counters, and channel metrics are updated together with billing.
+	if info.ResponsesUsageInfo == nil {
+		info.ResponsesUsageInfo = &relaycommon.ResponsesUsageInfo{BuiltInTools: make(map[string]*relaycommon.BuildInToolInfo)}
 	}
-	return nil
+	if info.ResponsesUsageInfo.BuiltInTools == nil {
+		info.ResponsesUsageInfo.BuiltInTools = make(map[string]*relaycommon.BuildInToolInfo)
+	}
+	priceKey := deepseekchannel.SearchToolPriceKey
+	if info.RelayMode == relayconstant.RelayModeToolsFetch {
+		priceKey = deepseekchannel.FetchToolPriceKey
+	}
+	info.ResponsesUsageInfo.BuiltInTools[priceKey] = &relaycommon.BuildInToolInfo{ToolName: priceKey, CallCount: 1}
+	return service.PostTextConsumeQuota(c, info, &dto.Usage{}, nil)
 }

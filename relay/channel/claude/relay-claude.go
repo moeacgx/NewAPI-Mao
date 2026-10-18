@@ -150,9 +150,10 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 		claudeResponse.Usage != nil &&
 		claudeResponse.Usage.ServerToolUse != nil &&
 		claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
 		if info.WebSearchBillingKey != "" {
 			info.SetBillableToolCount(info.WebSearchBillingKey, claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		} else {
+			c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
 		}
 	}
 }
@@ -264,9 +265,10 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	}
 
 	if claudeResponse.Usage != nil && claudeResponse.Usage.ServerToolUse != nil && claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
 		if info.WebSearchBillingKey != "" {
 			info.SetBillableToolCount(info.WebSearchBillingKey, claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+		} else {
+			c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
 		}
 	}
 

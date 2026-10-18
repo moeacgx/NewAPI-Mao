@@ -84,7 +84,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		if err != nil {
 			return hosttypes.PriceData{}, err
 		}
-		priceData := hosttypes.PriceData{ModelPrice: modelPrice, UsePrice: true, QuotaToPreConsume: quota, GroupRatioInfo: groupRatioInfo}
+		freeModel := !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume &&
+			(groupRatioInfo.GroupRatio == 0 || modelPrice == 0)
+		priceData := hosttypes.PriceData{FreeModel: freeModel, ModelPrice: modelPrice, UsePrice: true, QuotaToPreConsume: quota, GroupRatioInfo: groupRatioInfo}
 		info.PriceData = priceData
 		return priceData, nil
 	}
