@@ -74,6 +74,7 @@ export function useChannelPriorityOrder(props: {
   const [saving, setSaving] = useState(false)
   const session = useRef<{
     snapshot: Promise<PriorityOrder>
+    expected: { id: number; priority: number | null }[]
     drop: PriorityDrop | null
     serial: number
   } | null>(null)
@@ -100,7 +101,12 @@ export function useChannelPriorityOrder(props: {
     const snapshot = getChannelPriorityOrder()
     // Mark rejection handled until the gesture actually needs the result.
     void snapshot.catch(() => undefined)
-    session.current = { snapshot, drop: null, serial: 0 }
+    session.current = {
+      snapshot,
+      expected: props.channels.map(({ id, priority }) => ({ id, priority })),
+      drop: null,
+      serial: 0,
+    }
     setActive(true)
   }
 
@@ -179,6 +185,15 @@ export function useChannelPriorityOrder(props: {
     try {
       const snapshot = await current.snapshot
       if (session.current !== current) return
+      const latestByID = new Map(
+        snapshot.items.map((item) => [item.id, item.priority])
+      )
+      const stale = current.expected.some(
+        (item) => (latestByID.get(item.id) ?? null) !== item.priority
+      )
+      if (stale) {
+        throw new Error(t('Channel priorities changed. Refresh and try again.'))
+      }
       await save({ ...current.drop, revision: snapshot.revision })
     } catch (error) {
       handleServerError(error)
