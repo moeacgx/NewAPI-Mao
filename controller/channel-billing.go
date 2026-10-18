@@ -400,14 +400,18 @@ func updateChannelSub2APIBalance(channel *model.Channel) (float64, error) {
 	// previously known wallet balance with that sentinel value. A negative
 	// wallet balance remains valid, so identify the sentinel from the limits.
 	if subscription := usage.Subscription; subscription != nil &&
-		subscription.DailyLimitUSD == nil &&
-		subscription.WeeklyLimitUSD == nil &&
-		subscription.MonthlyLimitUSD == nil {
+		!hasPositiveSub2APILimit(subscription.DailyLimitUSD) &&
+		!hasPositiveSub2APILimit(subscription.WeeklyLimitUSD) &&
+		!hasPositiveSub2APILimit(subscription.MonthlyLimitUSD) {
 		return 0, errors.New("Sub2API /v1/usage reports an unlimited subscription without a finite balance")
 	}
 
 	channel.UpdateBalance(*balance)
 	return *balance, nil
+}
+
+func hasPositiveSub2APILimit(limit *float64) bool {
+	return limit != nil && *limit > 0
 }
 
 func updateChannelBalance(channel *model.Channel) (float64, error) {
