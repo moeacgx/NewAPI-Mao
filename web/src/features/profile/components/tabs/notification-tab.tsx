@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -62,9 +62,16 @@ function normalizeNotifyType(value: unknown): NotifyType {
 interface NotificationTabProps {
   profile: UserProfile | null
   onUpdate: () => void
+  quotaRemindEnabled: boolean
+  quotaRemindThreshold: number
 }
 
-export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
+export function NotificationTab({
+  profile,
+  onUpdate,
+  quotaRemindEnabled,
+  quotaRemindThreshold,
+}: NotificationTabProps) {
   const { t } = useTranslation()
   const isAdmin = (profile?.role ?? 0) >= ROLE.ADMIN
   const [loading, setLoading] = useState(false)
@@ -81,6 +88,8 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
     accept_unset_model_ratio_model: false,
     record_ip_log: false,
     upstream_model_update_notify_enabled: false,
+    quota_warning_enabled: true,
+    channel_notify_enabled: undefined,
   })
 
   // Update form field helper
@@ -109,7 +118,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
           parsed.accept_unset_model_ratio_model || false,
         record_ip_log: parsed.record_ip_log || false,
         upstream_model_update_notify_enabled:
-          parsed.upstream_model_update_notify_enabled || false,
+          parsed.upstream_model_update_notify_enabled ?? false,
+        quota_warning_enabled: parsed.quota_warning_enabled ?? true,
+        channel_notify_enabled: parsed.channel_notify_enabled,
       })
     }
   }, [profile])
@@ -125,7 +136,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       } else {
         toast.error(response.message || t('Failed to update settings'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to update settings'))
     } finally {
       setLoading(false)
@@ -133,6 +144,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   }
 
   const notifyType = normalizeNotifyType(settings.notify_type)
+  const quotaWarningEnabled = settings.quota_warning_enabled ?? true
+  const channelNotifyEnabled =
+    settings.channel_notify_enabled ?? (profile?.role ?? 0) >= ROLE.SUPER_ADMIN
 
   return (
     <div className='space-y-4 sm:space-y-6'>
@@ -143,8 +157,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
           value={[notifyType]}
           onValueChange={(value) => {
             const nextValue = value.find((item) => item !== notifyType)
-            if (nextValue)
+            if (nextValue) {
               updateField('notify_type', normalizeNotifyType(nextValue))
+            }
           }}
           aria-label={t('Notification Method')}
           variant='outline'
@@ -171,22 +186,26 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       </div>
 
       {/* Warning Threshold */}
-      <div className='space-y-1.5'>
-        <Label htmlFor='threshold'>{t('Quota Warning Threshold')}</Label>
-        <Input
-          id='threshold'
-          type='number'
-          className='h-9'
-          value={settings.quota_warning_threshold}
-          onChange={(e) =>
-            updateField('quota_warning_threshold', Number(e.target.value))
-          }
-          placeholder={t('Enter threshold')}
-        />
-        <p className='text-muted-foreground text-xs'>
-          {t('Get notified when balance falls below this value')}
-        </p>
-      </div>
+      {quotaRemindEnabled && quotaWarningEnabled && (
+        <div className='space-y-1.5'>
+          <Label htmlFor='threshold'>{t('Quota Warning Threshold')}</Label>
+          <Input
+            id='threshold'
+            type='number'
+            className='h-9'
+            value={settings.quota_warning_threshold}
+            onChange={(e) =>
+              updateField('quota_warning_threshold', Number(e.target.value))
+            }
+            placeholder={String(quotaRemindThreshold)}
+          />
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Reminders are sent below this value, subject to notification rate limits'
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Email Settings */}
       {notifyType === 'email' && (
@@ -332,28 +351,72 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
           </p>
         </div>
 
-        {/* Receive Upstream Model Update Notifications (admin only) */}
-        {isAdmin && (
+        {/* Notification preferences */}
+        {quotaRemindEnabled && (
           <div className='flex items-start justify-between gap-3 rounded-lg border p-3 sm:items-center sm:p-4'>
             <div className='space-y-0.5'>
-              <Label htmlFor='upstreamModelUpdateNotify'>
-                {t('Receive Upstream Model Update Notifications')}
+              <Label htmlFor='quotaWarningEnabled'>
+                {t('Low balance reminder')}
               </Label>
-              <p className='text-muted-foreground line-clamp-3 text-xs sm:line-clamp-none sm:text-sm'>
-                {t(
-                  'Only available for admins. When enabled, you will receive a summary notification via your selected method when the scheduled model check detects upstream model changes or check failures.'
-                )}
+              <p className='text-muted-foreground text-xs sm:text-sm'>
+                {t('Remind me when my remaining quota is below the threshold')}
               </p>
             </div>
             <Switch
-              id='upstreamModelUpdateNotify'
+              id='quotaWarningEnabled'
               className='shrink-0'
-              checked={settings.upstream_model_update_notify_enabled}
+              checked={quotaWarningEnabled}
               onCheckedChange={(checked) =>
-                updateField('upstream_model_update_notify_enabled', checked)
+                updateField('quota_warning_enabled', checked)
               }
             />
           </div>
+        )}
+
+        {isAdmin && (
+          <>
+            <div className='flex items-start justify-between gap-3 rounded-lg border p-3 sm:items-center sm:p-4'>
+              <div className='space-y-0.5'>
+                <Label htmlFor='channelNotifyEnabled'>
+                  {t('All-channel test notifications')}
+                </Label>
+                <p className='text-muted-foreground text-xs sm:text-sm'>
+                  {t(
+                    'Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.'
+                  )}
+                </p>
+              </div>
+              <Switch
+                id='channelNotifyEnabled'
+                className='shrink-0'
+                checked={channelNotifyEnabled}
+                onCheckedChange={(checked) =>
+                  updateField('channel_notify_enabled', checked)
+                }
+              />
+            </div>
+
+            <div className='flex items-start justify-between gap-3 rounded-lg border p-3 sm:items-center sm:p-4'>
+              <div className='space-y-0.5'>
+                <Label htmlFor='upstreamModelUpdateNotify'>
+                  {t('Receive Upstream Model Update Notifications')}
+                </Label>
+                <p className='text-muted-foreground line-clamp-3 text-xs sm:line-clamp-none sm:text-sm'>
+                  {t(
+                    'Only available for admins. When enabled, you will receive a summary notification via your selected method when the scheduled model check detects upstream model changes or check failures.'
+                  )}
+                </p>
+              </div>
+              <Switch
+                id='upstreamModelUpdateNotify'
+                className='shrink-0'
+                checked={settings.upstream_model_update_notify_enabled}
+                onCheckedChange={(checked) =>
+                  updateField('upstream_model_update_notify_enabled', checked)
+                }
+              />
+            </div>
+          </>
         )}
 
         {/* Accept Unset Model Price */}

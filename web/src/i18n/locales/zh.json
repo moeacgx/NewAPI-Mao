@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "对于 AtlasCloud gpt-image-2/edit，请应用 AtlasCloud 预设并更新 currency_rate。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For example, 3 means the third returned order": "例如，3 表示返回顺序中的第三个",
@@ -7232,6 +7232,13 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Low balance reminder": "余额不足提醒",
+    "Send notifications when a user balance falls below the threshold": "用户余额低于阈值时发送通知",
+    "Reminder threshold cannot be negative": "提醒阈值不能为负数",
+    "All-channel test notifications": "全渠道测试通知",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "全渠道测试完成时通知我。渠道自动启停通知在通知中心管理。",
+    "Remind me when my remaining quota is below the threshold": "剩余额度低于阈值时提醒我",
+    "Reminders are sent below this value, subject to notification rate limits": "剩余额度低于此值时提醒，发送次数受通知频控限制"
   }
 }

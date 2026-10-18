@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "AtlasCloud gpt-image-2/edit では、AtlasCloud プリセットを適用して currency_rate を更新してください。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For example, 3 means the third returned order": "例：3 は返された順序の3番目を意味します",
@@ -7232,6 +7232,13 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Low balance reminder": "残高不足の通知",
+    "Send notifications when a user balance falls below the threshold": "ユーザーの残高がしきい値を下回ったら通知を送信する",
+    "Reminder threshold cannot be negative": "通知のしきい値に負の値は指定できません",
+    "All-channel test notifications": "全チャネルテストの通知",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "全チャネルのテスト完了時に通知します。チャネルの自動有効化・無効化の通知は通知センターで管理します。",
+    "Remind me when my remaining quota is below the threshold": "残りのクォータがしきい値を下回ったら通知する",
+    "Reminders are sent below this value, subject to notification rate limits": "残りのクォータがこの値を下回ると、通知頻度の制限内でお知らせします"
   }
 }

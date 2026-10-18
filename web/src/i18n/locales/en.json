@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For example, 3 means the third returned order": "For example, 3 means the third returned order",
@@ -7232,6 +7232,13 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Low balance reminder": "Low balance reminder",
+    "Send notifications when a user balance falls below the threshold": "Send notifications when a user balance falls below the threshold",
+    "Reminder threshold cannot be negative": "Reminder threshold cannot be negative",
+    "All-channel test notifications": "All-channel test notifications",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.",
+    "Remind me when my remaining quota is below the threshold": "Remind me when my remaining quota is below the threshold",
+    "Reminders are sent below this value, subject to notification rate limits": "Reminders are sent below this value, subject to notification rate limits"
   }
 }

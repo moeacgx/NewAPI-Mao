@@ -2784,7 +2784,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "Для AtlasCloud gpt-image-2/edit примените предустановку AtlasCloud и обновите currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
     "For example, 3 means the third returned order": "Например, 3 означает третий элемент в возвращенном порядке",
@@ -7232,6 +7232,13 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Low balance reminder": "Напоминание о низком балансе",
+    "Send notifications when a user balance falls below the threshold": "Отправлять уведомления, когда баланс пользователя ниже порога",
+    "Reminder threshold cannot be negative": "Порог напоминания не может быть отрицательным",
+    "All-channel test notifications": "Уведомления о проверке всех каналов",
+    "Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.": "Уведомлять о завершении проверки всех каналов. Уведомления об автоматическом включении и отключении каналов настраиваются в центре уведомлений.",
+    "Remind me when my remaining quota is below the threshold": "Уведомлять, когда остаток квоты ниже порога",
+    "Reminders are sent below this value, subject to notification rate limits": "Напоминания отправляются при остатке ниже этого значения с учётом ограничения частоты уведомлений"
   }
 }
