@@ -10,6 +10,8 @@
 
 - [请求体读取错误与 413 响应优化](../workflows/2026-10/07_request_body_413.md)：保留首次读取失败原因，并将超出请求体上限的请求统一返回 413。
 
+- [Claude 显式零用量与缓存计费修正](../workflows/2026-10/07_claude_cache_billing.md)：保留缓存-only 用量、显式零值和流中断估算边界，确保结算快照一致。
+
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 
 - [兑换码多人兑换修复](../workflows/2026-10/01_redemption_multi_user_limit.md)：每码兑换上限持久化、唯一用户记录、限额并发保护与历史一次性码兼容。
