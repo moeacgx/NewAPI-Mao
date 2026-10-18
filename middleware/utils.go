@@ -15,6 +15,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// invalidRequestStatus distinguishes an oversized request body from other
+// malformed request errors so clients can handle the size limit explicitly.
+func invalidRequestStatus(err error) int {
+	if common.IsRequestBodyTooLargeError(err) {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
+}
+
 func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code ...types.ErrorCode) {
 	codeStr := ""
 	if len(code) > 0 {
