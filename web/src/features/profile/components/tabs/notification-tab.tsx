@@ -136,7 +136,7 @@ export function NotificationTab({
       } else {
         toast.error(response.message || t('Failed to update settings'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to update settings'))
     } finally {
       setLoading(false)
@@ -157,8 +157,9 @@ export function NotificationTab({
           value={[notifyType]}
           onValueChange={(value) => {
             const nextValue = value.find((item) => item !== notifyType)
-            if (nextValue)
+            if (nextValue) {
               updateField('notify_type', normalizeNotifyType(nextValue))
+            }
           }}
           aria-label={t('Notification Method')}
           variant='outline'
@@ -185,22 +186,26 @@ export function NotificationTab({
       </div>
 
       {/* Warning Threshold */}
-      {quotaRemindEnabled && quotaWarningEnabled && <div className='space-y-1.5'>
-        <Label htmlFor='threshold'>{t('Quota Warning Threshold')}</Label>
-        <Input
-          id='threshold'
-          type='number'
-          className='h-9'
-          value={settings.quota_warning_threshold}
-          onChange={(e) =>
-            updateField('quota_warning_threshold', Number(e.target.value))
-          }
-          placeholder={String(quotaRemindThreshold)}
-        />
-        <p className='text-muted-foreground text-xs'>
-          {t('Get notified once when balance falls below this value')}
-        </p>
-      </div>}
+      {quotaRemindEnabled && quotaWarningEnabled && (
+        <div className='space-y-1.5'>
+          <Label htmlFor='threshold'>{t('Quota Warning Threshold')}</Label>
+          <Input
+            id='threshold'
+            type='number'
+            className='h-9'
+            value={settings.quota_warning_threshold}
+            onChange={(e) =>
+              updateField('quota_warning_threshold', Number(e.target.value))
+            }
+            placeholder={String(quotaRemindThreshold)}
+          />
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Reminders are sent below this value, subject to notification rate limits'
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Email Settings */}
       {notifyType === 'email' && (
@@ -354,7 +359,7 @@ export function NotificationTab({
                 {t('Low balance reminder')}
               </Label>
               <p className='text-muted-foreground text-xs sm:text-sm'>
-                {t('Remind me once when my balance drops below the threshold')}
+                {t('Remind me when my remaining quota is below the threshold')}
               </p>
             </div>
             <Switch
@@ -373,11 +378,11 @@ export function NotificationTab({
             <div className='flex items-start justify-between gap-3 rounded-lg border p-3 sm:items-center sm:p-4'>
               <div className='space-y-0.5'>
                 <Label htmlFor='channelNotifyEnabled'>
-                  {t('Channel notifications')}
+                  {t('All-channel test notifications')}
                 </Label>
                 <p className='text-muted-foreground text-xs sm:text-sm'>
                   {t(
-                    'When a test of all channels finishes'
+                    'Notify me when a test of all channels finishes. Automatic channel status notifications are managed in the notification center.'
                   )}
                 </p>
               </div>

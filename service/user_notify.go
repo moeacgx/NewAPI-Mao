@@ -19,19 +19,18 @@ func NotifyRootUser(t string, subject string, content string) {
 			return *setting.ChannelNotifyEnabled
 		}
 		return role == common.RoleRootUser
-	}, func(string) (string, string) { return subject, content })
+	}, subject, content)
 }
 
 func NotifyUpstreamModelUpdateWatchers(subject string, content string) {
 	notifyAdmins(dto.NotifyTypeChannelUpdate, func(_ int, setting dto.UserSetting) bool {
 		return setting.UpstreamModelUpdateNotifyEnabled
-	}, func(string) (string, string) { return subject, content })
+	}, subject, content)
 }
 
-// notifyAdmins sends a legacy user notification to every enabled administrator
-// whose notification preference allows the event. Existing settings keep the
-// root-only channel behavior when the new switch has never been saved.
-func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, render func(lang string) (subject string, content string)) {
+// notifyAdmins 按偏好发送调用方提供的通知正文，不按个人语言翻译。
+// 全渠道测试开关未保存时沿用仅 Root 接收的历史默认；渠道自动启停由通知中心投递。
+func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, subject, content string) {
 	var users []model.User
 	if err := model.DB.
 		Select("id", "email", "role", "status", "setting").
@@ -47,7 +46,6 @@ func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSet
 		if !receives(user.Role, userSetting) {
 			continue
 		}
-		subject, content := render(userSetting.Language)
 		if err := NotifyUser(user.Id, user.Email, userSetting, dto.NewNotify(notifyType, subject, content, nil)); err != nil {
 			common.SysLog(fmt.Sprintf("failed to notify user %d for %s: %s", user.Id, notifyType, err.Error()))
 			continue

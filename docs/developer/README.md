@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：钱包和订阅低余额提醒候选沿用通知频控，个人全渠道测试开关与通知中心自动启停事件分开管理。
+
 - [自定义上游地址错误脱敏](../workflows/2026-10/08_custom_upstream_error_masking.md)：错误响应保留公共链接可读性，并脱敏自定义上游、代理和凭据。
 
 - [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
