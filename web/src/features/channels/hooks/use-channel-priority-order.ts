@@ -103,7 +103,10 @@ export function useChannelPriorityOrder(props: {
     void snapshot.catch(() => undefined)
     session.current = {
       snapshot,
-      expected: props.channels.map(({ id, priority }) => ({ id, priority })),
+      expected: props.channels.map(({ id, priority }) => ({
+        id,
+        priority: priority ?? null,
+      })),
       drop: null,
       serial: 0,
     }
