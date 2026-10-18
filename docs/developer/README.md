@@ -2,6 +2,8 @@
 
 - [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
 
+- [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：钱包和订阅低余额提醒候选沿用通知频控，个人全渠道测试开关与通知中心自动启停事件分开管理。
+
 - [自定义上游地址错误脱敏](../workflows/2026-10/08_custom_upstream_error_masking.md)：错误响应保留公共链接可读性，并脱敏自定义上游、代理和凭据。
 
 - [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
@@ -18,7 +20,7 @@
 
 - [渠道优先级拖拽排序](../workflows/2026-10/07_channel_priority_drag.md)：Default 渠道表格/卡片拖拽、revision 并发冲突、权限边界和多数据库重排契约。
 
-- [通知类型独立开关](notifications.md)：站点/用户余额提醒、管理员渠道通知和上游模型更新通知的独立控制及兼容规则。
+- [通知中心与个人通知设置](notifications.md)：站点和用户余额提醒、全渠道测试与模型更新开关，以及独立的 Telegram 自动启停事件。
 
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 
