@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -74,7 +75,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	// DeepSeek Search/Fetch are fixed-price request endpoints. Read the normal
 	// model-price map first so an explicit administrator override takes effect,
 	// then fall back to the built-in request price.
-	if info != nil && (info.OriginModelName == "deepseek-search" || info.OriginModelName == "deepseek-fetch") {
+	if info != nil && (info.RelayMode == relayconstant.RelayModeToolsSearch || info.RelayMode == relayconstant.RelayModeToolsFetch) {
 		groupRatioInfo := HandleGroupRatio(c, info)
 		modelPrice, ok := ratio_setting.GetModelPrice(info.OriginModelName, false)
 		if !ok {
