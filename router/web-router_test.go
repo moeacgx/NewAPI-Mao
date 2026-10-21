@@ -163,6 +163,76 @@ func TestSetWebRouterServesSelectedThemeIndexAndCachedAssetFallback(t *testing.T
 	require.Equal(t, "default-css", cachedClassicAsset.Body.String())
 }
 
+func TestSetThemeWebRouterStaticAssetCachePolicy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousTheme := common.GetTheme()
+	previousRateLimit := common.GlobalWebRateLimitEnable
+	common.GlobalWebRateLimitEnable = false
+	t.Cleanup(func() {
+		common.SetTheme(previousTheme)
+		common.GlobalWebRateLimitEnable = previousRateLimit
+	})
+
+	roots := map[string]string{"default": t.TempDir(), "classic": t.TempDir()}
+	for theme, root := range roots {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "assets"), 0o755))
+		for _, extension := range []string{"js", "css"} {
+			require.NoError(t, os.WriteFile(filepath.Join(root, "assets", "index-"+theme+"."+extension), []byte(theme+"-"+extension), 0o600))
+		}
+	}
+	engine := gin.New()
+	setThemeWebRouter(
+		engine,
+		static.LocalFile(roots["default"], false),
+		[]byte(`<script src="/assets/index-default.js"></script><link rel="stylesheet" href="/assets/index-default.css">`),
+		static.LocalFile(roots["classic"], false),
+		[]byte(`<script src="/assets/index-classic.js"></script><link rel="stylesheet" href="/assets/index-classic.css">`),
+	)
+
+	for _, theme := range []string{"default", "classic"} {
+		t.Run(theme, func(t *testing.T) {
+			common.SetTheme(theme)
+			for _, method := range []string{http.MethodGet, http.MethodHead} {
+				for _, assetPath := range []string{"/assets/index-previous.css", "/assets/index-previous.js", "/assets/index-previous.css?refresh=1", "/assets/index-previous.js?refresh=1"} {
+					t.Run(method+assetPath, func(t *testing.T) {
+						request := httptest.NewRequest(method, assetPath, nil)
+						recorder := httptest.NewRecorder()
+						engine.ServeHTTP(recorder, request)
+
+						require.Equal(t, http.StatusNotFound, recorder.Code)
+						assert.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+						assert.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
+						if method == http.MethodGet {
+							assert.JSONEq(t, `{"error":{"message":"Invalid URL (GET `+request.URL.Path+`)","type":"invalid_request_error","param":"","code":""}}`, recorder.Body.String())
+						}
+					})
+				}
+			}
+
+			otherTheme := "classic"
+			if theme == "classic" {
+				otherTheme = "default"
+			}
+			for _, extension := range []string{"js", "css"} {
+				t.Run("existing-"+extension, func(t *testing.T) {
+					recorder := httptest.NewRecorder()
+					engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/assets/index-"+theme+"."+extension, nil))
+					require.Equal(t, http.StatusOK, recorder.Code)
+					assert.Equal(t, "max-age=604800", recorder.Header().Get("Cache-Control"))
+					assert.Equal(t, theme+"-"+extension, recorder.Body.String())
+				})
+				t.Run("theme-fallback-"+extension, func(t *testing.T) {
+					recorder := httptest.NewRecorder()
+					engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/assets/index-"+otherTheme+"."+extension, nil))
+					require.Equal(t, http.StatusOK, recorder.Code)
+					assert.Equal(t, "no-cache", recorder.Header().Get("Cache-Control"))
+					assert.Equal(t, theme+"-"+extension, recorder.Body.String())
+				})
+			}
+		})
+	}
+}
+
 func TestSetThemeWebRouterRendersCurrentSiteMetadataForEveryHtmlEntry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousTheme := common.GetTheme()
