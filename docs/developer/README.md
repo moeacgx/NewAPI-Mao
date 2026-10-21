@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Classic 当前连接与令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
+
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 
 - [兑换码多人兑换修复](../workflows/2026-10/01_redemption_multi_user_limit.md)：每码兑换上限持久化、唯一用户记录、限额并发保护与历史一次性码兼容。

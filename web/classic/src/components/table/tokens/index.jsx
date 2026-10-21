@@ -36,6 +36,7 @@ import {
 } from '../../../helpers';
 import './tokens.css';
 import TokensPagination from './TokensPagination';
+import TokenActivityBar from '../../active-requests/TokenActivityBar';
 import TokensTable from './TokensTable';
 import TokensActions from './TokensActions';
 import TokensFilters from './TokensFilters';
@@ -426,8 +427,14 @@ function TokensPage() {
             t={t}
           />
         </header>
+        <TokenActivityBar activity={tokensData.activity} />
         <div className='tokens-page-toolbar'>
           <TokensFilters
+            activeOnly={tokensData.activeOnly}
+            setActiveFilter={tokensData.setActiveFilter}
+            activityUnavailable={
+              !tokensData.activity.snapshot || tokensData.activity.error
+            }
             formInitValues={formInitValues}
             setFormApi={setFormApi}
             searchTokens={searchTokens}
