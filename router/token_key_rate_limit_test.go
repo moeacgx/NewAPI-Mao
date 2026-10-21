@@ -111,7 +111,7 @@ func setupTokenKeyFixture(t *testing.T, useRedis bool, role, keyLimit int) token
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	model.DB = fixture.db
-	require.NoError(t, fixture.db.AutoMigrate(&model.User{}, &model.Token{}, &model.UserSession{}, &model.Group{}))
+	require.NoError(t, fixture.db.AutoMigrate(&model.User{}, &model.Token{}, &model.UserSession{}, &model.Group{}, &model.PromptTemplate{}, &model.TokenPromptBinding{}))
 	require.NoError(t, fixture.db.Create(&model.Group{Code: "default", Name: "测试分组", Status: model.GroupStatusActive}).Error)
 	fixture.owner = newTokenKeyAccount(t, fixture.db, role)
 	fixture.peer = newTokenKeyAccount(t, fixture.db, common.RoleCommonUser)

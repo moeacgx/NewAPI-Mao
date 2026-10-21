@@ -21,6 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useMemo } from 'react';
 import { Database } from 'lucide-react';
 import { TokenActivityBadge } from '../../active-requests/TokenActivityBar';
+import TokenPromptBadge from './TokenPromptBadge';
 import './tokens-mobile.css';
 
 function MobileTokenCell({ column, record, index }) {
@@ -94,7 +95,10 @@ export default function TokensMobileList({
         >
           <div className='tokens-mobile-heading'>
             <div>
-              <h2>{record.name}</h2>
+              <h2>
+                {record.name}
+                <TokenPromptBadge token={record} />
+              </h2>
               <TokenActivityBadge
                 tokenId={record.id}
                 tokenName={record.name}

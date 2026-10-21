@@ -73,6 +73,13 @@ func (r *GeminiChatRequest) GetTokenCountMeta() *types.TokenCountMeta {
 	}
 
 	var inputTexts []string
+	if r.SystemInstructions != nil {
+		for _, part := range r.SystemInstructions.Parts {
+			if part.Text != "" {
+				inputTexts = append(inputTexts, part.Text)
+			}
+		}
+	}
 	for _, content := range r.Contents {
 		for _, part := range content.Parts {
 			if part.Text != "" {

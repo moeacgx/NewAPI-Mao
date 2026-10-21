@@ -1,5 +1,10 @@
 # NewAPI-Mao 开发文档
 
+- [提示词中心 zzapi 测试部署](../workflows/2026-10/22_token_prompt_center_zzapi.md)：现场基线、备份、迁移、回滚和验收记录。
+
+- [令牌提示词中心](token-prompt-center.md)：双模板模板管理、按实际分组装载与令牌技能徽标；[实现计划](../workflows/2026-10/22_token_prompt_center_plan.md)；[Default 前端验证](../workflows/2026-10/22_token_prompt_center_default.md)。
+- [Classic 提示词中心与技能徽标](../workflows/2026-10/22_token_prompt_center_classic.md)：模板管理、令牌安装、双布局徽标与前端验收边界。
+
 - [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
 
 - [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：钱包和订阅低余额提醒候选沿用通知频控，个人全渠道测试开关与通知中心自动启停事件分开管理。

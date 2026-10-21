@@ -371,6 +371,9 @@ func migrateDB() error {
 		&AutoGroupMember{},
 		&ChannelGroupBinding{},
 		&TokenGroupBinding{},
+		&PromptTemplate{},
+		&PromptTemplateGroup{},
+		&TokenPromptBinding{},
 	)
 	if err != nil {
 		return err
@@ -520,6 +523,9 @@ func migrateDBFast() error {
 		{&AutoGroupMember{}, "AutoGroupMember"},
 		{&ChannelGroupBinding{}, "ChannelGroupBinding"},
 		{&TokenGroupBinding{}, "TokenGroupBinding"},
+		{&PromptTemplate{}, "PromptTemplate"},
+		{&PromptTemplateGroup{}, "PromptTemplateGroup"},
+		{&TokenPromptBinding{}, "TokenPromptBinding"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))

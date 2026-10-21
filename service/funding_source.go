@@ -252,6 +252,10 @@ func (f *CompositeFunding) PreConsume(amount int) error {
 }
 
 func (f *CompositeFunding) ReserveAdditional(amount int) error {
+	return f.reserveAdditional(amount, false)
+}
+
+func (f *CompositeFunding) reserveAdditional(amount int, strict bool) error {
 	if amount <= 0 {
 		return nil
 	}
@@ -290,7 +294,13 @@ func (f *CompositeFunding) ReserveAdditional(amount int) error {
 		if !ok {
 			return rollbackCompositeAdditional(f.sources, f.consumed, f.additional, applied, fmt.Errorf("funding source %s cannot reserve additional quota", f.sources[adjustment.index].Source()))
 		}
-		if err := reserver.ReserveAdditional(adjustment.delta); err != nil {
+		var err error
+		if wallet, ok := reserver.(*WalletFunding); strict && ok {
+			err = wallet.ReserveAdditionalStrict(adjustment.delta)
+		} else {
+			err = reserver.ReserveAdditional(adjustment.delta)
+		}
+		if err != nil {
 			return rollbackCompositeAdditional(f.sources, f.consumed, f.additional, applied, err)
 		}
 		f.consumed[adjustment.index] += adjustment.delta
@@ -621,6 +631,22 @@ func (w *WalletFunding) ReserveAdditional(amount int) error {
 	}
 	if err := model.DecreaseUserQuota(w.userId, amount, false); err != nil {
 		return err
+	}
+	w.consumed += amount
+	return nil
+}
+
+// ReserveAdditionalStrict 与结算补扣分离，避免新增请求输入在发送前造成钱包欠费。
+func (w *WalletFunding) ReserveAdditionalStrict(amount int) error {
+	if amount <= 0 {
+		return nil
+	}
+	reserved, err := model.TryReserveUserQuota(w.userId, amount)
+	if err != nil {
+		return err
+	}
+	if !reserved {
+		return ErrInsufficientWalletQuota
 	}
 	w.consumed += amount
 	return nil

@@ -126,6 +126,10 @@ func GetAllTokens(c *gin.Context) {
 		return
 	}
 	total, _ := model.CountUserTokens(userId)
+	if err := model.HydrateTokenPromptCounts(tokens); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
@@ -175,6 +179,10 @@ func SearchTokens(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err := model.HydrateTokenPromptCounts(tokens); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
@@ -189,6 +197,10 @@ func GetToken(c *gin.Context) {
 	}
 	token, err := model.GetTokenByIds(id, userId)
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.HydrateTokenPromptCounts([]*model.Token{token}); err != nil {
 		common.ApiError(c, err)
 		return
 	}

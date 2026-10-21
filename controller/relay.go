@@ -148,6 +148,25 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		return
 	}
 	applyImageTaskAsyncPreConsume(c, relayInfo)
+	if len(originalRequestBody) > 0 {
+		loadedBody, loadErr := service.ApplySelectedTokenPrompts(c, relayFormat, originalRequestBody)
+		if loadErr != nil {
+			newAPIError = types.NewError(loadErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+			return
+		}
+		if service.TokenPromptManaged(c) {
+			if err := resetRelayRequestBody(c, loadedBody); err != nil {
+				newAPIError = types.NewError(err, types.ErrorCodeReadRequestBodyFailed, types.ErrOptionWithSkipRetry())
+				return
+			}
+			request, err = helper.GetAndValidateRequest(c, relayFormat)
+			if err != nil {
+				newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+				return
+			}
+			relayInfo.Request = request
+		}
+	}
 	service.BindChannelMetricRelayInfo(c, relayInfo)
 	activeRequest, finishActiveRequest := service.TrackActiveRequest(c, relayInfo, relayFormat)
 	defer finishActiveRequest()
@@ -160,7 +179,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	needCountToken := constant.CountToken
 	var meta *types.TokenCountMeta
-	if needCountToken {
+	if needCountToken || service.TokenPromptManaged(c) {
 		meta = request.GetTokenCountMeta()
 	} else {
 		meta = fastTokenCountMetaForPricing(request)
@@ -171,6 +190,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeCountTokenFailed)
 		return
+	}
+	if !constant.CountToken && service.TokenPromptManaged(c) {
+		tokens = service.CountTextToken(meta.CombineText, relayInfo.OriginModelName)
 	}
 
 	relayInfo.SetEstimatePromptTokens(tokens)
@@ -228,6 +250,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		if attemptRequest != nil {
 			relayInfo.Request = attemptRequest
+		}
+		if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
+			newAPIError = billingErr
+			break
 		}
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
@@ -736,7 +762,11 @@ func prepareSelectedRouteRequest(c *gin.Context, relayFormat types.RelayFormat, 
 	if relayFormat == types.RelayFormatOpenAIRealtime {
 		return nil, nil
 	}
-	if err := resetRelayRequestBody(c, originalBody); err != nil {
+	loadedBody, loadErr := service.ApplySelectedTokenPrompts(c, relayFormat, originalBody)
+	if loadErr != nil {
+		return nil, types.NewError(loadErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if err := resetRelayRequestBody(c, loadedBody); err != nil {
 		return nil, types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
 

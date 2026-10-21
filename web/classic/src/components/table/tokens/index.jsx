@@ -53,6 +53,11 @@ function TokensPage() {
     (key) => openFluentNotificationRef.current?.(key),
     (key) => openCCSwitchModalRef.current?.(key),
   );
+  useEffect(() => {
+    const refresh = () => tokensData.refresh();
+    window.addEventListener('token-prompts-updated', refresh);
+    return () => window.removeEventListener('token-prompts-updated', refresh);
+  }, [tokensData.refresh]);
   const pageRef = useRef(null);
   useEffect(() => {
     const page = pageRef.current;

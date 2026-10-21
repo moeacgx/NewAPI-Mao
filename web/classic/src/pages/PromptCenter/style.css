@@ -1,0 +1,132 @@
+.prompt-center-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.prompt-center-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.prompt-center-row h1,
+.prompt-center-row h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.prompt-center-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.prompt-center-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 10px;
+  background: var(--semi-color-bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.prompt-center-card p {
+  margin: 0;
+}
+.prompt-center-muted {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+}
+.prompt-center-content {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.prompt-center-error {
+  border: 1px solid var(--semi-color-danger);
+  background: var(--semi-color-danger-light-default);
+  color: var(--semi-color-danger);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.prompt-center-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prompt-center-form input:not([type='checkbox']):not([type='file']),
+.prompt-center-form textarea,
+.prompt-center-stack select,
+.prompt-center-stack input:not([type='checkbox']) {
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  color: var(--semi-color-text-0);
+  background: var(--semi-color-bg-0);
+}
+.prompt-center-form textarea {
+  resize: vertical;
+}
+.prompt-center-form fieldset {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.prompt-center-group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-height: 200px;
+  overflow: auto;
+}
+.prompt-center-group-options label {
+  overflow-wrap: anywhere;
+}
+.token-prompt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  background: var(--semi-color-primary-light-default);
+  color: var(--semi-color-primary);
+  font-size: 11px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.token-prompt-badge[data-active='false'] {
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-2);
+}
+.token-prompt-badge:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 2px;
+}
+.tokens-table .tokens-prompt-name {
+  display: flex;
+  align-items: center;
+  max-width: 240px;
+  min-width: 0;
+}
+.tokens-table .tokens-prompt-name .tokens-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tokens-table .tokens-prompt-name .token-prompt-badge {
+  flex: none;
+  font-size: 11px;
+}

@@ -373,6 +373,16 @@ func SetApiRouter(router *gin.Engine) {
 		registerChannelRoutes(apiRouter)
 		registerAuthzRoutes(apiRouter)
 		registerFeatureAPIRoutes(apiRouter)
+		promptCenterRoute := apiRouter.Group("/prompt-center")
+		promptCenterRoute.Use(middleware.UserAuth())
+		{
+			promptCenterRoute.GET("/", controller.GetPromptTemplates)
+			promptAdminRoute := promptCenterRoute.Group("/admin")
+			promptAdminRoute.Use(middleware.AdminAuth())
+			promptAdminRoute.GET("/", controller.GetAdminPromptTemplates)
+			promptAdminRoute.POST("/", controller.SavePromptTemplate)
+			promptAdminRoute.PUT("/:id", controller.SavePromptTemplate)
+		}
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
 		{
@@ -380,6 +390,8 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
+			tokenRoute.GET("/:id/prompts", controller.GetTokenPrompts)
+			tokenRoute.PUT("/:id/prompts", controller.UpdateTokenPrompts)
 			tokenRoute.POST("/:id/key", middleware.DisableCache(), middleware.TokenKeyReadRateLimit(), controller.GetTokenKey)
 			tokenRoute.POST("/", controller.AddToken)
 			tokenRoute.PUT("/", controller.UpdateToken)

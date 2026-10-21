@@ -37,6 +37,8 @@ export type ApiKeyQuotaPeriod = (typeof API_KEY_QUOTA_PERIODS)[number]
 export const apiKeySchema = z.object({
   id: z.number(),
   name: z.string(),
+  prompt_count: z.number().optional(),
+  enabled_prompt_count: z.number().optional(),
   key: z.string(),
   status: z.number(), // 1: enabled, 2: disabled, 3: expired, 4: exhausted
   remain_quota: z.number(),
