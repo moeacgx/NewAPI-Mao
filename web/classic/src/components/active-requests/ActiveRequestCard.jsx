@@ -114,7 +114,7 @@ export default function ActiveRequestCard(props) {
   };
   return (
     <article
-      className={`active-request-card${props.compact ? ' active-request-card-compact' : ''}${props.wide ? ' active-request-card-wide' : ''}`}
+      className={`active-request-card${props.compact ? ' active-request-card-compact' : ''}`}
       data-status={request.status}
       aria-label={modelName}
     >
