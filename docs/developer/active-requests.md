@@ -82,6 +82,10 @@
 
 ## 验证结果
 
+2026-10-22 已从保留现有 dev 功能的组合源码部署到 zzapi 三节点供试用，PR #312
+保持未合并。构建、备份、固定镜像及部署证据见
+[zzapi 试用部署记录](../workflows/2026-10/22_classic_active_connections_zzapi.md)。
+
 - Go：`go test ./pkg/activerequests ./service ./controller ./relay/common ./model -timeout 60s`
   及 `go test ./router -timeout 60s` 通过。新增覆盖用户/管理员本人隔离、重复客户端
   请求 ID、按稳定令牌 ID 聚合、分页搜索、重试与取消、panic 清理、Redis 故障、发布
@@ -97,7 +101,8 @@
 - 文档格式化和 `git diff --check` 通过，本次新增相对链接有效。扫描整个 README 时
   发现基线已有失效链接 `../workflows/2026-08/15_topup_payment_fee_included_hint.md`，
   本次未改该链接，因此不将全目录链接检查报告为通过。
-- 本地多节点验证使用两个注册表和 miniredis；未执行真实多机部署、生产请求、
+- 本地多节点行为验证使用两个注册表和 miniredis；已完成 zzapi 三应用的测试部署及基础验收，
+  尚未执行真实供应商业务请求、多物理主机的故障场景验证、
   MySQL/PostgreSQL 实库或大规模压力验收。当前 Windows 未配置 C 编译器，未执行
   需要 CGO 的 `go test -race`。无 relaykit 模块改动。
 
