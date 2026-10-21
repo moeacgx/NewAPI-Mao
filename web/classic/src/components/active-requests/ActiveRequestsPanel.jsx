@@ -31,7 +31,7 @@ import './active-requests.css';
 export default function ActiveRequestsPanel() {
   const { t } = useTranslation();
   const mobile = useIsMobile();
-  const activity = useActiveRequests({ pageSize: mobile ? 1 : 3 });
+  const activity = useActiveRequests({ pageSize: 3 });
   const serverNow = useRequestClock(activity.snapshot, activity.error);
   const [expanded, setExpanded] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -85,12 +85,14 @@ export default function ActiveRequestsPanel() {
               {t('Waiting for response')} <b>{summary.waiting}</b>
             </span>
           </div>
-          <div className='active-requests-cards'>
+          <div className='active-requests-cards' data-count={items.length}>
             {items.map((request) => (
               <ActiveRequestCard
                 key={request.id}
                 request={request}
                 serverNow={serverNow}
+                compact={mobile}
+                wide={!mobile && items.length === 1}
               />
             ))}
           </div>

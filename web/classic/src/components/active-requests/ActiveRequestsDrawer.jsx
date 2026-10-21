@@ -116,6 +116,7 @@ function ActiveRequestsDrawerContent(props) {
               key={request.id}
               request={request}
               serverNow={serverNow}
+              compact={isMobile}
               showRequestId
             />
           ))

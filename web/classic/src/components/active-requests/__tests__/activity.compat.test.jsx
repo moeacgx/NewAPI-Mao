@@ -91,7 +91,7 @@ test('24 条连接桌面只展示 3 张并能折叠，零连接时隐藏', async
   ).toBeNull();
 });
 
-test('手机仅展示 1 张，抽屉按 10 条分页且搜索后回第一页', async () => {
+test('手机展示最多 3 行，抽屉按 10 条分页且搜索后回第一页', async () => {
   vi.spyOn(window, 'matchMedia').mockReturnValue({
     matches: true,
     addEventListener() {},
@@ -108,7 +108,8 @@ test('手机仅展示 1 张，抽屉按 10 条分页且搜索后回第一页', a
   });
   render(<ActiveRequestsPanel />);
   await screen.findByText('model-0');
-  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  expect(screen.getAllByRole('button', { expanded: false })).toHaveLength(3);
   await userEvent.click(
     screen.getByRole('button', { name: 'View all connections' }),
   );
@@ -144,7 +145,7 @@ test('服务端时间校准运行时长，未响应保持等待而非 0 秒', as
   vi.spyOn(API, 'get').mockResolvedValue(response());
   render(<ActiveRequestsPanel />);
   await screen.findByText('model-0');
-  expect(screen.getAllByText('9.0 s')).toHaveLength(3);
+  expect(screen.getAllByRole('definition', { name: '9.0 s' })).toHaveLength(3);
   expect(screen.getAllByText('Waiting for response')).toHaveLength(3);
 });
 
@@ -231,5 +232,6 @@ test.each([
       serverNow={10000}
     />,
   );
-  expect(screen.getByText(`${label} · Streaming request`)).toBeTruthy();
+  expect(screen.getByText(label)).toBeTruthy();
+  expect(screen.getByText('Streaming request')).toBeTruthy();
 });
