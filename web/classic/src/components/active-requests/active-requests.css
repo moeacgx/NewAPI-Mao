@@ -158,7 +158,8 @@
   background: var(--semi-color-warning-light-default);
   color: var(--semi-color-warning);
 }
-.active-request-card[data-status='processing'] .active-request-status {
+.active-request-card[data-status='processing'] .active-request-status,
+.active-request-card[data-status='completed'] .active-request-status {
   background: var(--semi-color-fill-0);
   color: var(--semi-color-text-2);
 }
@@ -433,6 +434,12 @@
   gap: 4px;
   align-items: center;
 }
+.active-requests-retention {
+  padding: 0 20px 14px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--semi-color-text-2);
+}
 .active-requests-notice {
   display: flex;
   align-items: center;
@@ -567,6 +574,9 @@ button.active-token-badge:focus-visible {
     padding: 12px 14px;
   }
   .active-requests-more {
+    padding: 0 14px 12px;
+  }
+  .active-requests-retention {
     padding: 0 14px 12px;
   }
   .active-requests-live {

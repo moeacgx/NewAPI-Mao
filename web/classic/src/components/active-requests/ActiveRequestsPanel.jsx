@@ -37,9 +37,9 @@ export default function ActiveRequestsPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const snapshot = activity.snapshot;
   const summary = snapshot?.summary;
-  if (!activity.error && (!summary || summary.total === 0)) return null;
+  if (!activity.error && (!snapshot || snapshot.total === 0)) return null;
   const items = snapshot?.items || [];
-  const hiddenCount = Math.max(0, (summary?.total || 0) - items.length);
+  const hiddenCount = Math.max(0, (snapshot?.total || 0) - items.length);
   return (
     <section
       className='active-requests-panel'
@@ -99,7 +99,7 @@ export default function ActiveRequestsPanel() {
             <span>
               {hiddenCount > 0
                 ? t('{{count}} more connections', { count: hiddenCount })
-                : t('Showing your in-progress requests')}
+                : t('Ended requests remain visible for 5 seconds.')}
             </span>
             <Button
               theme='borderless'
@@ -110,6 +110,11 @@ export default function ActiveRequestsPanel() {
               <ChevronRight size={14} />
             </Button>
           </div>
+          {hiddenCount > 0 && (
+            <p className='active-requests-retention'>
+              {t('Ended requests remain visible for 5 seconds.')}
+            </p>
+          )}
         </>
       )}
       {drawerOpen && (

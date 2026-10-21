@@ -23,6 +23,7 @@ import {
   ArrowLeftRight,
   Box,
   ChevronDown,
+  CircleStop,
   Clock3,
   Hash,
   KeyRound,
@@ -40,12 +41,15 @@ export const ACTIVE_STATUS_KEYS = {
   receiving: 'Receiving response',
   processing: 'Processing request',
   retrying: 'Retrying request',
+  completed: 'Request ended',
 };
 
 export default function ActiveRequestCard(props) {
   const { t } = useTranslation();
   const request = props.request;
-  const elapsed = Math.max(0, props.serverNow - request.started_at) / 1000;
+  const ended = request.status === 'completed';
+  const elapsedUntil = request.completed_at ?? props.serverNow;
+  const elapsed = Math.max(0, elapsedUntil - request.started_at) / 1000;
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
   const modelName = request.model_name || t('Unknown model');
@@ -54,10 +58,12 @@ export default function ActiveRequestCard(props) {
     ACTIVE_STATUS_KEYS[request.status] || 'Processing request',
   );
   const elapsedLabel = `${elapsed.toFixed(1)} s`;
-  const firstResponseLabel =
-    request.first_response_ms == null
-      ? t('Waiting for response')
-      : `${(request.first_response_ms / 1000).toFixed(2)} s`;
+  let firstResponseLabel = t('Waiting for response');
+  if (request.first_response_ms != null) {
+    firstResponseLabel = `${(request.first_response_ms / 1000).toFixed(2)} s`;
+  } else if (ended) {
+    firstResponseLabel = t('No response received');
+  }
   const providerMark = (
     <span
       className='active-request-provider'
@@ -84,6 +90,8 @@ export default function ActiveRequestCard(props) {
           </>
         ) : request.status === 'processing' || request.status === 'retrying' ? (
           <RotateCw size={11} />
+        ) : request.status === 'completed' ? (
+          <CircleStop size={11} />
         ) : (
           <i />
         )}
@@ -176,7 +184,7 @@ export default function ActiveRequestCard(props) {
                 }
               >
                 {request.first_response_ms == null ? (
-                  t('Waiting for response')
+                  firstResponseLabel
                 ) : (
                   <>
                     {(request.first_response_ms / 1000).toFixed(2)}

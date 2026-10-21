@@ -40,7 +40,7 @@ func GetSelfActiveRequests(c *gin.Context) {
 		return
 	}
 	switch query.Status {
-	case "", "waiting_response", "receiving", "processing", "retrying":
+	case "", "waiting_response", "receiving", "processing", "retrying", "completed":
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid active request status"})
 		return

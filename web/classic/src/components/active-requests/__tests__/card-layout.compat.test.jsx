@@ -112,3 +112,40 @@ test('桌面耗时保留零首响应，模型图标遵循模型名称而不是�
   expect(article.querySelector('[data-provider="Anthropic"]')).toBeTruthy();
   expect(within(article).getByText('OpenAI Chat Completions')).toBeTruthy();
 });
+
+test('已结束连接不宣称成功且刷新后耗时仍冻结在结束时刻', () => {
+  const ended = { ...request, status: 'completed', completed_at: 9000 };
+  const view = render(<ActiveRequestCard request={ended} serverNow={13000} />);
+  const article = screen.getByRole('article', { name: request.model_name });
+  expect(within(article).getByText('Request ended')).toBeTruthy();
+  expect(
+    within(article).getByRole('definition', { name: '8.0 s' }),
+  ).toBeTruthy();
+  view.rerender(<ActiveRequestCard request={ended} serverNow={14000} />);
+  expect(
+    within(article).getByRole('definition', { name: '8.0 s' }),
+  ).toBeTruthy();
+});
+
+test('未收到首响应即结束的手机连接不再显示等待响应', async () => {
+  render(
+    <ActiveRequestCard
+      compact
+      request={{
+        ...request,
+        status: 'completed',
+        completed_at: 9000,
+        first_response_ms: null,
+      }}
+      serverNow={13000}
+    />,
+  );
+  const row = screen.getByRole('button', { name: /Request ended/ });
+  expect(within(row).getByText('8.0 s')).toBeTruthy();
+  expect(screen.queryByText('First response')).toBeNull();
+  await userEvent.click(row);
+  expect(
+    screen.getByRole('definition', { name: 'No response received' }),
+  ).toBeTruthy();
+  expect(screen.queryByText('Waiting for response')).toBeNull();
+});

@@ -58,7 +58,14 @@ func (s *RedisStore) Write(ctx context.Context, entries []Record, removals []Rem
 		}
 		data, leases := s.keys(record.UserID)
 		// Eval 在流水线中无需依赖预加载脚本，Redis 重启后也能正确续租。
-		pipe.Eval(ctx, writeScript, []string{data, leases}, record.Entry.ID, string(payload), now.Add(15*time.Second).UnixMilli())
+		leaseUntil := now.Add(15 * time.Second)
+		if record.Entry.CompletedAt != nil {
+			completedUntil := time.UnixMilli(*record.Entry.CompletedAt).Add(completedRetention)
+			if completedUntil.Before(leaseUntil) {
+				leaseUntil = completedUntil
+			}
+		}
+		pipe.Eval(ctx, writeScript, []string{data, leases}, record.Entry.ID, string(payload), leaseUntil.UnixMilli())
 	}
 	for _, removal := range removals {
 		data, leases := s.keys(removal.UserID)
