@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [静态资源 404 缓存与 .350 白屏](../workflows/2026-10/22_static_asset_negative_cache.md)：恢复、缺失资源缓存边界及生产浏览器验收。
+
 - [Classic 连接结束保留 5 秒](../workflows/2026-10/22_active_connections_finished_retention.md)：结束状态、耗时冻结、活动统计与 Redis 到期边界。
 
 - [Classic 当前连接 zzapi 试用部署](../workflows/2026-10/22_classic_active_connections_zzapi.md)：PR、保留现有 dev 功能的组合源码、备份、测试镜像与逐节点验收。
