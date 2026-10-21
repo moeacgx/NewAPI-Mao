@@ -83,6 +83,9 @@ function ActiveRequestsDrawerContent(props) {
           })}
         </p>
       )}
+      <p className='active-requests-description'>
+        {t('Ended requests remain visible for 5 seconds.')}
+      </p>
       <div className='active-requests-filters'>
         <Input
           value={search}

@@ -61,7 +61,7 @@ func TestGetSelfActiveRequestsScopeAndValidation(t *testing.T) {
 	}
 }
 
-func TestRelayTracksInFlightRequestAndClearsAfterSettlement(t *testing.T) {
+func TestRelayTracksInFlightRequestAndRetainsAfterSettlement(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	var releaseOnce sync.Once
@@ -101,17 +101,44 @@ func TestRelayTracksInFlightRequestAndClearsAfterSettlement(t *testing.T) {
 	}
 	page, err = service.ListUserActiveRequests(context.Background(), user.Id, activerequests.Query{})
 	require.NoError(t, err)
-	assert.Zero(t, page.Total)
+	require.Len(t, page.Items, 1)
+	assert.Equal(t, "completed", page.Items[0].Status)
+	require.NotNil(t, page.Items[0].CompletedAt)
+	assert.Zero(t, page.Summary.Total)
 	var stored model.User
 	require.NoError(t, model.DB.Select("quota").First(&stored, user.Id).Error)
 	assert.EqualValues(t, 900, stored.Quota, "活动监控不得改变原计费结果")
+}
+
+func TestGetSelfActiveRequestsAllowsEndedStatusWithoutCountingItAsActive(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	_, finish := service.TrackActiveRequest(c, &relaycommon.RelayInfo{UserId: 87406, TokenId: 12, StartTime: time.Now()}, "openai")
+	finish()
+	w := httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/log/self/active?status=completed", nil)
+	c.Set("id", 87406)
+	GetSelfActiveRequests(c)
+	require.Equal(t, http.StatusOK, w.Code)
+	var response struct {
+		Success bool
+		Data    activerequests.Page
+	}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, "completed", response.Data.Items[0].Status)
+	assert.NotNil(t, response.Data.Items[0].CompletedAt)
+	assert.Zero(t, response.Data.Summary.Total)
+	assert.Empty(t, response.Data.Summary.ByToken)
 }
 
 func TestSearchTokensUsesOwnersLiveIDsBeforePagination(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	first := seedToken(t, db, 87403, "working first", "live-first-private-key")
 	second := seedToken(t, db, 87403, "working second", "live-second-private-key")
-	seedToken(t, db, 87403, "working inactive", "inactive-private-key")
+	ended := seedToken(t, db, 87403, "working inactive", "inactive-private-key")
 	other := seedToken(t, db, 87404, "working other", "other-private-key")
 	for _, token := range []*model.Token{first, second, other} {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -119,6 +146,10 @@ func TestSearchTokensUsesOwnersLiveIDsBeforePagination(t *testing.T) {
 		_, finish := service.TrackActiveRequest(c, &relaycommon.RelayInfo{UserId: token.UserId, TokenId: token.Id, StartTime: time.Now()}, "openai")
 		defer finish()
 	}
+	cEnded, _ := gin.CreateTestContext(httptest.NewRecorder())
+	cEnded.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	_, finishEnded := service.TrackActiveRequest(cEnded, &relaycommon.RelayInfo{UserId: ended.UserId, TokenId: ended.Id, StartTime: time.Now()}, "openai")
+	finishEnded()
 	c, w := newAuthenticatedContext(t, http.MethodGet, "/api/token/search?active_only=true&keyword=working&p=2&page_size=1&user_id=87404", nil, 87403)
 	SearchTokens(c)
 	var response struct {

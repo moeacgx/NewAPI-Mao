@@ -48,13 +48,17 @@ func TestTrackActiveRequestLifecycle(t *testing.T) {
 	cancel()
 	require.Eventually(t, func() bool {
 		page, err := r.List(context.Background(), 7, activerequests.Query{})
-		return err == nil && page.Total == 0
+		return err == nil && len(page.Items) == 1 && page.Items[0].Status == "completed"
 	}, time.Second, time.Millisecond)
 	finish()
 	info.SetFirstResponseTime()
 	page, err = r.List(context.Background(), 7, activerequests.Query{})
 	require.NoError(t, err)
-	assert.Zero(t, page.Total)
+	require.Len(t, page.Items, 1)
+	assert.Equal(t, "completed", page.Items[0].Status)
+	require.NotNil(t, page.Items[0].CompletedAt)
+	assert.Zero(t, page.Summary.Total)
+	assert.Empty(t, page.Summary.ByToken)
 }
 
 func TestTrackTaskUsesInboundFormatAndPanicCleanup(t *testing.T) {
@@ -78,5 +82,7 @@ func TestTrackTaskUsesInboundFormatAndPanicCleanup(t *testing.T) {
 	})
 	page, err := ListUserActiveRequests(context.Background(), 7, activerequests.Query{})
 	require.NoError(t, err)
-	assert.Zero(t, page.Total)
+	require.Len(t, page.Items, 1)
+	assert.Equal(t, "completed", page.Items[0].Status)
+	assert.Zero(t, page.Summary.Total)
 }

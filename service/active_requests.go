@@ -31,7 +31,7 @@ func TrackActiveRequest(c *gin.Context, info *relaycommon.RelayInfo, format type
 		StartedAt: info.StartTime.UnixMilli(),
 	})
 	info.OnResponseData = h.FirstResponse
-	// 即使上游尚未响应取消，断开的客户端也不再占用活动请求列表。
+	// 客户端断开即结束活动统计，连接记录仍短暂保留供页面查看。
 	stop := context.AfterFunc(c.Request.Context(), h.Finish)
 	return h, func() {
 		stop()

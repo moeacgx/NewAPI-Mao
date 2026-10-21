@@ -141,6 +141,43 @@ test('请求失败显示错误而非零连接', async () => {
   expect(screen.queryByText('0 active requests')).toBeNull();
 });
 
+test('仅剩已结束连接时仍展示保留卡片并按列表总数计算更多连接', async () => {
+  const result = response(
+    entries.slice(0, 3).map((entry) => ({
+      ...entry,
+      status: 'completed',
+      completed_at: 9000,
+    })),
+    5,
+  );
+  result.data.data.summary = {
+    total: 0,
+    streaming: 0,
+    non_streaming: 0,
+    waiting: 0,
+    active_tokens: 0,
+    by_token: {},
+  };
+  vi.spyOn(API, 'get').mockResolvedValue(result);
+  render(<ActiveRequestsPanel />);
+  await screen.findByRole('article', { name: 'model-0' });
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  expect(screen.getByText('2 more connections')).toBeTruthy();
+  expect(
+    screen.getByText('Ended requests remain visible for 5 seconds.'),
+  ).toBeTruthy();
+  expect(screen.queryByText('Showing your in-progress requests')).toBeNull();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'View all connections' }),
+  );
+  const drawer = await screen.findByRole('dialog');
+  await within(drawer).findByRole('article', { name: 'model-0' });
+  expect(within(drawer).getByText('0 active requests · 0 tokens')).toBeTruthy();
+  expect(
+    within(drawer).getByText('Ended requests remain visible for 5 seconds.'),
+  ).toBeTruthy();
+});
+
 test('服务端时间校准运行时长，未响应保持等待而非 0 秒', async () => {
   vi.spyOn(API, 'get').mockResolvedValue(response());
   render(<ActiveRequestsPanel />);
