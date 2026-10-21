@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"html"
+	"net/url"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -30,6 +31,31 @@ func prepareSiteIndexPage(page []byte) []byte {
 		next := child.NextSibling
 		if isDynamicSiteMetadataNode(child) {
 			head.RemoveChild(child)
+		}
+		if child.Type == htmlnode.ElementNode && child.Data == "link" {
+			stylesheet := false
+			hrefIndex := -1
+			for i, attribute := range child.Attr {
+				if attribute.Key == "rel" && strings.EqualFold(attribute.Val, "stylesheet") {
+					stylesheet = true
+				}
+				if attribute.Key == "href" {
+					hrefIndex = i
+				}
+			}
+			if stylesheet && hrefIndex >= 0 {
+				target, err := url.Parse(child.Attr[hrefIndex].Val)
+				if err == nil && target.Scheme == "" && target.Host == "" &&
+					strings.HasPrefix(target.Path, "/assets/") && strings.HasSuffix(target.Path, ".css") {
+					query, err := url.ParseQuery(target.RawQuery)
+					if err == nil {
+						// 发布版本隔离已缓存的失败响应，保留已有查询参数与片段。
+						query.Set("v", common.Version)
+						target.RawQuery = query.Encode()
+						child.Attr[hrefIndex].Val = target.String()
+					}
+				}
+			}
 		}
 		child = next
 	}
