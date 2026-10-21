@@ -34,6 +34,8 @@ const (
 	defaultGoogleSearchToolPrice     = 14.0
 	defaultImageGenerationToolPrice  = 150.0
 	defaultSearchPreviewModelPrice   = 25.0
+	defaultDeepSeekSearchToolPrice   = 0.75
+	defaultDeepSeekFetchToolPrice    = 0.75
 )
 
 // seedHardcodedToolPrices injects compile-time built-in fallbacks (tool
@@ -45,6 +47,8 @@ func seedHardcodedToolPrices(prices map[string]float64) {
 	prices["file_search"] = defaultFileSearchToolPrice
 	prices["google_search"] = defaultGoogleSearchToolPrice
 	prices["image_generation"] = defaultImageGenerationToolPrice
+	prices["deepseek_search"] = defaultDeepSeekSearchToolPrice
+	prices["deepseek_fetch"] = defaultDeepSeekFetchToolPrice
 	prices["web_search_preview:gpt-4o*"] = defaultSearchPreviewModelPrice
 	prices["web_search_preview:gpt-4.1*"] = defaultSearchPreviewModelPrice
 	prices["web_search_preview:gpt-4o-mini*"] = defaultSearchPreviewModelPrice

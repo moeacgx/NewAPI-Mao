@@ -14,14 +14,23 @@ import (
 )
 
 func NotifyRootUser(t string, subject string, content string) {
-	user := model.GetRootUser().ToBaseUser()
-	err := NotifyUser(user.Id, user.Email, user.GetSetting(), dto.NewNotify(t, subject, content, nil))
-	if err != nil {
-		common.SysLog(fmt.Sprintf("failed to notify root user: %s", err.Error()))
-	}
+	notifyAdmins(t, func(role int, setting dto.UserSetting) bool {
+		if setting.ChannelNotifyEnabled != nil {
+			return *setting.ChannelNotifyEnabled
+		}
+		return role == common.RoleRootUser
+	}, subject, content)
 }
 
 func NotifyUpstreamModelUpdateWatchers(subject string, content string) {
+	notifyAdmins(dto.NotifyTypeChannelUpdate, func(_ int, setting dto.UserSetting) bool {
+		return setting.UpstreamModelUpdateNotifyEnabled
+	}, subject, content)
+}
+
+// notifyAdmins 按偏好发送调用方提供的通知正文，不按个人语言翻译。
+// 全渠道测试开关未保存时沿用仅 Root 接收的历史默认；渠道自动启停由通知中心投递。
+func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, subject, content string) {
 	var users []model.User
 	if err := model.DB.
 		Select("id", "email", "role", "status", "setting").
@@ -31,20 +40,19 @@ func NotifyUpstreamModelUpdateWatchers(subject string, content string) {
 		return
 	}
 
-	notification := dto.NewNotify(dto.NotifyTypeChannelUpdate, subject, content, nil)
 	sentCount := 0
 	for _, user := range users {
 		userSetting := user.GetSetting()
-		if !userSetting.UpstreamModelUpdateNotifyEnabled {
+		if !receives(user.Role, userSetting) {
 			continue
 		}
-		if err := NotifyUser(user.Id, user.Email, userSetting, notification); err != nil {
-			common.SysLog(fmt.Sprintf("failed to notify user %d for upstream model update: %s", user.Id, err.Error()))
+		if err := NotifyUser(user.Id, user.Email, userSetting, dto.NewNotify(notifyType, subject, content, nil)); err != nil {
+			common.SysLog(fmt.Sprintf("failed to notify user %d for %s: %s", user.Id, notifyType, err.Error()))
 			continue
 		}
 		sentCount++
 	}
-	common.SysLog(fmt.Sprintf("upstream model update notifications sent: %d", sentCount))
+	common.SysLog(fmt.Sprintf("%s notifications sent: %d", notifyType, sentCount))
 }
 
 func NotifyUser(userId int, userEmail string, userSetting dto.UserSetting, data dto.Notify) error {

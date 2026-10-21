@@ -9,16 +9,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/net/http/httpproxy"
 )
 
 const KeyRequestBody = "key_request_body"
 const KeyBodyStorage = "key_body_storage"
+const keyBodyReadError = "key_body_read_error"
 
 var ErrRequestBodyTooLarge = errors.New("request body too large")
 
@@ -57,6 +61,14 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 		}
 	}
 
+	// 请求体读取失败后，底层 Body 已被消费或关闭；后续中间件继续读取时
+	// 应返回第一次读取的真实原因，而不是误报 closed Body。
+	if readErr, failed := c.Get(keyBodyReadError); failed {
+		if err, ok := readErr.(error); ok {
+			return nil, err
+		}
+	}
+
 	maxMB := constant.MaxRequestBodyMB
 	if maxMB <= 0 {
 		maxMB = 128 // 默认 128MB
@@ -71,8 +83,9 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 
 	if err != nil {
 		if IsRequestBodyTooLargeError(err) {
-			return nil, errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxMB))
+			err = errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxMB))
 		}
+		c.Set(keyBodyReadError, err)
 		return nil, err
 	}
 
@@ -164,6 +177,57 @@ func GetContextKey(c *gin.Context, key constant.ContextKey) (any, bool) {
 
 func GetContextKeyString(c *gin.Context, key constant.ContextKey) string {
 	return c.GetString(string(key))
+}
+
+var presetUpstreamHosts = sync.OnceValue(func() map[string]struct{} {
+	hosts := make(map[string]struct{}, len(constant.ChannelBaseURLs))
+	for _, baseURL := range constant.ChannelBaseURLs {
+		if parsed, err := url.Parse(baseURL); err == nil && parsed.Host != "" {
+			hosts[strings.ToLower(parsed.Host)] = struct{}{}
+		}
+	}
+	return hosts
+})
+
+func isPresetUpstreamHost(address string) bool {
+	rawURL := strings.TrimSpace(address)
+	if !strings.Contains(rawURL, "://") {
+		rawURL = "//" + rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	_, ok := presetUpstreamHosts()[strings.ToLower(parsed.Host)]
+	return ok
+}
+
+// UpstreamAddresses returns custom upstream and proxy addresses that may be
+// present in client-visible errors. Public preset endpoint hosts remain clear.
+func UpstreamAddresses(c *gin.Context) []string {
+	proxyConfig := httpproxy.FromEnvironment()
+	candidates := []string{proxyConfig.HTTPProxy, proxyConfig.HTTPSProxy}
+	if settings, ok := GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
+		candidates = append(candidates, settings.Proxy)
+	}
+	baseURL := strings.TrimSpace(GetContextKeyString(c, constant.ContextKeyChannelBaseUrl))
+	candidates = append(candidates, baseURL)
+	if GetContextKeyInt(c, constant.ContextKeyChannelType) == constant.ChannelTypeAdvancedCustom ||
+		(baseURL != "" && !isPresetUpstreamHost(baseURL)) {
+		candidates = append(candidates, GetContextKeyString(c, constant.ContextKeyUpstreamRequestOrigin))
+	}
+	addresses := make([]string, 0, len(candidates))
+	for _, address := range candidates {
+		address = strings.TrimSpace(address)
+		if address != "" && !isPresetUpstreamHost(address) {
+			addresses = append(addresses, address)
+		}
+	}
+	// 空集合仍表示已知当前请求的作用域，不能退回旧调用的全量域名脱敏。
+	if len(addresses) == 0 {
+		return []string{""}
+	}
+	return addresses
 }
 
 func GetContextKeyInt(c *gin.Context, key constant.ContextKey) int {

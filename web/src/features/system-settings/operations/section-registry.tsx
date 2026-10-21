@@ -47,6 +47,7 @@ const OPERATIONS_SECTIONS = [
     build: (settings: OperationsSettings) => (
       <MonitoringSettingsSection
         defaultValues={{
+          QuotaRemindEnabled: settings.QuotaRemindEnabled ?? true,
           QuotaRemindThreshold: settings.QuotaRemindThreshold,
           "perf_metrics_setting.enabled":
             settings["perf_metrics_setting.enabled"] ?? true,

@@ -10,7 +10,7 @@ var EffortSuffixes = []string{"-ultra", "-max", "-xhigh", "-high", "-medium", "-
 
 var OpenAIEffortSuffixes = []string{"-high", "-minimal", "-low", "-medium", "-none", "-xhigh"}
 
-var DeepSeekV4EffortSuffixes = []string{"-none", "-max"}
+var DeepSeekV4EffortSuffixes = []string{"-none", "-low", "-max"}
 
 // TrimEffortSuffix -> modelName level(low) exists
 func TrimEffortSuffix(modelName string) (string, string, bool) {
@@ -130,16 +130,19 @@ func NormalizeOpenAIReasoningEffort(effort string) string {
 	}
 }
 
+// ParseDeepSeekV4ThinkingSuffix maps the -none/-low/-max tails of
+// deepseek-flash and deepseek-v4-* onto DeepSeek's thinking switch and
+// effort. A bare name keeps DeepSeek's default (thinking on, effort high).
 func ParseDeepSeekV4ThinkingSuffix(modelName string) (baseModel string, thinkingType string, effort string, ok bool) {
 	baseModel, suffix, ok := TrimEffortSuffixWithSuffixes(modelName, DeepSeekV4EffortSuffixes)
-	if !ok || !strings.HasPrefix(baseModel, "deepseek-v4-") {
+	if !ok || baseModel != "deepseek-flash" && !strings.HasPrefix(baseModel, "deepseek-v4-") {
 		return modelName, "", "", false
 	}
 	switch suffix {
 	case "none":
 		return baseModel, "disabled", "", true
-	case "max":
-		return baseModel, "enabled", "max", true
+	case "low", "max":
+		return baseModel, "enabled", suffix, true
 	default:
 		return modelName, "", "", false
 	}

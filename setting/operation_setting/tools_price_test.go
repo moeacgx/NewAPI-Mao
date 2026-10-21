@@ -28,6 +28,8 @@ func TestToolPriceHardcodedFallbacksSurviveMissingOperatorConfig(t *testing.T) {
 	expectedDefaults := map[string]float64{
 		"web_search":         10,
 		"web_search_preview": 10,
+		"deepseek_search":    0.75,
+		"deepseek_fetch":     0.75,
 		"file_search":        2.5,
 		"google_search":      14,
 		"image_generation":   150,

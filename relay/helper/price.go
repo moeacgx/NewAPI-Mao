@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -71,6 +72,25 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (hosttypes.PriceData, error) {
+	// DeepSeek Search/Fetch are fixed-price request endpoints. Read the normal
+	// model-price map first so an explicit administrator override takes effect,
+	// then fall back to the built-in request price.
+	if info != nil && (info.RelayMode == relayconstant.RelayModeToolsSearch || info.RelayMode == relayconstant.RelayModeToolsFetch) {
+		groupRatioInfo := HandleGroupRatio(c, info)
+		modelPrice, ok := ratio_setting.GetModelPrice(info.OriginModelName, false)
+		if !ok {
+			modelPrice = ratio_setting.GetDefaultModelPriceMap()[info.OriginModelName]
+		}
+		quota, err := common.QuotaFromFloatStrict(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		if err != nil {
+			return hosttypes.PriceData{}, err
+		}
+		freeModel := !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume &&
+			(groupRatioInfo.GroupRatio == 0 || modelPrice == 0)
+		priceData := hosttypes.PriceData{FreeModel: freeModel, ModelPrice: modelPrice, UsePrice: true, QuotaToPreConsume: quota, GroupRatioInfo: groupRatioInfo}
+		info.PriceData = priceData
+		return priceData, nil
+	}
 	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
 
 	groupRatioInfo := HandleGroupRatio(c, info)

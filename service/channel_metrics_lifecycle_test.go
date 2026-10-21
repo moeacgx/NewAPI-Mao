@@ -430,6 +430,23 @@ func TestClassifyChannelMetricAttemptPreservesCausalFailureDuringCancellation(t 
 	})
 }
 
+func TestClassifyChannelMetricAttemptKeepsCompletedStreamSuccessfulAfterCancellation(t *testing.T) {
+	c := newChannelMetricTestContext(t, "completed-stream-cancelled-context")
+	requestContext, cancel := context.WithCancel(c.Request.Context())
+	c.Request = c.Request.WithContext(requestContext)
+	info := newChannelMetricTestRelayInfo()
+	info.IsStream = true
+	info.StreamStatus = relaycommon.NewStreamStatus()
+	info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
+	cancel()
+
+	outcome, owner, stage, qualityEligible := classifyChannelMetricAttempt(c, info, nil, true)
+	require.Equal(t, channelmetrics.OutcomeSuccess, outcome)
+	require.Equal(t, channelmetrics.FailureOwnerNone, owner)
+	require.Equal(t, channelmetrics.ErrorStageNone, stage)
+	require.True(t, qualityEligible)
+}
+
 func TestClassifyChannelMetricAttemptExcludesContentPolicyFromQuality(t *testing.T) {
 	c := newChannelMetricTestContext(t, "request-content-policy")
 	info := newChannelMetricTestRelayInfo()

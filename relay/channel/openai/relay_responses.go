@@ -233,7 +233,6 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	if oaiError := responsesResponse.GetOpenAIError(); oaiError != nil {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
-
 	// compute usage
 	usage := *normalizeNativeResponsesUsage(responsesResponse.Usage)
 	if usage.PromptTokens == 0 || usage.CompletionTokens == 0 {
@@ -261,6 +260,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			info.CountBillableToolCall(itemType, functionName)
 		}
 	}
+	info.ApplyVendorToolUsage(responseBody)
 
 	imageCounter := &relaycommon.ImageGenerationCallCounter{}
 	if !relaycommon.IsNonBillableResponsesStatus(responsesResponse.Status) {
@@ -507,6 +507,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			"response.cancelled", "response.canceled":
 			if streamResponse.Response != nil {
 				countTerminalToolCalls(streamResponse.Response.Output)
+				info.ApplyVendorToolUsage([]byte(data))
 				if completedText := responsesLocalUsageText(streamResponse.Response); strings.TrimSpace(completedText) != "" {
 					terminalResponseText = completedText
 				}

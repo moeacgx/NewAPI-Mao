@@ -4,6 +4,33 @@
 
 - [Classic 当前连接与令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
 
+- [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：在现有 dev 基线上整合当前连接功能，固定发布镜像并逐节点更新生产。
+
+- [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
+
+- [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：钱包和订阅低余额提醒候选沿用通知频控，个人全渠道测试开关与通知中心自动启停事件分开管理。
+
+- [自定义上游地址错误脱敏](../workflows/2026-10/08_custom_upstream_error_masking.md)：错误响应保留公共链接可读性，并脱敏自定义上游、代理和凭据。
+
+- [Sub2API 渠道余额查询](../workflows/2026-10/07_sub2api_balance_query.md)：复用 `/v1/usage` 查询订阅和钱包余额，并识别无效密钥与无限制订阅。
+
+- [渠道可观测性中心模块与渲染排查](../workflows/2026-10/18_channel_observability_admin_render.md)：核对 `channel-quality` 模块版本、双模板原生资源、宿主兼容门禁与 Default 管理员路由。
+- [扩展宿主版本门禁移除](../workflows/2026-10/18_extension_host_version_gate_removal.md)：移除 `host.min/max` 运行时门禁，保留清单格式、权限、能力与 Native SDK 校验，支持 `dev-*` 宿主。
+
+- [流式性能统计与上游响应头等待优化](../workflows/2026-10/06_stream_metrics_response_header_timeout.md)：正常完成流的取消收尾统计，以及可配置的上游响应头等待上限。
+
+- [容器资源过载保护](../workflows/2026-10/07_container_overload_guard.md)：按 cgroup 容器口径采样 CPU/内存，并要求连续约 15 秒超阈值后才拒绝请求。
+
+- [请求体读取错误与 413 响应优化](../workflows/2026-10/07_request_body_413.md)：保留首次读取失败原因，并将超出请求体上限的请求统一返回 413。
+
+- [Claude 显式零用量与缓存计费修正](../workflows/2026-10/07_claude_cache_billing.md)：保留缓存-only 用量、显式零值和流中断估算边界，确保结算快照一致。
+
+- [DeepSeek V4.1 与 Search/Fetch 接入](../workflows/2026-10/07_deepseek_v41_search_fetch.md)：V4.1 模型思考后缀、Search/Fetch 路由、独立按次价与聊天工具附加费边界，以及免费调用审计统计。
+
+- [渠道优先级拖拽排序](../workflows/2026-10/07_channel_priority_drag.md)：Default 渠道表格/卡片拖拽、revision 并发冲突、权限边界和多数据库重排契约。
+
+- [通知中心与个人通知设置](notifications.md)：站点和用户余额提醒、全渠道测试与模型更新开关，以及独立的 Telegram 自动启停事件。
+
 - [Classic 令牌搜索与 Default 页面移植](../workflows/2026-10/02_classic_token_search_api_info.md)：名称/密钥部分匹配、Default 桌面表格与手机卡片、API 地址回退及布局验收。
 
 - [兑换码多人兑换修复](../workflows/2026-10/01_redemption_multi_user_limit.md)：每码兑换上限持久化、唯一用户记录、限额并发保护与历史一次性码兼容。

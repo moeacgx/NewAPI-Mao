@@ -47,10 +47,14 @@ const (
 	ContextKeyChannelMultiKeyIndex          ContextKey = "channel_multi_key_index"
 	ContextKeyChannelPreferredMultiKeyIndex ContextKey = "channel_preferred_multi_key_index"
 	ContextKeyChannelKey                    ContextKey = "channel_key"
-	ContextKeySelectedChannel               ContextKey = "selected_channel"
-	ContextKeySelectedChannelGroup          ContextKey = "selected_channel_group"
-	ContextKeyGroupUserConcurrency          ContextKey = "group_user_concurrency_lease"
-	ContextKeyGroupUserConcurrencyBenefit   ContextKey = "group_user_concurrency_benefit"
+	// ContextKeyUpstreamRequestOrigin stores the scheme and host actually
+	// dialed by the current relay request. It can differ from base_url for an
+	// absolute Advanced Custom route.
+	ContextKeyUpstreamRequestOrigin       ContextKey = "upstream_request_origin"
+	ContextKeySelectedChannel             ContextKey = "selected_channel"
+	ContextKeySelectedChannelGroup        ContextKey = "selected_channel_group"
+	ContextKeyGroupUserConcurrency        ContextKey = "group_user_concurrency_lease"
+	ContextKeyGroupUserConcurrencyBenefit ContextKey = "group_user_concurrency_benefit"
 
 	ContextKeyAutoGroup           ContextKey = "auto_group"
 	ContextKeyAutoGroupIndex      ContextKey = "auto_group_index"

@@ -117,13 +117,7 @@ func (m *Manager) ProxyHandler(moduleID string, proxyPath string, role int, ctx 
 		return nil, errors.New("module not found")
 	}
 	if module.Error != "" {
-		if module.Error == "module is incompatible with current host version" {
-			return nil, errors.New("module is incompatible with current host version")
-		}
 		return nil, errors.New("module manifest is invalid")
-	}
-	if err := hostCompatibilityError(module.Manifest); err != nil {
-		return nil, errors.New("module is incompatible with current host version")
 	}
 	if !module.Enabled {
 		return nil, errors.New("module is disabled")

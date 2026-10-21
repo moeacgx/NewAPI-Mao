@@ -1,6 +1,7 @@
 package common
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -36,7 +37,7 @@ func (info *RelayInfo) CountBillableToolCall(itemType string, functionName strin
 
 	switch itemType {
 	case dto.BuildInCallWebSearchCall:
-		info.incrementBillableToolCall(resolveWebSearchToolName(info.ResponsesUsageInfo.BuiltInTools))
+		info.incrementBillableToolCall(cmp.Or(info.WebSearchBillingKey, resolveWebSearchToolName(info.ResponsesUsageInfo.BuiltInTools)))
 	case dto.BuildInCallFileSearchCall:
 		info.incrementBillableToolCall(dto.BuildInToolFileSearch)
 	case dto.BuildInCallFunctionCall, dto.BuildInCallToolUse:
@@ -51,6 +52,43 @@ func (info *RelayInfo) CountBillableToolCall(itemType string, functionName strin
 		}
 		info.incrementBillableToolCall(functionName)
 	}
+}
+
+// ApplyVendorToolUsage replaces counts reported by the selected upstream.
+// Empty or absent vendor output leaves counts collected from stream events.
+func (info *RelayInfo) ApplyVendorToolUsage(raw []byte) {
+	if info == nil || info.VendorToolUsage == nil || len(raw) == 0 {
+		return
+	}
+	if counts := info.VendorToolUsage(raw); len(counts) > 0 {
+		if info.ResponsesUsageInfo == nil {
+			info.ResponsesUsageInfo = &ResponsesUsageInfo{BuiltInTools: make(map[string]*BuildInToolInfo)}
+		}
+		if info.ResponsesUsageInfo.BuiltInTools == nil {
+			info.ResponsesUsageInfo.BuiltInTools = make(map[string]*BuildInToolInfo)
+		}
+		for name, count := range counts {
+			if count < 0 {
+				continue
+			}
+			info.ResponsesUsageInfo.BuiltInTools[name] = &BuildInToolInfo{ToolName: name, CallCount: count}
+		}
+	}
+}
+
+// SetBillableToolCount records an upstream cumulative count, replacing any
+// item-level observations for the same price key.
+func (info *RelayInfo) SetBillableToolCount(name string, count int) {
+	if info == nil || name == "" || count < 0 {
+		return
+	}
+	if info.ResponsesUsageInfo == nil {
+		info.ResponsesUsageInfo = &ResponsesUsageInfo{BuiltInTools: make(map[string]*BuildInToolInfo)}
+	}
+	if info.ResponsesUsageInfo.BuiltInTools == nil {
+		info.ResponsesUsageInfo.BuiltInTools = make(map[string]*BuildInToolInfo)
+	}
+	info.ResponsesUsageInfo.BuiltInTools[name] = &BuildInToolInfo{ToolName: name, CallCount: count}
 }
 
 func resolveWebSearchToolName(tools map[string]*BuildInToolInfo) string {

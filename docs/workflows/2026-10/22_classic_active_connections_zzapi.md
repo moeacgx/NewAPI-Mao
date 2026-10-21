@@ -85,6 +85,14 @@
 共享契约与两个兄弟项目的分享建议见[功能专题](../../developer/active-requests.md)。
 本次不向兄弟项目发送 Issue、PR 或通知。
 
+## 正式整合状态
+
+2026-10-22，PR #312 已合并到 `custom-main`，合并提交为
+`7785c19e98b908d7edbad983a89831a5b2932e83`。上述“保持未合并”描述记录各轮 zzapi
+试用当时的状态，不再代表当前 PR 状态。正式 `.349` 发布另从生产正在运行的
+`dev` 基线整合该合并提交，避免覆盖已在 maolaoapi 使用的 dev 功能；发布与生产更新
+证据见 [maolaoapi .349 当前连接发布](22_active_connections_349_maolaoapi_release.md)。
+
 ## 第二轮：连接卡片与手机紧凑行
 
 用户确认第二版视觉方案，并要求手机一行一条。本轮仅修改 Classic 活动组件、CSS、

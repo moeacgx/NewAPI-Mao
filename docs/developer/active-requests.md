@@ -93,8 +93,9 @@
 
 ## 验证结果
 
-2026-10-22 已从保留现有 dev 功能的组合源码部署到 zzapi 三节点供试用，PR #312
-保持未合并。构建、备份、固定镜像及部署证据见
+2026-10-22 已从保留现有 dev 功能的组合源码部署到 zzapi 三节点供试用；PR #312
+随后以合并提交 `7785c19e98b908d7edbad983a89831a5b2932e83` 进入 `custom-main`。
+构建、备份、固定镜像及部署证据见
 [zzapi 试用部署记录](../workflows/2026-10/22_classic_active_connections_zzapi.md)。
 
 - Go：`go test ./pkg/activerequests ./service ./controller ./relay/common ./model -timeout 60s`

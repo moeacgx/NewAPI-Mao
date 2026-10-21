@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -26,6 +27,31 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// 升级后的 WebSocket 不受 httptest.Server.Close 等待，必须先结束请求再清理数据库。
+func newPromptAuditRealtimeTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+	var handlers sync.WaitGroup
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlers.Add(1)
+		defer handlers.Done()
+		handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(func() {
+		server.Close()
+		done := make(chan struct{})
+		go func() {
+			handlers.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Realtime 测试请求未在数据库清理前结束")
+		}
+	})
+	return server
+}
 
 func TestPromptAuditRealtimeBlocksBeforeNextMiddleware(t *testing.T) {
 	tests := []struct {
@@ -84,7 +110,7 @@ func TestPromptAuditRealtimeBlocksBeforeNextMiddleware(t *testing.T) {
 					_ = conn.WriteJSON(map[string]string{"type": "audit.ack"})
 				},
 			)
-			server := httptest.NewServer(router)
+			server := newPromptAuditRealtimeTestServer(t, router)
 			defer server.Close()
 
 			dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -159,7 +185,7 @@ func TestPromptAuditRealtimeGuardOffStillRunsSensitiveRuleBeforeDistribution(t *
 		PromptAuditRealtime(),
 		func(c *gin.Context) { nextCalls.Add(1) },
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -234,7 +260,7 @@ func TestPromptAuditRealtimeMaskForwardsRewrittenFrameButGuardsOriginal(t *testi
 			_ = conn.WriteJSON(map[string]string{"type": "audit.ack"})
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -279,7 +305,7 @@ func TestPromptAuditRealtimeBuffersRawBinaryBeforeRiskJSON(t *testing.T) {
 			_ = conn.WriteJSON(map[string]string{"type": "audit.ack"})
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -328,7 +354,7 @@ func TestPromptAuditRealtimeAuditsBinaryJSON(t *testing.T) {
 			_ = conn.WriteJSON(map[string]string{"type": "audit.ack"})
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -423,7 +449,7 @@ func TestPromptAuditRealtimeArchivesInitialAndSubsequentFramesExactlyOnceInOrder
 			handlerResult <- nil
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -532,7 +558,7 @@ func TestPromptAuditRealtimeArchiveOnlyQueuesFirstFrameBeforeDistribution(t *tes
 			handlerResult <- nil
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -603,7 +629,7 @@ func TestPromptAuditRealtimeRejectsInvalidFirstControlFrameBeforeDistribution(t 
 				PromptAuditRealtime(),
 				func(c *gin.Context) { nextCalls.Add(1) },
 			)
-			server := httptest.NewServer(router)
+			server := newPromptAuditRealtimeTestServer(t, router)
 			defer server.Close()
 
 			dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -651,7 +677,7 @@ func TestPromptAuditRealtimeRejectsTooManyBufferedFrames(t *testing.T) {
 			nextCalls.Add(1)
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -697,7 +723,7 @@ func TestPromptAuditRealtimeReturnsDistributionFailureAsWebSocketEvent(t *testin
 			abortWithOpenAiMessage(c, http.StatusServiceUnavailable, "当前没有可用渠道", types.ErrorCodeModelNotFound)
 		},
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -848,7 +874,7 @@ func TestWritePromptAuditRealtimeDecisionFinalClientView(t *testing.T) {
 				writePromptAuditRealtimeDecision(c, serverConn, test.decision)
 				result <- serverResult{decision: test.decision}
 			})
-			server := httptest.NewServer(router)
+			server := newPromptAuditRealtimeTestServer(t, router)
 			defer server.Close()
 
 			dialer := websocket.Dialer{Subprotocols: []string{"realtime"}}
@@ -917,7 +943,7 @@ func TestPromptAuditRealtimeCyberBlockFinalizesClientMessageOnce(t *testing.T) {
 		PromptAuditRealtime(),
 		func(c *gin.Context) { nextCalls.Add(1) },
 	)
-	server := httptest.NewServer(router)
+	server := newPromptAuditRealtimeTestServer(t, router)
 	defer server.Close()
 
 	headers := http.Header{}
