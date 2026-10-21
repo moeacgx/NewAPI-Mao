@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 // Copyright (C) 2023-2026 QuantumNous；移植自 Default upstream/main@789c97019 的 ApiKeysMobileList，保留上游归属。
 import React, { useMemo } from 'react';
 import { Database } from 'lucide-react';
+import { TokenActivityBadge } from '../../active-requests/TokenActivityBar';
 import './tokens-mobile.css';
 
 function MobileTokenCell({ column, record, index }) {
@@ -30,6 +31,7 @@ function MobileTokenCell({ column, record, index }) {
 
 export default function TokensMobileList({
   tokens,
+  activity,
   columns,
   loading,
   searching,
@@ -91,7 +93,15 @@ export default function TokensMobileList({
           aria-label={record.name}
         >
           <div className='tokens-mobile-heading'>
-            <h2>{record.name}</h2>
+            <div>
+              <h2>{record.name}</h2>
+              <TokenActivityBadge
+                tokenId={record.id}
+                tokenName={record.name}
+                count={activity?.snapshot?.summary.by_token[record.id]}
+                stale={activity?.error}
+              />
+            </div>
             <div className='tokens-mobile-status'>
               <MobileTokenCell
                 column={cells.status}

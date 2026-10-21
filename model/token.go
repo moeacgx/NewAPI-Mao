@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -167,6 +168,12 @@ func validateLikePattern(input string) error {
 const searchHardLimit = 100
 
 func SearchUserTokens(userId int, keyword string, token string, offset int, limit int, statuses ...int) (tokens []*Token, total int64, err error) {
+	return SearchUserTokensByIDs(userId, keyword, token, offset, limit, nil, statuses...)
+}
+
+// SearchUserTokensByIDs 在原有搜索条件上叠加服务端给定的令牌 ID 集合。
+// tokenIDs 为 nil 时不过滤，非 nil 的空集合只返回零条；始终保留用户隔离。
+func SearchUserTokensByIDs(userId int, keyword string, token string, offset int, limit int, tokenIDs []int, statuses ...int) (tokens []*Token, total int64, err error) {
 	// model 层强制截断
 	if limit <= 0 || limit > searchHardLimit {
 		limit = searchHardLimit
@@ -194,6 +201,27 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	}
 
 	baseQuery := DB.Model(&Token{}).Where("user_id = ?", userId)
+	if tokenIDs != nil {
+		idValues := make([]string, 0, len(tokenIDs))
+		seenIDs := make(map[int]struct{}, len(tokenIDs))
+		for _, id := range tokenIDs {
+			if id <= 0 {
+				continue
+			}
+			if _, exists := seenIDs[id]; exists {
+				continue
+			}
+			seenIDs[id] = struct{}{}
+			idValues = append(idValues, strconv.Itoa(id))
+		}
+		if len(idValues) == 0 {
+			baseQuery = baseQuery.Where("1 = 0")
+		} else {
+			// 三种数据库的绑定参数上限不同；这里只拼接 Go int 的十进制字面量，
+			// 不接受客户端字符串，避免活动令牌数量较多时超过绑定参数上限。
+			baseQuery = baseQuery.Where("id IN (" + strings.Join(idValues, ",") + ")")
+		}
+	}
 	if len(statuses) > 0 && statuses[0] > 0 {
 		baseQuery = baseQuery.Where("status = ?", statuses[0])
 	}

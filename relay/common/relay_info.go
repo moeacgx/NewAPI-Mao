@@ -91,6 +91,8 @@ type RelayInfo struct {
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
+	// OnResponseData 用于请求状态观察，独立于首次响应计费指标，重试也会通知。
+	OnResponseData func(time.Time) `json:"-"`
 	//SendLastReasoningResponse bool
 	IsStream               bool
 	IsGeminiBatchEmbedding bool
@@ -915,9 +917,13 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 }
 
 func (info *RelayInfo) SetFirstResponseTime() {
+	now := time.Now()
 	if info.isFirstResponse {
-		info.FirstResponseTime = time.Now()
+		info.FirstResponseTime = now
 		info.isFirstResponse = false
+	}
+	if info.OnResponseData != nil {
+		info.OnResponseData(now)
 	}
 }
 

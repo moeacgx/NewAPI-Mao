@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import TokenTimestamp from './TokenTimestamp';
+import { TokenActivityBadge } from '../../active-requests/TokenActivityBar';
 import { TokenStatusBadge, TokenGroupBadge } from './TokenDefaultBadges';
 import {
   Power,
@@ -446,6 +447,8 @@ export const getTokensColumns = ({
   setShowEdit,
   refresh,
   groupRatios = {},
+  activityCounts = {},
+  activityStale = false,
   isMobile = false,
   now = Date.now(),
 }) => {
@@ -454,7 +457,17 @@ export const getTokensColumns = ({
       title: t('名称'),
       dataIndex: 'name',
       width: 180,
-      render: (text) => <span className='tokens-name'>{text}</span>,
+      render: (text, record) => (
+        <div>
+          <span className='tokens-name'>{text}</span>
+          <TokenActivityBadge
+            tokenId={record.id}
+            tokenName={record.name}
+            count={activityCounts[record.id]}
+            stale={activityStale}
+          />
+        </div>
+      ),
     },
     {
       title: t('状态'),

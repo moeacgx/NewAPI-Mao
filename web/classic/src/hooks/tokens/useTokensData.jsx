@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useState, useEffect, useRef } from 'react';
+import { useActiveRequests } from '../../components/active-requests/useActiveRequests';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -39,6 +40,10 @@ import { isCCSwitchPreset } from '../../helpers/ccSwitch';
 
 export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
   const { t } = useTranslation();
+
+  const activity = useActiveRequests({ pageSize: 1 });
+  const [activeOnly, setActiveOnly] = useState(false);
+  const activeOnlyRef = useRef(false);
 
   // Basic state
   const [tokens, setTokens] = useState([]);
@@ -325,7 +330,12 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     const normalizedSize = Number.isInteger(size) && size > 0 ? size : pageSize;
 
     const { searchKeyword, searchToken, searchStatus } = getFormValues();
-    if (searchKeyword === '' && searchToken === '' && !searchStatus) {
+    if (
+      searchKeyword === '' &&
+      searchToken === '' &&
+      !searchStatus &&
+      !activeOnlyRef.current
+    ) {
       setSearchMode(false);
       await loadTokens(normalizedPage, normalizedSize);
       return;
@@ -335,11 +345,22 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     setLoading(false);
     try {
       const res = await API.get(
-        `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&status=${searchStatus}&p=${normalizedPage}&size=${normalizedSize}`,
+        `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&status=${searchStatus}&p=${normalizedPage}&size=${normalizedSize}${activeOnlyRef.current ? '&active_only=true' : ''}`,
       );
       if (requestId !== listRequestRef.current) return;
       const { success, message, data } = res.data;
       if (success) {
+        if (
+          activeOnlyRef.current &&
+          normalizedPage > 1 &&
+          normalizedPage > Math.max(1, Math.ceil(data.total / normalizedSize))
+        ) {
+          await searchTokens(
+            Math.max(1, Math.ceil(data.total / normalizedSize)),
+            normalizedSize,
+          );
+          return;
+        }
         setSearchMode(true);
         syncPageData(data);
       } else showError(message);
@@ -349,6 +370,29 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
       if (requestId === listRequestRef.current) setSearching(false);
     }
   };
+
+  const setActiveFilter = (enabled) => {
+    activeOnlyRef.current = enabled;
+    setActiveOnly(enabled);
+    setSelectedKeys([]);
+    searchTokens(1);
+  };
+  const activityTokenIds = Object.keys(
+    activity.snapshot?.summary?.by_token || {},
+  )
+    .sort()
+    .join(',');
+  const previousActivityIds = useRef(activityTokenIds);
+  const previousActivityError = useRef(activity.error);
+  useEffect(() => {
+    const recovered = previousActivityError.current && !activity.error;
+    previousActivityError.current = activity.error;
+    if (previousActivityIds.current === activityTokenIds && !recovered) return;
+    previousActivityIds.current = activityTokenIds;
+    // 活动集合改变后由后端计算交集和总数，不把当前页过滤当成完整结果。
+    if (activeOnlyRef.current && !activity.error) searchTokens(activePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityTokenIds, activity.error]);
 
   // Sort tokens function
   const sortToken = (key) => {
@@ -475,6 +519,9 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
   }, [pageSize]);
 
   return {
+    activity,
+    activeOnly,
+    setActiveFilter,
     // Basic state
     tokens,
     loading,
