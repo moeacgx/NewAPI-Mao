@@ -1,5 +1,11 @@
 # NewAPI-Mao 开发文档
 
+- [Classic 当前连接 zzapi 试用部署](../workflows/2026-10/22_classic_active_connections_zzapi.md)：PR、保留现有 dev 功能的组合源码、备份、测试镜像与逐节点验收。
+
+- [Classic 当前连接与令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
+
+- [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：在现有 dev 基线上整合当前连接功能，固定发布镜像并逐节点更新生产。
+
 - [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
 
 - [通知类型独立开关](../workflows/2026-10/07_notification_switches.md)：钱包和订阅低余额提醒候选沿用通知频控，个人全渠道测试开关与通知中心自动启停事件分开管理。

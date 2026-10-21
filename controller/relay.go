@@ -149,6 +149,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 	applyImageTaskAsyncPreConsume(c, relayInfo)
 	service.BindChannelMetricRelayInfo(c, relayInfo)
+	activeRequest, finishActiveRequest := service.TrackActiveRequest(c, relayInfo, relayFormat)
+	defer finishActiveRequest()
+	activeStream := relayInfo.IsStream || relayFormat == types.RelayFormatOpenAIRealtime
 	defer service.BindUpstreamModelGuard(relayInfo)()
 	if err := applyAtlasCloudImageDefaultsForPricing(c, relayInfo, relayFormat, request); err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
@@ -210,6 +213,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	for attemptIndex := 0; attemptIndex <= maxRetries; attemptIndex++ {
 		relayInfo.RetryIndex = attemptIndex
+		activeRequest.Attempt(activeStream, attemptIndex)
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())
@@ -375,6 +379,9 @@ func RelayTask(c *gin.Context) {
 		}
 	}
 	service.BindChannelMetricRelayInfo(c, relayInfo)
+	activeRequest, finishActiveRequest := service.TrackActiveRequest(c, relayInfo, types.RelayFormatTask)
+	defer finishActiveRequest()
+	activeStream := relayInfo.IsStream
 
 	if lockedChannel, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedChannel != nil && !originRoutePrepared {
 		if setupErr := middleware.SetupContextForSelectedChannel(c, lockedChannel, relayInfo.OriginModelName); setupErr != nil {
@@ -474,6 +481,7 @@ func RelayTask(c *gin.Context) {
 
 	for attemptIndex := 0; attemptIndex <= maxRetries; attemptIndex++ {
 		relayInfo.RetryIndex = attemptIndex
+		activeRequest.Attempt(activeStream, attemptIndex)
 		var channel *model.Channel
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
