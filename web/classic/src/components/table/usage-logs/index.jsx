@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import ActiveRequestsPanel from '../../active-requests/ActiveRequestsPanel';
 import CardPro from '../../common/ui/CardPro';
 import LogsTable from './UsageLogsTable';
 import LogsActions from './UsageLogsActions';
@@ -41,6 +42,8 @@ const LogsPage = () => {
       <UserInfoModal {...logsData} />
       <ChannelAffinityUsageCacheModal {...logsData} />
       <ParamOverrideModal {...logsData} />
+
+      <ActiveRequestsPanel />
 
       {/* Main Content */}
       <CardPro

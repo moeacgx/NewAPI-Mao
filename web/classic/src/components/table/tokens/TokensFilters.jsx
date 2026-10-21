@@ -19,8 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useRef, useEffect, useState } from 'react';
 import { Form, Button, Popover } from '@douyinfe/semi-ui';
-import { CirclePlus, X } from 'lucide-react';
+import { Activity, CirclePlus, X } from 'lucide-react';
 export default function TokensFilters({
+  activeOnly = false,
+  setActiveFilter,
+  activityUnavailable = false,
   formInitValues,
   setFormApi,
   searchTokens,
@@ -125,13 +128,29 @@ export default function TokensFilters({
               )}
             </Button>
           </Popover>
-          {values.searchKeyword || values.searchToken || values.searchStatus ? (
+          <Button
+            className='tokens-filter-activity'
+            aria-pressed={activeOnly}
+            disabled={activityUnavailable && !activeOnly}
+            theme='outline'
+            type='tertiary'
+            size='small'
+            icon={<Activity size={15} />}
+            onClick={() => setActiveFilter?.(!activeOnly)}
+          >
+            {t('In use now')}
+          </Button>
+          {values.searchKeyword ||
+          values.searchToken ||
+          values.searchStatus ||
+          activeOnly ? (
             <Button
               theme='borderless'
               type='tertiary'
               size='small'
               icon={<X size={14} />}
               onClick={() => {
+                if (activeOnly) setActiveFilter?.(false);
                 formApiRef.current.reset();
                 formApiRef.current.setValue('searchStatus', 0);
               }}

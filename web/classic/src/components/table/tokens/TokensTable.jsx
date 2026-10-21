@@ -68,6 +68,8 @@ const TokensTable = (tokensData) => {
       refresh,
       groupRatios,
       isMobile,
+      activityCounts: tokensData.activity?.snapshot?.summary.by_token,
+      activityStale: tokensData.activity?.error,
       now,
     });
   }, [
@@ -85,6 +87,8 @@ const TokensTable = (tokensData) => {
     setShowEdit,
     refresh,
     groupRatios,
+    tokensData.activity?.snapshot?.summary.by_token,
+    tokensData.activity?.error,
     isMobile,
     now,
   ]);
@@ -93,6 +97,7 @@ const TokensTable = (tokensData) => {
     return (
       <TokensMobileList
         tokens={tokens}
+        activity={tokensData.activity}
         columns={columns}
         loading={loading}
         searching={tokensData.searching}

@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/activerequests"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -146,7 +147,30 @@ func SearchTokens(c *gin.Context) {
 
 	pageInfo := common.GetPageQuery(c)
 
-	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), status)
+	var activeIDs []int
+	if raw := c.Query("active_only"); raw != "" && raw != "false" {
+		if raw != "true" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid active token filter"})
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		if userId <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Authentication required"})
+			return
+		}
+		activity, err := service.ListUserActiveRequests(c.Request.Context(), userId, activerequests.Query{PageSize: 1})
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "Active requests are temporarily unavailable"})
+			return
+		}
+		activeIDs = make([]int, 0, len(activity.Summary.ByToken))
+		for tokenID := range activity.Summary.ByToken {
+			if id, err := strconv.Atoi(tokenID); err == nil && id > 0 {
+				activeIDs = append(activeIDs, id)
+			}
+		}
+	}
+	tokens, total, err := model.SearchUserTokensByIDs(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), activeIDs, status)
 	if err != nil {
 		common.ApiError(c, err)
 		return
