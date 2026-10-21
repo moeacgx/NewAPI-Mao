@@ -85,14 +85,13 @@ export default function ActiveRequestsPanel() {
               {t('Waiting for response')} <b>{summary.waiting}</b>
             </span>
           </div>
-          <div className='active-requests-cards' data-count={items.length}>
+          <div className='active-requests-cards'>
             {items.map((request) => (
               <ActiveRequestCard
                 key={request.id}
                 request={request}
                 serverNow={serverNow}
                 compact={mobile}
-                wide={!mobile && items.length === 1}
               />
             ))}
           </div>
