@@ -27,8 +27,16 @@ func TestTokenPromptAPIEnforcesOwnershipAndReturnsBadgeCounts(t *testing.T) {
 	require.NoError(t, db.Model(token).Update("group", group.Code).Error)
 	prompt, err := model.SavePromptTemplate(model.PromptTemplate{Title: "编码", Content: "审查代码", Enabled: true, GroupIDs: []int{group.Id}})
 	require.NoError(t, err)
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/prompt-center/", nil, user.Id)
+	GetPromptTemplates(ctx)
+	assert.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.NotContains(t, recorder.Body.String(), prompt.Content)
+	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/prompt-center/admin/", nil, user.Id)
+	GetAdminPromptTemplates(ctx)
+	assert.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.Contains(t, recorder.Body.String(), prompt.Content)
 	request := map[string]interface{}{"bindings": []model.TokenPromptBindingInput{{TemplateID: prompt.ID, Enabled: true}}}
-	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/1/prompts", request, user.Id+1)
+	ctx, recorder = newAuthenticatedContext(t, http.MethodPut, "/api/token/1/prompts", request, user.Id+1)
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}
 	UpdateTokenPrompts(ctx)
 	assert.False(t, decodeAPIResponse(t, recorder).Success)
@@ -37,6 +45,12 @@ func TestTokenPromptAPIEnforcesOwnershipAndReturnsBadgeCounts(t *testing.T) {
 	ctx.Set("group", group.Code)
 	UpdateTokenPrompts(ctx)
 	require.True(t, decodeAPIResponse(t, recorder).Success, recorder.Body.String())
+	assert.NotContains(t, recorder.Body.String(), prompt.Content)
+	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/1/prompts", nil, user.Id)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}
+	GetTokenPrompts(ctx)
+	assert.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.NotContains(t, recorder.Body.String(), prompt.Content)
 	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/?size=10", nil, user.Id)
 	GetAllTokens(ctx)
 	var response struct {

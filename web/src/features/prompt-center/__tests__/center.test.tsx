@@ -67,19 +67,25 @@ function renderCenter() {
 }
 
 describe('提示词中心权限和浏览', () => {
-  it('普通用户可浏览详情但没有模板编辑入口', async () => {
+  it('普通用户只能浏览目录和安装入口，不显示提示词正文', async () => {
     renderCenter()
     expect(await screen.findByText('Review')).toBeInTheDocument()
+    expect(
+      screen.getByText('Reusable prompts for your API keys')
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Create prompt' })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Manage templates' })
     ).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(await screen.findByRole('dialog')).toHaveTextContent(
-      'Check correctness'
-    )
+    expect(
+      screen.getByRole('button', { name: 'Install to token' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Details' })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Check correctness')).not.toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/api/prompt-center/')
   })
 
@@ -94,6 +100,19 @@ describe('提示词中心权限和浏览', () => {
       await screen.findByRole('button', { name: 'Edit' })
     ).toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/api/prompt-center/admin/')
+  })
+
+  it('管理员仍可在模板编辑器查看提示词正文', async () => {
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'test-admin', role: 10 })
+    renderCenter()
+    await screen.findByText('Review')
+    fireEvent.click(screen.getByRole('button', { name: 'Manage templates' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(
+      await screen.findByRole('textbox', { name: 'Prompt content' })
+    ).toHaveValue('Check correctness')
   })
 
   it('空结果仍保留明确的模块边界与搜索入口', async () => {
@@ -127,9 +146,7 @@ describe('提示词中心权限和浏览', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Install to token' })
     )
-    fireEvent.change(await screen.findByRole('combobox', { name: 'API Key' }), {
-      target: { value: '3' },
-    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Development' }))
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(
       await screen.findByRole('button', { name: 'Save installations' })

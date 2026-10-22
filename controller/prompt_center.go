@@ -11,13 +11,42 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type promptTemplatePublic struct {
+	ID           int                    `json:"id"`
+	Title        string                 `json:"title"`
+	Description  string                 `json:"description"`
+	Enabled      bool                   `json:"enabled"`
+	SortOrder    int                    `json:"sort_order"`
+	Version      int                    `json:"version"`
+	GroupIDs     []int                  `json:"group_ids"`
+	GroupDetails []model.GroupReference `json:"group_details"`
+}
+
+type tokenPromptInstallationPublic struct {
+	Template  promptTemplatePublic `json:"template"`
+	Enabled   bool                 `json:"enabled"`
+	SortOrder int                  `json:"sort_order"`
+}
+
+func publicPromptTemplate(template model.PromptTemplate) promptTemplatePublic {
+	return promptTemplatePublic{
+		ID: template.ID, Title: template.Title, Description: template.Description,
+		Enabled: template.Enabled, SortOrder: template.SortOrder, Version: template.Version,
+		GroupIDs: template.GroupIDs, GroupDetails: template.GroupDetails,
+	}
+}
+
 func GetPromptTemplates(c *gin.Context) {
 	templates, err := model.ListPromptTemplates(true)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, templates)
+	public := make([]promptTemplatePublic, 0, len(templates))
+	for _, template := range templates {
+		public = append(public, publicPromptTemplate(template))
+	}
+	common.ApiSuccess(c, public)
 }
 
 func GetAdminPromptTemplates(c *gin.Context) {
@@ -67,7 +96,13 @@ func GetTokenPrompts(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, installed)
+	public := make([]tokenPromptInstallationPublic, 0, len(installed))
+	for _, item := range installed {
+		public = append(public, tokenPromptInstallationPublic{
+			Template: publicPromptTemplate(item.Template), Enabled: item.Enabled, SortOrder: item.SortOrder,
+		})
+	}
+	common.ApiSuccess(c, public)
 }
 
 func UpdateTokenPrompts(c *gin.Context) {
@@ -128,10 +163,5 @@ func UpdateTokenPrompts(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	installed, err := model.GetTokenPromptBindings(c.GetInt("id"), id)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	common.ApiSuccess(c, installed)
+	GetTokenPrompts(c)
 }

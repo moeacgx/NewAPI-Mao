@@ -11,6 +11,7 @@ const source = path.resolve(
 );
 const files = [
   'pages/PromptCenter/index.jsx',
+  'pages/PromptCenter/TokenPicker.jsx',
   'pages/PromptCenter/PromptCatalog.jsx',
   'pages/PromptCenter/PromptTemplateEditor.jsx',
   'pages/PromptCenter/TokenPromptManager.jsx',

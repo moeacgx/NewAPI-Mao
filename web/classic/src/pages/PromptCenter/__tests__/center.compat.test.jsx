@@ -22,10 +22,12 @@ import { beforeEach, afterEach, expect, test } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PromptCenter from '../index';
+import TokenPicker from '../TokenPicker';
 import TokenPromptBadge from '../../../components/table/tokens/TokenPromptBadge';
 import TokensMobileList from '../../../components/table/tokens/TokensMobileList';
 import { getTokensColumns } from '../../../components/table/tokens/TokensColumnDefs';
 import TokenPromptManager from '../TokenPromptManager';
+import PromptCatalog from '../PromptCatalog';
 import PromptTemplateEditor from '../PromptTemplateEditor';
 import { API } from '../../../helpers/api';
 
@@ -113,25 +115,116 @@ afterEach(() => {
   API.defaults.adapter = adapter;
 });
 
-test('选择自己的令牌后安装，停用和卸载均保存完整关联且不读取密钥', async () => {
+test('令牌选择器搜索与翻页保留当前选择，列表显示安装数量且不展示密钥', async () => {
+  const selected = {
+    id: 4,
+    name: 'Selected token',
+    prompt_count: 3,
+    key: 'secret-key',
+  };
+  const selections = [];
+  API.defaults.adapter = async (config) => {
+    calls.push({ url: config.url });
+    const data = config.url.includes('keyword=missing')
+      ? { items: [], total: 0 }
+      : {
+          items: [
+            {
+              id: 5,
+              name: 'Another token',
+              prompt_count: 2,
+              key: 'other-secret',
+            },
+          ],
+          total: 21,
+        };
+    return { data: { success: true, data }, status: 200, headers: {}, config };
+  };
+  render(
+    <TokenPicker token={selected} onSelect={(item) => selections.push(item)} />,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Choose a token' }));
+  await screen.findByRole('button', { name: 'Another token' });
+  expect(screen.getByText('2 installed prompts')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+  await waitFor(() =>
+    expect(calls.some((call) => call.url.includes('p=2'))).toBe(true),
+  );
+  expect(screen.getByText('Selected token')).toBeTruthy();
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Search token names' }),
+    'missing',
+  );
+  await screen.findByText('No tokens found');
+  expect(calls.some((call) => call.url.includes('keyword=missing&p=1'))).toBe(
+    true,
+  );
+  expect(screen.getByText('Selected token')).toBeTruthy();
+  expect(selections).toEqual([]);
+  expect(screen.queryByText('secret-key')).toBeNull();
+  expect(screen.queryByText('other-secret')).toBeNull();
+});
+
+test('令牌选择器错误可重试，选中行有标记并可确认选择', async () => {
+  let failed = true;
+  API.defaults.adapter = async (config) => ({
+    data: failed
+      ? { success: false, message: 'Token list unavailable' }
+      : {
+          success: true,
+          data: {
+            items: [{ id: 4, name: 'codexQ', prompt_count: 2 }],
+            total: 1,
+          },
+        },
+    status: 200,
+    headers: {},
+    config,
+  });
+  const selections = [];
+  render(
+    <TokenPicker
+      token={{ id: 4, name: 'codexQ', prompt_count: 3 }}
+      onSelect={(item) => selections.push(item)}
+    />,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Choose a token' }));
+  await screen.findByText('Token list unavailable');
+  failed = false;
+  await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  const option = await screen.findByRole('button', { name: 'codexQ' });
+  expect(option.getAttribute('aria-pressed')).toBe('true');
+  await userEvent.click(option);
+  expect(selections[0].prompt_count).toBe(3);
+});
+
+test('选择令牌后安装并保存，卸载后保存完整关联且不读取密钥', async () => {
   render(<PromptCenter />);
-  await screen.findByText('Code guide');
-  await userEvent.selectOptions(screen.getByLabelText('Choose a token'), '4');
   await userEvent.click(
     await screen.findByRole('button', { name: 'Install Code guide' }),
   );
+  await userEvent.click(await screen.findByRole('button', { name: 'codexQ' }));
   const installed = await screen.findByRole('region', {
     name: 'Installed prompts',
   });
   await waitFor(() =>
     expect(within(installed).getByText('Code guide')).toBeTruthy(),
   );
+  expect(
+    within(installed).queryByRole('checkbox', { name: 'Enable Code guide' }),
+  ).toBeNull();
+  expect(
+    within(installed).queryByRole('button', { name: 'Move Code guide up' }),
+  ).toBeNull();
   await userEvent.click(
-    within(installed).getByRole('checkbox', { name: 'Enable Code guide' }),
+    within(installed).getByRole('button', { name: 'Save' }),
   );
-  await waitFor(() => expect(bindings[0].enabled).toBe(false));
+  await waitFor(() => expect(bindings).toHaveLength(1));
   await userEvent.click(
     within(installed).getByRole('button', { name: 'Uninstall Code guide' }),
+  );
+  await userEvent.click(
+    within(installed).getByRole('button', { name: 'Save' }),
   );
   await waitFor(() => expect(bindings).toEqual([]));
   expect(calls.some((call) => call.url.includes('/key'))).toBe(false);
@@ -139,32 +232,23 @@ test('选择自己的令牌后安装，停用和卸载均保存完整关联且�
   expect(screen.queryByRole('button', { name: 'New template' })).toBeNull();
 });
 
-test('多项排序保存顺序且不改变启用状态', async () => {
-  const second = { ...template, id: 8, title: 'Review guide' };
-  templates.push(second);
-  bindings = [
-    { template, enabled: false, sort_order: 0 },
-    { template: second, enabled: true, sort_order: 1 },
-  ];
-  render(<TokenPromptManager token={{ id: 4 }} />);
-  await userEvent.click(
-    await screen.findByRole('button', { name: 'Move Review guide up' }),
+test('普通用户目录只显示元数据，不渲染提示词正文', () => {
+  render(
+    <PromptCatalog
+      templates={[template]}
+      bindings={[]}
+      canInstall
+      busy={false}
+      onInstall={() => {}}
+    />,
   );
-  await waitFor(() =>
-    expect(calls).toContainEqual({
-      url: '/api/token/4/prompts',
-      method: 'put',
-      body: {
-        bindings: [
-          { template_id: 8, enabled: true, sort_order: 0 },
-          { template_id: 7, enabled: false, sort_order: 1 },
-        ],
-      },
-    }),
-  );
+  expect(screen.getByText('Code guide')).toBeTruthy();
+  expect(screen.getByText('Readable code')).toBeTruthy();
+  expect(screen.queryByText(template.content)).toBeNull();
+  expect(screen.queryByText('View prompt')).toBeNull();
 });
 
-test('下架安装项不能重新启用但可卸载，达到八项时禁用新增安装', async () => {
+test('安装项只允许卸载，达到八项时禁用新增安装', async () => {
   bindings = Array.from({ length: 8 }, (_, index) => ({
     template: {
       ...template,
@@ -176,16 +260,16 @@ test('下架安装项不能重新启用但可卸载，达到八项时禁用新�
     sort_order: index,
   }));
   render(<TokenPromptManager token={{ id: 4 }} templates={templates} />);
-  const disabled = await screen.findByRole('checkbox', {
-    name: 'Enable Installed 0',
-  });
-  expect(disabled.disabled).toBe(true);
+  expect(
+    screen.queryByRole('checkbox', { name: 'Enable Installed 0' }),
+  ).toBeNull();
   expect(
     screen.getByRole('button', { name: 'Install Code guide' }).disabled,
   ).toBe(true);
   await userEvent.click(
-    screen.getByRole('button', { name: 'Uninstall Installed 0' }),
+    await screen.findByRole('button', { name: 'Uninstall Installed 0' }),
   );
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(bindings).toHaveLength(7));
 });
 
@@ -193,6 +277,27 @@ test('目录为空展示空状态，未选令牌不发装载请求', async () =>
   templates = [];
   render(<PromptCenter />);
   await screen.findByText('No prompts available');
+  expect(calls.some((call) => call.url.includes('/prompts'))).toBe(false);
+});
+
+test('目录按标题和描述搜索，清空后恢复模板', async () => {
+  render(<PromptCenter />);
+  await screen.findByText('Code guide');
+  const search = screen.getByRole('textbox', { name: 'Search prompts' });
+  await userEvent.type(search, 'missing');
+  expect(screen.queryByText('Code guide')).toBeNull();
+  await userEvent.clear(search);
+  await userEvent.type(search, 'Readable');
+  expect(screen.getByText('Code guide')).toBeTruthy();
+});
+
+test('目录安装入口打开可搜索令牌选择器，未选择时不读取安装列表', async () => {
+  render(<PromptCenter />);
+  const install = await screen.findByRole('button', {
+    name: 'Install Code guide',
+  });
+  await userEvent.click(install);
+  await screen.findByRole('textbox', { name: 'Search token names' });
   expect(calls.some((call) => call.url.includes('/prompts'))).toBe(false);
 });
 
@@ -277,14 +382,13 @@ test('管理员导入 SKILL.md 按原始文本创建模板，白名单只提交�
   );
 });
 
-test('启用正文总量超过上限时保留原安装状态并提示', async () => {
+test('安装保存只提交关联，不读取或发送提示词正文', async () => {
   const second = {
     ...template,
     id: 8,
     title: 'Review guide',
     content: 'b'.repeat(32768),
   };
-  const third = { ...template, id: 9, title: 'Extra guide', content: 'c' };
   bindings = [
     {
       template: { ...template, content: 'a'.repeat(32768) },
@@ -293,24 +397,29 @@ test('启用正文总量超过上限时保留原安装状态并提示', async ()
     },
     { template: second, enabled: true, sort_order: 1 },
   ];
-  render(<TokenPromptManager token={{ id: 4 }} templates={[third]} />);
-  await screen.findByRole('checkbox', { name: 'Enable Review guide' });
+  render(<TokenPromptManager token={{ id: 4 }} templates={[]} />);
+  await screen.findByRole('button', { name: 'Uninstall Code guide' });
   await userEvent.click(
-    screen.getByRole('button', { name: 'Install Extra guide' }),
+    screen.getByRole('button', { name: 'Uninstall Code guide' }),
   );
-  await screen.findByText(
-    'Enabled prompts must total no more than 65536 bytes',
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() =>
+    expect(calls).toContainEqual({
+      url: '/api/token/4/prompts',
+      method: 'put',
+      body: { bindings: [{ template_id: 8, enabled: true, sort_order: 0 }] },
+    }),
   );
-  expect(calls.some((call) => call.method === 'put')).toBe(false);
+  expect(calls.some((call) => call.body?.bindings?.[0]?.content)).toBe(false);
 });
 
 test('保存失败保留安装列表并展示错误，用户可重试', async () => {
   bindings = [{ template, enabled: true, sort_order: 0 }];
   render(<PromptCenter />);
-  await userEvent.selectOptions(
-    await screen.findByLabelText('Choose a token'),
-    '4',
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Manage token prompts' }),
   );
+  await userEvent.click(await screen.findByRole('button', { name: 'codexQ' }));
   const installed = await screen.findByRole('region', {
     name: 'Installed prompts',
   });
@@ -319,11 +428,17 @@ test('保存失败保留安装列表并展示错误，用户可重试', async ()
   await userEvent.click(
     within(installed).getByRole('button', { name: 'Uninstall Code guide' }),
   );
+  await userEvent.click(
+    within(installed).getByRole('button', { name: 'Save' }),
+  );
   await screen.findByText('Save rejected');
   expect(within(installed).getByText('Code guide')).toBeTruthy();
   denyWrite = false;
   await userEvent.click(
     within(installed).getByRole('button', { name: 'Uninstall Code guide' }),
+  );
+  await userEvent.click(
+    within(installed).getByRole('button', { name: 'Save' }),
   );
   await within(installed).findByText('No prompts installed');
 });
@@ -357,6 +472,9 @@ test('未安装隐藏徽标，全部停用灰显，键盘打开详情显示当�
 test('管理员编辑提交版本及稳定分组 ID，普通用户没有编辑入口', async () => {
   localStorage.setItem('user', JSON.stringify({ id: 2, role: 10 }));
   render(<PromptCenter />);
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Manage templates' }),
+  );
   await userEvent.click(
     await screen.findByRole('button', { name: 'Edit Code guide' }),
   );

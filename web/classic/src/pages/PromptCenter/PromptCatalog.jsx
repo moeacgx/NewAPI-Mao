@@ -19,63 +19,121 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
+import {
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  CircleSlash2,
+  Layers3,
+  PencilLine,
+  ShieldCheck,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function PromptCatalog(props) {
   const { t } = useTranslation();
   return (
-    <section className='classic-console-panel' aria-label={t('Prompt catalog')}>
-      <div className='classic-console-panel-header px-4 py-3'>
+    <section className='prompt-center-section' aria-label={t('Prompt catalog')}>
+      <div className='prompt-center-section-heading'>
+        <div className='prompt-center-section-icon' aria-hidden='true'>
+          <Layers3 size={18} />
+        </div>
         <h2>{t('Prompt catalog')}</h2>
+        <span className='prompt-center-count'>{props.templates.length}</span>
       </div>
-      <div className='classic-console-panel-content prompt-center-grid'>
+      <div className='prompt-center-grid'>
         {!props.templates.length && (
-          <p role='status'>{t('No prompts available')}</p>
+          <div className='prompt-center-empty-state' role='status'>
+            <Layers3 size={24} aria-hidden='true' />
+            <span>{t('No prompts available')}</span>
+          </div>
         )}
         {props.templates.map((template) => {
           const installed = props.bindings.some(
             (binding) => binding.template.id === template.id,
           );
           return (
-            <article className='prompt-center-card' key={template.id}>
-              <div className='prompt-center-row'>
-                <h3>{template.title}</h3>
-                {!template.enabled && <span>{t('Unpublished')}</span>}
-              </div>
-              <p>{template.description}</p>
-              <p className='prompt-center-muted'>
-                {t('Allowed groups')}:{' '}
-                {template.group_details
-                  ?.map((group) => group.name)
-                  .join(', ') || t('No eligible groups')}
-              </p>
-              <details>
-                <summary>{t('View prompt')}</summary>
-                <pre className='prompt-center-content'>{template.content}</pre>
-              </details>
-              <div className='prompt-center-row'>
-                <Button
-                  disabled={
-                    !props.canInstall ||
-                    installed ||
-                    !template.enabled ||
-                    props.busy ||
-                    props.bindings.length >= 8
-                  }
-                  onClick={() => props.onInstall(template)}
-                  aria-label={t('Install {{title}}', { title: template.title })}
+            <article
+              className='prompt-center-card prompt-center-catalog-card'
+              key={template.id}
+            >
+              <div className='prompt-center-card-topline'>
+                <h3 title={template.title}>{template.title}</h3>
+                <span
+                  className={`prompt-center-status ${template.enabled ? 'is-published' : 'is-unpublished'}`}
                 >
-                  {installed ? t('Installed') : t('Install')}
-                </Button>
-                {props.onEdit && (
+                  {template.enabled ? (
+                    <CheckCircle2 size={12} aria-hidden='true' />
+                  ) : (
+                    <CircleSlash2 size={12} aria-hidden='true' />
+                  )}
+                  {template.enabled ? t('Published') : t('Unpublished')}
+                </span>
+              </div>
+              <p className='prompt-center-card-description'>
+                {template.description || t('Prompt')}
+              </p>
+              <div className='prompt-center-card-footer'>
+                <div className='prompt-center-card-meta'>
+                  <span className='prompt-center-meta-label'>
+                    <ShieldCheck size={13} aria-hidden='true' />
+                    {t('Allowed groups')}
+                  </span>
+                  <div className='prompt-center-group-chips'>
+                    {template.group_details?.length ? (
+                      template.group_details.map((group) => (
+                        <span
+                          className='prompt-center-group-chip'
+                          key={group.id}
+                        >
+                          {group.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className='prompt-center-muted'>
+                        {t('No eligible groups')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className='prompt-center-card-actions'>
                   <Button
-                    theme='borderless'
-                    onClick={() => props.onEdit(template)}
-                    aria-label={t('Edit {{title}}', { title: template.title })}
+                    className='prompt-center-install-button'
+                    icon={
+                      installed ? (
+                        <Check size={14} />
+                      ) : (
+                        <ArrowUpRight size={14} />
+                      )
+                    }
+                    disabled={
+                      !props.canInstall ||
+                      installed ||
+                      !template.enabled ||
+                      props.busy ||
+                      props.bindings.length >= 8
+                    }
+                    onClick={() => props.onInstall(template)}
+                    aria-label={t('Install {{title}}', {
+                      title: template.title,
+                    })}
                   >
-                    {t('Edit template')}
+                    {installed ? t('Installed') : t('Install to token')}
                   </Button>
-                )}
+                  {props.onEdit && (
+                    <Button
+                      className='prompt-center-edit-button'
+                      theme='borderless'
+                      icon={<PencilLine size={14} />}
+                      onClick={() => props.onEdit(template)}
+                      aria-label={t('Edit {{title}}', {
+                        title: template.title,
+                      })}
+                    >
+                      {t('Edit template')}
+                    </Button>
+                  )}
+                </div>
               </div>
             </article>
           );

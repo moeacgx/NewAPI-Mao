@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@douyinfe/semi-ui';
+import { Power, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
 import PromptCatalog from './PromptCatalog';
@@ -29,13 +30,17 @@ export default function TokenPromptManager(props) {
   const [loadedToken, setLoadedToken] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [revision, setRevision] = useState(0);
+  const savedBindings = useRef([]);
   const tokenId = props.token?.id;
+  const templateToInstall = props.templateToInstall;
   useEffect(() => {
     const controller = new AbortController();
     setError('');
     setBindings([]);
     setLoadedToken(null);
+    setDirty(false);
     if (tokenId) {
       promptRequest(
         'get',
@@ -44,30 +49,42 @@ export default function TokenPromptManager(props) {
         controller.signal,
       )
         .then((items) => {
-          setBindings(items || []);
+          if (controller.signal.aborted) return;
+          const current = items || [];
+          const addTemplate =
+            templateToInstall &&
+            !current.some((item) => item.template.id === templateToInstall.id);
+          savedBindings.current = current;
           setLoadedToken(tokenId);
+          if (addTemplate && current.length >= 8) {
+            setBindings(current);
+            setError(t('A token can have at most 8 prompts'));
+            return;
+          }
+          setBindings(
+            addTemplate
+              ? [
+                  ...current,
+                  {
+                    template: templateToInstall,
+                    enabled: true,
+                    sort_order: current.length,
+                  },
+                ]
+              : current,
+          );
+          setDirty(Boolean(addTemplate));
         })
         .catch((reason) => {
           if (!controller.signal.aborted) setError(promptError(reason, t));
         });
     }
     return () => controller.abort();
-  }, [tokenId, revision, t]);
+  }, [tokenId, revision, templateToInstall, t]);
 
   const ready = tokenId && loadedToken === tokenId;
-  const save = async (next) => {
+  const save = async (next = bindings) => {
     if (!ready || saving) return;
-    const bytes = next
-      .filter((item) => item.enabled && item.template.enabled)
-      .reduce(
-        (total, item) =>
-          total + new TextEncoder().encode(item.template.content || '').length,
-        0,
-      );
-    if (bytes > 65536) {
-      setError(t('Enabled prompts must total no more than 65536 bytes'));
-      return;
-    }
     setSaving(true);
     setError('');
     try {
@@ -79,19 +96,23 @@ export default function TokenPromptManager(props) {
         })),
       });
       setBindings(next);
+      savedBindings.current = next;
+      setDirty(false);
       props.onChange?.(next);
       window.dispatchEvent(new Event('token-prompts-updated'));
     } catch (reason) {
+      setBindings(savedBindings.current);
+      setDirty(false);
       setError(promptError(reason, t));
     } finally {
       setSaving(false);
     }
   };
 
-  const move = (index, offset) => {
-    const next = [...bindings];
-    [next[index], next[index + offset]] = [next[index + offset], next[index]];
-    save(next);
+  const queue = (next) => {
+    setBindings(next);
+    setDirty(true);
+    setError('');
   };
 
   return (
@@ -111,84 +132,88 @@ export default function TokenPromptManager(props) {
       )}
       {ready && (
         <section
-          className='classic-console-panel'
+          className='prompt-center-section'
           aria-label={t('Installed prompts')}
         >
-          <div className='classic-console-panel-header px-4 py-3'>
-            <h2>
-              {t('Installed prompts')} · {bindings.length}/8
-            </h2>
-          </div>
-          <div className='classic-console-panel-content prompt-center-stack'>
-            <p className='prompt-center-muted'>
-              {t(
-                'Prompts load only when the actual request group is allowed. Installation does not change token permissions.',
-              )}
-            </p>
-            {!bindings.length && (
-              <p role='status'>{t('No prompts installed')}</p>
-            )}
-            {bindings.map((binding, index) => (
-              <article className='prompt-center-card' key={binding.template.id}>
-                <div className='prompt-center-row'>
-                  <h3>{binding.template.title}</h3>
-                  <label>
-                    <input
-                      type='checkbox'
-                      checked={binding.enabled}
-                      disabled={
-                        saving ||
-                        (!binding.template.enabled && !binding.enabled)
-                      }
-                      onChange={(event) =>
-                        save(
-                          bindings.map((item) =>
-                            item.template.id === binding.template.id
-                              ? { ...item, enabled: event.target.checked }
-                              : item,
-                          ),
-                        )
-                      }
-                      aria-label={t('Enable {{title}}', {
-                        title: binding.template.title,
-                      })}
-                    />{' '}
-                    {t('Enabled')}
-                  </label>
-                </div>
-                {!binding.template.enabled && (
-                  <p>{t('Unpublished: this prompt will not load')}</p>
+          <div className='prompt-center-section-heading'>
+            <div
+              className='prompt-center-section-icon prompt-center-section-icon-blue'
+              aria-hidden='true'
+            >
+              <Power size={18} />
+            </div>
+            <div>
+              <h2>
+                {t('Installed prompts')}{' '}
+                <span className='prompt-center-count'>{bindings.length}/8</span>
+              </h2>
+              <p>
+                {t(
+                  'Prompts load only when the actual request group is allowed. Installation does not change token permissions.',
                 )}
-                <p>
-                  {t('Allowed groups')}:{' '}
-                  {binding.template.group_details
-                    ?.map((group) => group.name)
-                    .join(', ') || t('No eligible groups')}
-                </p>
-                <div className='prompt-center-row'>
-                  <Button
-                    disabled={saving || index === 0}
-                    onClick={() => move(index, -1)}
-                    aria-label={t('Move {{title}} up', {
-                      title: binding.template.title,
-                    })}
+              </p>
+            </div>
+            <Button
+              className='prompt-center-primary prompt-center-save-button'
+              icon={<Save size={15} />}
+              disabled={!dirty || saving}
+              loading={saving}
+              onClick={() => save()}
+            >
+              {t('Save')}
+            </Button>
+          </div>
+          <div className='prompt-center-installed-list'>
+            {!bindings.length && (
+              <div className='prompt-center-empty-state' role='status'>
+                <Power size={22} aria-hidden='true' />
+                <span>{t('No prompts installed')}</span>
+              </div>
+            )}
+            {bindings.map((binding) => (
+              <article className='prompt-center-card' key={binding.template.id}>
+                <div className='prompt-center-card-topline'>
+                  <span
+                    className='prompt-center-card-icon prompt-center-card-icon-blue'
+                    aria-hidden='true'
                   >
-                    {t('Move up')}
-                  </Button>
+                    <Power size={17} />
+                  </span>
+                </div>
+                <div className='prompt-center-card-copy'>
+                  <h3>{binding.template.title}</h3>
+                </div>
+                <div className='prompt-center-card-meta'>
+                  <span className='prompt-center-meta-label'>
+                    <ShieldCheck size={14} aria-hidden='true' />
+                    {t('Allowed groups')}
+                  </span>
+                  <div className='prompt-center-group-chips'>
+                    {binding.template.group_details?.length ? (
+                      binding.template.group_details.map((group) => (
+                        <span
+                          className='prompt-center-group-chip'
+                          key={group.id}
+                        >
+                          <Users size={12} aria-hidden='true' />
+                          {group.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className='prompt-center-muted'>
+                        {t('No eligible groups')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className='prompt-center-card-actions prompt-center-card-actions-management'>
                   <Button
-                    disabled={saving || index === bindings.length - 1}
-                    onClick={() => move(index, 1)}
-                    aria-label={t('Move {{title}} down', {
-                      title: binding.template.title,
-                    })}
-                  >
-                    {t('Move down')}
-                  </Button>
-                  <Button
+                    className='prompt-center-uninstall-button'
                     type='danger'
+                    icon={<Trash2 size={15} />}
                     disabled={saving}
                     onClick={() =>
-                      save(
+                      queue(
                         bindings.filter(
                           (item) => item.template.id !== binding.template.id,
                         ),
@@ -211,9 +236,12 @@ export default function TokenPromptManager(props) {
           templates={props.templates}
           bindings={ready ? bindings : []}
           canInstall={ready}
-          busy={saving}
+          busy={saving || dirty}
           onInstall={(template) =>
-            save([...bindings, { template, enabled: true }])
+            queue([
+              ...bindings,
+              { template, enabled: true, sort_order: bindings.length },
+            ])
           }
           onEdit={props.onEdit}
         />

@@ -110,6 +110,18 @@ describe('令牌技能徽标', () => {
 })
 
 describe('令牌提示词管理', () => {
+  it('用户管理已安装项时不显示提示词正文', async () => {
+    renderWithQuery(
+      <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
+    )
+    expect(await screen.findByText('Review')).toBeInTheDocument()
+    expect(screen.queryByText('Check correctness')).not.toBeInTheDocument()
+    expect(screen.queryByText('View prompt content')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Uninstall Review' })
+    ).toBeInTheDocument()
+  })
+
   it('第九项安装禁用保存，移除后可以继续保存', async () => {
     const installed = Array.from({ length: 8 }, (_, index) => ({
       template: { ...template, id: index + 1, title: `Prompt ${index + 1}` },
@@ -135,7 +147,7 @@ describe('令牌提示词管理', () => {
       screen.getByRole('button', { name: 'Save installations' })
     ).toBeEnabled()
   })
-  it('多项安装可以调整次序，保存顺序与界面一致', async () => {
+  it('多项安装保留原顺序，仅提供卸载操作', async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {
         success: true,
@@ -152,26 +164,28 @@ describe('令牌提示词管理', () => {
     renderWithQuery(
       <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
     )
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Move Writing up' })
-    )
+    await screen.findByRole('button', { name: 'Uninstall Writing' })
     expect(
       screen
         .getAllByRole('region')
         .map((region) => region.getAttribute('aria-label'))
-    ).toEqual(['Writing', 'Review'])
+    ).toEqual(['Review', 'Writing'])
+    expect(
+      screen.queryByRole('button', { name: 'Move Writing up' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('checkbox', { name: 'Enable Writing' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall Writing' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save installations' }))
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/api/token/3/prompts', {
-        bindings: [
-          { template_id: 9, enabled: true, sort_order: 0 },
-          { template_id: 7, enabled: true, sort_order: 1 },
-        ],
+        bindings: [{ template_id: 7, enabled: true, sort_order: 0 }],
       })
     )
   })
 
-  it('下架且停用的安装项不能重新启用，仍可卸载', async () => {
+  it('下架且停用的安装项仍可卸载', async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {
         success: true,
@@ -188,14 +202,11 @@ describe('令牌提示词管理', () => {
       <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
     )
     expect(
-      await screen.findByRole('checkbox', { name: 'Enable Review' })
-    ).toBeDisabled()
-    expect(
-      screen.getByRole('button', { name: 'Uninstall Review' })
+      await screen.findByRole('button', { name: 'Uninstall Review' })
     ).toBeEnabled()
   })
 
-  it('多字节正文超过总大小时阻止保存', async () => {
+  it('服务端返回正文时管理界面仍不渲染正文且保持安装信息', async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {
         success: true,
@@ -213,8 +224,11 @@ describe('令牌提示词管理', () => {
     )
     expect(
       await screen.findByRole('button', { name: 'Save installations' })
-    ).toBeDisabled()
-    expect(screen.getByRole('alert')).toHaveTextContent('65536')
+    ).toBeEnabled()
+    expect(screen.queryByText('中'.repeat(20))).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Uninstall Review' })
+    ).toBeEnabled()
   })
 
   it('新增安装保留既有安装，并通过独立接口保存稳定模板 ID', async () => {
@@ -239,19 +253,17 @@ describe('令牌提示词管理', () => {
     )
   })
 
-  it('停用和卸载保持草稿，只有保存时提交', async () => {
+  it('卸载保持草稿，只有保存时提交', async () => {
     renderWithQuery(
       <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
     )
-    const toggle = await screen.findByRole('checkbox', {
-      name: 'Enable Review',
-    })
-    fireEvent.click(toggle)
+    await screen.findByRole('button', { name: 'Uninstall Review' })
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall Review' }))
     expect(api.put).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Save installations' }))
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/api/token/3/prompts', {
-        bindings: [{ template_id: 7, enabled: false, sort_order: 0 }],
+        bindings: [],
       })
     )
   })
@@ -279,14 +291,11 @@ describe('令牌提示词管理', () => {
     renderWithQuery(
       <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
     )
-    fireEvent.click(
-      await screen.findByRole('checkbox', { name: 'Enable Review' })
-    )
+    await screen.findByRole('button', { name: 'Uninstall Review' })
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall Review' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save installations' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Conflict')
-    expect(
-      screen.getByRole('checkbox', { name: 'Enable Review' })
-    ).not.toBeChecked()
+    expect(screen.getByText('No installed prompts')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Save installations' }))
     await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2))
   })

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { CheckCircle2, Layers3, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -53,16 +53,23 @@ export function TokenPromptDialog(props: TokenPromptDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className='max-h-[85dvh] overflow-y-auto sm:max-w-2xl'>
-        <DialogHeader>
-          <DialogTitle>
-            {t('Installed prompts')} · {props.token.name}
-          </DialogTitle>
-          <DialogDescription>
-            {t(
-              'Prompts load only for allowed request groups. Installed does not mean active for every group.'
-            )}
-          </DialogDescription>
+      <DialogContent className='max-h-[85dvh] overflow-y-auto rounded-2xl sm:max-w-2xl'>
+        <DialogHeader className='border-border/70 bg-muted/20 rounded-2xl border p-4'>
+          <div className='flex items-start gap-3'>
+            <div className='bg-primary/[0.1] text-primary flex size-10 shrink-0 items-center justify-center rounded-xl'>
+              <Layers3 className='size-5' aria-hidden='true' />
+            </div>
+            <div className='min-w-0'>
+              <DialogTitle className='truncate'>
+                {t('Installed prompts')} · {props.token.name}
+              </DialogTitle>
+              <DialogDescription className='mt-1'>
+                {t(
+                  'Prompts load only for allowed request groups. Installed does not mean active for every group.'
+                )}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
         {(query.isPending || !query.isFetchedAfterMount) && (
           <p role='status'>{t('Loading...')}</p>
@@ -129,14 +136,8 @@ function TokenPromptEditor(props: {
       props.onSaved()
     },
   })
-  const totalBytes = bindings
-    .filter((binding) => binding.enabled && binding.template.enabled)
-    .reduce(
-      (sum, binding) =>
-        sum + new TextEncoder().encode(binding.template.content).length,
-      0
-    )
-  const invalid = bindings.length > 8 || totalBytes > 65536
+  // 正文大小由后端按最终提交内容校验，用户端不读取正文。
+  const invalid = bindings.length > 8
 
   return (
     <div className='space-y-3'>
@@ -148,22 +149,39 @@ function TokenPromptEditor(props: {
         </p>
       )}
       {bindings.length === 0 && (
-        <div className='bg-muted/30 rounded-lg border p-6 text-center'>
-          {t('No installed prompts')}
+        <div className='bg-muted/20 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-10 text-center'>
+          <div className='bg-background flex size-11 items-center justify-center rounded-xl border'>
+            <Sparkles
+              className='text-muted-foreground size-5'
+              aria-hidden='true'
+            />
+          </div>
+          <p className='font-medium'>{t('No installed prompts')}</p>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Install prompts without changing the key, quota or group permissions.'
+            )}
+          </p>
         </div>
       )}
       <div className='space-y-3'>
-        {bindings.map((binding, index) => (
+        {bindings.map((binding) => (
           <section
             key={binding.template.id}
-            className='bg-card space-y-2 rounded-lg border p-3'
+            className='bg-background border-border/70 space-y-3 rounded-2xl border p-4 shadow-sm'
             aria-label={binding.template.title}
           >
             <div className='flex flex-wrap items-start justify-between gap-2'>
               <div className='min-w-0 flex-1'>
-                <h3 className='font-medium [overflow-wrap:anywhere]'>
-                  {binding.template.title}
-                </h3>
+                <div className='flex items-center gap-2'>
+                  <Sparkles
+                    className='text-primary size-4 shrink-0'
+                    aria-hidden='true'
+                  />
+                  <h3 className='font-medium [overflow-wrap:anywhere]'>
+                    {binding.template.title}
+                  </h3>
+                </div>
                 {!binding.template.enabled && (
                   <span className='text-muted-foreground text-xs'>
                     {t('Unpublished')}
@@ -171,46 +189,6 @@ function TokenPromptEditor(props: {
                 )}
               </div>
               <div className='flex shrink-0 gap-1'>
-                <Button
-                  size='icon-sm'
-                  variant='outline'
-                  disabled={index === 0 || mutation.isPending}
-                  aria-label={t('Move {{title}} up', {
-                    title: binding.template.title,
-                  })}
-                  onClick={() =>
-                    setBindings((current) => {
-                      const next = [...current]
-                      const previous = next[index - 1]
-                      if (!previous) return current
-                      next[index - 1] = binding
-                      next[index] = previous
-                      return next
-                    })
-                  }
-                >
-                  <ArrowUp className='size-3.5' aria-hidden='true' />
-                </Button>
-                <Button
-                  size='icon-sm'
-                  variant='outline'
-                  disabled={index === bindings.length - 1 || mutation.isPending}
-                  aria-label={t('Move {{title}} down', {
-                    title: binding.template.title,
-                  })}
-                  onClick={() =>
-                    setBindings((current) => {
-                      const next = [...current]
-                      const following = next[index + 1]
-                      if (!following) return current
-                      next[index] = following
-                      next[index + 1] = binding
-                      return next
-                    })
-                  }
-                >
-                  <ArrowDown className='size-3.5' aria-hidden='true' />
-                </Button>
                 <Button
                   size='icon-sm'
                   variant='outline'
@@ -230,44 +208,28 @@ function TokenPromptEditor(props: {
                 </Button>
               </div>
             </div>
-            <p className='text-muted-foreground text-xs'>
-              {t('Allowed groups')}:{' '}
-              {binding.template.group_details
-                ?.map((group) => group.name)
-                .join(', ') || t('No available groups')}
-            </p>
-            <label className='flex items-center gap-2 text-sm'>
-              <input
-                type='checkbox'
-                aria-label={t('Enable {{title}}', {
-                  title: binding.template.title,
-                })}
-                checked={binding.enabled}
-                disabled={
-                  mutation.isPending ||
-                  (!binding.template.enabled && !binding.enabled)
-                }
-                onChange={(event) => {
-                  const enabled = event.target.checked
-                  setBindings((current) =>
-                    current.map((item) =>
-                      item.template.id === binding.template.id
-                        ? { ...item, enabled }
-                        : item
-                    )
-                  )
-                }}
-              />
-              {t('Enabled')}
-            </label>
-            <details>
-              <summary className='cursor-pointer text-xs'>
-                {t('View prompt content')}
-              </summary>
-              <pre className='bg-muted/40 mt-2 max-h-48 overflow-y-auto rounded-md p-3 font-sans text-xs [overflow-wrap:anywhere] whitespace-pre-wrap'>
-                {binding.template.content}
-              </pre>
-            </details>
+            <div className='border-border/60 flex flex-wrap items-center gap-3 border-t pt-3'>
+              <div className='flex min-w-0 flex-1 flex-wrap gap-1.5'>
+                {binding.template.group_details?.length ? (
+                  binding.template.group_details.map((group) => (
+                    <span
+                      key={group.id}
+                      className='bg-muted/40 text-muted-foreground inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-[11px]'
+                    >
+                      <CheckCircle2
+                        className='text-primary size-3'
+                        aria-hidden='true'
+                      />
+                      <span className='truncate'>{group.name}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className='text-muted-foreground text-xs'>
+                    {t('No available groups')}
+                  </span>
+                )}
+              </div>
+            </div>
           </section>
         ))}
       </div>

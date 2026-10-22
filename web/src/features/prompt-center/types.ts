@@ -25,7 +25,7 @@ export interface PromptTemplate {
   id: number
   title: string
   description: string
-  content: string
+  content?: string
   enabled: boolean
   sort_order: number
   version: number
@@ -46,7 +46,10 @@ export interface PromptToken {
   enabled_prompt_count?: number
 }
 
-export type PromptTemplateInput = Omit<PromptTemplate, 'id' | 'group_details'>
+export type PromptTemplateInput = Omit<
+  PromptTemplate,
+  'id' | 'group_details' | 'content'
+> & { content: string }
 
 export interface PromptResponse<T> {
   success: boolean

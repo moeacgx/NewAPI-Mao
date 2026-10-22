@@ -44,13 +44,15 @@ export function TokenPromptBadge(props: { token: PromptToken }) {
         }
         onClick={() => setOpen(true)}
         className={cn(
-          'focus-visible:ring-ring/50 inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium focus-visible:ring-2 focus-visible:outline-none',
+          'focus-visible:ring-ring/50 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow focus-visible:ring-2 focus-visible:outline-none',
           active
-            ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300'
-            : 'bg-muted text-muted-foreground'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+            : 'bg-muted/70 text-muted-foreground'
         )}
       >
-        <Sparkles className='size-3' aria-hidden='true' />
+        <span className='bg-background/70 flex size-4 items-center justify-center rounded-full'>
+          <Sparkles className='size-2.5' aria-hidden='true' />
+        </span>
         {t('Skills · {{count}}', { count })}
       </button>
       {open && (

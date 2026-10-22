@@ -33,12 +33,13 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 所有接口返回 `{success,message,data}`，需要登录。用户接口只操作自己的令牌；管理员管理接口
 额外要求 `AdminAuth`，权限由后端校验。
 
-- `GET /api/prompt-center/`：可浏览的启用模板数组。
+- `GET /api/prompt-center/`：可浏览的启用模板摘要数组，不含正文 `content`。
 - `GET /api/prompt-center/admin/`：全部模板数组；管理员。
 - `POST /api/prompt-center/admin/`：创建模板；管理员。
 - `PUT /api/prompt-center/admin/:id`：更新模板；管理员，提交当前 `version` 防止覆盖并发编辑。
   版本冲突返回 HTTP 409。
 - `GET /api/token/:id/prompts`：安装数组，元素为 `{template,enabled,sort_order}`。
+  `template` 仅含摘要，不含正文；PUT 保存安装的响应同样不含正文。
 - `PUT /api/token/:id/prompts`：完整替换安装数组，请求为
   `{bindings:[{template_id,enabled,sort_order}]}`；必须显式提交数组，空数组卸载全部。
 - `/api/token/`、`/api/token/search`、`/api/token/:id` 增加只读的 `prompt_count` 与
@@ -67,7 +68,7 @@ Chat 使用适合模型的 system/developer 角色，Responses 使用 `instructi
 
 ## 页面与验证
 
-两套页面均提供模板浏览、详情、选择令牌、安装列表的排序/启停/卸载，以及管理员编辑和
+两套页面均提供模板摘要浏览、选择令牌、安装/卸载及保存，以及管理员编辑和
 白名单管理。导入仅在浏览器读取文本，明确不支持包含脚本的完整 Skills。
 页面业务模块使用现有带边框和背景的 Card/Panel；徽标包含可访问名称，键盘可打开详情。
 两套侧栏均使用 `console.prompt_center` 独立开关，与 `console.token` 分离。
