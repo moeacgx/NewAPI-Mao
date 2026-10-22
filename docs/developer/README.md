@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。
+
 - [.352 技能中心与 Claude 结算整合发布](../workflows/2026-10/22_skills_claude_352_release.md)：最终组合、兼容边界、发布门禁与产物验收。
 
 - [Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)：限制空流估算收费，并补齐 Responses 转换流客户端取消后的限时用量读取、结算与退款验证。
