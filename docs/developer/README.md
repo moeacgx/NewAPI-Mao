@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)：限制空流估算收费，并补齐 Responses 转换流客户端取消后的限时用量读取、结算与退款验证。
+
 - [静态资源 404 缓存与 .350 白屏](../workflows/2026-10/22_static_asset_negative_cache.md)：恢复、缺失资源缓存边界及生产浏览器验收。
 
 - [Classic 连接结束保留 5 秒](../workflows/2026-10/22_active_connections_finished_retention.md)：结束状态、耗时冻结、活动统计与 Redis 到期边界。

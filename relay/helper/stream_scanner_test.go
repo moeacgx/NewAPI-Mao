@@ -350,6 +350,91 @@ func TestStreamScannerHandler_ClientCancelAbortsUpstreamAndReturns(t *testing.T)
 	assert.NotContains(t, body, "second")
 }
 
+func TestStreamScannerHandler_DrainAfterClientCancelProcessesLaterUsage(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pr, pw := io.Pipe()
+	t.Cleanup(func() {
+		_ = pr.Close()
+		_ = pw.Close()
+	})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil).WithContext(ctx)
+	info := &relaycommon.RelayInfo{DisablePing: true, ChannelMeta: &relaycommon.ChannelMeta{}}
+	firstHandled := make(chan struct{})
+	done := make(chan struct{})
+	var received []string
+	go func() {
+		StreamScannerHandlerWithClientDisconnectDrain(c, &http.Response{Body: pr}, info, time.Second, func(data string, sr *StreamResult) {
+			received = append(received, data)
+			if data == "first" {
+				close(firstHandled)
+			}
+		})
+		close(done)
+	}()
+
+	_, err := fmt.Fprint(pw, "data: first\n")
+	require.NoError(t, err)
+	select {
+	case <-firstHandled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for first chunk")
+	}
+	cancel()
+	_, err = fmt.Fprint(pw, "data: final_usage\n")
+	require.NoError(t, err)
+	_ = pw.Close()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("draining scanner did not finish")
+	}
+	assert.Equal(t, []string{"first", "final_usage"}, received)
+	assert.Equal(t, relaycommon.StreamEndReasonClientGone, info.StreamStatus.EndReason)
+}
+
+func TestStreamScannerHandler_DrainAfterClientCancelStopsAtDeadline(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pr, pw := io.Pipe()
+	t.Cleanup(func() { _ = pw.Close() })
+	c, _, info := setupStreamTest(t, nil)
+	c.Request = c.Request.WithContext(ctx)
+	firstHandled := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		StreamScannerHandlerWithClientDisconnectDrain(c, &http.Response{Body: pr}, info, 40*time.Millisecond, func(data string, sr *StreamResult) {
+			if data == "first" {
+				close(firstHandled)
+			}
+		})
+		close(done)
+	}()
+	_, err := fmt.Fprint(pw, "data: first\n")
+	require.NoError(t, err)
+	select {
+	case <-firstHandled:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first chunk")
+	}
+	cancel()
+	// 断开后新帧仍会重置空闲计时器，固定排空上限也必须生效。
+	_, err = fmt.Fprint(pw, "data: still_streaming\n")
+	require.NoError(t, err)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("scanner exceeded its client disconnect drain deadline")
+	}
+	_, err = fmt.Fprint(pw, "data: too_late\n")
+	assert.ErrorIs(t, err, io.ErrClosedPipe)
+	assert.Equal(t, relaycommon.StreamEndReasonClientGone, info.StreamStatus.EndReason)
+}
+
 func TestStreamScannerHandler_DropsQueuedDataAfterClientCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
