@@ -159,13 +159,15 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
-	// Claude input_tokens excludes cache reads and writes, so a fully cached
-	// prompt reports zero input; the prompt is uncounted only when the total
-	// with cache is zero as well. Zero output is uncounted only when content
-	// was streamed, so a refusal before any output keeps its zeros.
-	missingInputUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage).PromptTokens == 0
+	// Claude 的 input_tokens 不包含缓存读写；只有普通输入、缓存读写都为零时，
+	// 才能认定输入 usage 缺失。没有任何输出证据的失败/空流不能把本地输入估算
+	// 冒充成上游已产生的用量，否则上游错误会被本地收费。
+	mappedUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
+	missingInputUsage := mappedUsage.PromptTokens == 0
 	missingOutputUsage := claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() > 0
-	if missingInputUsage || missingOutputUsage || !claudeInfo.Done {
+	hasOutputEvidence := claudeInfo.ResponseText.Len() > 0 || claudeInfo.Usage.CompletionTokens > 0
+	shouldEstimateUsage := missingOutputUsage || (hasOutputEvidence && (missingInputUsage || !claudeInfo.Done))
+	if shouldEstimateUsage {
 		if common.DebugEnabled {
 			common.SysLog("claude response usage is not complete, maybe upstream error")
 		}

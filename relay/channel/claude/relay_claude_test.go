@@ -86,6 +86,27 @@ func TestClaudeStreamFinalUsageEstimatesOnlyUncountedUsage(t *testing.T) {
 	}
 }
 
+func TestClaudeStreamFinalResponseDoesNotEstimateEmptyFailedStream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	info := &relaycommon.RelayInfo{
+		RelayFormat: types.RelayFormatClaude,
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-opus-5-5"},
+	}
+	info.SetEstimatePromptTokens(3832154)
+	state := &ClaudeResponseInfo{Usage: &dto.Usage{}}
+
+	// 上游只建立了流但没有输出，也没有终态 usage；这类请求不能按本地
+	// 估算输入收费。
+	HandleStreamFinalResponse(c, info, state)
+
+	require.Zero(t, state.Usage.PromptTokens)
+	require.Zero(t, state.Usage.CompletionTokens)
+	require.False(t, common.GetContextKeyBool(c, constant.ContextKeyLocalCountTokens))
+}
+
 func TestResponseOpenAI2ClaudeToolUseInputIsObject(t *testing.T) {
 	tests := []struct {
 		name string

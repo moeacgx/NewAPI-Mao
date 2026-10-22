@@ -2,6 +2,8 @@
 
 - [.352 技能中心与 Claude 结算整合发布](../workflows/2026-10/22_skills_claude_352_release.md)：最终组合、兼容边界、发布门禁与产物验收。
 
+- [Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)：限制空流估算收费，并补齐 Responses 转换流客户端取消后的限时用量读取、结算与退款验证。
+
 - [双主题管理员查询用户联动当前连接](../workflows/2026-10/22_admin_user_active_connections.md)：按已提交的用户 ID/用户名切换、管理员权限、空状态与旧请求隔离。
 
 - [静态资源 404 缓存与 .350 白屏](../workflows/2026-10/22_static_asset_negative_cache.md)：恢复、缺失资源缓存边界及生产浏览器验收。

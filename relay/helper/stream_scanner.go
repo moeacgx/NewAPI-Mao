@@ -122,7 +122,26 @@ func ExtendWriteDeadline(c *gin.Context) {
 }
 
 func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, dataHandler func(data string, sr *StreamResult)) {
+	streamScannerHandler(c, resp, info, 0, dataHandler)
+}
 
+// StreamScannerHandlerWithClientDisconnectDrain 在客户端断开后限时读取上游。
+// 调用方必须提供可独立存活的上游请求上下文，并在回调中停止下游写入。
+func StreamScannerHandlerWithClientDisconnectDrain(
+	c *gin.Context,
+	resp *http.Response,
+	info *relaycommon.RelayInfo,
+	drainTimeout time.Duration,
+	dataHandler func(data string, sr *StreamResult),
+) {
+	if drainTimeout <= 0 {
+		StreamScannerHandler(c, resp, info, dataHandler)
+		return
+	}
+	streamScannerHandler(c, resp, info, drainTimeout, dataHandler)
+}
+
+func streamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, drainTimeout time.Duration, dataHandler func(data string, sr *StreamResult)) {
 	if resp == nil || dataHandler == nil {
 		return
 	}
@@ -283,14 +302,14 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}()
 		sr := newStreamResult(info.StreamStatus)
 		for data := range dataChan {
-			if c.Request.Context().Err() != nil {
+			if c.Request.Context().Err() != nil && drainTimeout <= 0 {
 				return
 			}
 			sr.reset()
 			func() {
 				writeMutex.Lock()
 				defer writeMutex.Unlock()
-				if c.Request.Context().Err() != nil {
+				if c.Request.Context().Err() != nil && drainTimeout <= 0 {
 					return
 				}
 				ExtendWriteDeadline(c)
@@ -373,7 +392,8 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				}
 			}
 		}
-		if clientGone.Load() {
+		// EOF 与客户端取消可能同时就绪，不能依赖主循环先观察到取消。
+		if clientGone.Load() || (drainTimeout > 0 && c.Request.Context().Err() != nil) {
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, c.Request.Context().Err())
 		} else {
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonEOF, nil)
@@ -387,9 +407,19 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	case <-stopChan:
 		// EndReason already set by the goroutine that triggered stopChan
 	case <-c.Request.Context().Done():
-		// 客户端断开：立即 cleanup 关闭上游 resp.Body，解除 scanner 阻塞并让上游停止生成，
-		// 避免为已放弃的请求继续消费上游 token。
 		clientGone.Store(true)
+		if drainTimeout > 0 {
+			// 仅调用方明确指定限时排空时，断开后保留上游读取以收集最终 usage。
+			// 写入回调应据请求上下文停止向下游发送内容。
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, c.Request.Context().Err())
+			drainTimer := time.NewTimer(drainTimeout)
+			defer drainTimer.Stop()
+			select {
+			case <-stopChan:
+			case <-ticker.C:
+			case <-drainTimer.C:
+			}
+		}
 	}
 
 	cleanup()
