@@ -20,4 +20,12 @@ Claude Messages 转 Responses 的成功流在客户端取消后最多继续读�
 - 发布后核对 Release 资产校验和、镜像架构与 latest 摘要，并检查在线商店索引和正文哈希。
 - 本项不执行 maolaoapi 或 zzapi 正式版部署；保留上轮 zzapi 测试镜像。
 
-发布结果与验证证据待执行后追加。
+## 已完成验证
+
+- PR #318 已于 2026-10-22 合入 custom-main，合并提交 `a92dd2ff6bf48e2f154b773cd5f35a1b665ad73e`；[同步后 CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39768934075) 全部成功。
+- 技能组合的 model/controller/service/router/middleware 测试通过；加入 Claude 修复后，service/controller/channel/claude/helper/relay 再次完整测试通过，均设置 `-timeout=60s`。
+- `relaykit` 在 `GOWORK=off` 下独立构建通过。
+- Default 类型检查、58 项相关测试、生产构建通过；Classic 42 项相关交互测试、3 项原生鉴权测试、生产构建通过。
+- 三方合并保留主分支全部翻译键及连接管理、静态资源缓存、扩展兼容行为；未包含凭据、截图或测试数据库。
+
+以上为本地及 PR #318 验证，不代替最终整合 PR CI。发布结果以标签工作流及 GitHub Release 为准，未执行正式版主机部署。
