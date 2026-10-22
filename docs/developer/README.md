@@ -16,7 +16,7 @@
 
 - [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：保留现有 dev 功能的正式发布、固定镜像、生产备份与三节点验收。
 
-- [技能合集、分类与导入](../workflows/2026-10/22_skill_bundles_categories.md)：双模板合集编辑、分类维护、ZIP/公开仓库链接导入和仓库内置技能商店；已更新 zzapi 三节点，含备份、迁移与验收记录；在线商店目录尚未发布。
+- [技能合集、分类与导入](../workflows/2026-10/22_skill_bundles_categories.md)：双模板合集编辑、分类维护、ZIP/公开仓库链接导入和仓库技能商店；已更新 zzapi 三节点；在线商店已发布，真实列表和导入验证见 [.352 记录](../workflows/2026-10/22_skills_claude_352_release.md)。
 
 - [Classic 操练场与新版布局对齐](../workflows/2026-10/22_classic_playground_alignment.md)：居中对话、底部输入与令牌切换、参数/调试侧面板，保留原请求能力。
 
