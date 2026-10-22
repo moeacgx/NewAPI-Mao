@@ -97,3 +97,17 @@
   开发索引中既有历史失效链接保留，本轮未扩大修复范围。
 - 未实跑 MySQL、PostgreSQL、真实公网仓库和线上供应商；未推送仓库、发布在线目录或部署。
   在线商店需要先将本轮 `skill-store/` 发布到官方 `custom-main` 分支，内置快照可立即离线使用。
+
+## zzapi 更新计划
+
+用户明确要求将本轮功能更新到 zzapi。通过 CloudSSH 项目「API中转站」的
+「RS2000 德国建站」（serverId 52、hostId 17）核验，三个应用当前均为
+`newapi-mao-zzapi:playground-da7c46a4bbac` 且健康。
+
+发布前保存 Compose、环境文件、容器快照、数据目录和 PostgreSQL 自洽备份。
+以已提交源码构建唯一镜像；Docker 构建上下文显式保留 `skill-store/packages` 的
+Markdown，避免全局 `*.md` 排除规则导致内置技能缺失。
+同镜像隔离实例验证合集、分类、导入草稿、普通用户正文隐藏和双模板静态资源，
+随后按三个应用顺序更新，首节点先执行新增分类表和模板元数据迁移。
+仅替换应用镜像；保留原 Compose 与镜像，回滚保留新增字段和表，不恢复旧数据库。
+不更新 maolaoapi，不推送源码或发布在线商店目录。
