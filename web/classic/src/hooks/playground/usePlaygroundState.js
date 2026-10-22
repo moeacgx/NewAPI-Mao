@@ -18,10 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  DEFAULT_MESSAGES,
-  getDefaultMessages,
   DEFAULT_CONFIG,
   DEBUG_TABS,
   MESSAGE_STATUS,
@@ -35,8 +32,6 @@ import {
 import { processIncompleteThinkTags } from '../../helpers';
 
 export const usePlaygroundState = () => {
-  const { t } = useTranslation();
-
   // 使用惰性初始化，确保只在组件首次挂载时加载配置和消息
   const [savedConfig] = useState(() => loadConfig());
   const [initialMessages] = useState(() => {
@@ -85,18 +80,8 @@ export const usePlaygroundState = () => {
   const [groups, setGroups] = useState([]);
   const [status, setStatus] = useState({});
 
-  // 消息相关状态 - 使用加载的消息或默认消息初始化
-  const [message, setMessage] = useState(
-    () => initialMessages || getDefaultMessages(t),
-  );
-
-  // 当语言改变时，如果是默认消息则更新
-  useEffect(() => {
-    // 只在没有保存的消息时才更新默认消息
-    if (!initialMessages) {
-      setMessage(getDefaultMessages(t));
-    }
-  }, [t, initialMessages]); // 当语言改变时
+  // 保留已保存的对话，首次进入展示空状态。
+  const [message, setMessage] = useState(() => initialMessages || []);
 
   // 调试状态
   const [debugData, setDebugData] = useState({
@@ -212,9 +197,6 @@ export const usePlaygroundState = () => {
     // 只有在明确指定时才重置消息
     if (resetMessages) {
       setMessage([]);
-      setTimeout(() => {
-        setMessage(getDefaultMessages(t));
-      }, 0);
     }
   }, []);
 

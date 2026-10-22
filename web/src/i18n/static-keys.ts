@@ -922,4 +922,10 @@ export const STATIC_I18N_KEYS = [
   'Expired',
   'Code not found',
   'Unknown reason',
+  // 提示词中心通过文件导入和 API 错误返回的动态文案。
+  'Prompt content must not exceed 32768 bytes',
+  'Only plain text files are supported',
+  'Failed to read file',
+  'Failed to save prompt',
+  'Failed to save installations',
 ] as const

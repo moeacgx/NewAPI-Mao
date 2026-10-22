@@ -1,6 +1,9 @@
 # NewAPI-Mao 开发文档
 
+- [.352 技能中心与 Claude 结算整合发布](../workflows/2026-10/22_skills_claude_352_release.md)：最终组合、兼容边界、发布门禁与产物验收。
+
 - [Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)：限制空流估算收费，并补齐 Responses 转换流客户端取消后的限时用量读取、结算与退款验证。
+
 - [双主题管理员查询用户联动当前连接](../workflows/2026-10/22_admin_user_active_connections.md)：按已提交的用户 ID/用户名切换、管理员权限、空状态与旧请求隔离。
 
 - [静态资源 404 缓存与 .350 白屏](../workflows/2026-10/22_static_asset_negative_cache.md)：恢复、缺失资源缓存边界及生产浏览器验收。
@@ -12,6 +15,19 @@
 - [双主题当前连接与 Classic 令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
 
 - [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：保留现有 dev 功能的正式发布、固定镜像、生产备份与三节点验收。
+
+- [技能合集、分类与导入](../workflows/2026-10/22_skill_bundles_categories.md)：双模板合集编辑、分类维护、ZIP/公开仓库链接导入和仓库内置技能商店；已更新 zzapi 三节点，含备份、迁移与验收记录；在线商店目录尚未发布。
+
+- [Classic 操练场与新版布局对齐](../workflows/2026-10/22_classic_playground_alignment.md)：居中对话、底部输入与令牌切换、参数/调试侧面板，保留原请求能力。
+
+- [操练场 API 令牌切换](../workflows/2026-10/22_playground_token_switch.md)：双模板本人令牌搜索选择、正式权限与提示词装载、模型发现及额度结算。
+
+- [提示词中心本地 UI 演示](../workflows/2026-10/22_prompt_center_local_ui_demo.md)：双模板浅蓝卡片定稿、用户端仅安装卸载与正文访问边界；已更新 zzapi，见下方部署记录。
+
+- [提示词中心 zzapi 测试部署](../workflows/2026-10/22_token_prompt_center_zzapi.md)：现场基线、备份、迁移、回滚和验收记录。
+
+- [令牌提示词中心](token-prompt-center.md)：双模板模板管理、按实际分组装载与令牌技能徽标；[实现计划](../workflows/2026-10/22_token_prompt_center_plan.md)；[Default 前端验证](../workflows/2026-10/22_token_prompt_center_default.md)。
+- [Classic 提示词中心与技能徽标](../workflows/2026-10/22_token_prompt_center_classic.md)：模板管理、令牌安装、双布局徽标与前端验收边界。
 
 - [dev 整合与 zzapi 验证部署](../workflows/2026-10/18_dev_integration_zzapi.md)：本轮九项改动、组合回归、固定开发镜像和逐节点部署验收。
 

@@ -61,6 +61,7 @@ import NotificationCenter from './pages/NotificationCenter';
 
 const Home = lazy(() => import('./pages/Home'));
 const TaskPlugins = lazy(() => import('./pages/TaskPlugins'));
+const PromptCenter = lazy(() => import('./pages/PromptCenter'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
@@ -215,6 +216,16 @@ function App() {
           element={
             <PrivateRoute>
               <Token />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/prompt-center'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <PromptCenter />
+              </Suspense>
             </PrivateRoute>
           }
         />

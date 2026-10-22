@@ -173,10 +173,19 @@ func (s *BillingSession) GetPreConsumedQuota() int {
 }
 
 func (s *BillingSession) Reserve(targetQuota int) error {
+	return s.reserve(targetQuota, false)
+}
+
+// ReserveRequestQuota 用于上游发送前新增输入，钱包必须原子验证余额，不允许透支。
+func (s *BillingSession) ReserveRequestQuota(targetQuota int) error {
+	return s.reserve(targetQuota, true)
+}
+
+func (s *BillingSession) reserve(targetQuota int, strict bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.settled || s.refunded || s.trusted || targetQuota <= s.preConsumedQuota {
+	if s.settled || s.refunded || (s.trusted && !strict) || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
 
@@ -185,14 +194,30 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 		return nil
 	}
 
-	if err := s.reserveFunding(delta); err != nil {
-		return err
+	var fundingErr error
+	if strict {
+		switch funding := s.funding.(type) {
+		case *WalletFunding:
+			fundingErr = funding.ReserveAdditionalStrict(delta)
+		case *CompositeFunding:
+			fundingErr = funding.reserveAdditional(delta, true)
+		default:
+			fundingErr = s.reserveFunding(delta)
+		}
+	} else {
+		fundingErr = s.reserveFunding(delta)
+	}
+	if fundingErr != nil {
+		return fundingErr
 	}
 	if err := s.reserveToken(delta); err != nil {
 		return errors.Join(err, s.rollbackFundingReserve(delta))
 	}
 
 	s.preConsumedQuota += delta
+	if strict {
+		s.trusted = false
+	}
 	if s.usesTokenQuota() {
 		s.tokenConsumed += delta
 	}

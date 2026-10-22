@@ -103,6 +103,11 @@ export function SidebarModulesCard() {
             description: t('API token management'),
           },
           {
+            key: 'prompt_center',
+            title: t('Prompt Center'),
+            description: t('Manage token prompts'),
+          },
+          {
             key: 'log',
             title: t('Usage Logs'),
             description: t('API usage records'),

@@ -42,6 +42,17 @@ const customGroups: NavGroup[] = [
 ]
 
 describe('sidebar configuration filtering', () => {
+  test('提示词中心遵循独立开关而不依赖令牌入口', () => {
+    const hidden = parseSidebarConfig({
+      console: { token: true, prompt_center: false },
+    })
+    expect(isModuleEnabled('/prompt-center', hidden, null)).toBe(false)
+    expect(isModuleEnabled('/keys', hidden, null)).toBe(true)
+    const shown = parseSidebarConfig({
+      console: { token: false, prompt_center: true },
+    })
+    expect(isModuleEnabled('/prompt-center', shown, null)).toBe(true)
+  })
   test('combines administrator and user custom settings with false precedence', () => {
     const adminAllows = { custom: { enabled: true, [customKey]: true } }
     const adminDenies = { custom: { enabled: true, [customKey]: false } }

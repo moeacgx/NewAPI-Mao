@@ -28,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { TokenPromptBadge } from '@/features/prompt-center/components/token-prompt-badge'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
@@ -108,7 +109,12 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       accessorKey: 'name',
       header: t('Name'),
       cell: ({ row }) => (
-        <span className='font-medium'>{row.getValue('name')}</span>
+        <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+          <span className='min-w-0 font-medium [overflow-wrap:anywhere]'>
+            {row.getValue('name')}
+          </span>
+          <TokenPromptBadge token={row.original} />
+        </div>
       ),
       size: 180,
       meta: { mobileTitle: true },

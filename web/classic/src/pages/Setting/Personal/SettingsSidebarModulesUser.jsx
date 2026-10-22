@@ -84,6 +84,7 @@ export default function SettingsSidebarModulesUser() {
         enabled: true,
         detail: isSidebarModuleAllowed('console', 'detail'),
         token: isSidebarModuleAllowed('console', 'token'),
+        prompt_center: isSidebarModuleAllowed('console', 'prompt_center'),
         log: isSidebarModuleAllowed('console', 'log'),
         midjourney: isSidebarModuleAllowed('console', 'midjourney'),
         task: isSidebarModuleAllowed('console', 'task'),
@@ -325,6 +326,11 @@ export default function SettingsSidebarModulesUser() {
       modules: [
         { key: 'detail', title: t('数据看板'), description: t('系统数据统计') },
         { key: 'token', title: t('令牌管理'), description: t('API令牌管理') },
+        {
+          key: 'prompt_center',
+          title: t('Prompt center'),
+          description: t('Install prompts on API keys'),
+        },
         { key: 'log', title: t('使用日志'), description: t('API使用记录') },
         {
           key: 'midjourney',

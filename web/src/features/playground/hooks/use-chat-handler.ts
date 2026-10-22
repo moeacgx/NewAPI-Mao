@@ -44,6 +44,8 @@ interface UseChatHandlerOptions {
   config: PlaygroundConfig
   parameterEnabled: ParameterEnabled
   onMessageUpdate: (updater: (prev: Message[]) => Message[]) => void
+  tokenId?: number
+  requestReady?: boolean
 }
 
 const KNOWN_ERROR_MESSAGES = new Set<string>(Object.values(ERROR_MESSAGES))
@@ -73,6 +75,8 @@ export function useChatHandler({
   config,
   parameterEnabled,
   onMessageUpdate,
+  tokenId,
+  requestReady = true,
 }: UseChatHandlerOptions) {
   const { t } = useTranslation()
   const { sendStreamRequest, stopStream, isStreaming } = useStreamRequest()
@@ -261,7 +265,8 @@ export function useChatHandler({
         payload,
         (type, chunk) => handleStreamUpdate(generation, type, chunk),
         () => handleStreamComplete(generation),
-        (error, errorCode) => handleStreamError(generation, error, errorCode)
+        (error, errorCode) => handleStreamError(generation, error, errorCode),
+        tokenId
       )
     },
     [
@@ -272,6 +277,7 @@ export function useChatHandler({
       handleStreamUpdate,
       handleStreamComplete,
       handleStreamError,
+      tokenId,
     ]
   )
 
@@ -296,7 +302,8 @@ export function useChatHandler({
         setIsRequesting(true)
         const response = await sendChatCompletion(
           payload,
-          abortController.signal
+          abortController.signal,
+          tokenId
         )
         if (
           abortController.signal.aborted ||
@@ -358,19 +365,29 @@ export function useChatHandler({
       discardPendingStreamUpdates,
       onMessageUpdate,
       handleStreamError,
+      tokenId,
     ]
   )
 
   // Send chat request (stream or non-stream based on config)
   const sendChat = useCallback(
     (messages: Message[]) => {
+      if (!requestReady || isStreaming || isRequesting) return
       if (config.stream && !isImageGenerationModel(config.model)) {
         sendStreamingChat(messages)
       } else {
         sendNonStreamingChat(messages)
       }
     },
-    [config.model, config.stream, sendStreamingChat, sendNonStreamingChat]
+    [
+      config.model,
+      config.stream,
+      sendStreamingChat,
+      sendNonStreamingChat,
+      requestReady,
+      isStreaming,
+      isRequesting,
+    ]
   )
 
   // Stop generation

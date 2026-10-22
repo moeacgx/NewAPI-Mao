@@ -123,6 +123,10 @@ export function SidebarModulesSection({
         title: t('Token management'),
         description: t('Create, revoke, and audit API tokens.'),
       },
+      prompt_center: {
+        title: t('Prompt Center'),
+        description: t('Manage token prompts'),
+      },
       log: {
         title: t('Usage logs'),
         description: t('Detailed request logs for investigations.'),

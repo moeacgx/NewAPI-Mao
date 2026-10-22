@@ -63,6 +63,10 @@ export const OptimizedSettingsPanel = React.memo(
   SettingsPanel,
   (prevProps, nextProps) => {
     return (
+      prevProps.selectedToken === nextProps.selectedToken &&
+      prevProps.isRequesting === nextProps.isRequesting &&
+      prevProps.modelsReady === nextProps.modelsReady &&
+      prevProps.modelError === nextProps.modelError &&
       JSON.stringify(prevProps.inputs) === JSON.stringify(nextProps.inputs) &&
       JSON.stringify(prevProps.parameterEnabled) ===
         JSON.stringify(nextProps.parameterEnabled) &&
@@ -84,8 +88,8 @@ export const OptimizedDebugPanel = React.memo(
   DebugPanel,
   (prevProps, nextProps) => {
     return (
-      prevProps.show === nextProps.show &&
-      prevProps.activeTab === nextProps.activeTab &&
+      prevProps.activeDebugTab === nextProps.activeDebugTab &&
+      prevProps.styleState.isMobile === nextProps.styleState.isMobile &&
       JSON.stringify(prevProps.debugData) ===
         JSON.stringify(nextProps.debugData) &&
       JSON.stringify(prevProps.previewPayload) ===

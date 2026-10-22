@@ -18,3 +18,4 @@ docs
 /maolaonewapi-extensions
 /maolaonewapi-plugins
 !THIRD-PARTY-LICENSES.md
+!skill-store/packages/**/*.md

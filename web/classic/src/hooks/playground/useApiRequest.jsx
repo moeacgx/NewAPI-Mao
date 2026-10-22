@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SSE } from 'sse.js';
 import {
@@ -41,8 +41,16 @@ export const useApiRequest = (
   setActiveDebugTab,
   sseSourceRef,
   saveMessages,
+  apiTokenId = null,
+  modelsReady = true,
 ) => {
   const { t } = useTranslation();
+  const [isRequesting, setIsRequesting] = useState(false);
+  const requestInFlight = useRef(false);
+  const finishRequest = useCallback(() => {
+    requestInFlight.current = false;
+    setIsRequesting(false);
+  }, []);
 
   // 处理消息自动关闭逻辑的公共函数
   const applyAutoCollapseLogic = useCallback(
@@ -140,8 +148,10 @@ export const useApiRequest = (
   // 完成消息
   const completeMessage = useCallback(
     (status = MESSAGE_STATUS.COMPLETE) => {
+      finishRequest();
       setMessage((prevMessage) => {
         const lastMessage = prevMessage[prevMessage.length - 1];
+        if (!lastMessage) return prevMessage;
         if (
           lastMessage.status === MESSAGE_STATUS.COMPLETE ||
           lastMessage.status === MESSAGE_STATUS.ERROR
@@ -171,7 +181,7 @@ export const useApiRequest = (
         return updatedMessages;
       });
     },
-    [setMessage, applyAutoCollapseLogic, saveMessages],
+    [setMessage, applyAutoCollapseLogic, saveMessages, finishRequest],
   );
 
   // 非流式请求
@@ -190,7 +200,11 @@ export const useApiRequest = (
       try {
         const response = await fetch(API_ENDPOINTS.CHAT_COMPLETIONS, {
           method: 'POST',
-          headers: createPlaygroundRequestHeaders(getUserIdFromLocalStorage()),
+          headers: createPlaygroundRequestHeaders(
+            getUserIdFromLocalStorage(),
+            undefined,
+            apiTokenId,
+          ),
           body: JSON.stringify(payload),
         });
 
@@ -310,9 +324,19 @@ export const useApiRequest = (
           }
           return newMessages;
         });
+      } finally {
+        finishRequest();
       }
     },
-    [setDebugData, setActiveDebugTab, setMessage, t, applyAutoCollapseLogic],
+    [
+      setDebugData,
+      setActiveDebugTab,
+      setMessage,
+      t,
+      applyAutoCollapseLogic,
+      apiTokenId,
+      finishRequest,
+    ],
   );
 
   // SSE请求
@@ -329,9 +353,14 @@ export const useApiRequest = (
       setActiveDebugTab(DEBUG_TABS.REQUEST);
 
       const source = new SSE(API_ENDPOINTS.CHAT_COMPLETIONS, {
-        headers: createPlaygroundRequestHeaders(getUserIdFromLocalStorage()),
+        headers: createPlaygroundRequestHeaders(
+          getUserIdFromLocalStorage(),
+          undefined,
+          apiTokenId,
+        ),
         method: 'POST',
         payload: JSON.stringify(payload),
+        start: false,
       });
 
       sseSourceRef.current = source;
@@ -395,11 +424,14 @@ export const useApiRequest = (
           setActiveDebugTab(DEBUG_TABS.RESPONSE);
 
           streamMessageUpdate(t('解析响应数据时发生错误'), 'content');
+          source.close();
+          sseSourceRef.current = null;
           completeMessage(MESSAGE_STATUS.ERROR);
         }
       });
 
       source.addEventListener('error', (e) => {
+        finishRequest();
         // 只有在流没有正常完成且连接状态异常时才处理错误
         if (!isStreamComplete && source.readyState !== 2) {
           console.error('SSE Error:', e);
@@ -453,6 +485,7 @@ export const useApiRequest = (
       });
 
       source.addEventListener('readystatechange', (e) => {
+        if (e.readyState >= 2) finishRequest();
         // 检查 HTTP 状态错误，但避免与正常关闭重复处理
         if (
           e.readyState >= 2 &&
@@ -503,6 +536,8 @@ export const useApiRequest = (
       completeMessage,
       t,
       applyAutoCollapseLogic,
+      apiTokenId,
+      finishRequest,
     ],
   );
 
@@ -512,6 +547,7 @@ export const useApiRequest = (
     if (sseSourceRef.current) {
       sseSourceRef.current.close();
       sseSourceRef.current = null;
+      finishRequest();
     }
 
     // 无论是否存在 SSE 连接，都尝试处理最后一条正在生成的消息
@@ -548,11 +584,26 @@ export const useApiRequest = (
       }
       return prevMessage;
     });
-  }, [setMessage, applyAutoCollapseLogic, saveMessages]);
+  }, [setMessage, applyAutoCollapseLogic, saveMessages, finishRequest]);
 
   // 发送请求
   const sendRequest = useCallback(
     (payload, isStream) => {
+      if (requestInFlight.current) return;
+      if (apiTokenId && !modelsReady) {
+        streamMessageUpdate(
+          t('Token models are not ready. Retry loading models before sending.'),
+          'content',
+        );
+        completeMessage(MESSAGE_STATUS.ERROR);
+        return;
+      }
+      requestInFlight.current = true;
+      setIsRequesting(true);
+      if (apiTokenId) {
+        payload = { ...payload };
+        delete payload.group;
+      }
       // 后端会把图片模型自动改写到 images/generations；该端点始终返回 JSON。
       const shouldStream = isStream && !isImageGenerationModel(payload?.model);
       if (shouldStream) {
@@ -561,11 +612,20 @@ export const useApiRequest = (
         handleNonStreamRequest({ ...payload, stream: false });
       }
     },
-    [handleSSE, handleNonStreamRequest],
+    [
+      handleSSE,
+      handleNonStreamRequest,
+      apiTokenId,
+      modelsReady,
+      streamMessageUpdate,
+      completeMessage,
+      t,
+    ],
   );
 
   return {
     sendRequest,
+    isRequesting,
     onStopGenerator,
     streamMessageUpdate,
     completeMessage,
