@@ -38,6 +38,9 @@ import { buildApiParams } from '../lib/utils'
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }))
 
+// 图标包包含浏览器专用 JSON 资源，连接行为测试仅隔离第三方图标渲染。
+vi.mock('@lobehub/icons', () => ({}))
+
 function QueryWrapper(props: { children: ReactNode }) {
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
