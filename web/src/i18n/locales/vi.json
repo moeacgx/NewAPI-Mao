@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "Chỉ hỗ trợ tệp văn bản thuần",
     "Failed to read file": "Không đọc được tệp",
     "Failed to save prompt": "Không lưu được lời nhắc",
-    "Failed to save installations": "Không lưu được cấu hình cài đặt"
+    "Failed to save installations": "Không lưu được cấu hình cài đặt",
+    "Account mode": "Chế độ tài khoản",
+    "Use account mode": "Dùng chế độ tài khoản",
+    "Switch API key": "Đổi khóa API",
+    "Account default group": "Nhóm mặc định của tài khoản",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "Yêu cầu dùng quyền, nhóm, hạn mức và lời nhắc đã cài của khóa API được chọn.",
+    "The API key determines the request group and installed prompts.": "Khóa API được chọn quyết định nhóm và lời nhắc được nạp."
   }
 }

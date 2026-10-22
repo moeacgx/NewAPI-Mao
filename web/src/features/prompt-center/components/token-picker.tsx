@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import {
   AlertCircleIcon,
   ArrowLeft01Icon,
@@ -50,6 +49,8 @@ import type { PromptToken } from '../types'
 export function TokenPicker(props: {
   onClose: () => void
   onSelect: (token: PromptToken) => void
+  description?: string
+  showGroups?: boolean
 }) {
   const { t } = useTranslation()
   const fieldId = useId()
@@ -85,9 +86,10 @@ export function TokenPicker(props: {
             </DialogTitle>
           </div>
           <DialogDescription className='text-xs leading-relaxed sm:text-sm'>
-            {t(
-              'Install prompts without changing the key, quota or group permissions.'
-            )}
+            {props.description ??
+              t(
+                'Install prompts without changing the key, quota or group permissions.'
+              )}
           </DialogDescription>
         </DialogHeader>
         <div className='flex min-h-0 flex-col gap-4 px-5 py-4 sm:px-6'>
@@ -189,6 +191,20 @@ export function TokenPicker(props: {
                         <span className='block truncate font-medium'>
                           {token.name}
                         </span>
+                        {props.showGroups && (
+                          <span className='text-muted-foreground block truncate text-xs font-normal'>
+                            {(token.group_mode !== 'inherit' &&
+                              token.group_details
+                                ?.map((group) => group.name || group.code)
+                                .join(' · ')) ||
+                              t(
+                                token.group_mode === 'auto' ||
+                                  token.group === 'auto'
+                                  ? 'Automatic selection'
+                                  : 'Account default group'
+                              )}
+                          </span>
+                        )}
                         <span className='text-muted-foreground flex items-center gap-1 text-xs font-normal'>
                           <HugeiconsIcon
                             icon={PuzzleIcon}

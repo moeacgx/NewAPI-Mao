@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "Поддерживаются только текстовые файлы",
     "Failed to read file": "Не удалось прочитать файл",
     "Failed to save prompt": "Не удалось сохранить промпт",
-    "Failed to save installations": "Не удалось сохранить установки"
+    "Failed to save installations": "Не удалось сохранить установки",
+    "Account mode": "Режим аккаунта",
+    "Use account mode": "Использовать аккаунт",
+    "Switch API key": "Сменить API-ключ",
+    "Account default group": "Группа аккаунта по умолчанию",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "Запросы используют права, группу, квоту и установленные промпты выбранного API-ключа.",
+    "The API key determines the request group and installed prompts.": "Выбранный API-ключ определяет группу и загружаемые промпты."
   }
 }

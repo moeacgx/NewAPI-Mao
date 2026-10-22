@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "僅支援純文字檔案",
     "Failed to read file": "讀取檔案失敗",
     "Failed to save prompt": "儲存提示詞失敗",
-    "Failed to save installations": "儲存裝載設定失敗"
+    "Failed to save installations": "儲存裝載設定失敗",
+    "Account mode": "帳號模式",
+    "Use account mode": "使用帳號模式",
+    "Switch API key": "切換 API 權杖",
+    "Account default group": "帳號預設分組",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "請求將使用所選權杖的權限、分組、額度及已安裝的提示詞。",
+    "The API key determines the request group and installed prompts.": "呼叫分組和裝載的提示詞由所選 API 權杖決定。"
   }
 }

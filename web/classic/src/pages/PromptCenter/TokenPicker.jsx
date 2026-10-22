@@ -83,6 +83,7 @@ export default function TokenPicker(props) {
           aria-label={t('Choose a token')}
           aria-haspopup='dialog'
           aria-expanded={open}
+          disabled={props.disabled}
           onClick={() => setOpen(true)}
         >
           <span className='prompt-token-avatar' aria-hidden='true'>
@@ -121,7 +122,8 @@ export default function TokenPicker(props) {
       >
         <div className='prompt-token-picker'>
           <p className='prompt-token-intro'>
-            {t('Find a token and install prompts in one place')}
+            {props.introduction ||
+              t('Find a token and install prompts in one place')}
           </p>
           <Input
             aria-label={t('Search token names')}
@@ -134,6 +136,32 @@ export default function TokenPicker(props) {
             size='large'
           />
           <div className='prompt-token-results' aria-busy={pending}>
+            {props.allowAccount && (
+              <button
+                type='button'
+                className='prompt-token-option'
+                aria-label={t('Account mode')}
+                aria-pressed={!props.token}
+                disabled={props.disabled}
+                onClick={() => {
+                  props.onSelect(null);
+                  setOpen(false);
+                }}
+              >
+                <span className='prompt-token-avatar' aria-hidden='true'>
+                  <KeyRound size={18} />
+                </span>
+                <span className='prompt-token-option-copy'>
+                  <strong>{t('Account mode')}</strong>
+                  <small>{t('Use account balance and selected group')}</small>
+                </span>
+                {!props.token && (
+                  <span className='prompt-token-selected'>
+                    <Check size={16} aria-hidden='true' />
+                  </span>
+                )}
+              </button>
+            )}
             {pending && (
               <div className='prompt-token-state' role='status'>
                 <Spin size='middle' />
@@ -167,6 +195,13 @@ export default function TokenPicker(props) {
                 const count = selected
                   ? props.token.prompt_count || 0
                   : item.prompt_count || 0;
+                const groupName =
+                  item.group_details
+                    ?.map((group) => group.name)
+                    .filter(Boolean)
+                    .join('、') ||
+                  item.group_name ||
+                  (item.group === 'auto' ? t('自动分组') : t('继承账号分组'));
                 return (
                   <button
                     type='button'
@@ -174,8 +209,17 @@ export default function TokenPicker(props) {
                     className='prompt-token-option'
                     aria-label={item.name}
                     aria-pressed={selected}
+                    disabled={props.disabled}
                     onClick={() => {
-                      props.onSelect({ ...item, prompt_count: count });
+                      const selection = props.summaryOnly
+                        ? {
+                            id: item.id,
+                            name: item.name,
+                            group_name: groupName,
+                            prompt_count: count,
+                          }
+                        : { ...item, prompt_count: count };
+                      props.onSelect(selection);
                       setOpen(false);
                     }}
                   >
@@ -184,6 +228,7 @@ export default function TokenPicker(props) {
                     </span>
                     <span className='prompt-token-option-copy'>
                       <strong title={item.name}>{item.name}</strong>
+                      {props.showGroup && <small>{groupName}</small>}
                       <small>
                         <Sparkles size={12} aria-hidden='true' />
                         {t('{{count}} installed prompts', { count })}

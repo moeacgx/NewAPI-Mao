@@ -94,12 +94,13 @@ func TestRouterCORSBoundaries(t *testing.T) {
 	t.Run("cookie playground keeps strict credential policy", func(t *testing.T) {
 		engine := newCORSTestEngine()
 		SetRelayRouter(engine)
-		allowed := servePreflight(engine, "/pg/chat/completions", "https://console.example.test", http.MethodPost, "authorization,content-type")
-		rejected := servePreflight(engine, "/pg/chat/completions", "https://third-party.example", http.MethodPost, "authorization,content-type")
+		allowed := servePreflight(engine, "/pg/chat/completions", "https://console.example.test", http.MethodPost, "authorization,content-type,x-playground-token-id")
+		rejected := servePreflight(engine, "/pg/chat/completions", "https://third-party.example", http.MethodPost, "authorization,content-type,x-playground-token-id")
 
 		require.Equal(t, http.StatusNoContent, allowed.Code)
 		require.Equal(t, "https://console.example.test", allowed.Header().Get("Access-Control-Allow-Origin"))
 		require.Equal(t, "true", allowed.Header().Get("Access-Control-Allow-Credentials"))
+		require.Contains(t, strings.ToLower(allowed.Header().Get("Access-Control-Allow-Headers")), "x-playground-token-id")
 		require.Equal(t, http.StatusForbidden, rejected.Code)
 		require.Empty(t, rejected.Header().Get("Access-Control-Allow-Origin"))
 	})

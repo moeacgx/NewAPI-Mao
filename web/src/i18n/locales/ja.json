@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "プレーンテキストのみ対応しています",
     "Failed to read file": "ファイルを読み込めませんでした",
     "Failed to save prompt": "プロンプトを保存できませんでした",
-    "Failed to save installations": "インストール設定を保存できませんでした"
+    "Failed to save installations": "インストール設定を保存できませんでした",
+    "Account mode": "アカウントモード",
+    "Use account mode": "アカウントモードを使う",
+    "Switch API key": "API キーを切り替え",
+    "Account default group": "アカウントの既定グループ",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "選択した API キーの権限、グループ、クォータ、インストール済みプロンプトを使用します。",
+    "The API key determines the request group and installed prompts.": "グループと読み込むプロンプトは選択した API キーで決まります。"
   }
 }

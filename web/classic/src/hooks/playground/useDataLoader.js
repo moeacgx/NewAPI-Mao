@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   API,
@@ -33,8 +33,19 @@ export const useDataLoader = (
   handleInputChange,
   setModels,
   setGroups,
+  apiTokenId = null,
 ) => {
   const { t } = useTranslation();
+  const [modelState, setModelState] = useState({
+    identity: null,
+    ready: false,
+    error: '',
+  });
+  const identity = apiTokenId
+    ? `token:${apiTokenId}`
+    : `account:${inputs.group || ''}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
   const inputsRef = useRef(inputs);
   const modelsRequestIdRef = useRef(0);
   const groupsRequestIdRef = useRef(0);
@@ -46,6 +57,7 @@ export const useDataLoader = (
 
   const loadModels = useCallback(async () => {
     const requestedGroup = String(inputsRef.current.group ?? '').trim();
+    const requestedIdentity = identityRef.current;
     const requestId = ++modelsRequestIdRef.current;
     modelsAbortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -53,35 +65,58 @@ export const useDataLoader = (
 
     // 切换分组时先移除上一分组的模型，避免短暂显示错误列表。
     setModels([]);
+    setModelState({ identity: requestedIdentity, ready: false, error: '' });
+    if (apiTokenId) handleInputChange('model', '');
 
     try {
-      const res = await API.get(API_ENDPOINTS.USER_MODELS, {
-        params: { group: requestedGroup },
-        skipErrorHandler: true,
-        signal: abortController.signal,
-      });
+      const res = await API.get(
+        apiTokenId ? '/pg/token/models' : API_ENDPOINTS.USER_MODELS,
+        {
+          params: apiTokenId ? undefined : { group: requestedGroup },
+          headers: apiTokenId
+            ? { 'X-Playground-Token-Id': String(apiTokenId) }
+            : undefined,
+          skipErrorHandler: true,
+          signal: abortController.signal,
+        },
+      );
 
       if (
         abortController.signal.aborted ||
         requestId !== modelsRequestIdRef.current ||
-        requestedGroup !== String(inputsRef.current.group ?? '').trim()
+        requestedIdentity !== identityRef.current
       ) {
         return;
       }
 
       const { success, message, data } = res.data || {};
 
-      if (success) {
+      if (
+        apiTokenId
+          ? Array.isArray(data) && success !== false && !res.data.error
+          : success
+      ) {
+        const modelNames = apiTokenId ? data.map((item) => item.id) : data;
         const { modelOptions, selectedModel } = processModelsData(
-          data,
+          modelNames,
           inputsRef.current.model,
         );
         setModels(modelOptions);
+        setModelState({ identity: requestedIdentity, ready: true, error: '' });
 
         if (selectedModel !== inputsRef.current.model) {
           handleInputChange('model', selectedModel);
         }
       } else {
+        const modelError =
+          res.data?.error?.message ||
+          message ||
+          t('Failed to load token models');
+        setModelState({
+          identity: requestedIdentity,
+          ready: false,
+          error: modelError,
+        });
         showError(t(message || '加载模型失败'));
       }
     } catch (error) {
@@ -91,13 +126,20 @@ export const useDataLoader = (
       ) {
         return;
       }
+      setModelState({
+        identity: requestedIdentity,
+        ready: false,
+        error:
+          error.response?.data?.error?.message ||
+          t('Failed to load token models'),
+      });
       showError(t('加载模型失败'));
     } finally {
       if (modelsAbortControllerRef.current === abortController) {
         modelsAbortControllerRef.current = null;
       }
     }
-  }, [handleInputChange, setModels, t]);
+  }, [apiTokenId, handleInputChange, setModels, t]);
 
   const loadGroups = useCallback(async () => {
     const requestId = ++groupsRequestIdRef.current;
@@ -165,13 +207,13 @@ export const useDataLoader = (
 
   useEffect(() => {
     if (userState?.user) {
-      if (!String(inputs.group ?? '').trim()) {
+      if (!apiTokenId && !String(inputs.group ?? '').trim()) {
         setModels([]);
         return;
       }
       loadModels();
     }
-  }, [userState?.user, inputs.group, loadModels, setModels]);
+  }, [userState?.user, inputs.group, apiTokenId, loadModels, setModels]);
 
   useEffect(() => {
     return () => {
@@ -185,5 +227,7 @@ export const useDataLoader = (
   return {
     loadModels,
     loadGroups,
+    modelsReady: modelState.identity === identity && modelState.ready,
+    modelError: modelState.identity === identity ? modelState.error : '',
   };
 };

@@ -17,15 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo } from 'react';
-import { Card, Select, Typography, Button, Switch } from '@douyinfe/semi-ui';
-import { Sparkles, Users, ToggleLeft, X, Settings } from 'lucide-react';
+import React from 'react';
+import { Card, Typography, Switch } from '@douyinfe/semi-ui';
+import { ToggleLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  prioritizePlaygroundGroupOptions,
-  renderGroupOption,
-  selectFilter,
-} from '../../helpers';
 import ParameterControl from './ParameterControl';
 import ConfigManager from './ConfigManager';
 import CustomRequestEditor from './CustomRequestEditor';
@@ -33,15 +28,12 @@ import CustomRequestEditor from './CustomRequestEditor';
 const SettingsPanel = ({
   inputs,
   parameterEnabled,
-  models,
-  groups,
   styleState,
   showDebugPanel,
   customRequestMode,
   customRequestBody,
   onInputChange,
   onParameterToggle,
-  onCloseSettings,
   onConfigImport,
   onConfigReset,
   onCustomRequestModeChange,
@@ -59,11 +51,6 @@ const SettingsPanel = ({
     customRequestBody,
   };
 
-  const orderedGroups = useMemo(
-    () => prioritizePlaygroundGroupOptions(groups, inputs.group),
-    [groups, inputs.group],
-  );
-
   return (
     <Card
       className='h-full flex flex-col'
@@ -75,42 +62,6 @@ const SettingsPanel = ({
         flexDirection: 'column',
       }}
     >
-      {/* 标题区域 - 与调试面板保持一致 */}
-      <div className='flex items-center justify-between mb-6 flex-shrink-0'>
-        <div className='flex items-center'>
-          <div className='w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mr-3'>
-            <Settings size={20} className='text-white' />
-          </div>
-          <Typography.Title heading={5} className='mb-0'>
-            {t('模型配置')}
-          </Typography.Title>
-        </div>
-
-        {styleState.isMobile && onCloseSettings && (
-          <Button
-            icon={<X size={16} />}
-            onClick={onCloseSettings}
-            theme='borderless'
-            type='tertiary'
-            size='small'
-            className='!rounded-lg'
-          />
-        )}
-      </div>
-
-      {/* 移动端配置管理 */}
-      {styleState.isMobile && (
-        <div className='mb-4 flex-shrink-0'>
-          <ConfigManager
-            currentConfig={currentConfig}
-            onConfigImport={onConfigImport}
-            onConfigReset={onConfigReset}
-            styleState={{ ...styleState, isMobile: false }}
-            messages={messages}
-          />
-        </div>
-      )}
-
       <div className='space-y-6 overflow-y-auto flex-1 pr-2 model-settings-scroll'>
         {/* 自定义请求体编辑器 */}
         <CustomRequestEditor
@@ -121,70 +72,6 @@ const SettingsPanel = ({
           defaultPayload={previewPayload}
         />
 
-        {/* 分组选择 */}
-        <div className={customRequestMode ? 'opacity-50' : ''}>
-          <div className='flex items-center gap-2 mb-2'>
-            <Users size={16} className='text-gray-500' />
-            <Typography.Text strong className='text-sm'>
-              {t('分组')}
-            </Typography.Text>
-            {customRequestMode && (
-              <Typography.Text className='text-xs text-orange-600'>
-                ({t('已在自定义模式中忽略')})
-              </Typography.Text>
-            )}
-          </div>
-          <Select
-            placeholder={t('请选择分组')}
-            name='group'
-            required
-            selection
-            filter={selectFilter}
-            autoClearSearchValue={false}
-            onChange={(value) => onInputChange('group', value)}
-            value={inputs.group}
-            autoComplete='new-password'
-            optionList={orderedGroups}
-            renderOptionItem={renderGroupOption}
-            style={{ width: '100%' }}
-            dropdownStyle={{ width: '100%', maxWidth: '100%' }}
-            className='!rounded-lg'
-            disabled={customRequestMode}
-          />
-        </div>
-
-        {/* 模型选择 */}
-        <div className={customRequestMode ? 'opacity-50' : ''}>
-          <div className='flex items-center gap-2 mb-2'>
-            <Sparkles size={16} className='text-gray-500' />
-            <Typography.Text strong className='text-sm'>
-              {t('模型')}
-            </Typography.Text>
-            {customRequestMode && (
-              <Typography.Text className='text-xs text-orange-600'>
-                ({t('已在自定义模式中忽略')})
-              </Typography.Text>
-            )}
-          </div>
-          <Select
-            placeholder={t('请选择模型')}
-            name='model'
-            required
-            selection
-            filter={selectFilter}
-            autoClearSearchValue={false}
-            onChange={(value) => onInputChange('model', value)}
-            value={inputs.model}
-            autoComplete='new-password'
-            optionList={models}
-            style={{ width: '100%' }}
-            dropdownStyle={{ width: '100%', maxWidth: '100%' }}
-            className='!rounded-lg'
-            disabled={customRequestMode}
-          />
-        </div>
-
-        {/* 参数控制组件 */}
         <div className={customRequestMode ? 'opacity-50' : ''}>
           <ParameterControl
             inputs={inputs}
@@ -221,18 +108,16 @@ const SettingsPanel = ({
         </div>
       </div>
 
-      {/* 桌面端的配置管理放在底部 */}
-      {!styleState.isMobile && (
-        <div className='flex-shrink-0 pt-3'>
-          <ConfigManager
-            currentConfig={currentConfig}
-            onConfigImport={onConfigImport}
-            onConfigReset={onConfigReset}
-            styleState={styleState}
-            messages={messages}
-          />
-        </div>
-      )}
+      {/* 配置管理在侧面板底部保留完整操作。 */}
+      <div className='flex-shrink-0 pt-3'>
+        <ConfigManager
+          currentConfig={currentConfig}
+          onConfigImport={onConfigImport}
+          onConfigReset={onConfigReset}
+          styleState={{ ...styleState, isMobile: false }}
+          messages={messages}
+        />
+      </div>
     </Card>
   );
 };

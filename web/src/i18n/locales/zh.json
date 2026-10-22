@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "仅支持纯文本文件",
     "Failed to read file": "读取文件失败",
     "Failed to save prompt": "保存提示词失败",
-    "Failed to save installations": "保存装载配置失败"
+    "Failed to save installations": "保存装载配置失败",
+    "Account mode": "账号模式",
+    "Use account mode": "使用账号模式",
+    "Switch API key": "切换 API 令牌",
+    "Account default group": "账号默认分组",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "请求将使用所选令牌的权限、分组、额度及已安装的提示词。",
+    "The API key determines the request group and installed prompts.": "调用分组和装载的提示词由所选 API 令牌决定。"
   }
 }

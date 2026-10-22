@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "Seuls les fichiers texte sont acceptés",
     "Failed to read file": "Échec de la lecture du fichier",
     "Failed to save prompt": "Échec de l’enregistrement du prompt",
-    "Failed to save installations": "Échec de l’enregistrement des installations"
+    "Failed to save installations": "Échec de l’enregistrement des installations",
+    "Account mode": "Mode compte",
+    "Use account mode": "Utiliser le compte",
+    "Switch API key": "Changer de clé API",
+    "Account default group": "Groupe par défaut du compte",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "Les requêtes utilisent les droits, le groupe, le quota et les prompts installés de la clé API choisie.",
+    "The API key determines the request group and installed prompts.": "La clé API choisie détermine le groupe et les prompts chargés."
   }
 }

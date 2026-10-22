@@ -7325,6 +7325,12 @@
     "Only plain text files are supported": "Only plain text files are supported",
     "Failed to read file": "Failed to read file",
     "Failed to save prompt": "Failed to save prompt",
-    "Failed to save installations": "Failed to save installations"
+    "Failed to save installations": "Failed to save installations",
+    "Account mode": "Account mode",
+    "Use account mode": "Use account mode",
+    "Switch API key": "Switch API key",
+    "Account default group": "Account default group",
+    "Requests use the selected API key’s permissions, group, quota and installed prompts.": "Requests use the selected API key’s permissions, group, quota and installed prompts.",
+    "The API key determines the request group and installed prompts.": "The API key determines the request group and installed prompts."
   }
 }

@@ -17,71 +17,136 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useEffect, useId } from 'react';
+import { Button, Select } from '@douyinfe/semi-ui';
+import { Bug, Send, SlidersHorizontal, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { prioritizePlaygroundGroupOptions, selectFilter } from '../../helpers';
 
 const CustomInputRender = (props) => {
   const { t } = useTranslation();
+  const selectorId = useId();
   const { detailProps } = props;
   const { clearContextNode, uploadNode, inputNode, sendNode, onClick } =
     detailProps;
 
-  // 清空按钮
+  const textarea = React.Children.toArray(inputNode.props.children)[0];
+  useEffect(() => {
+    if (!props.starterPrompt) return;
+    textarea.props.onChange(props.starterPrompt.text);
+  }, [props.starterPrompt, textarea.props.onChange]);
+
   const styledClearNode = clearContextNode
     ? React.cloneElement(clearContextNode, {
-        className: `!rounded-full !bg-gray-100 hover:!bg-red-500 hover:!text-white flex-shrink-0 transition-all ${clearContextNode.props.className || ''}`,
-        style: {
-          ...clearContextNode.props.style,
-          width: '32px',
-          height: '32px',
-          minWidth: '32px',
-          padding: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
+        className: 'playground-tool-button',
+        'aria-label': t('Clear chat history'),
+        title: t('Clear chat history'),
+        disabled: props.isRequesting || !props.hasMessages,
       })
     : null;
-
-  // 发送按钮
   const styledSendNode = React.cloneElement(sendNode, {
-    className: `!rounded-full !bg-purple-500 hover:!bg-purple-600 flex-shrink-0 transition-all ${sendNode.props.className || ''}`,
-    style: {
-      ...sendNode.props.style,
-      width: '32px',
-      height: '32px',
-      minWidth: '32px',
-      padding: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    className: 'playground-send-button',
+    'aria-label': t('Send'),
+    disabled:
+      sendNode.props.disabled ||
+      !props.modelsReady ||
+      (!props.customRequestMode && !props.inputs.model),
+    icon: <Send size={16} />,
+    children: <span>{t('Send')}</span>,
   });
-
-  const styledUploadNode = uploadNode ? (
-    <span
-      className='flex h-8 w-8 flex-shrink-0 items-center justify-center'
-      title={t('上传图片')}
-    >
-      {uploadNode}
-    </span>
-  ) : null;
-
   return (
-    <div className='p-2 sm:p-4'>
-      <div
-        className='flex items-center gap-2 sm:gap-3 p-2 bg-gray-50 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow'
-        style={{ border: '1px solid var(--semi-color-border)' }}
-        onClick={onClick}
-        title={t('支持 Ctrl+V 粘贴图片')}
-      >
-        {/* 清空对话按钮 - 左边 */}
-        {styledClearNode}
-        {/* 图片上传按钮 - 左侧 */}
-        {styledUploadNode}
-        <div className='flex-1'>{inputNode}</div>
-        {/* 发送按钮 - 右边 */}
-        {styledSendNode}
+    <div className='playground-composer-wrap'>
+      {props.tokenSelector}
+      <div className='playground-composer' onClick={onClick}>
+        <div className='playground-composer-input'>
+          {React.cloneElement(
+            inputNode,
+            {},
+            React.Children.map(inputNode.props.children, (child, index) =>
+              index === 0
+                ? React.cloneElement(child, {
+                    disabled: props.isRequesting || !props.modelsReady,
+                  })
+                : child,
+            ),
+          )}
+        </div>
+        <div className='playground-composer-footer'>
+          <div className='playground-composer-tools'>
+            <span title={t('上传图片')}>{uploadNode}</span>
+            <Button
+              className='playground-tool-button'
+              icon={<SlidersHorizontal size={16} />}
+              theme='borderless'
+              aria-label={t('Parameters')}
+              title={t('Parameters')}
+              disabled={props.isRequesting}
+              onClick={props.onOpenSettings}
+            />
+            {styledClearNode}
+            <Button
+              className='playground-tool-button'
+              icon={<Bug size={16} />}
+              theme='borderless'
+              aria-label={t('Debug')}
+              title={t('Debug')}
+              onClick={props.onToggleDebugPanel}
+            />
+          </div>
+          <div className='playground-composer-controls'>
+            <div className='playground-model-selectors'>
+              <span className='sr-only' id={`${selectorId}-group`}>
+                {t('分组')}
+              </span>
+              <span className='sr-only' id={`${selectorId}-model`}>
+                {t('模型')}
+              </span>
+              {!props.selectedToken && (
+                <Select
+                  aria-labelledby={`${selectorId}-group`}
+                  placeholder={t('请选择分组')}
+                  optionList={prioritizePlaygroundGroupOptions(
+                    props.groups,
+                    props.inputs.group,
+                  )}
+                  value={props.inputs.group}
+                  onChange={(value) => props.onInputChange('group', value)}
+                  filter={selectFilter}
+                  disabled={props.isRequesting || props.customRequestMode}
+                  className='playground-group-select'
+                />
+              )}
+              <Select
+                aria-labelledby={`${selectorId}-model`}
+                placeholder={t('请选择模型')}
+                optionList={props.models}
+                value={props.inputs.model || undefined}
+                onChange={(value) => props.onInputChange('model', value)}
+                filter={selectFilter}
+                loading={!props.modelsReady && !props.modelError}
+                disabled={
+                  props.isRequesting ||
+                  props.customRequestMode ||
+                  !props.modelsReady
+                }
+                className='playground-model-select'
+              />
+            </div>
+            {props.isRequesting ? (
+              <Button
+                className='playground-send-button'
+                icon={<Square size={15} />}
+                theme='solid'
+                onClick={props.onStopGenerator}
+                aria-label={t('Stop generating')}
+              >
+                {t('Stop')}
+              </Button>
+            ) : (
+              styledSendNode
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

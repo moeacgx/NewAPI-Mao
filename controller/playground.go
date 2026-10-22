@@ -14,6 +14,11 @@ import (
 )
 
 func Playground(c *gin.Context) {
+	// 已选择本人 API 令牌时沿用真实身份、额度与提示词绑定，不覆盖为临时令牌。
+	if c.GetInt("token_id") > 0 {
+		Relay(c, types.RelayFormatOpenAI)
+		return
+	}
 	var newAPIError *types.NewAPIError
 
 	defer func() {

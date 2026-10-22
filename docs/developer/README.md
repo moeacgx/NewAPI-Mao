@@ -1,5 +1,9 @@
 # NewAPI-Mao 开发文档
 
+- [Classic 操练场与新版布局对齐](../workflows/2026-10/22_classic_playground_alignment.md)：居中对话、底部输入与令牌切换、参数/调试侧面板，保留原请求能力。
+
+- [操练场 API 令牌切换](../workflows/2026-10/22_playground_token_switch.md)：双模板本人令牌搜索选择、正式权限与提示词装载、模型发现及额度结算。
+
 - [提示词中心本地 UI 演示](../workflows/2026-10/22_prompt_center_local_ui_demo.md)：双模板浅蓝卡片定稿、用户端仅安装卸载与正文访问边界；已更新 zzapi，见下方部署记录。
 
 - [提示词中心 zzapi 测试部署](../workflows/2026-10/22_token_prompt_center_zzapi.md)：现场基线、备份、迁移、回滚和验收记录。

@@ -1,5 +1,17 @@
 {
   "translation": {
+    "Account mode": "账号模式",
+    "Use account balance and selected group": "使用账号余额与所选分组",
+    "Request identity": "调用身份",
+    "Switch API token": "切换 API 令牌",
+    "API token": "API 令牌",
+    "Current account": "当前账号",
+    "Uses this token’s group, permissions and installed prompts": "使用此令牌的分组、权限和已安装提示词",
+    "Choose an API token to test its installed prompts": "选择 API 令牌，测试已安装的提示词",
+    "Select your API token without exposing its secret key": "选择自己的 API 令牌，无需读取或暴露密钥",
+    "Failed to load token models": "加载令牌模型失败",
+    "Token models are not ready. Retry loading models before sending.": "令牌模型尚未就绪，请重新加载后发送。",
+    "继承账号分组": "继承账号分组",
     " + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}": " + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}",
     " + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}_other": " + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}",
     " + Web搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}_other": " + Web搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}",
@@ -6231,6 +6243,21 @@
     "Install to token": "安装到令牌",
     "Manage token prompts": "管理令牌装载",
     "Reusable prompts for your API keys": "为令牌装载可复用的提示词",
-    "Search prompts": "搜索提示词"
+    "Search prompts": "搜索提示词",
+    "Ask anything": "随便问",
+    "Clear chat history": "清空聊天历史",
+    "Debug": "Debug",
+    "Analyze data": "分析数据",
+    "Summarize text": "总结文本",
+    "Send": "发送",
+    "Parameters": "参数",
+    "Stop generating": "Stop generating",
+    "Start a playground chat": "开始一场游乐场对话",
+    "Get advice": "获取建议",
+    "Stop": "停止",
+    "Code": "代码",
+    "Test a model with a starter prompt, or write your own request below.": "使用入门提示词测试模型，或在下方编写自己的请求。",
+    "Skills · {{count}}": "技能 · {{count}}",
+    "Use account mode": "使用账号模式"
   }
 }

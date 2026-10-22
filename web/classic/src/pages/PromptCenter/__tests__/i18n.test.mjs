@@ -17,6 +17,10 @@ const files = [
   'pages/PromptCenter/TokenPromptManager.jsx',
   'pages/PromptCenter/api.js',
   'components/table/tokens/TokenPromptBadge.jsx',
+  'components/playground/TokenSourceSelector.jsx',
+  'components/playground/ChatArea.jsx',
+  'components/playground/CustomInputRender.jsx',
+  'hooks/playground/useDataLoader.js',
 ];
 const keys = [
   ...new Set(

@@ -41,6 +41,7 @@ interface PlaygroundInputProps {
   onSubmit: (text: string) => void
   onStop?: () => void
   disabled?: boolean
+  tokenMode?: boolean
   isGenerating?: boolean
   models: ModelOption[]
   modelValue: string
@@ -67,6 +68,7 @@ export function PlaygroundInput({
   onSubmit,
   onStop,
   disabled,
+  tokenMode,
   isGenerating,
   models,
   modelValue,
@@ -114,6 +116,7 @@ export function PlaygroundInput({
         <PromptInputFooter className='border-border/60 bg-muted/20 dark:bg-muted/10 border-t px-3 py-2.5 backdrop-blur'>
           <PlaygroundInputControls
             disabled={disabled}
+            tokenMode={tokenMode}
             groups={groups}
             groupValue={groupValue}
             isGenerating={isGenerating}
