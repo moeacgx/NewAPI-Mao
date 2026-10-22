@@ -17,10 +17,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useContext,
+  useEffect,
+  useCallback,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Layout, Toast, Modal } from '@douyinfe/semi-ui';
+import { Toast, Modal, SideSheet } from '@douyinfe/semi-ui';
 
 // Context
 import { UserContext } from '../../context/User';
@@ -57,7 +63,6 @@ import {
   OptimizedMessageActions,
 } from '../../components/playground/OptimizedComponents';
 import ChatArea from '../../components/playground/ChatArea';
-import FloatingButtons from '../../components/playground/FloatingButtons';
 
 // 生成头像
 const generateAvatarDataUrl = (username) => {
@@ -106,6 +111,8 @@ const Playground = () => {
   const styleState = { isMobile };
   const [searchParams] = useSearchParams();
 
+  const [selectedToken, setSelectedToken] = useState(null);
+  const tokenIdentityGeneration = useRef(0);
   const state = usePlaygroundState();
   const {
     inputs,
@@ -143,16 +150,31 @@ const Playground = () => {
   } = state;
 
   // API 请求相关
-  const { sendRequest, onStopGenerator } = useApiRequest(
+  const { modelsReady, modelError, loadModels } = useDataLoader(
+    userState,
+    inputs,
+    handleInputChange,
+    setModels,
+    setGroups,
+    selectedToken?.id,
+  );
+
+  const { sendRequest, onStopGenerator, isRequesting } = useApiRequest(
     setMessage,
     setDebugData,
     setActiveDebugTab,
     sseSourceRef,
     saveMessagesImmediately,
+    selectedToken?.id,
+    modelsReady,
   );
 
-  // 数据加载
-  useDataLoader(userState, inputs, handleInputChange, setModels, setGroups);
+  const handleTokenChange = (token) => {
+    if (isRequesting) return;
+    tokenIdentityGeneration.current += 1;
+    setSelectedToken(token);
+    handleInputChange('model', '');
+  };
 
   // 消息编辑
   const {
@@ -212,7 +234,9 @@ const Playground = () => {
       // 如果是自定义请求体模式且有自定义内容，直接返回解析后的自定义请求体
       if (customRequestMode && customRequestBody && customRequestBody.trim()) {
         try {
-          return JSON.parse(customRequestBody);
+          const payload = JSON.parse(customRequestBody);
+          if (selectedToken) delete payload.group;
+          return payload;
         } catch (parseError) {
           console.warn('自定义请求体JSON解析失败，回退到默认预览:', parseError);
         }
@@ -221,15 +245,36 @@ const Playground = () => {
       // 默认预览逻辑
       let messages = [...message];
 
-      return buildApiPayload(messages, null, inputs, parameterEnabled);
+      const payload = buildApiPayload(messages, null, inputs, parameterEnabled);
+      if (selectedToken) delete payload.group;
+      return payload;
     } catch (error) {
       console.error('构造预览请求体失败:', error);
       return null;
     }
-  }, [inputs, parameterEnabled, message, customRequestMode, customRequestBody]);
+  }, [
+    inputs,
+    parameterEnabled,
+    message,
+    customRequestMode,
+    customRequestBody,
+    selectedToken,
+  ]);
 
   // 发送消息
   async function onMessageSend(content, attachment = []) {
+    if (isRequesting) return;
+    const requestIdentityGeneration = tokenIdentityGeneration.current;
+    if (selectedToken && !modelsReady) {
+      Toast.error(
+        t('Token models are not ready. Retry loading models before sending.'),
+      );
+      return;
+    }
+    if (!customRequestMode && !inputs.model) {
+      Toast.error(t('请选择模型'));
+      return;
+    }
     if (customRequestMode && attachment.length > 0) {
       Toast.warning({
         content: t('图片功能在自定义请求体模式下不可用'),
@@ -282,6 +327,9 @@ const Playground = () => {
       }
     }
 
+    // 图片读取期间身份可能已切换，即使切回同一令牌也必须取消旧发送。
+    if (requestIdentityGeneration !== tokenIdentityGeneration.current) return;
+
     if (attachment.length > 0 && validImageUrls.length === 0) {
       Toast.error({
         content: t('无法添加图片'),
@@ -297,6 +345,9 @@ const Playground = () => {
     );
 
     setMessage((prevMessage) => {
+      if (requestIdentityGeneration !== tokenIdentityGeneration.current) {
+        return prevMessage;
+      }
       const newMessages = [...prevMessage, userMessageWithImages];
 
       const payload = buildApiPayload(
@@ -386,6 +437,31 @@ const Playground = () => {
 
   // Effects
 
+  // 身份切换后同步清理自定义请求中的旧模型，避免编辑器仍保留账号分组。
+  useEffect(() => {
+    if (!selectedToken || !customRequestBody) return;
+    try {
+      const payload = JSON.parse(customRequestBody);
+      const model =
+        modelsReady && models.some((item) => item.value === payload.model)
+          ? payload.model
+          : inputs.model;
+      if (!Object.hasOwn(payload, 'group') && payload.model === model) return;
+      delete payload.group;
+      payload.model = model;
+      setCustomRequestBody(JSON.stringify(payload, null, 2));
+    } catch {
+      // 编辑中的不完整 JSON 保留，发送前继续由原有校验处理。
+    }
+  }, [
+    selectedToken,
+    modelsReady,
+    models,
+    inputs.model,
+    customRequestBody,
+    setCustomRequestBody,
+  ]);
+
   // 同步消息和自定义请求体
   useEffect(() => {
     syncMessageToCustomBody();
@@ -448,105 +524,87 @@ const Playground = () => {
   }, [setMessage, saveMessagesImmediately]);
 
   return (
-    <div className='h-full'>
-      <Layout className='h-full bg-transparent flex flex-col md:flex-row'>
-        {(showSettings || !isMobile) && (
-          <Layout.Sider
-            className={`
-              bg-transparent border-r-0 flex-shrink-0 overflow-auto mt-[60px]
-              ${
-                isMobile
-                  ? 'fixed top-0 left-0 right-0 bottom-0 z-[1000] w-full h-auto bg-white shadow-lg'
-                  : 'relative z-[1] w-80 h-[calc(100vh-66px)]'
-              }
-            `}
-            width={isMobile ? '100%' : 320}
-          >
-            <OptimizedSettingsPanel
-              inputs={inputs}
-              parameterEnabled={parameterEnabled}
-              models={models}
-              groups={groups}
-              styleState={styleState}
-              showSettings={showSettings}
-              showDebugPanel={showDebugPanel}
-              customRequestMode={customRequestMode}
-              customRequestBody={customRequestBody}
-              onInputChange={handleInputChange}
-              onParameterToggle={handleParameterToggle}
-              onCloseSettings={() => setShowSettings(false)}
-              onConfigImport={handleConfigImport}
-              onConfigReset={handleConfigReset}
-              onCustomRequestModeChange={setCustomRequestMode}
-              onCustomRequestBodyChange={setCustomRequestBody}
-              previewPayload={previewPayload}
-              messages={message}
-            />
-          </Layout.Sider>
-        )}
-
-        <Layout.Content className='relative flex-1 overflow-hidden'>
-          <div className='overflow-hidden flex flex-col lg:flex-row h-[calc(100vh-66px)] mt-[60px]'>
-            <div className='flex-1 flex flex-col'>
-              <ChatArea
-                chatRef={chatRef}
-                message={message}
-                inputs={inputs}
-                styleState={styleState}
-                showDebugPanel={showDebugPanel}
-                roleInfo={roleInfo}
-                onMessageSend={onMessageSend}
-                onMessageCopy={messageActions.handleMessageCopy}
-                onMessageReset={messageActions.handleMessageReset}
-                onMessageDelete={messageActions.handleMessageDelete}
-                onStopGenerator={onStopGenerator}
-                onClearMessages={handleClearMessages}
-                onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
-                renderCustomChatContent={renderCustomChatContent}
-                renderChatBoxAction={renderChatBoxAction}
-                customRequestMode={customRequestMode}
-              />
-            </div>
-
-            {/* 调试面板 - 桌面端 */}
-            {showDebugPanel && !isMobile && (
-              <div className='w-96 flex-shrink-0 h-full'>
-                <OptimizedDebugPanel
-                  debugData={debugData}
-                  activeDebugTab={activeDebugTab}
-                  onActiveDebugTabChange={setActiveDebugTab}
-                  styleState={styleState}
-                  customRequestMode={customRequestMode}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* 调试面板 - 移动端覆盖层 */}
-          {showDebugPanel && isMobile && (
-            <div className='fixed top-0 left-0 right-0 bottom-0 z-[1000] bg-white overflow-auto shadow-lg'>
-              <OptimizedDebugPanel
-                debugData={debugData}
-                activeDebugTab={activeDebugTab}
-                onActiveDebugTabChange={setActiveDebugTab}
-                styleState={styleState}
-                showDebugPanel={showDebugPanel}
-                onCloseDebugPanel={() => setShowDebugPanel(false)}
-                customRequestMode={customRequestMode}
-              />
-            </div>
-          )}
-
-          {/* 浮动按钮 */}
-          <FloatingButtons
-            styleState={styleState}
-            showSettings={showSettings}
-            showDebugPanel={showDebugPanel}
-            onToggleSettings={() => setShowSettings(!showSettings)}
-            onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
-          />
-        </Layout.Content>
-      </Layout>
+    <div className='classic-playground'>
+      <div className='classic-playground-surface'>
+        <ChatArea
+          selectedToken={selectedToken}
+          onTokenChange={handleTokenChange}
+          isRequesting={isRequesting}
+          modelsReady={modelsReady}
+          modelError={modelError}
+          onRetryModels={loadModels}
+          models={models}
+          groups={groups}
+          onInputChange={handleInputChange}
+          onOpenSettings={() => setShowSettings(true)}
+          chatRef={chatRef}
+          message={message}
+          inputs={inputs}
+          styleState={styleState}
+          showDebugPanel={showDebugPanel}
+          roleInfo={roleInfo}
+          onMessageSend={onMessageSend}
+          onMessageCopy={messageActions.handleMessageCopy}
+          onMessageReset={messageActions.handleMessageReset}
+          onMessageDelete={messageActions.handleMessageDelete}
+          onStopGenerator={onStopGenerator}
+          onClearMessages={handleClearMessages}
+          onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
+          renderCustomChatContent={renderCustomChatContent}
+          renderChatBoxAction={renderChatBoxAction}
+          customRequestMode={customRequestMode}
+        />
+      </div>
+      <SideSheet
+        title={t('Parameters')}
+        visible={showSettings}
+        onCancel={() => setShowSettings(false)}
+        width={isMobile ? '100%' : 460}
+        bodyStyle={{ padding: 0 }}
+        className='playground-settings-sheet'
+      >
+        <OptimizedSettingsPanel
+          selectedToken={selectedToken}
+          onTokenChange={handleTokenChange}
+          isRequesting={isRequesting}
+          modelsReady={modelsReady}
+          modelError={modelError}
+          onRetryModels={loadModels}
+          inputs={inputs}
+          parameterEnabled={parameterEnabled}
+          models={models}
+          groups={groups}
+          styleState={styleState}
+          showSettings={showSettings}
+          showDebugPanel={showDebugPanel}
+          customRequestMode={customRequestMode}
+          customRequestBody={customRequestBody}
+          onInputChange={handleInputChange}
+          onParameterToggle={handleParameterToggle}
+          onCloseSettings={() => setShowSettings(false)}
+          onConfigImport={handleConfigImport}
+          onConfigReset={handleConfigReset}
+          onCustomRequestModeChange={setCustomRequestMode}
+          onCustomRequestBodyChange={setCustomRequestBody}
+          previewPayload={previewPayload}
+          messages={message}
+        />
+      </SideSheet>
+      <SideSheet
+        title={t('Debug')}
+        visible={showDebugPanel}
+        onCancel={() => setShowDebugPanel(false)}
+        width={isMobile ? '100%' : 540}
+        bodyStyle={{ padding: 0 }}
+      >
+        <OptimizedDebugPanel
+          debugData={debugData}
+          activeDebugTab={activeDebugTab}
+          onActiveDebugTabChange={setActiveDebugTab}
+          styleState={styleState}
+          customRequestMode={customRequestMode}
+        />
+      </SideSheet>
     </div>
   );
 };

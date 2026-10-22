@@ -53,6 +53,7 @@ import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authen
 import { Route as AuthenticatedNotificationCenterIndexRouteImport } from './routes/_authenticated/notification-center/index'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
+import { Route as AuthenticatedPromptCenterIndexRouteImport } from './routes/_authenticated/prompt-center/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
 import { Route as AuthenticatedSecurityAuditIndexRouteImport } from './routes/_authenticated/security-audit/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
@@ -318,6 +319,12 @@ const AuthenticatedProfileIndexRoute =
     path: '/profile/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPromptCenterIndexRoute =
+  AuthenticatedPromptCenterIndexRouteImport.update({
+    id: '/prompt-center/',
+    path: '/prompt-center/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRedemptionCodesIndexRoute =
   AuthenticatedRedemptionCodesIndexRouteImport.update({
     id: '/redemption-codes/',
@@ -529,6 +536,7 @@ export interface FileRoutesByFullPath {
   '/notification-center/': typeof AuthenticatedNotificationCenterIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
+  '/prompt-center/': typeof AuthenticatedPromptCenterIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security-audit/': typeof AuthenticatedSecurityAuditIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -600,6 +608,7 @@ export interface FileRoutesByTo {
   '/notification-center': typeof AuthenticatedNotificationCenterIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
+  '/prompt-center': typeof AuthenticatedPromptCenterIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security-audit': typeof AuthenticatedSecurityAuditIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
@@ -675,6 +684,7 @@ export interface FileRoutesById {
   '/_authenticated/notification-center/': typeof AuthenticatedNotificationCenterIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
+  '/_authenticated/prompt-center/': typeof AuthenticatedPromptCenterIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/security-audit/': typeof AuthenticatedSecurityAuditIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -749,6 +759,7 @@ export interface FileRouteTypes {
     | '/notification-center/'
     | '/playground/'
     | '/profile/'
+    | '/prompt-center/'
     | '/redemption-codes/'
     | '/security-audit/'
     | '/subscriptions/'
@@ -820,6 +831,7 @@ export interface FileRouteTypes {
     | '/notification-center'
     | '/playground'
     | '/profile'
+    | '/prompt-center'
     | '/redemption-codes'
     | '/security-audit'
     | '/subscriptions'
@@ -894,6 +906,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notification-center/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
+    | '/_authenticated/prompt-center/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/security-audit/'
     | '/_authenticated/subscriptions/'
@@ -1252,6 +1265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/prompt-center/': {
+      id: '/_authenticated/prompt-center/'
+      path: '/prompt-center'
+      fullPath: '/prompt-center/'
+      preLoaderRoute: typeof AuthenticatedPromptCenterIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/redemption-codes/': {
       id: '/_authenticated/redemption-codes/'
       path: '/redemption-codes'
@@ -1560,6 +1580,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNotificationCenterIndexRoute: typeof AuthenticatedNotificationCenterIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+  AuthenticatedPromptCenterIndexRoute: typeof AuthenticatedPromptCenterIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSecurityAuditIndexRoute: typeof AuthenticatedSecurityAuditIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
@@ -1598,6 +1619,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedNotificationCenterIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  AuthenticatedPromptCenterIndexRoute: AuthenticatedPromptCenterIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSecurityAuditIndexRoute: AuthenticatedSecurityAuditIndexRoute,

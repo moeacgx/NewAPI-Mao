@@ -24,6 +24,7 @@ import {
   type PlaygroundUserGroupMap,
   type UserGroupsResponse,
 } from './lib/options/group-options'
+import { preparePlaygroundRequest } from './lib/streaming/token-request'
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -36,13 +37,33 @@ import type {
  */
 export async function sendChatCompletion(
   payload: ChatCompletionRequest,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  tokenId?: number
 ): Promise<ChatCompletionResponse> {
-  const res = await api.post(API_ENDPOINTS.CHAT_COMPLETIONS, payload, {
+  const request = preparePlaygroundRequest(payload, tokenId)
+  const res = await api.post(API_ENDPOINTS.CHAT_COMPLETIONS, request.payload, {
+    headers: request.headers,
     signal,
     skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
+}
+
+export async function getTokenModels(tokenId: number): Promise<ModelOption[]> {
+  const res = await api.get('/pg/token/models', {
+    headers: { 'X-Playground-Token-Id': String(tokenId) },
+  })
+  if (res.data.success === false || !Array.isArray(res.data.data)) {
+    throw new Error(
+      res.data.error?.message ||
+        res.data.message ||
+        'Failed to load playground models'
+    )
+  }
+  return res.data.data.map((model: { id: string }) => ({
+    label: model.id,
+    value: model.id,
+  }))
 }
 
 /**

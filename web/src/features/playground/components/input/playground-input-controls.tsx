@@ -21,13 +21,17 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
-import { ModelGroupSelector } from '@/components/model-group-selector'
+import {
+  ModelGroupSelector,
+  ModelSelector,
+} from '@/components/model-group-selector'
 
 import { getInputControlState } from '../../lib'
 import type { GroupOption, ModelOption } from '../../types'
 
 type PlaygroundInputControlsProps = {
   disabled?: boolean
+  tokenMode?: boolean
   groups: GroupOption[]
   groupValue: string
   isGenerating?: boolean
@@ -43,6 +47,7 @@ type PlaygroundInputControlsProps = {
 
 export function PlaygroundInputControls({
   disabled,
+  tokenMode,
   groups,
   groupValue,
   isGenerating,
@@ -67,17 +72,25 @@ export function PlaygroundInputControls({
       text,
     })
 
-  const renderSelector = () => (
-    <ModelGroupSelector
-      selectedModel={modelValue}
-      models={models}
-      onModelChange={onModelChange}
-      selectedGroup={groupValue}
-      groups={groups}
-      onGroupChange={onGroupChange}
-      disabled={isSelectorDisabled}
-    />
-  )
+  const renderSelector = () =>
+    tokenMode ? (
+      <ModelSelector
+        selectedModel={modelValue}
+        models={models}
+        onModelChange={onModelChange}
+        disabled={disabled || isModelLoading}
+      />
+    ) : (
+      <ModelGroupSelector
+        selectedModel={modelValue}
+        models={models}
+        onModelChange={onModelChange}
+        selectedGroup={groupValue}
+        groups={groups}
+        onGroupChange={onGroupChange}
+        disabled={isSelectorDisabled}
+      />
+    )
 
   const renderSubmitButton = () =>
     shouldShowStop ? (

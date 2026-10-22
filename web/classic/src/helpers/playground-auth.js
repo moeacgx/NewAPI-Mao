@@ -31,11 +31,13 @@ export function getCurrentAccessToken(storage = globalThis.localStorage) {
 export function createPlaygroundRequestHeaders(
   userId,
   storage = globalThis.localStorage,
+  apiTokenId = null,
 ) {
   const token = getCurrentAccessToken(storage);
   return {
     'Content-Type': 'application/json',
     'New-Api-User': userId,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(apiTokenId ? { 'X-Playground-Token-Id': String(apiTokenId) } : {}),
   };
 }

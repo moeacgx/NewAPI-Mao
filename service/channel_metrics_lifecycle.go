@@ -485,7 +485,7 @@ func channelMetricTrafficSource(info *relaycommon.RelayInfo) channelmetrics.Traf
 	if info.IsChannelTest {
 		return channelmetrics.TrafficSourceProbe
 	}
-	if info.IsPlayground {
+	if info.IsPlayground || strings.HasPrefix(info.OriginalRequestURLPath, "/pg/") {
 		return channelmetrics.TrafficSourcePlayground
 	}
 	// RelayFormatTask / RelayFormatMjProxy 目前都通过 TaskRelayInfo 表示任务型请求。

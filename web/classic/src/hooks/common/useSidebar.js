@@ -50,6 +50,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     detail: true,
     token: true,
+    prompt_center: true,
     log: true,
     midjourney: true,
     task: true,

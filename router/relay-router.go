@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
@@ -67,9 +69,23 @@ func SetRelayRouter(router *gin.Engine) {
 	playgroundRouter.Use(middleware.RouteTag("relay"))
 	playgroundRouter.Use(middleware.CORS())
 	playgroundRouter.Use(middleware.SystemPerformanceCheck())
-	playgroundRouter.Use(middleware.UserAuth(), middleware.PromptAudit(), middleware.Distribute())
+	playgroundRouter.Use(middleware.UserAuth(), middleware.PlaygroundTokenAuth())
 	{
-		playgroundRouter.POST("/chat/completions", controller.Playground)
+		playgroundRouter.GET("/token/models", middleware.DisableCache(), func(c *gin.Context) {
+			if c.GetInt("token_id") <= 0 {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": gin.H{"message": "X-Playground-Token-Id is required"}})
+				return
+			}
+			controller.ListModels(c, constant.ChannelTypeOpenAI)
+		})
+		playgroundRateLimit := middleware.ModelRequestRateLimit()
+		playgroundRouter.POST("/chat/completions", func(c *gin.Context) {
+			if c.GetInt("token_id") > 0 {
+				playgroundRateLimit(c)
+				return
+			}
+			c.Next()
+		}, middleware.PromptAudit(), middleware.Distribute(), controller.Playground)
 	}
 	relayV1Router := bearerRelayRouter.Group("/v1")
 	relayV1Router.Use(middleware.RouteTag("relay"))

@@ -38,6 +38,7 @@ const routerMap = {
   home: '/',
   channel: '/console/channel',
   token: '/console/token',
+  prompt_center: '/console/prompt-center',
   redemption: '/console/redemption',
   benefits: '/console/benefits',
   topup: '/console/topup',
@@ -121,6 +122,11 @@ const SiderBar = ({
         text: t('令牌管理'),
         itemKey: 'token',
         to: '/token',
+      },
+      {
+        text: t('Prompt center'),
+        itemKey: 'prompt_center',
+        to: '/prompt-center',
       },
       {
         text: t('使用日志'),

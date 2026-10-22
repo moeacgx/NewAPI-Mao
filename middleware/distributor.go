@@ -151,7 +151,7 @@ func Distribute() func(c *gin.Context) {
 			return
 		}
 		if modelRequest.Group != "" {
-			if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
+			if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") && c.GetInt("token_id") <= 0 {
 				usingGroup, err = applyPlaygroundRequestedGroup(c, usingGroup, modelRequest.Group)
 			} else {
 				usingGroup, err = applyRequestedGroup(c, usingGroup, modelRequest.Group)

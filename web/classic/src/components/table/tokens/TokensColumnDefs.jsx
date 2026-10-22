@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import TokenTimestamp from './TokenTimestamp';
+import TokenPromptBadge from './TokenPromptBadge';
 import { TokenActivityBadge } from '../../active-requests/TokenActivityBar';
 import { TokenStatusBadge, TokenGroupBadge } from './TokenDefaultBadges';
 import {
@@ -459,7 +460,12 @@ export const getTokensColumns = ({
       width: 180,
       render: (text, record) => (
         <div>
-          <span className='tokens-name'>{text}</span>
+          <div className='tokens-prompt-name'>
+            <span className='tokens-name' title={text}>
+              {text}
+            </span>
+            <TokenPromptBadge token={record} />
+          </div>
           <TokenActivityBadge
             tokenId={record.id}
             tokenName={record.name}

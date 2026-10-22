@@ -39,6 +39,7 @@ import {
   ServerCog,
   Settings,
   ShieldCheck,
+  Sparkles,
   Ticket,
   User,
   Users,
@@ -155,6 +156,7 @@ export function useSidebarData(): SidebarData {
             icon: LayoutDashboard,
           },
           { title: t('API Keys'), url: '/keys', icon: Key },
+          { title: t('Prompt Center'), url: '/prompt-center', icon: Sparkles },
           {
             title: t('Usage Logs'),
             url: '/usage-logs/common',

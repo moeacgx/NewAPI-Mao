@@ -16,8 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { Button } from '@/components/ui/button'
+import type { PromptToken } from '@/features/prompt-center/types'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
+import { PlaygroundTokenSwitch } from './components/playground-token-switch'
 import {
   useChatHandler,
   usePlaygroundConversation,
@@ -26,12 +33,13 @@ import {
 } from './hooks'
 
 export function Playground() {
+  const { t } = useTranslation()
+  const [token, setToken] = useState<PromptToken>()
   const {
     config,
     parameterEnabled,
     messages,
     isLoadingMessages,
-    models,
     groups,
     updateMessages,
     setModels,
@@ -41,10 +49,26 @@ export function Playground() {
     clearMessages,
   } = usePlaygroundState()
 
+  const { isLoadingModels, models, isModelsError, refetchModels } =
+    usePlaygroundOptions({
+      currentGroup: config.group,
+      currentModel: config.model,
+      tokenId: token?.id,
+      setGroups,
+      setModels,
+      updateConfig,
+    })
+  const requestReady =
+    !isLoadingModels &&
+    !isModelsError &&
+    models.some((model) => model.value === config.model)
+
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
     parameterEnabled,
     onMessageUpdate: updateMessages,
+    tokenId: token?.id,
+    requestReady,
   })
 
   const {
@@ -59,20 +83,13 @@ export function Playground() {
     messages,
     updateMessages,
     sendChat,
+    canSend: requestReady && !isGenerating,
   })
 
   const handleClearMessages = () => {
     handleEditOpenChange(false)
     clearMessages()
   }
-
-  const { isLoadingModels } = usePlaygroundOptions({
-    currentGroup: config.group,
-    currentModel: config.model,
-    setGroups,
-    setModels,
-    updateConfig,
-  })
 
   return (
     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
@@ -95,9 +112,42 @@ export function Playground() {
 
       {/* Input area: center content and constrain to the same container width */}
       <div className='mx-auto w-full max-w-4xl'>
+        <PlaygroundTokenSwitch
+          token={token}
+          disabled={isGenerating}
+          onChange={(nextToken) => {
+            if (isGenerating) return
+            setToken(nextToken)
+            setModels([])
+          }}
+        />
+        {token && (
+          <p className='text-muted-foreground mb-2 px-1 text-xs'>
+            {t(
+              'The API key determines the request group and installed prompts.'
+            )}
+          </p>
+        )}
+        {isModelsError && (
+          <div
+            role='alert'
+            className='border-destructive/30 bg-destructive/5 text-destructive mb-3 flex items-center justify-between gap-2 rounded-xl border p-3 text-sm'
+          >
+            {t('Failed to load playground models')}
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={isLoadingModels}
+              onClick={() => void refetchModels()}
+            >
+              {t('Retry')}
+            </Button>
+          </div>
+        )}
         <PlaygroundInput
           config={config}
-          disabled={isGenerating}
+          disabled={isGenerating || !requestReady}
+          tokenMode={Boolean(token)}
           groups={groups}
           groupValue={config.group}
           isGenerating={isGenerating}

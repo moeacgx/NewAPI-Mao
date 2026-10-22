@@ -96,7 +96,8 @@ type RelayInfo struct {
 	//SendLastReasoningResponse bool
 	IsStream               bool
 	IsGeminiBatchEmbedding bool
-	IsPlayground           bool
+	// IsPlayground 表示使用临时令牌的操练场账号模式；真实令牌模式必须执行令牌额度结算。
+	IsPlayground bool
 	// IsCanvas is a server-established request-source capability. It must never
 	// be inferred from the URL alone.
 	IsCanvas bool
@@ -613,7 +614,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/pg") {
-		info.IsPlayground = true
+		info.IsPlayground = info.TokenId <= 0
 		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/pg")
 		info.RequestURLPath = "/v1" + info.RequestURLPath
 	}

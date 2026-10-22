@@ -1,0 +1,96 @@
+.playground-token-section {
+  margin-bottom: 12px;
+}
+.playground-token-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+  background: var(--semi-color-bg-0);
+}
+.playground-token-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-right: auto;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+.playground-token-identity svg {
+  flex-shrink: 0;
+}
+.playground-token-identity strong {
+  max-width: 208px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--semi-color-text-0);
+  font-weight: 500;
+}
+.playground-token-skills {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgb(57 164 231 / 10%);
+  color: var(--semi-color-primary);
+  white-space: nowrap;
+}
+.playground-token-source button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  background: var(--semi-color-bg-0);
+  color: var(--semi-color-text-0);
+  font-size: 12px;
+  cursor: pointer;
+}
+.playground-token-source .playground-account-button {
+  border-color: transparent;
+  background: transparent;
+}
+.playground-token-source button:hover:not(:disabled) {
+  background: var(--semi-color-fill-0);
+}
+.playground-token-source button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.playground-token-hint {
+  margin: 8px 2px 0;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.playground-model-error {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--semi-color-danger);
+  border-radius: 10px;
+  color: var(--semi-color-danger);
+  overflow-wrap: anywhere;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+@media (max-width: 639px) {
+  .playground-token-identity {
+    flex: 1 1 100%;
+  }
+  .playground-token-identity strong {
+    max-width: 48vw;
+  }
+  .playground-token-source .playground-account-button {
+    margin-left: auto;
+  }
+}
