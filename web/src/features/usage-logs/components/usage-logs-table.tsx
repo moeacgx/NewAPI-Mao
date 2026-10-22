@@ -116,6 +116,14 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     ],
   })
 
+  const querySubject = isAdmin
+    ? JSON.stringify([
+        searchParams.userId || '',
+        searchParams.username || '',
+        columnFilters.filter(({ id }) => id === 'username'),
+      ])
+    : 'self'
+
   const { data, isLoading, isFetching } = useQuery({
     queryKey: [
       'logs',
@@ -126,6 +134,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       columnFilters,
       searchParams,
       t,
+      querySubject,
     ],
     queryFn: async () => {
       const result = await fetchLogsByCategory({
@@ -145,7 +154,12 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       return result.data || DEFAULT_LOGS_DATA
     },
     placeholderData: (previousData, previousQuery) => {
-      if (previousQuery?.queryKey[1] === logCategory) {
+      // 同主体翻页保留表格，切换用户或查询范围不能展示旧主体记录。
+      if (
+        previousQuery?.queryKey[1] === logCategory &&
+        previousQuery.queryKey[2] === isAdmin &&
+        previousQuery.queryKey[8] === querySubject
+      ) {
         return previousData
       }
       return undefined

@@ -1,6 +1,7 @@
 # NewAPI-Mao 开发文档
 
 - [Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)：限制空流估算收费，并补齐 Responses 转换流客户端取消后的限时用量读取、结算与退款验证。
+- [双主题管理员查询用户联动当前连接](../workflows/2026-10/22_admin_user_active_connections.md)：按已提交的用户 ID/用户名切换、管理员权限、空状态与旧请求隔离。
 
 - [静态资源 404 缓存与 .350 白屏](../workflows/2026-10/22_static_asset_negative_cache.md)：恢复、缺失资源缓存边界及生产浏览器验收。
 
@@ -8,7 +9,7 @@
 
 - [Classic 当前连接 zzapi 试用部署](../workflows/2026-10/22_classic_active_connections_zzapi.md)：PR、保留现有 dev 功能的组合源码、备份、测试镜像与逐节点验收。
 
-- [Classic 当前连接与令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
+- [双主题当前连接与 Classic 令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
 
 - [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：保留现有 dev 功能的正式发布、固定镜像、生产备份与三节点验收。
 

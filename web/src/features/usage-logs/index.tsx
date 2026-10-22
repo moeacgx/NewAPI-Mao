@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
+import { ActiveConnectionsPanel } from './components/active-connections/active-connections-panel'
 import { ChannelInfoDialog } from './components/dialogs/channel-info-dialog'
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import {
@@ -60,6 +61,7 @@ function UsageLogsContent() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const params = route.useParams()
+  const searchParams = route.useSearch()
   const activeCategory: UsageLogsSectionId =
     params.section && isUsageLogsSectionId(params.section)
       ? params.section
@@ -155,6 +157,20 @@ function UsageLogsContent() {
                   ))}
                 </TabsList>
               </Tabs>
+            )}
+            {activeCategory === 'common' && (
+              <ActiveConnectionsPanel
+                subject={
+                  isAdminView
+                    ? {
+                        userId: searchParams.userId,
+                        username: searchParams.userId
+                          ? undefined
+                          : searchParams.username,
+                      }
+                    : undefined
+                }
+              />
             )}
             <div className='min-h-0 flex-1'>
               <UsageLogsTable logCategory={activeCategory} />

@@ -52,9 +52,12 @@ export function CommonLogsStats() {
   const { isAdminView: isAdmin } = useLogsViewScope()
   const searchParams = route.useSearch()
   const { sensitiveVisible } = useUsageLogsContext()
+  const querySubject = isAdmin
+    ? JSON.stringify([searchParams.userId || '', searchParams.username || ''])
+    : 'self'
 
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['usage-logs-stats', isAdmin, searchParams],
+    queryKey: ['usage-logs-stats', isAdmin, searchParams, querySubject],
     queryFn: async () => {
       const params = buildApiParams({
         page: 1,
@@ -72,7 +75,12 @@ export function CommonLogsStats() {
         ? result.data || DEFAULT_LOG_STATS
         : DEFAULT_LOG_STATS
     },
-    placeholderData: (previousData) => previousData,
+    // 翻页可延用同一主体的统计，切用户或查询范围时立即清除旧数据。
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === isAdmin &&
+      previousQuery.queryKey[3] === querySubject
+        ? previousData
+        : undefined,
   })
 
   if (isLoading) {

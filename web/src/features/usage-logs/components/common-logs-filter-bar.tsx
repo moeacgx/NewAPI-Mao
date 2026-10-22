@@ -85,6 +85,7 @@ function buildSearchSourceKey(values: {
   token?: unknown
   group?: unknown
   username?: unknown
+  userId?: unknown
   requestId?: unknown
   upstreamRequestId?: unknown
   type?: unknown
@@ -97,6 +98,7 @@ function buildSearchSourceKey(values: {
     values.token,
     values.group,
     values.username,
+    values.userId,
     values.requestId,
     values.upstreamRequestId,
     Array.isArray(values.type) ? values.type.join(',') : values.type,
@@ -130,6 +132,7 @@ export function CommonLogsFilterBar<TData>(
       token: searchParams.token,
       group: searchParams.group,
       username: searchParams.username,
+      userId: searchParams.userId,
       requestId: searchParams.requestId,
       upstreamRequestId: searchParams.upstreamRequestId,
       type: searchParams.type,
@@ -143,7 +146,10 @@ export function CommonLogsFilterBar<TData>(
       model: searchParams.model || undefined,
       token: searchParams.token || undefined,
       group: searchParams.group || undefined,
-      username: searchParams.username || undefined,
+      username: searchParams.userId
+        ? undefined
+        : searchParams.username || undefined,
+      userId: searchParams.userId || undefined,
       requestId: searchParams.requestId || undefined,
       upstreamRequestId: searchParams.upstreamRequestId || undefined,
     }
@@ -160,6 +166,7 @@ export function CommonLogsFilterBar<TData>(
     searchParams.token,
     searchParams.group,
     searchParams.username,
+    searchParams.userId,
     searchParams.requestId,
     searchParams.upstreamRequestId,
     searchParams.type,
@@ -175,9 +182,16 @@ export function CommonLogsFilterBar<TData>(
       setDraft((current) => {
         const base =
           current.sourceKey === searchState.sourceKey ? current : searchState
+        const nextFilters = { ...base.filters, [field]: value }
+        if (field === 'userId') {
+          nextFilters.username = undefined
+        }
+        if (field === 'username') {
+          nextFilters.userId = undefined
+        }
         return {
           sourceKey: searchState.sourceKey,
-          filters: { ...base.filters, [field]: value },
+          filters: nextFilters,
           logType: base.logType,
         }
       })
@@ -236,6 +250,7 @@ export function CommonLogsFilterBar<TData>(
   const hasExpandedFilters =
     !!filters.token ||
     !!filters.username ||
+    !!filters.userId ||
     !!filters.channel ||
     !!filters.requestId ||
     !!filters.upstreamRequestId
@@ -246,7 +261,7 @@ export function CommonLogsFilterBar<TData>(
 
   const expandedFilterCount = [
     filters.token,
-    isAdmin ? filters.username : undefined,
+    isAdmin ? filters.username || filters.userId : undefined,
     isAdmin ? filters.channel : undefined,
     filters.requestId,
     filters.upstreamRequestId,
@@ -375,14 +390,52 @@ export function CommonLogsFilterBar<TData>(
       </LogsFilterField>
       {isAdmin && (
         <LogsFilterField>
-          <LogsFilterInput
-            placeholder={t('Username')}
-            type='text'
-            className={sensitiveInputClass}
-            value={filters.username || ''}
-            onChange={(e) => handleChange('username', e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
+          <div className='flex min-w-0 items-center gap-1'>
+            <Select
+              items={[
+                { value: 'username', label: t('Username') },
+                { value: 'userId', label: t('User ID') },
+              ]}
+              value={filters.userId !== undefined ? 'userId' : 'username'}
+              onValueChange={(value) =>
+                handleChange(value === 'userId' ? 'userId' : 'username', '')
+              }
+            >
+              <SelectTrigger
+                className='h-8 w-28! shrink-0'
+                aria-label={t('User search type')}
+              >
+                <SelectValue>
+                  {t(filters.userId !== undefined ? 'User ID' : 'Username')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='username'>{t('Username')}</SelectItem>
+                  <SelectItem value='userId'>{t('User ID')}</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <LogsFilterInput
+              placeholder={t(
+                filters.userId !== undefined ? 'User ID' : 'Username'
+              )}
+              aria-label={t(
+                filters.userId !== undefined ? 'User ID' : 'Username'
+              )}
+              type='text'
+              inputMode={filters.userId !== undefined ? 'numeric' : 'text'}
+              className={sensitiveInputClass}
+              value={filters.userId ?? filters.username ?? ''}
+              onChange={(e) =>
+                handleChange(
+                  filters.userId !== undefined ? 'userId' : 'username',
+                  e.target.value
+                )
+              }
+              onKeyDown={handleKeyDown}
+            />
+          </div>
         </LogsFilterField>
       )}
       {isAdmin && (

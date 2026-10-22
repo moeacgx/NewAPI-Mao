@@ -54,6 +54,41 @@ function FilterFixture() {
 afterEach(() => localStorage.clear())
 
 describe('日志筛选凭据自动填充边界', () => {
+  test('用户查询草稿不提交，切换 ID 清除用户名，查询与重置只提交当前身份', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <UsageLogsProvider>
+          <FilterFixture />
+        </UsageLogsProvider>
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Expand' }))
+    await user.type(screen.getByPlaceholderText('Username'), 'alice')
+    expect(navigate).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('combobox', { name: 'User search type' }))
+    await user.click(screen.getByRole('option', { name: 'User ID' }))
+    const input = screen.getByPlaceholderText('User ID')
+    expect(input).toHaveValue('')
+    await user.type(input, '5215')
+    expect(navigate).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    expect(navigate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        search: expect.objectContaining({ userId: '5215', page: 1 }),
+      })
+    )
+    expect(navigate.mock.lastCall?.[0].search).not.toHaveProperty('username')
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+    const resetSearch = navigate.mock.lastCall?.[0].search
+    expect(resetSearch).not.toHaveProperty('userId')
+    expect(resetSearch).not.toHaveProperty('username')
+    client.clear()
+  })
+
   test('隐藏分组用户名令牌时保留文本输入且提交原始筛选值', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
