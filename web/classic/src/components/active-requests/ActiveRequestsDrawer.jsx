@@ -25,11 +25,15 @@ import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { useActiveRequests, useRequestClock } from './useActiveRequests';
 import ActiveRequestCard, { ACTIVE_STATUS_KEYS } from './ActiveRequestCard';
 import ActiveRequestsNotice from './ActiveRequestsNotice';
+import { getConnectionSubjectTitle } from './subject';
 
 export default function ActiveRequestsDrawer(props) {
-  // 令牌身份改变时重建筛选状态，取消旧查询并从空条件第一页开始。
+  // 用户或令牌身份改变时重建筛选状态，取消旧查询并从空条件第一页开始。
   return (
-    <ActiveRequestsDrawerContent key={props.tokenId || 'all'} {...props} />
+    <ActiveRequestsDrawerContent
+      key={JSON.stringify([props.subject || null, props.tokenId || null])}
+      {...props}
+    />
   );
 }
 
@@ -54,6 +58,7 @@ function ActiveRequestsDrawerContent(props) {
     search: query,
     status,
     tokenId: props.tokenId,
+    subject: props.subject,
   });
   const serverNow = useRequestClock(activity.snapshot, activity.error);
   const snapshot = activity.snapshot;
@@ -66,9 +71,11 @@ function ActiveRequestsDrawerContent(props) {
       visible={props.visible}
       onCancel={props.onClose}
       title={
-        props.tokenName
-          ? `${t('View connection details')}: ${props.tokenName}`
-          : t('All current connections')
+        props.subject
+          ? getConnectionSubjectTitle(t, props.subject, snapshot?.subject)
+          : props.tokenName
+            ? `${t('View connection details')}: ${props.tokenName}`
+            : t('All current connections')
       }
       width={isMobile ? '100%' : 760}
       className='active-requests-drawer'

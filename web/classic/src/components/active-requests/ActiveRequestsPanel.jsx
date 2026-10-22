@@ -26,18 +26,31 @@ import { useActiveRequests, useRequestClock } from './useActiveRequests';
 import ActiveRequestCard from './ActiveRequestCard';
 import ActiveRequestsDrawer from './ActiveRequestsDrawer';
 import ActiveRequestsNotice from './ActiveRequestsNotice';
+import { getConnectionSubjectTitle } from './subject';
 import './active-requests.css';
 
-export default function ActiveRequestsPanel() {
+export default function ActiveRequestsPanel(props) {
+  // 查询对象变化时重建面板，关闭旧抽屉及其筛选条件。
+  return (
+    <ActiveRequestsPanelContent
+      key={JSON.stringify(props.subject || null)}
+      {...props}
+    />
+  );
+}
+
+function ActiveRequestsPanelContent({ subject }) {
   const { t } = useTranslation();
   const mobile = useIsMobile();
-  const activity = useActiveRequests({ pageSize: 3 });
+  const activity = useActiveRequests({ pageSize: 3, subject });
   const serverNow = useRequestClock(activity.snapshot, activity.error);
   const [expanded, setExpanded] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const snapshot = activity.snapshot;
   const summary = snapshot?.summary;
-  if (!activity.error && (!snapshot || snapshot.total === 0)) return null;
+  const title = getConnectionSubjectTitle(t, subject, snapshot?.subject);
+  if (!subject && !activity.error && (!snapshot || snapshot.total === 0))
+    return null;
   const items = snapshot?.items || [];
   const hiddenCount = Math.max(0, (snapshot?.total || 0) - items.length);
   return (
@@ -48,13 +61,13 @@ export default function ActiveRequestsPanel() {
       <div className='active-requests-header'>
         <div className='active-requests-title'>
           <Activity size={18} aria-hidden='true' />
-          <h2>{t('Current connections')}</h2>
+          <h2>{title}</h2>
           {summary && (
             <span className='active-requests-count'>{summary.total}</span>
           )}
         </div>
         <div className='active-requests-controls'>
-          {!activity.error && (
+          {!activity.error && !activity.loading && (
             <span className='active-requests-live'>{t('Live updates')}</span>
           )}
           <Button
@@ -72,6 +85,11 @@ export default function ActiveRequestsPanel() {
         </div>
       </div>
       <ActiveRequestsNotice activity={activity} />
+      {expanded && !snapshot && activity.loading && (
+        <p className='active-requests-empty' role='status'>
+          {t('Loading connection status…')}
+        </p>
+      )}
       {expanded && summary && (
         <>
           <div className='active-requests-summary'>
@@ -86,6 +104,11 @@ export default function ActiveRequestsPanel() {
             </span>
           </div>
           <div className='active-requests-cards'>
+            {subject && snapshot.total === 0 && (
+              <p className='active-requests-empty'>
+                {t('This user has no current connections.')}
+              </p>
+            )}
             {items.map((request) => (
               <ActiveRequestCard
                 key={request.id}
@@ -99,7 +122,9 @@ export default function ActiveRequestsPanel() {
             <span>
               {hiddenCount > 0
                 ? t('{{count}} more connections', { count: hiddenCount })
-                : t('Ended requests remain visible for 5 seconds.')}
+                : snapshot.total > 0
+                  ? t('Ended requests remain visible for 5 seconds.')
+                  : ''}
             </span>
             <Button
               theme='borderless'
@@ -118,7 +143,11 @@ export default function ActiveRequestsPanel() {
         </>
       )}
       {drawerOpen && (
-        <ActiveRequestsDrawer visible onClose={() => setDrawerOpen(false)} />
+        <ActiveRequestsDrawer
+          visible
+          subject={subject}
+          onClose={() => setDrawerOpen(false)}
+        />
       )}
     </section>
   );

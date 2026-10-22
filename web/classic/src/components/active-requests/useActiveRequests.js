@@ -28,12 +28,20 @@ export function useActiveRequests(options = {}) {
     search = '',
     status = '',
     tokenId,
+    subject,
   } = options;
-  const [snapshot, setSnapshot] = useState(null);
-  const [error, setError] = useState(false);
+  const userId = subject?.userId;
+  const username = subject?.username;
+  const subjectKey = JSON.stringify([userId, username]);
+  const [snapshotState, setSnapshot] = useState(null);
+  const [errorState, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshIndex, setRefreshIndex] = useState(0);
   const refresh = useCallback(() => setRefreshIndex((value) => value + 1), []);
+
+  useEffect(() => {
+    setSnapshot(null);
+  }, [subjectKey]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -41,6 +49,7 @@ export function useActiveRequests(options = {}) {
     let timer;
     let controller;
     let sequence = 0;
+    setError(null);
     setLoading(true);
     // 每次轮询结束后再调度，避免慢请求与后续轮询重叠。
     const poll = async () => {
@@ -48,26 +57,34 @@ export function useActiveRequests(options = {}) {
       const current = ++sequence;
       controller = new AbortController();
       try {
-        const result = await API.get('/api/log/self/active', {
-          params: {
-            page,
-            page_size: pageSize,
-            search,
-            status,
-            token_id: tokenId,
+        const result = await API.get(
+          userId || username ? '/api/log/active' : '/api/log/self/active',
+          {
+            params: {
+              page,
+              page_size: pageSize,
+              search,
+              status,
+              token_id: tokenId,
+              ...(userId ? { user_id: userId } : username ? { username } : {}),
+            },
+            signal: controller.signal,
+            timeout: 10000,
+            skipErrorHandler: true,
           },
-          signal: controller.signal,
-          skipErrorHandler: true,
-        });
+        );
         if (disposed || current !== sequence) return;
         if (!result.data?.success || !result.data?.data)
           throw new Error('active unavailable');
         const data = result.data.data;
-        setSnapshot({ ...data, receivedAt: Date.now() });
-        setError(false);
+        setSnapshot({
+          key: subjectKey,
+          value: { ...data, receivedAt: Date.now() },
+        });
+        setError(null);
       } catch {
         if (disposed || current !== sequence) return;
-        setError(true);
+        setError(subjectKey);
       } finally {
         if (!disposed && current === sequence) {
           setLoading(false);
@@ -90,8 +107,23 @@ export function useActiveRequests(options = {}) {
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', visibilityChanged);
     };
-  }, [enabled, page, pageSize, search, status, tokenId, refreshIndex]);
+  }, [
+    enabled,
+    page,
+    pageSize,
+    search,
+    status,
+    tokenId,
+    refreshIndex,
+    userId,
+    username,
+    subjectKey,
+  ]);
 
+  // 在新查询的 effect 执行前也隔离旧快照，避免标题与连接短暂串用户。
+  const snapshot =
+    snapshotState?.key === subjectKey ? snapshotState.value : null;
+  const error = errorState === subjectKey;
   return { snapshot, error, loading, refresh };
 }
 

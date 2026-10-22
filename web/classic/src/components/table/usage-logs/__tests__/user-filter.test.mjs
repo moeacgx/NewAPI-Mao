@@ -333,3 +333,260 @@ test('refresh 统计失败只提示一次并停止列表请求，下一次成功
   assert.equal(harness.result().loading, false);
   harness.renderer.unmount();
 });
+
+test('当前连接只跟随管理员已提交的用户条件，清空提交恢复本人', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  assert.equal(harness.result().activeRequestSubject, null);
+
+  await setForm(harness.result, formValues({ username: 'alice' }));
+  assert.equal(harness.result().activeRequestSubject, null);
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, {
+    username: 'alice',
+  });
+
+  await setForm(
+    harness.result,
+    formValues({ username: '5215', userSearchType: 'id' }),
+  );
+  await act(async () => {
+    await harness.result().handleEyeClick();
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, {
+    username: 'alice',
+  });
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  const submitted = harness.result().activeRequestSubject;
+  await act(async () => {
+    await harness.result().loadLogs(2, 20);
+  });
+  assert.equal(harness.result().activeRequestSubject, submitted);
+
+  await setForm(harness.result, formValues({ username: '' }));
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  assert.equal(harness.result().activeRequestSubject, null);
+  harness.renderer.unmount();
+});
+
+test('提交查询后即使历史列表失败，当前连接仍对应所查用户', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(
+    harness.result,
+    formValues({ username: 'invalid', userSearchType: 'id' }),
+  );
+  queue.push({ reject: new Error('bad request') });
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, {
+    userId: 'invalid',
+  });
+  harness.renderer.unmount();
+});
+
+test('refresh 提交时立即切换当前连接，统计失败也不回退为本人', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(harness.result, formValues({ username: 'alice' }));
+  queue.push({ data: { success: false, message: '查询失败' } });
+  await act(async () => {
+    await harness.result().refresh();
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, {
+    username: 'alice',
+  });
+  harness.renderer.unmount();
+});
+
+test('refresh 等待统计时编辑输入不改变已提交对象或列表用户条件', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, calls, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  const values = formValues({ username: '5215', userSearchType: 'id' });
+  await setForm(harness.result, values);
+  let resolveStat;
+  queue.push(
+    new Promise((resolve) => {
+      resolveStat = resolve;
+    }),
+  );
+  calls.length = 0;
+  let refresh;
+  await act(async () => {
+    refresh = harness.result().refresh();
+    await Promise.resolve();
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  values.username = 'alice';
+  values.userSearchType = 'username';
+  await act(async () => {
+    resolveStat(successStat());
+    await refresh;
+  });
+  assert.equal(calls[1].config.params.user_id, '5215');
+  assert.equal(calls[1].config.params.username, undefined);
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  harness.renderer.unmount();
+});
+
+test('普通用户即使带有跨用户表单条件，当前连接始终为本人', async () => {
+  adminMode = false;
+  const errors = [];
+  const { api } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(
+    harness.result,
+    formValues({ username: '5215', userSearchType: 'id' }),
+  );
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+    await harness.result().refresh();
+  });
+  assert.equal(harness.result().activeRequestSubject, null);
+  harness.renderer.unmount();
+});
+
+test('较早 refresh 的统计完成时不能覆盖后来提交的连接对象', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, calls, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(harness.result, formValues({ username: 'alice' }));
+  let resolveStat;
+  queue.push(
+    new Promise((resolve) => {
+      resolveStat = resolve;
+    }),
+  );
+  let refresh;
+  await act(async () => {
+    refresh = harness.result().refresh();
+    await Promise.resolve();
+  });
+  await setForm(
+    harness.result,
+    formValues({ username: '5215', userSearchType: 'id' }),
+  );
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  const callsBeforeLateStat = calls.length;
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  await act(async () => {
+    resolveStat(successStat());
+    await refresh;
+  });
+  assert.deepEqual(harness.result().activeRequestSubject, { userId: '5215' });
+  assert.equal(calls.length, callsBeforeLateStat);
+  assert.deepEqual(harness.result().stat, { quota: 0, token: 0 });
+  harness.renderer.unmount();
+});
+
+test('较早列表的迟到响应不覆盖新用户日志与分页状态', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(harness.result, formValues({ username: 'alice' }));
+  let resolveOldList;
+  queue.push(
+    new Promise((resolve) => {
+      resolveOldList = resolve;
+    }),
+  );
+  let oldList;
+  await act(async () => {
+    oldList = harness.result().loadLogs(1, 20);
+    await Promise.resolve();
+  });
+  await setForm(harness.result, formValues({ username: 'bob' }));
+  queue.push(successList([{ id: 21, created_at: 1, type: 2, other: {} }]));
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  await act(async () => {
+    resolveOldList(
+      successList([{ id: 11, created_at: 1, type: 2, other: {} }]),
+    );
+    await oldList;
+  });
+  assert.equal(harness.result().logs[0].id, 21);
+  assert.equal(harness.result().logCount, 1);
+  assert.equal(harness.result().loading, false);
+  assert.deepEqual(harness.result().activeRequestSubject, { username: 'bob' });
+  harness.renderer.unmount();
+});
+
+test('等待旧统计时仍可提交新用户，迟到统计不能覆盖新统计或重新加载旧列表', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api, calls, queue } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  await setForm(harness.result, formValues({ username: 'alice' }));
+  let resolveOldStat;
+  queue.push(
+    new Promise((resolve) => {
+      resolveOldStat = resolve;
+    }),
+  );
+  let oldRefresh;
+  await act(async () => {
+    oldRefresh = harness.result().refresh();
+    await Promise.resolve();
+  });
+  await setForm(harness.result, formValues({ username: 'bob' }));
+  queue.push(successStat({ quota: 20, token: 40 }));
+  queue.push(successList([{ id: 21, created_at: 1, type: 2, other: {} }]));
+  await act(async () => {
+    await harness.result().refresh();
+  });
+  assert.equal(harness.result().logs[0]?.id, 21);
+  const callsBeforeLateStat = calls.length;
+  await act(async () => {
+    resolveOldStat(successStat({ quota: 10, token: 30 }));
+    await oldRefresh;
+  });
+  assert.deepEqual(harness.result().stat, { quota: 20, token: 40 });
+  assert.deepEqual(harness.result().activeRequestSubject, { username: 'bob' });
+  assert.equal(harness.result().logs[0].id, 21);
+  assert.equal(harness.result().loadingStat, false);
+  assert.equal(calls.length, callsBeforeLateStat);
+  harness.renderer.unmount();
+});
+
+test('相同查询条件翻页保留统计，切换用户时隐藏旧统计', async () => {
+  adminMode = true;
+  const errors = [];
+  const { api } = createApiMock(errors);
+  const harness = await mountHook(api, errors);
+  const values = formValues({ username: 'alice' });
+  await setForm(harness.result, values);
+  assert.equal(harness.result().showStat, true);
+  await act(async () => {
+    await harness.result().loadLogs(2, 20);
+  });
+  assert.equal(harness.result().showStat, true);
+  values.username = 'bob';
+  await act(async () => {
+    await harness.result().loadLogs(1, 20);
+  });
+  assert.equal(harness.result().showStat, false);
+  harness.renderer.unmount();
+});
