@@ -21,6 +21,9 @@ import React, { useEffect, useId, useState } from 'react';
 import { Button, Modal } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
+import BundleSkillsEditor from './BundleSkillsEditor';
+import ArchiveImport from './ArchiveImport';
+import RepositoryImport from './RepositoryImport';
 
 export default function PromptTemplateEditor(props) {
   const { t } = useTranslation();
@@ -32,12 +35,24 @@ export default function PromptTemplateEditor(props) {
     group_ids: [],
     enabled: true,
     sort_order: 0,
+    kind: 'prompt',
+    category_id: 0,
+    skills: [
+      { title: '', content: '' },
+      { title: '', content: '' },
+    ],
     ...props.template,
   });
   const [groups, setGroups] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const busy = saving || importing;
   const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [categories, setCategories] = useState(props.categories || []);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(
+    Boolean(props.categories),
+  );
   useEffect(() => {
     const controller = new AbortController();
     promptRequest('get', '/api/group/details', undefined, controller.signal)
@@ -50,14 +65,66 @@ export default function PromptTemplateEditor(props) {
       });
     return () => controller.abort();
   }, [t]);
+  useEffect(() => {
+    if (props.categories) {
+      setCategories(props.categories);
+      setCategoriesLoaded(true);
+      return;
+    }
+    const controller = new AbortController();
+    promptRequest(
+      'get',
+      '/api/prompt-center/categories/',
+      undefined,
+      controller.signal,
+    )
+      .then((items) => {
+        if (!controller.signal.aborted) {
+          setCategories(items || []);
+          setCategoriesLoaded(true);
+        }
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted) setError(promptError(reason, t));
+      });
+    return () => controller.abort();
+  }, [props.categories, t]);
   const update = (key, value) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const save = async (event) => {
     event.preventDefault();
+    if (busy) return;
+    if (draft.kind === 'bundle') {
+      const titles = draft.skills.map((skill) => skill.title.trim());
+      const combined = draft.skills
+        .map((skill) => `## 技能：${skill.title.trim()}\n${skill.content}`)
+        .join('\n\n');
+      if (
+        draft.skills.length < 2 ||
+        draft.skills.length > 16 ||
+        new Set(titles).size !== titles.length ||
+        draft.skills.some(
+          (skill) =>
+            !skill.title.trim() ||
+            Array.from(skill.title.trim()).length > 80 ||
+            !skill.content?.trim() ||
+            new TextEncoder().encode(skill.content).length > 32768,
+        ) ||
+        new TextEncoder().encode(combined).length > 32768
+      ) {
+        setError(
+          t(
+            'Use 2 to 16 unique skill titles and keep the combined text within 32768 bytes',
+          ),
+        );
+        return;
+      }
+    }
     if (
       !draft.title.trim() ||
-      !draft.content.trim() ||
-      new TextEncoder().encode(draft.content).length > 32768 ||
+      (draft.kind !== 'bundle' &&
+        (!draft.content.trim() ||
+          new TextEncoder().encode(draft.content).length > 32768)) ||
       (draft.enabled && !draft.group_ids.length)
     ) {
       setError(
@@ -89,6 +156,16 @@ export default function PromptTemplateEditor(props) {
           group_ids,
           enabled,
           sort_order,
+          kind: draft.kind,
+          category_id: draft.category_id,
+          ...(draft.kind === 'bundle'
+            ? {
+                skills: draft.skills.map((skill) => ({
+                  title: skill.title.trim(),
+                  content: skill.content,
+                })),
+              }
+            : {}),
           ...(draft.id ? { version } : {}),
         },
       );
@@ -98,6 +175,24 @@ export default function PromptTemplateEditor(props) {
     } finally {
       setSaving(false);
     }
+  };
+  const importDraft = (imported) => {
+    setDraft({
+      title: '',
+      description: '',
+      content: '',
+      kind: 'prompt',
+      category_id: 0,
+      group_ids: [],
+      enabled: false,
+      sort_order: 0,
+      skills: [
+        { title: '', content: '' },
+        { title: '', content: '' },
+      ],
+      ...imported,
+    });
+    setError('');
   };
   const importText = async (event) => {
     const file = event.target.files?.[0];
@@ -117,13 +212,14 @@ export default function PromptTemplateEditor(props) {
   return (
     <Modal
       visible
+      className='prompt-template-modal'
       title={draft.id ? t('Edit template') : t('New template')}
       footer={null}
       onCancel={() => {
-        if (!saving) props.onCancel();
+        if (!busy) props.onCancel();
       }}
-      closable={!saving}
-      closeOnEsc={!saving}
+      closable={!busy}
+      closeOnEsc={!busy}
       maskClosable={false}
       width={680}
       style={{ maxWidth: 'calc(100vw - 24px)' }}
@@ -134,12 +230,60 @@ export default function PromptTemplateEditor(props) {
             {error}
           </p>
         )}
+        <ArchiveImport
+          disabled={busy}
+          onBusyChange={setImporting}
+          onImport={importDraft}
+        />
+        <RepositoryImport
+          disabled={busy}
+          onBusyChange={setImporting}
+          onImport={importDraft}
+        />
+        <label htmlFor={`${prefix}-kind`}>{t('Skill type')}</label>
+        <select
+          id={`${prefix}-kind`}
+          disabled={busy}
+          value={draft.kind || 'prompt'}
+          onChange={(event) =>
+            setDraft((current) => ({
+              ...current,
+              kind: event.target.value,
+              skills:
+                current.skills.length >= 2
+                  ? current.skills
+                  : [
+                      { title: '', content: '' },
+                      { title: '', content: '' },
+                    ],
+            }))
+          }
+        >
+          <option value='prompt'>{t('Single skill')}</option>
+          <option value='bundle'>{t('Skill bundle')}</option>
+        </select>
+        <label htmlFor={`${prefix}-category`}>{t('Skill category')}</label>
+        <select
+          id={`${prefix}-category`}
+          disabled={busy || !categoriesLoaded}
+          value={draft.category_id}
+          onChange={(event) =>
+            update('category_id', Number(event.target.value))
+          }
+        >
+          <option value={0}>{t('Uncategorized')}</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
         <label htmlFor={`${prefix}-title`}>{t('Prompt title')}</label>
         <input
           id={`${prefix}-title`}
           required
           maxLength={80}
-          disabled={saving}
+          disabled={busy}
           value={draft.title}
           onChange={(event) => update('title', event.target.value)}
         />
@@ -149,35 +293,46 @@ export default function PromptTemplateEditor(props) {
         <textarea
           id={`${prefix}-description`}
           maxLength={512}
-          disabled={saving}
+          disabled={busy}
           value={draft.description}
           onChange={(event) => update('description', event.target.value)}
         />
-        <label htmlFor={`${prefix}-content`}>{t('Prompt text')}</label>
-        <textarea
-          id={`${prefix}-content`}
-          required
-          rows={10}
-          disabled={saving}
-          value={draft.content}
-          onChange={(event) => update('content', event.target.value)}
-        />
-        <label htmlFor={`${prefix}-file`}>
-          {t('Import Markdown or SKILL.md as text')}
-        </label>
-        <input
-          id={`${prefix}-file`}
-          type='file'
-          accept='.md,.txt,text/plain,text/markdown'
-          disabled={saving}
-          onChange={importText}
-        />
+        {draft.kind === 'bundle' ? (
+          <BundleSkillsEditor
+            prefix={prefix}
+            skills={draft.skills}
+            disabled={busy}
+            onChange={(items) => update('skills', items)}
+          />
+        ) : (
+          <>
+            <label htmlFor={`${prefix}-content`}>{t('Prompt text')}</label>
+            <textarea
+              id={`${prefix}-content`}
+              required
+              rows={10}
+              disabled={busy}
+              value={draft.content}
+              onChange={(event) => update('content', event.target.value)}
+            />
+            <label htmlFor={`${prefix}-file`}>
+              {t('Import Markdown or SKILL.md as text')}
+            </label>
+            <input
+              id={`${prefix}-file`}
+              type='file'
+              accept='.md,.txt,text/plain,text/markdown'
+              disabled={busy}
+              onChange={importText}
+            />
+          </>
+        )}
         <p className='prompt-center-muted'>
           {t(
             'Text prompts only. Scripts, tools and attachments in full Skills are not executed.',
           )}
         </p>
-        <fieldset disabled={saving || !groupsLoaded}>
+        <fieldset disabled={busy || !groupsLoaded}>
           <legend>{t('Allowed groups')}</legend>
           <div className='prompt-center-group-options'>
             {groupsLoaded &&
@@ -223,7 +378,7 @@ export default function PromptTemplateEditor(props) {
           type='number'
           min={-1000000}
           max={1000000}
-          disabled={saving}
+          disabled={busy}
           value={draft.sort_order}
           onChange={(event) => update('sort_order', Number(event.target.value))}
         />
@@ -231,7 +386,7 @@ export default function PromptTemplateEditor(props) {
           <input
             type='checkbox'
             checked={draft.enabled}
-            disabled={saving}
+            disabled={busy}
             onChange={(event) => update('enabled', event.target.checked)}
           />
           {t('Published')}
@@ -241,11 +396,11 @@ export default function PromptTemplateEditor(props) {
             htmlType='submit'
             theme='solid'
             loading={saving}
-            disabled={!groupsLoaded}
+            disabled={busy || !groupsLoaded || !categoriesLoaded}
           >
             {t('Save template')}
           </Button>
-          <Button disabled={saving} onClick={props.onCancel}>
+          <Button disabled={busy} onClick={props.onCancel}>
             {t('Cancel')}
           </Button>
         </div>

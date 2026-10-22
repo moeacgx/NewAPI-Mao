@@ -14,6 +14,14 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 
 - `prompt_templates` 保存 `id/title/description/content/enabled/sort_order/version`。
   白名单关联表 `prompt_template_groups` 使用稳定 `group_id`；显示当前分组名称。
+  扩展字段 `kind/category_id/skills_json` 保存技能类型、稳定分类 ID 和合集明细；
+  `skills_json` 使用 TEXT，API 只提供解析后的 `skills`，不暴露存储字段。
+- `kind=prompt` 使用原正文，旧空值按该类型读取；`kind=bundle` 包含 2–16 个标题不重复的技能。
+  合集正文由服务端按数组顺序生成 `## 技能：标题\n正文` 并以空行拼接，忽略客户端派生正文。
+  合集作为一个安装项启停、排序、卸载，共用模板白名单；内部数量通过 `skill_count` 展示。
+  原有单项及令牌正文大小限制同样适用合集，不因多个子技能扩大额度。
+- `prompt_categories` 保存分类 ID、名称和乐观锁版本，名称 1–40 字符且唯一。
+  分类可以创建和改名，不提供删除；未分类为 ID 0。分类不授予分组或令牌权限。
 - `token_prompt_bindings` 以 `(token_id, template_id)` 唯一关联，保存 `enabled/sort_order`。
   绑定只记录 ID，不读取或复制令牌密钥，不修改令牌额度、分组与其他限制。
 - 模板标题 1–80 字符，说明最多 512 字符，正文最多 32768 UTF-8 字节，上架时至少选择一个实体分组；
@@ -38,6 +46,13 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 - `POST /api/prompt-center/admin/`：创建模板；管理员。
 - `PUT /api/prompt-center/admin/:id`：更新模板；管理员，提交当前 `version` 防止覆盖并发编辑。
   版本冲突返回 HTTP 409。
+- `GET /api/prompt-center/categories/`：分类数组，登录用户可读。
+- `POST /api/prompt-center/admin/categories/`：管理员创建分类 `{name}`。
+- `PUT /api/prompt-center/admin/categories/:id`：管理员改名 `{name,version}`，版本冲突 HTTP 409。
+- `POST /api/prompt-center/admin/import/archive`：管理员上传 multipart `file` ZIP，返回草稿。
+- `POST /api/prompt-center/admin/import/repository`：管理员提交 `{url}` 公开 GitHub 链接，返回草稿。
+- `GET /api/prompt-center/admin/store/`：管理员浏览内置商店摘要；`?source=online` 刷新官方仓库。
+- `POST /api/prompt-center/admin/store/:id/import`：管理员读取商店条目为草稿，ID 为需 URL 编码的不透明字符串。
 - `GET /api/token/:id/prompts`：安装数组，元素为 `{template,enabled,sort_order}`。
   `template` 仅含摘要，不含正文；PUT 保存安装的响应同样不含正文。
 - `PUT /api/token/:id/prompts`：完整替换安装数组，请求为
@@ -48,6 +63,27 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 
 模板响应包括 `group_ids` 与 `group_details:[{id,name}]`，不把分组显示名称用作权限标识。
 模板管理支持上下架，不提供物理删除接口，保留安装关系及历史可追溯性。
+用户模板及安装摘要含 `kind/category_id/category_name/skill_count/skills:[{title}]`，
+既不返回主正文，也不返回合集子技能正文；管理员接口提供完整内容。
+
+## 导入与技能商店
+
+Classic、Default 均提供 ZIP、公开 GitHub 仓库链接和商店导入。导入只返回
+`id=0/version=0/enabled=false/category_id=0/group_ids=[]` 的编辑草稿，不写库、不自动上架。
+管理员检查内容，选择站点分类与白名单后通过原保存接口生成站点副本。
+导入失败保留原编辑内容；商店更新不会覆盖站点副本，站点修改不会回写仓库。
+
+ZIP 最多 2 MiB、128 个条目、声明解压总量 512 KiB；有 `SKILL.md` 时只读取该类文件，
+否则读取 Markdown。按路径排序后导入单项或合集，最多 16 个技能。
+读取 YAML front matter 的 name/description，剥离元数据后只装载正文；
+拒绝越界路径、符号链接、损坏 ZIP 和非 UTF-8。内容仅在内存处理，不落盘、不执行。
+
+商店原件位于 [skill-store](../../skill-store/README.md)，编译内嵌可离线使用。
+显式在线刷新仅读取本项目 `custom-main/skill-store/`，不跟随重定向，逐文件校验 SHA256。
+该目录发布到目标分支后在线内容才可用；本地实现不包含仓库推送和商店发布。
+仓库链接导入则使用固定 GitHub API 与原始文件主机，固定提交读取公开技能文件，
+不接受私有仓库凭据、任意下载地址或自定义 Git 主机。细节、边界和测试见
+[合集与导入记录](../workflows/2026-10/22_skill_bundles_categories.md)。
 
 ## 请求与计费
 
@@ -90,7 +126,8 @@ Classic 操练场采用与 Default 相同的居中对话、空状态和底部输
 该布局调整不替换 Classic 请求实现，也不引入另一套前端整包；见[布局对齐记录](../workflows/2026-10/22_classic_playground_alignment.md)。
 
 两套页面均提供模板摘要浏览、选择令牌、安装/卸载及保存，以及管理员编辑和
-白名单管理。导入仅在浏览器读取文本，明确不支持包含脚本的完整 Skills。
+白名单管理。直接 Markdown 导入在浏览器读取文本；ZIP、仓库和商店导入由后端限量读取，
+均仅保留技能正文，不执行脚本或工具。
 页面业务模块使用现有带边框和背景的 Card/Panel；徽标包含可访问名称，键盘可打开详情。
 两套侧栏均使用 `console.prompt_center` 独立开关，与 `console.token` 分离。
 

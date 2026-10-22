@@ -23,6 +23,7 @@ import { Power, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
 import PromptCatalog from './PromptCatalog';
+import SkillSummary from './SkillSummary';
 
 export default function TokenPromptManager(props) {
   const { t } = useTranslation();
@@ -183,6 +184,7 @@ export default function TokenPromptManager(props) {
                 <div className='prompt-center-card-copy'>
                   <h3>{binding.template.title}</h3>
                 </div>
+                <SkillSummary template={binding.template} />
                 <div className='prompt-center-card-meta'>
                   <span className='prompt-center-meta-label'>
                     <ShieldCheck size={14} aria-hidden='true' />

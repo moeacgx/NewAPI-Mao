@@ -32,6 +32,7 @@ import {
 
 import { getTokenPrompts, saveTokenPrompts } from '../api'
 import type { PromptTemplate, PromptToken, TokenPromptBinding } from '../types'
+import { SkillSummary } from './skill-summary'
 
 export interface TokenPromptDialogProps {
   open: boolean
@@ -208,6 +209,7 @@ function TokenPromptEditor(props: {
                 </Button>
               </div>
             </div>
+            <SkillSummary template={binding.template} />
             <div className='border-border/60 flex flex-wrap items-center gap-3 border-t pt-3'>
               <div className='flex min-w-0 flex-1 flex-wrap gap-1.5'>
                 {binding.template.group_details?.length ? (

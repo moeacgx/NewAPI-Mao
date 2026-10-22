@@ -21,9 +21,11 @@ import {
   ArrowUpRight,
   BookOpen,
   CheckCircle2,
+  FolderTree,
   KeyRound,
   Layers3,
   Plus,
+  Package,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -45,8 +47,11 @@ import { Input } from '@/components/ui/input'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { getPromptTemplates } from './api'
+import { getPromptCategories, getPromptTemplates } from './api'
+import { CategoryManager } from './components/category-manager'
 import { PromptTemplateEditor } from './components/prompt-template-editor'
+import { SkillImportDialog } from './components/skill-import-dialog'
+import { SkillSummary } from './components/skill-summary'
 import { TokenPicker } from './components/token-picker'
 import { TokenPromptDialog } from './components/token-prompt-dialog'
 import type { PromptTemplate, PromptToken } from './types'
@@ -58,6 +63,10 @@ export function PromptCenter() {
   )
   const [manage, setManage] = useState(false)
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('all')
+  const [kind, setKind] = useState('all')
+  const [categoryManager, setCategoryManager] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<PromptTemplate | 'new'>()
   const [picker, setPicker] = useState<{ template?: PromptTemplate }>()
   const [installation, setInstallation] = useState<{
@@ -70,14 +79,22 @@ export function PromptCenter() {
     queryFn: () => getPromptTemplates(admin),
   })
   const allTemplates = query.data ?? []
+  const categories = useQuery({
+    queryKey: ['prompt-categories'],
+    queryFn: getPromptCategories,
+  })
   const templates = useMemo(
     () =>
-      query.data?.filter((template) =>
-        `${template.title} ${template.description}`
-          .toLocaleLowerCase()
-          .includes(search.toLocaleLowerCase())
+      query.data?.filter(
+        (template) =>
+          `${template.title} ${template.description}`
+            .toLocaleLowerCase()
+            .includes(search.toLocaleLowerCase()) &&
+          (category === 'all' ||
+            (template.category_id ?? 0) === Number(category)) &&
+          (kind === 'all' || (template.kind ?? 'prompt') === kind)
       ) ?? [],
-    [query.data, search]
+    [query.data, search, category, kind]
   )
   const publishedCount = allTemplates.filter(
     (template) => template.enabled
@@ -128,6 +145,20 @@ export function PromptCenter() {
                     <>
                       <Button
                         variant='outline'
+                        onClick={() => setImporting(true)}
+                      >
+                        <Package aria-hidden='true' />
+                        {t('Skill store')}
+                      </Button>
+                      <Button
+                        variant='outline'
+                        onClick={() => setCategoryManager(true)}
+                      >
+                        <FolderTree aria-hidden='true' />
+                        {t('Manage skill categories')}
+                      </Button>
+                      <Button
+                        variant='outline'
                         onClick={() => setManage((value) => !value)}
                       >
                         <SlidersHorizontal aria-hidden='true' />
@@ -175,6 +206,53 @@ export function PromptCenter() {
             </div>
           </CardHeader>
           <CardContent className='space-y-5 px-5 py-6 sm:px-8 sm:py-8'>
+            <div className='bg-muted/20 flex flex-wrap items-end gap-3 rounded-xl border p-3'>
+              <label className='min-w-40 flex-1 space-y-1.5 text-xs font-medium'>
+                <span>{t('Skill category')}</span>
+                <select
+                  aria-label={t('Skill category')}
+                  className='bg-background h-9 w-full rounded-lg border px-3 text-sm'
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                >
+                  <option value='all'>{t('All skill categories')}</option>
+                  <option value='0'>{t('Uncategorized skills')}</option>
+                  {categories.data?.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className='min-w-40 flex-1 space-y-1.5 text-xs font-medium'>
+                <span>{t('Skill type')}</span>
+                <select
+                  aria-label={t('Skill type')}
+                  className='bg-background h-9 w-full rounded-lg border px-3 text-sm'
+                  value={kind}
+                  onChange={(event) => setKind(event.target.value)}
+                >
+                  <option value='all'>{t('All skill types')}</option>
+                  <option value='prompt'>{t('Single skill')}</option>
+                  <option value='bundle'>{t('Skill bundle')}</option>
+                </select>
+              </label>
+              {categories.isError && (
+                <div
+                  role='alert'
+                  className='text-destructive flex items-center gap-2 text-xs'
+                >
+                  <span>{t('Failed to load skill categories')}</span>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => categories.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className='flex flex-wrap items-center justify-between gap-3'>
               <div className='flex items-center gap-2'>
                 <div className='bg-primary/[0.09] text-primary flex size-8 items-center justify-center rounded-lg'>
@@ -249,6 +327,18 @@ export function PromptCenter() {
             onClose={() => setEditing(undefined)}
           />
         )}
+        {isAdmin && categoryManager && (
+          <CategoryManager onClose={() => setCategoryManager(false)} />
+        )}
+        {isAdmin && importing && (
+          <SkillImportDialog
+            onClose={() => setImporting(false)}
+            onImported={(template) => {
+              setImporting(false)
+              setEditing(template)
+            }}
+          />
+        )}
         {picker && (
           <TokenPicker
             onClose={() => setPicker(undefined)}
@@ -312,6 +402,9 @@ function PromptTemplateCard(props: {
         <p className='text-muted-foreground mt-2 line-clamp-3 min-h-[3.75rem] text-sm leading-5 [overflow-wrap:anywhere]'>
           {props.template.description || t('Prompt')}
         </p>
+      </div>
+      <div className='mb-4'>
+        <SkillSummary template={props.template} />
       </div>
       <div className='border-border/60 mt-auto flex flex-wrap items-end justify-between gap-4 border-t pt-4'>
         <div className='min-w-0 flex-1 basis-32'>

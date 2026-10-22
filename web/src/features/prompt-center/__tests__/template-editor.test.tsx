@@ -90,6 +90,9 @@ describe('提示词管理员编辑', () => {
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/api/prompt-center/admin/7', {
         ...input,
+        kind: 'prompt',
+        category_id: 0,
+        skills: [],
         enabled: false,
         group_ids: [],
       })
@@ -108,6 +111,9 @@ describe('提示词管理员编辑', () => {
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/api/prompt-center/admin/7', {
         ...input,
+        kind: 'prompt',
+        category_id: 0,
+        skills: [],
         title: 'Updated review',
       })
     )

@@ -10,7 +10,7 @@ import (
 
 func TestPromptTemplateBindingsRespectOwnershipGroupsAndLiveChanges(t *testing.T) {
 	first, second := setupGroupBindingsTest(t)
-	require.NoError(t, DB.AutoMigrate(&PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
+	require.NoError(t, DB.AutoMigrate(&PromptCategory{}, &PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
 	token := Token{UserId: 77, Key: "prompt-test-key", Name: "提示词令牌"}
 	require.NoError(t, DB.Create(&token).Error)
 	installationToken, err := GetTokenForPromptInstallation(77, token.Id)
@@ -60,7 +60,7 @@ func TestPromptTemplateBindingsRespectOwnershipGroupsAndLiveChanges(t *testing.T
 
 func TestPromptTemplateRejectsInvalidInputAndAggregateSize(t *testing.T) {
 	first, _ := setupGroupBindingsTest(t)
-	require.NoError(t, DB.AutoMigrate(&PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
+	require.NoError(t, DB.AutoMigrate(&PromptCategory{}, &PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
 	valid := PromptTemplate{Title: "提示词", Content: "正文", Enabled: true, GroupIDs: []int{first.Id}}
 	for _, invalid := range []PromptTemplate{
 		{Title: " ", Content: "正文", GroupIDs: []int{first.Id}},
@@ -89,7 +89,7 @@ func TestPromptTemplateRejectsInvalidInputAndAggregateSize(t *testing.T) {
 
 func TestPromptTemplateUpdateCannotExceedInstalledTokenBudget(t *testing.T) {
 	first, _ := setupGroupBindingsTest(t)
-	require.NoError(t, DB.AutoMigrate(&PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
+	require.NoError(t, DB.AutoMigrate(&PromptCategory{}, &PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
 	token := Token{UserId: 99, Key: "update-budget-key"}
 	require.NoError(t, DB.Create(&token).Error)
 	inputs := make([]TokenPromptBindingInput, 0, 3)
@@ -121,7 +121,7 @@ func TestPromptTemplateUpdateCannotExceedInstalledTokenBudget(t *testing.T) {
 
 func TestPromptTemplateCanUnpublishAfterAllGroupsDeleted(t *testing.T) {
 	group, _ := setupGroupBindingsTest(t)
-	require.NoError(t, DB.AutoMigrate(&PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
+	require.NoError(t, DB.AutoMigrate(&PromptCategory{}, &PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}))
 	prompt, err := SavePromptTemplate(PromptTemplate{Title: "旧模板", Content: "正文", Enabled: true, GroupIDs: []int{group.Id}})
 	require.NoError(t, err)
 	require.NoError(t, DB.Delete(group).Error)

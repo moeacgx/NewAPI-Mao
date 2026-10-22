@@ -43,7 +43,7 @@ func setupPromptRelayDB(t *testing.T) {
 		require.NoError(t, e)
 		require.NoError(t, sqlDB.Close())
 	})
-	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.Group{}, &model.GroupAlias{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}))
+	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.Group{}, &model.GroupAlias{}, &model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}))
 	require.NoError(t, db.Create(&model.Group{Id: 71, Code: "allowed-code", Name: "高级模型组", Status: 1}).Error)
 	require.NoError(t, db.Create(&model.Group{Id: 72, Code: "other-code", Name: "普通模型组", Status: 1}).Error)
 	require.NoError(t, db.Create(&model.Token{Id: 31, UserId: 11, Key: "prompt-relay-test", Status: common.TokenStatusEnabled}).Error)

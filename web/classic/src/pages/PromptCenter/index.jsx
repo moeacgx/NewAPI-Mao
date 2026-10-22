@@ -35,6 +35,8 @@ import TokenPromptManager from './TokenPromptManager';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import PromptCatalog from './PromptCatalog';
 import TokenPicker from './TokenPicker';
+import CategoryManager from './CategoryManager';
+import SkillStore from './SkillStore';
 import './style.css';
 
 export default function PromptCenter() {
@@ -50,29 +52,48 @@ export default function PromptCenter() {
   const [picker, setPicker] = useState(null);
   const [installation, setInstallation] = useState(null);
   const [selectedToken, setSelectedToken] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [category, setCategory] = useState('all');
+  const [kind, setKind] = useState('all');
+  const [categoryManager, setCategoryManager] = useState(false);
+  const [store, setStore] = useState(false);
   const publishedCount = templates.filter((item) => item.enabled).length;
   const groupCount = new Set(
     templates.flatMap((item) =>
       (item.group_details || []).map((group) => group.id),
     ),
   ).size;
-  const filteredTemplates = templates.filter((item) =>
-    `${item.title} ${item.description || ''}`
-      .toLocaleLowerCase()
-      .includes(search.toLocaleLowerCase()),
+  const filteredTemplates = templates.filter(
+    (item) =>
+      (category === 'all' || String(item.category_id || 0) === category) &&
+      (kind === 'all' || (item.kind || 'prompt') === kind) &&
+      `${item.title} ${item.description || ''}`
+        .toLocaleLowerCase()
+        .includes(search.toLocaleLowerCase()),
   );
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    promptRequest(
-      'get',
-      admin && manage ? '/api/prompt-center/admin/' : '/api/prompt-center/',
-      undefined,
-      controller.signal,
-    )
-      .then((items) => {
-        if (!controller.signal.aborted) setTemplates(items || []);
+    Promise.all([
+      promptRequest(
+        'get',
+        admin && manage ? '/api/prompt-center/admin/' : '/api/prompt-center/',
+        undefined,
+        controller.signal,
+      ),
+      promptRequest(
+        'get',
+        '/api/prompt-center/categories/',
+        undefined,
+        controller.signal,
+      ),
+    ])
+      .then(([items, categoryItems]) => {
+        if (!controller.signal.aborted) {
+          setTemplates(items || []);
+          setCategories(categoryItems || []);
+        }
       })
       .catch((reason) => {
         if (!controller.signal.aborted) setError(promptError(reason, t));
@@ -119,6 +140,18 @@ export default function PromptCenter() {
                   </Button>
                   {admin && (
                     <>
+                      <Button
+                        className='prompt-center-secondary'
+                        onClick={() => setCategoryManager(true)}
+                      >
+                        {t('Manage categories')}
+                      </Button>
+                      <Button
+                        className='prompt-center-secondary'
+                        onClick={() => setStore(true)}
+                      >
+                        {t('Skill store')}
+                      </Button>
                       <Button
                         className='prompt-center-secondary'
                         icon={<SlidersHorizontal size={15} />}
@@ -175,6 +208,36 @@ export default function PromptCenter() {
             </div>
           </header>
           <div className='prompt-center-content-area'>
+            <div className='prompt-center-filters'>
+              <label>
+                {t('Filter category')}
+                <select
+                  aria-label={t('Filter category')}
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                >
+                  <option value='all'>{t('All categories')}</option>
+                  <option value='0'>{t('Uncategorized')}</option>
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t('Filter skill type')}
+                <select
+                  aria-label={t('Filter skill type')}
+                  value={kind}
+                  onChange={(event) => setKind(event.target.value)}
+                >
+                  <option value='all'>{t('All skill types')}</option>
+                  <option value='prompt'>{t('Single skill')}</option>
+                  <option value='bundle'>{t('Skill bundle')}</option>
+                </select>
+              </label>
+            </div>
             {error && (
               <div role='alert' className='prompt-center-error'>
                 {error}
@@ -247,11 +310,31 @@ export default function PromptCenter() {
         )}
         {editing && (
           <PromptTemplateEditor
+            categories={categories}
             template={editing}
             onCancel={() => setEditing(null)}
             onSaved={() => {
               setEditing(null);
               setRevision((value) => value + 1);
+            }}
+          />
+        )}
+        {categoryManager && (
+          <CategoryManager
+            categories={categories}
+            onCancel={() => setCategoryManager(false)}
+            onChange={(items) => {
+              setCategories(items);
+              setRevision((value) => value + 1);
+            }}
+          />
+        )}
+        {store && (
+          <SkillStore
+            onCancel={() => setStore(false)}
+            onImport={(draft) => {
+              setStore(false);
+              setEditing(draft);
             }}
           />
         )}

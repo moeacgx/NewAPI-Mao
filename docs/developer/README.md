@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [技能合集、分类与导入](../workflows/2026-10/22_skill_bundles_categories.md)：双模板合集编辑、分类维护、ZIP/公开仓库链接导入和仓库内置技能商店；导入生成站点草稿。
+
 - [Classic 操练场与新版布局对齐](../workflows/2026-10/22_classic_playground_alignment.md)：居中对话、底部输入与令牌切换、参数/调试侧面板，保留原请求能力。
 
 - [操练场 API 令牌切换](../workflows/2026-10/22_playground_token_switch.md)：双模板本人令牌搜索选择、正式权限与提示词装载、模型发现及额度结算。

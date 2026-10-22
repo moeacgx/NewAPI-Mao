@@ -372,6 +372,7 @@ func migrateDB() error {
 		&ChannelGroupBinding{},
 		&TokenGroupBinding{},
 		&PromptTemplate{},
+		&PromptCategory{},
 		&PromptTemplateGroup{},
 		&TokenPromptBinding{},
 	)
@@ -524,6 +525,7 @@ func migrateDBFast() error {
 		{&ChannelGroupBinding{}, "ChannelGroupBinding"},
 		{&TokenGroupBinding{}, "TokenGroupBinding"},
 		{&PromptTemplate{}, "PromptTemplate"},
+		{&PromptCategory{}, "PromptCategory"},
 		{&PromptTemplateGroup{}, "PromptTemplateGroup"},
 		{&TokenPromptBinding{}, "TokenPromptBinding"},
 	}

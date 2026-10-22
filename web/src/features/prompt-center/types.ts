@@ -31,6 +31,28 @@ export interface PromptTemplate {
   version: number
   group_ids: number[]
   group_details: PromptGroup[]
+  kind?: 'prompt' | 'bundle'
+  category_id?: number
+  category_name?: string
+  skills?: { title: string; content?: string }[]
+  skill_count?: number
+}
+
+export interface PromptCategory {
+  id: number
+  name: string
+  version: number
+}
+
+export interface SkillStoreEntry {
+  id: string
+  title: string
+  description: string
+  kind: 'prompt' | 'bundle'
+  category: string
+  skill_count: number
+  source: 'bundled' | 'online'
+  version: string
 }
 
 export interface TokenPromptBinding {
@@ -48,7 +70,7 @@ export interface PromptToken {
 
 export type PromptTemplateInput = Omit<
   PromptTemplate,
-  'id' | 'group_details' | 'content'
+  'id' | 'group_details' | 'content' | 'category_name' | 'skill_count'
 > & { content: string }
 
 export interface PromptResponse<T> {

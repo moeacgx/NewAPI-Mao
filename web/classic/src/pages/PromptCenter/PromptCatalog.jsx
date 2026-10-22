@@ -29,6 +29,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import SkillSummary from './SkillSummary';
 
 export default function PromptCatalog(props) {
   const { t } = useTranslation();
@@ -70,6 +71,7 @@ export default function PromptCatalog(props) {
                   {template.enabled ? t('Published') : t('Unpublished')}
                 </span>
               </div>
+              <SkillSummary template={template} />
               <p className='prompt-center-card-description'>
                 {template.description || t('Prompt')}
               </p>

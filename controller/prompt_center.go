@@ -15,11 +15,20 @@ type promptTemplatePublic struct {
 	ID           int                    `json:"id"`
 	Title        string                 `json:"title"`
 	Description  string                 `json:"description"`
+	Kind         string                 `json:"kind"`
+	CategoryID   int                    `json:"category_id"`
+	CategoryName string                 `json:"category_name"`
+	Skills       []promptSkillPublic    `json:"skills"`
+	SkillCount   int                    `json:"skill_count"`
 	Enabled      bool                   `json:"enabled"`
 	SortOrder    int                    `json:"sort_order"`
 	Version      int                    `json:"version"`
 	GroupIDs     []int                  `json:"group_ids"`
 	GroupDetails []model.GroupReference `json:"group_details"`
+}
+
+type promptSkillPublic struct {
+	Title string `json:"title"`
 }
 
 type tokenPromptInstallationPublic struct {
@@ -29,11 +38,53 @@ type tokenPromptInstallationPublic struct {
 }
 
 func publicPromptTemplate(template model.PromptTemplate) promptTemplatePublic {
+	skills := make([]promptSkillPublic, 0, len(template.Skills))
+	for _, skill := range template.Skills {
+		skills = append(skills, promptSkillPublic{Title: skill.Title})
+	}
 	return promptTemplatePublic{
 		ID: template.ID, Title: template.Title, Description: template.Description,
 		Enabled: template.Enabled, SortOrder: template.SortOrder, Version: template.Version,
 		GroupIDs: template.GroupIDs, GroupDetails: template.GroupDetails,
+		Kind: template.Kind, CategoryID: template.CategoryID, CategoryName: template.CategoryName,
+		Skills: skills, SkillCount: template.SkillCount,
 	}
+}
+
+func GetPromptCategories(c *gin.Context) {
+	categories, err := model.ListPromptCategories()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, categories)
+}
+
+func SavePromptCategory(c *gin.Context) {
+	var input model.PromptCategory
+	if err := common.DecodeJson(http.MaxBytesReader(c.Writer, c.Request.Body, 4096), &input); err != nil {
+		common.ApiErrorMsg(c, "技能分类请求格式错误或超过大小限制")
+		return
+	}
+	input.ID = 0
+	if c.Request.Method == http.MethodPut {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil || id <= 0 {
+			common.ApiErrorMsg(c, "技能分类 ID 无效")
+			return
+		}
+		input.ID = id
+	}
+	saved, err := model.SavePromptCategory(input)
+	if errors.Is(err, model.ErrPromptVersionConflict) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, saved)
 }
 
 func GetPromptTemplates(c *gin.Context) {

@@ -3,8 +3,6 @@ package model
 import (
 	"errors"
 	"sort"
-	"strings"
-	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -20,6 +18,12 @@ type PromptTemplate struct {
 	Title        string           `json:"title" gorm:"size:320"`
 	Description  string           `json:"description" gorm:"type:text"`
 	Content      string           `json:"content" gorm:"type:text"`
+	Kind         string           `json:"kind" gorm:"size:16"`
+	CategoryID   int              `json:"category_id" gorm:"index"`
+	CategoryName string           `json:"category_name" gorm:"-"`
+	SkillsJSON   string           `json:"-" gorm:"type:text"`
+	Skills       []PromptSkill    `json:"skills" gorm:"-"`
+	SkillCount   int              `json:"skill_count" gorm:"-"`
 	Enabled      bool             `json:"enabled"`
 	SortOrder    int              `json:"sort_order"`
 	Version      int              `json:"version"`
@@ -59,6 +63,9 @@ type TokenPromptContent struct {
 }
 
 func hydratePromptTemplateGroups(tx *gorm.DB, templates []PromptTemplate) error {
+	if err := hydratePromptTemplateMetadata(tx, templates); err != nil {
+		return err
+	}
 	ids := make([]int, 0, len(templates))
 	for i := range templates {
 		ids = append(ids, templates[i].ID)
@@ -116,11 +123,11 @@ func ListPromptTemplates(enabledOnly bool) ([]PromptTemplate, error) {
 }
 
 func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	if !utf8.ValidString(input.Content) || !utf8.ValidString(input.Title) || !utf8.ValidString(input.Description) ||
-		utf8.RuneCountInString(input.Title) < 1 || utf8.RuneCountInString(input.Title) > 80 ||
-		utf8.RuneCountInString(input.Description) > 512 || strings.TrimSpace(input.Content) == "" || len(input.Content) > MaxPromptContentBytes {
-		return nil, errors.New("提示词标题、说明或正文长度不合法")
+	if err := NormalizePromptTemplateContent(&input); err != nil {
+		return nil, err
+	}
+	if input.CategoryID < 0 {
+		return nil, errors.New("技能分类无效")
 	}
 	if (input.Enabled && len(input.GroupIDs) == 0) || len(input.GroupIDs) > 1000 {
 		return nil, errors.New("请选择 1 至 1000 个允许装载的分组")
@@ -141,6 +148,12 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 		}
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		if input.CategoryID > 0 {
+			var category PromptCategory
+			if err := tx.First(&category, input.CategoryID).Error; err != nil {
+				return errors.New("技能分类不存在")
+			}
+		}
 		lockedTokenIDs := make(map[int]bool, len(affectedTokenIDs))
 		if len(affectedTokenIDs) > 0 {
 			var tokens []Token
@@ -182,6 +195,9 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 					}
 					total := len(input.Content)
 					for _, other := range others {
+						if err := normalizePromptTemplateContent(&other); err != nil {
+							return err
+						}
 						total += len(other.Content)
 					}
 					if total > MaxTokenPromptBytes {
@@ -190,7 +206,7 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 				}
 			}
 			input.Version++
-			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(map[string]interface{}{"title": input.Title, "description": input.Description, "content": input.Content, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version})
+			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(map[string]interface{}{"title": input.Title, "description": input.Description, "content": input.Content, "kind": input.Kind, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version})
 			if result.Error != nil {
 				return result.Error
 			}
@@ -335,6 +351,9 @@ func ReplaceTokenPromptBindings(userID, tokenID int, inputs []TokenPromptBinding
 				return errors.New("提示词已下架，或令牌可用分组不在装载白名单内")
 			}
 			if input.Enabled {
+				if err := normalizePromptTemplateContent(&template); err != nil {
+					return err
+				}
 				total += len(template.Content)
 			}
 		}
@@ -378,6 +397,9 @@ func GetActiveTokenPrompts(tokenID int, groupCode string) ([]TokenPromptContent,
 	}
 	total := 0
 	for _, template := range templates {
+		if err := normalizePromptTemplateContent(&template); err != nil {
+			return nil, err
+		}
 		total += len(template.Content)
 		if len(result) >= MaxTokenPrompts || total > MaxTokenPromptBytes || len(template.Content) > MaxPromptContentBytes {
 			return nil, errors.New("令牌提示词超出装载上限")

@@ -3,6 +3,9 @@
 .prompt-installation-modal,
 .prompt-center-form {
   /* 与 Default 主色保持一致，局部覆盖避免影响 Classic 其他页面。 */
+  --prompt-ink: var(--semi-color-text-0);
+  --prompt-muted: var(--semi-color-text-2);
+  --prompt-line: color-mix(in srgb, var(--semi-color-text-0) 12%, transparent);
   --prompt-accent: oklch(0.692 0.141 243.716);
   --prompt-accent-foreground: oklch(0.42 0.16 250);
   --semi-color-primary: var(--prompt-accent);
@@ -66,9 +69,6 @@ body[theme-mode='dark'] .prompt-center-form {
 }
 
 .prompt-center-page {
-  --prompt-ink: var(--semi-color-text-0);
-  --prompt-muted: var(--semi-color-text-2);
-  --prompt-line: color-mix(in srgb, var(--semi-color-text-0) 12%, transparent);
   padding: 0 20px 36px;
 }
 
@@ -767,6 +767,8 @@ body[theme-mode='dark'] .prompt-center-form {
 
 .prompt-center-form input:not([type='checkbox']):not([type='file']),
 .prompt-center-form textarea,
+.prompt-center-form select,
+.prompt-center-filters select,
 .prompt-center-stack select,
 .prompt-center-stack input:not([type='checkbox']) {
   min-width: 0;
@@ -1050,6 +1052,169 @@ body[theme-mode='dark'] .prompt-center-form {
   overflow-y: auto;
 }
 
+.prompt-template-modal .semi-modal-body {
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+}
+
 .prompt-center-install-button.semi-button-disabled {
   opacity: 0.4;
+}
+
+.prompt-center-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px;
+  border: 1px solid var(--prompt-line);
+  border-radius: 12px;
+  background: var(--semi-color-bg-0);
+}
+
+.prompt-center-filters label {
+  display: flex;
+  min-width: 160px;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  color: var(--prompt-muted);
+  font-size: 12px;
+}
+
+.prompt-center-filters select {
+  flex: 1;
+}
+.prompt-skill-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.prompt-skill-summary details {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+.prompt-skill-summary summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--semi-color-primary);
+}
+.prompt-skill-summary ol {
+  margin: 10px 0 0;
+  padding-left: 22px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.prompt-bundle-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.prompt-bundle-skill {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 10px;
+  background: var(--semi-color-bg-0);
+}
+.prompt-bundle-skill .prompt-center-row {
+  align-items: center;
+}
+.prompt-bundle-skill .prompt-center-row strong {
+  margin-right: auto;
+}
+.prompt-category-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.prompt-category-row input {
+  min-width: 0;
+  flex: 1;
+}
+.prompt-category-list {
+  display: flex;
+  max-height: 50vh;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+}
+.prompt-archive-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--semi-color-border);
+  border-radius: 10px;
+}
+.prompt-archive-import .prompt-center-error,
+.prompt-center-form > .prompt-center-error {
+  margin: 0;
+}
+.prompt-store-search {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+.prompt-store-search input {
+  width: 100%;
+}
+.prompt-store-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+.prompt-store-grid p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .prompt-center-filters label {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .prompt-center-filters select {
+    min-width: 0;
+    width: 100%;
+  }
+  .prompt-store-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .prompt-store-search {
+    flex-basis: 100%;
+  }
+  .prompt-category-row {
+    flex-wrap: wrap;
+  }
+  .prompt-category-row input {
+    flex-basis: 70%;
+  }
+}
+
+.prompt-repository-fields {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 10px;
+}
+.prompt-repository-fields .prompt-center-row input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.prompt-repository-fields small {
+  overflow-wrap: anywhere;
 }

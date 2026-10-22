@@ -35,12 +35,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { getGroupDetails } from '@/features/system-settings/api'
 
-import { savePromptTemplate } from '../api'
+import { getPromptCategories, savePromptTemplate } from '../api'
 import {
   promptTemplateSchema,
   type PromptTemplateForm,
 } from '../lib/validation'
 import type { PromptTemplate } from '../types'
+import { BundleSkillEditor } from './bundle-skill-editor'
 
 export function PromptTemplateEditor(props: {
   template?: PromptTemplate
@@ -54,6 +55,10 @@ export function PromptTemplateEditor(props: {
     queryKey: ['prompt-center-admin-groups'],
     queryFn: getGroupDetails,
   })
+  const categories = useQuery({
+    queryKey: ['prompt-categories'],
+    queryFn: getPromptCategories,
+  })
   const form = useForm<PromptTemplateForm>({
     resolver: zodResolver(promptTemplateSchema),
     defaultValues: {
@@ -64,12 +69,30 @@ export function PromptTemplateEditor(props: {
       sort_order: props.template?.sort_order ?? 0,
       version: props.template?.version ?? 0,
       group_ids: props.template?.group_ids ?? [],
+      kind: props.template?.kind ?? 'prompt',
+      category_id: props.template?.category_id ?? 0,
+      skills: props.template?.skills?.map((skill) => ({
+        title: skill.title,
+        content: skill.content ?? '',
+      })) ?? [
+        { title: '', content: '' },
+        { title: '', content: '' },
+      ],
     },
   })
   const selectedGroups = form.watch('group_ids')
+  const kind = form.watch('kind')
+  const categoryId = form.watch('category_id') ?? 0
   const mutation = useMutation({
     mutationFn: (values: PromptTemplateForm) =>
-      savePromptTemplate(values, props.template?.id),
+      savePromptTemplate(
+        {
+          ...values,
+          skills: values.kind === 'bundle' ? values.skills : [],
+          content: values.kind === 'bundle' ? '' : values.content,
+        },
+        props.template?.id
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['prompt-center'] })
       await queryClient.invalidateQueries({ queryKey: ['keys'] })
@@ -87,7 +110,7 @@ export function PromptTemplateEditor(props: {
       <DialogContent className='max-h-[90dvh] overflow-y-auto sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
-            {props.template ? t('Edit prompt') : t('Create prompt')}
+            {props.template?.id ? t('Edit prompt') : t('Create prompt')}
           </DialogTitle>
           <DialogDescription>
             {t(
@@ -100,6 +123,63 @@ export function PromptTemplateEditor(props: {
           onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
         >
           <fieldset disabled={mutation.isPending} className='space-y-4'>
+            <div className='grid gap-3 sm:grid-cols-2'>
+              <div className='space-y-1.5'>
+                <Label htmlFor={`${fieldId}-kind`}>{t('Skill type')}</Label>
+                <select
+                  id={`${fieldId}-kind`}
+                  className='bg-background h-9 w-full rounded-md border px-3 text-sm'
+                  {...form.register('kind')}
+                >
+                  <option value='prompt'>{t('Single skill')}</option>
+                  <option value='bundle'>{t('Skill bundle')}</option>
+                </select>
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor={`${fieldId}-category`}>
+                  {t('Skill category')}
+                </Label>
+                <select
+                  id={`${fieldId}-category`}
+                  className='bg-background h-9 w-full rounded-md border px-3 text-sm'
+                  value={categoryId}
+                  onChange={(event) =>
+                    form.setValue('category_id', Number(event.target.value), {
+                      shouldDirty: true,
+                    })
+                  }
+                >
+                  <option value={0}>{t('Uncategorized skills')}</option>
+                  {categories.data?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                  {categoryId > 0 &&
+                    !categories.data?.some(
+                      (category) => category.id === categoryId
+                    ) && (
+                      <option value={categoryId}>
+                        {props.template?.category_name ||
+                          t('Unavailable category')}
+                      </option>
+                    )}
+                </select>
+                {categories.isError && (
+                  <div role='alert' className='text-destructive text-xs'>
+                    <p>{t('Failed to load skill categories')}</p>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => categories.refetch()}
+                    >
+                      {t('Retry')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className='space-y-1.5'>
               <Label htmlFor={`${fieldId}-title`}>{t('Title')}</Label>
               <Input
@@ -124,62 +204,66 @@ export function PromptTemplateEditor(props: {
                 {...form.register('description')}
               />
             </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor={`${fieldId}-file`}>
-                {t('Import Markdown or SKILL.md as text')}
-              </Label>
-              <Input
-                id={`${fieldId}-file`}
-                type='file'
-                accept='.md,.txt,text/plain,text/markdown'
-                onChange={async (event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  setImportError('')
-                  try {
-                    if (file.size > 32768) {
-                      throw new Error(
-                        'Prompt content must not exceed 32768 bytes'
+            {kind === 'bundle' ? (
+              <BundleSkillEditor form={form} fieldId={fieldId} />
+            ) : (
+              <div className='space-y-1.5'>
+                <Label htmlFor={`${fieldId}-file`}>
+                  {t('Import Markdown or SKILL.md as text')}
+                </Label>
+                <Input
+                  id={`${fieldId}-file`}
+                  type='file'
+                  accept='.md,.txt,text/plain,text/markdown'
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    setImportError('')
+                    try {
+                      if (file.size > 32768) {
+                        throw new Error(
+                          'Prompt content must not exceed 32768 bytes'
+                        )
+                      }
+                      const text = await file.text()
+                      if (text.includes('\0')) {
+                        throw new Error('Only plain text files are supported')
+                      }
+                      form.setValue('content', text, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    } catch (error) {
+                      setImportError(
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to read file'
                       )
                     }
-                    const text = await file.text()
-                    if (text.includes('\0')) {
-                      throw new Error('Only plain text files are supported')
-                    }
-                    form.setValue('content', text, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  } catch (error) {
-                    setImportError(
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to read file'
-                    )
-                  }
-                }}
-              />
-              {importError && (
-                <p role='alert' className='text-destructive text-xs'>
-                  {t(importError)}
-                </p>
-              )}
-              <Label htmlFor={`${fieldId}-content`}>
-                {t('Prompt content')}
-              </Label>
-              <Textarea
-                id={`${fieldId}-content`}
-                rows={10}
-                className='max-h-96 font-mono'
-                aria-invalid={Boolean(form.formState.errors.content)}
-                {...form.register('content')}
-              />
-              {form.formState.errors.content && (
-                <p role='alert' className='text-destructive text-xs'>
-                  {t('Enter prompt text up to 32768 bytes')}
-                </p>
-              )}
-            </div>
+                  }}
+                />
+                {importError && (
+                  <p role='alert' className='text-destructive text-xs'>
+                    {t(importError)}
+                  </p>
+                )}
+                <Label htmlFor={`${fieldId}-content`}>
+                  {t('Prompt content')}
+                </Label>
+                <Textarea
+                  id={`${fieldId}-content`}
+                  rows={10}
+                  className='max-h-96 font-mono'
+                  aria-invalid={Boolean(form.formState.errors.content)}
+                  {...form.register('content')}
+                />
+                {form.formState.errors.content && (
+                  <p role='alert' className='text-destructive text-xs'>
+                    {t('Enter prompt text up to 32768 bytes')}
+                  </p>
+                )}
+              </div>
+            )}
             <fieldset className='bg-muted/20 space-y-2 rounded-lg border p-3'>
               <legend className='px-1 text-sm font-medium'>
                 {t('Allowed groups')}
@@ -305,7 +389,9 @@ export function PromptTemplateEditor(props: {
             </Button>
             <Button
               type='submit'
-              disabled={mutation.isPending || !groups.isSuccess}
+              disabled={
+                mutation.isPending || !groups.isSuccess || !categories.isSuccess
+              }
             >
               {t('Save')}
             </Button>
