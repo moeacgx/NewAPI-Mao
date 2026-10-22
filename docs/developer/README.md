@@ -1,6 +1,6 @@
 # NewAPI-Mao 开发文档
 
-- [提示词中心本地 UI 演示](../workflows/2026-10/22_prompt_center_local_ui_demo.md)：双模板视觉改版、用户端仅安装卸载与正文访问边界；尚未更新 zzapi。
+- [提示词中心本地 UI 演示](../workflows/2026-10/22_prompt_center_local_ui_demo.md)：双模板浅蓝卡片定稿、用户端仅安装卸载与正文访问边界；已更新 zzapi，见下方部署记录。
 
 - [提示词中心 zzapi 测试部署](../workflows/2026-10/22_token_prompt_center_zzapi.md)：现场基线、备份、迁移、回滚和验收记录。
 
