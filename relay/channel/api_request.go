@@ -369,12 +369,105 @@ func newRelayHTTPRequest(c *gin.Context, method string, target string, body io.R
 }
 
 func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
+	ctx := context.Background()
+	if c != nil && c.Request != nil {
+		ctx = c.Request.Context()
+	}
+	if usesClaudeResponsesUsageDrain(info) {
+		return doApiRequestWithBoundedDisconnectDrain(a, c, info, requestBody, ctx)
+	}
+	return doApiRequestWithContext(a, c, info, requestBody, ctx)
+}
+
+func usesClaudeResponsesUsageDrain(info *common.RelayInfo) bool {
+	return info != nil && info.IsStream && info.RelayMode == constant.RelayModeResponses &&
+		info.FinalRequestRelayFormat == types.RelayFormatClaude && info.ChannelMeta != nil &&
+		info.ChannelMeta.ApiType == appconstant.APITypeAnthropic
+}
+
+// ClaudeResponsesUsageDrainTimeout 限制客户端断开后的上游读取时间。
+const ClaudeResponsesUsageDrainTimeout = 180 * time.Second
+
+type cancelOnCloseResponseBody struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnCloseResponseBody) Close() error {
+	b.cancel()
+	return b.ReadCloser.Close()
+}
+
+func doApiRequestWithBoundedDisconnectDrain(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader, clientContext context.Context) (*http.Response, error) {
+	if err := clientContext.Err(); err != nil {
+		return nil, err
+	}
+	upstreamParent := context.WithoutCancel(clientContext)
+	var deadlineCancel context.CancelFunc
+	if deadline, ok := clientContext.Deadline(); ok {
+		upstreamParent, deadlineCancel = context.WithDeadline(upstreamParent, deadline)
+	}
+	upstreamContext, upstreamCancel := context.WithCancel(upstreamParent)
+	var mu sync.Mutex
+	detached := false
+	closed := false
+	var drainTimer *time.Timer
+	stopClientCancellation := context.AfterFunc(clientContext, func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if closed {
+			return
+		}
+		if detached {
+			drainTimer = time.AfterFunc(ClaudeResponsesUsageDrainTimeout, upstreamCancel)
+		} else {
+			upstreamCancel()
+		}
+	})
+	cleanup := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		closed = true
+		stopClientCancellation()
+		if drainTimer != nil {
+			drainTimer.Stop()
+		}
+		upstreamCancel()
+		if deadlineCancel != nil {
+			deadlineCancel()
+		}
+	}
+	resp, err := doApiRequestWithContext(a, c, info, requestBody, upstreamContext)
+	mu.Lock()
+	// 仅成功建立的流可排空；响应头前取消、HTTP 错误仍及时终止上游。
+	clientErr := clientContext.Err()
+	detached = err == nil && resp.StatusCode == http.StatusOK && clientErr == nil
+	mu.Unlock()
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	if clientErr != nil {
+		cleanup()
+		_ = resp.Body.Close()
+		return nil, clientErr
+	}
+	resp.Body = &cancelOnCloseResponseBody{ReadCloser: resp.Body, cancel: cleanup}
+	return resp, nil
+}
+
+// doApiRequestWithContext 在保留渠道请求头与传输配置的同时显式指定请求上下文。
+func doApiRequestWithContext(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader, requestContext context.Context) (*http.Response, error) {
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
 	logger.LogDebug(c, "fullRequestURL: %s", common.SanitizeURLForLog(fullRequestURL))
-	req, err := newRelayHTTPRequest(c, c.Request.Method, fullRequestURL, requestBody)
+	method := http.MethodPost
+	if c != nil && c.Request != nil {
+		method = c.Request.Method
+	}
+	req, err := http.NewRequestWithContext(requestContext, method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
