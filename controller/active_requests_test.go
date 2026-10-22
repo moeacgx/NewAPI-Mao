@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +20,119 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetAdminActiveRequestsSubjectAndIsolation(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	target := model.User{Id: 87501, Username: "active-target", Password: "private-password", Email: "private@example.test", AffCode: "active-target-code"}
+	other := model.User{Id: 87502, Username: "active-other", Password: "private-other-password", AffCode: "active-other-code"}
+	require.NoError(t, db.Create(&target).Error)
+	require.NoError(t, db.Create(&other).Error)
+	for _, user := range []model.User{target, other} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		c.Set("token_name", user.Username+" token")
+		_, finish := service.TrackActiveRequest(c, &relaycommon.RelayInfo{UserId: user.Id, TokenId: user.Id, OriginModelName: "public-model", StartTime: time.Now()}, "openai")
+		defer finish()
+	}
+	for _, selector := range []string{"user_id=" + strconv.Itoa(target.Id), "username=" + target.Username} {
+		t.Run(selector, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "/api/log/active?"+selector+"&page_size=1&token_id=87501&status=processing&search=public", nil)
+			c.Set("id", other.Id)
+			c.Set("role", common.RoleAdminUser)
+			GetAdminActiveRequests(c)
+			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+			assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+			var response struct {
+				Success bool
+				Data    struct {
+					activerequests.Page
+					Subject struct {
+						ID       int    `json:"id"`
+						Username string `json:"username"`
+					}
+				}
+			}
+			require.NoError(t, common.Unmarshal(w.Body.Bytes(), &response))
+			require.True(t, response.Success)
+			assert.Equal(t, target.Id, response.Data.Subject.ID)
+			assert.Equal(t, target.Username, response.Data.Subject.Username)
+			require.Len(t, response.Data.Items, 1)
+			assert.Equal(t, target.Id, response.Data.Items[0].TokenID)
+			assert.Equal(t, 1, response.Data.Total)
+			assert.Equal(t, 1, response.Data.Summary.Total)
+			assert.Equal(t, 1, response.Data.PageSize)
+			for _, secret := range []string{target.Password, target.Email, "\"password\"", "\"access_token\"", other.Username} {
+				assert.NotContains(t, w.Body.String(), secret)
+			}
+		})
+	}
+}
+
+func TestGetAdminActiveRequestsValidationAndFailures(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	target := model.User{Id: 87503, Username: "active-lookup", Password: "password", AffCode: "active-lookup-code"}
+	require.NoError(t, db.Create(&target).Error)
+	deleted := model.User{Id: 87505, Username: "deleted-lookup", Password: "password", AffCode: "deleted-lookup-code"}
+	require.NoError(t, db.Create(&deleted).Error)
+	require.NoError(t, db.Delete(&deleted).Error)
+	for _, tc := range []struct {
+		name, query      string
+		id, role, status int
+	}{
+		{"unauthenticated", "?user_id=87503", 0, 0, 401},
+		{"ordinary user", "?user_id=87503", 1, common.RoleCommonUser, 403},
+		{"missing subject", "", 1, common.RoleAdminUser, 400},
+		{"empty subject", "?username=", 1, common.RoleAdminUser, 400},
+		{"blank subject", "?username=%20", 1, common.RoleAdminUser, 400},
+		{"conflicting subject", "?user_id=87503&username=active-lookup", 1, common.RoleAdminUser, 400},
+		{"empty conflict", "?user_id=87503&username=", 1, common.RoleAdminUser, 400},
+		{"duplicate subject", "?user_id=87503&user_id=87504", 1, common.RoleAdminUser, 400},
+		{"duplicate username", "?username=active-lookup&username=active-other", 1, common.RoleAdminUser, 400},
+		{"zero id", "?user_id=0", 1, common.RoleAdminUser, 400},
+		{"negative id", "?user_id=-1", 1, common.RoleAdminUser, 400},
+		{"overflow id", "?user_id=99999999999999999999999", 1, common.RoleAdminUser, 400},
+		{"long username", "?username=" + strings.Repeat("a", model.UserNameMaxLength+1), 1, common.RoleAdminUser, 400},
+		{"invalid page", "?user_id=87503&page=0", 1, common.RoleAdminUser, 400},
+		{"invalid status", "?user_id=87503&status=invalid", 1, common.RoleAdminUser, 400},
+		{"long search", "?user_id=87503&search=" + url.QueryEscape(strings.Repeat("用", 257)), 1, common.RoleAdminUser, 400},
+		{"unknown id", "?user_id=87504", 1, common.RoleAdminUser, 404},
+		{"partial username", "?username=active", 1, common.RoleAdminUser, 404},
+		{"wildcard username", "?username=active%25", 1, common.RoleAdminUser, 404},
+		{"SQL syntax username", "?username=" + url.QueryEscape("' OR 1=1 --"), 1, common.RoleAdminUser, 404},
+		{"unknown username", "?username=absent", 1, common.RoleAdminUser, 404},
+		{"case mismatch", "?username=ACTIVE-LOOKUP", 1, common.RoleAdminUser, 404},
+		{"deleted user id", "?user_id=87505", 1, common.RoleAdminUser, 404},
+		{"deleted username", "?username=deleted-lookup", 1, common.RoleAdminUser, 404},
+		{"empty connections", "?user_id=87503&status=completed", 1, common.RoleRootUser, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "/api/log/active"+tc.query, nil)
+			c.Set("id", tc.id)
+			c.Set("role", tc.role)
+			GetAdminActiveRequests(c)
+			assert.Equal(t, tc.status, w.Code, w.Body.String())
+			assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+			if tc.status == http.StatusOK {
+				assert.Contains(t, w.Body.String(), `"items":[]`)
+			}
+		})
+	}
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/log/active?user_id=87503", nil)
+	c.Set("id", 1)
+	c.Set("role", common.RoleAdminUser)
+	GetAdminActiveRequests(c)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.NotContains(t, w.Body.String(), "database")
+}
 
 func TestGetSelfActiveRequestsScopeAndValidation(t *testing.T) {
 	for _, owner := range []int{87401, 87402} {

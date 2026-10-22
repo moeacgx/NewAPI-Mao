@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -80,6 +80,10 @@ export const useLogsData = () => {
   const [logCount, setLogCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [logType, setLogType] = useState(0);
+  const [activeRequestSubject, setActiveRequestSubject] = useState(null);
+  const querySequence = useRef(0);
+  const statSequence = useRef(0);
+  const statQuery = useRef(null);
 
   // User and admin
   const isAdminUser = isAdmin();
@@ -275,7 +279,7 @@ export const useLogsData = () => {
   };
 
   // Statistics functions
-  const getLogSelfStat = async () => {
+  const getLogSelfStat = async (values) => {
     const {
       token_name,
       model_name,
@@ -283,7 +287,7 @@ export const useLogsData = () => {
       end_timestamp,
       group,
       logType: formLogType,
-    } = getFormValues();
+    } = values;
     const currentLogType = formLogType !== undefined ? formLogType : logType;
     const params = {
       type: currentLogType,
@@ -294,17 +298,10 @@ export const useLogsData = () => {
       group,
     };
     const res = await API.get('/api/log/self/stat', { params });
-    const { success, message, data } = res.data;
-    if (success) {
-      setStat(data);
-      return true;
-    } else {
-      showError(message);
-      return false;
-    }
+    return res.data;
   };
 
-  const getLogStat = async () => {
+  const getLogStat = async (values) => {
     const {
       username,
       userSearchType,
@@ -315,7 +312,7 @@ export const useLogsData = () => {
       channel,
       group,
       logType: formLogType,
-    } = getFormValues();
+    } = values;
     const currentLogType = formLogType !== undefined ? formLogType : logType;
     const userFilter =
       username === '' || userSearchType !== 'id'
@@ -332,37 +329,38 @@ export const useLogsData = () => {
       group,
     };
     const res = await API.get('/api/log/stat', { params });
-    const { success, message, data } = res.data;
-    if (success) {
-      setStat(data);
-      return true;
-    } else {
-      showError(message);
-      return false;
-    }
+    return res.data;
   };
 
-  const handleEyeClick = async () => {
-    if (loadingStat) {
-      return;
-    }
+  const handleEyeClick = async (
+    values = getFormValues(),
+    submittedQuery = querySequence.current,
+  ) => {
+    const requestSequence = ++statSequence.current;
     setLoadingStat(true);
     try {
-      let success;
-      if (isAdminUser) {
-        success = await getLogStat();
-      } else {
-        success = await getLogSelfStat();
+      const { success, message, data } = await (isAdminUser
+        ? getLogStat(values)
+        : getLogSelfStat(values));
+      if (
+        submittedQuery !== querySequence.current ||
+        requestSequence !== statSequence.current
+      ) {
+        return false;
       }
       if (success) {
+        statQuery.current = values;
+        setStat(data);
         setShowStat(true);
+      } else {
+        showError(message);
       }
       return success;
     } catch {
       // API 拦截器负责展示请求错误；这里仅确保后续查询不会被 loading 锁住。
       return false;
     } finally {
-      setLoadingStat(false);
+      if (requestSequence === statSequence.current) setLoadingStat(false);
     }
   };
 
@@ -882,9 +880,54 @@ export const useLogsData = () => {
   };
 
   // Load logs function
-  const loadLogs = async (startIdx, pageSize, customLogType = null) => {
+  const commitActiveRequestSubject = ({ username, userSearchType }) => {
+    let subject = null;
+    if (isAdminUser && username !== '') {
+      subject =
+        userSearchType === 'id'
+          ? { userId: String(username) }
+          : { username: String(username) };
+    }
+    setActiveRequestSubject((current) => {
+      if (
+        current?.userId === subject?.userId &&
+        current?.username === subject?.username
+      ) {
+        return current;
+      }
+      return subject;
+    });
+  };
+
+  const loadLogs = async (
+    startIdx,
+    pageSize,
+    customLogType = null,
+    submittedFormValues = null,
+    submittedQuery = null,
+  ) => {
+    if (submittedQuery !== null && submittedQuery !== querySequence.current)
+      return false;
+    const requestSequence = submittedQuery ?? ++querySequence.current;
     setLoading(true);
 
+    const values = submittedFormValues ?? getFormValues();
+    // 提交即切换对象，历史日志请求失败也不能误显示本人的连接。
+    // refresh 已在点击时提交，稍后完成的旧统计不能覆盖新的查询对象。
+    if (submittedFormValues === null) {
+      // 新提交使旧统计与列表失效，迟到响应不得混入另一用户的结果。
+      ++statSequence.current;
+      setLoadingStat(false);
+      setShowStat(
+        statQuery.current !== null &&
+          Object.entries(values).every(
+            ([key, value]) => statQuery.current[key] === value,
+          ) &&
+          (customLogType === null ||
+            customLogType === statQuery.current.logType),
+      );
+      commitActiveRequestSubject(values);
+    }
     const {
       username,
       userSearchType,
@@ -896,7 +939,7 @@ export const useLogsData = () => {
       group,
       request_id,
       logType: formLogType,
-    } = getFormValues();
+    } = values;
 
     const currentLogType =
       customLogType !== null
@@ -927,6 +970,7 @@ export const useLogsData = () => {
       const res = await API.get(isAdminUser ? '/api/log/' : '/api/log/self/', {
         params,
       });
+      if (requestSequence !== querySequence.current) return false;
       const { success, message, data } = res.data;
       if (success) {
         const newPageData = data.items;
@@ -944,7 +988,7 @@ export const useLogsData = () => {
       // API 拦截器负责展示请求错误；这里保证查询按钮可再次使用。
       return false;
     } finally {
-      setLoading(false);
+      if (requestSequence === querySequence.current) setLoading(false);
     }
   };
 
@@ -967,12 +1011,20 @@ export const useLogsData = () => {
 
   // Refresh function
   const refresh = async () => {
+    const submittedFormValues = getFormValues();
+    const submittedQuery = ++querySequence.current;
+    setLoading(false);
+    setShowStat(false);
+    commitActiveRequestSubject(submittedFormValues);
     setActivePage(1);
-    const statLoaded = await handleEyeClick();
-    if (!statLoaded) {
+    const statLoaded = await handleEyeClick(
+      submittedFormValues,
+      submittedQuery,
+    );
+    if (!statLoaded || submittedQuery !== querySequence.current) {
       return;
     }
-    await loadLogs(1, pageSize);
+    await loadLogs(1, pageSize, null, submittedFormValues, submittedQuery);
   };
 
   // Copy text function
@@ -1024,6 +1076,7 @@ export const useLogsData = () => {
     logType,
     stat,
     isAdminUser,
+    activeRequestSubject,
 
     // Form state
     formApi,

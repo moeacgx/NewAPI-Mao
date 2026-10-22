@@ -28,6 +28,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .active-requests-count {
   background: var(--semi-color-fill-0);

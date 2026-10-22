@@ -48,6 +48,7 @@ export interface CommonFilters {
  * Common logs specific filters
  */
 export interface CommonLogFilters extends CommonFilters {
+  userId?: string
   model?: string
   token?: string
   group?: string
@@ -389,6 +390,7 @@ export interface TaskLog {
 // ============================================================================
 
 export interface GetLogsParams {
+  user_id?: number | string
   p?: number
   page_size?: number
   type?: number
@@ -415,6 +417,7 @@ export interface GetLogsResponse {
 }
 
 export interface GetLogStatsParams {
+  user_id?: number | string
   type?: number
   username?: string
   token_name?: string

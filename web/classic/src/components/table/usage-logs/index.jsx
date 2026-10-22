@@ -43,7 +43,7 @@ const LogsPage = () => {
       <ChannelAffinityUsageCacheModal {...logsData} />
       <ParamOverrideModal {...logsData} />
 
-      <ActiveRequestsPanel />
+      <ActiveRequestsPanel subject={logsData.activeRequestSubject} />
 
       {/* Main Content */}
       <CardPro
