@@ -28,4 +28,30 @@ Claude Messages 转 Responses 的成功流在客户端取消后最多继续读�
 - Default 类型检查、58 项相关测试、生产构建通过；Classic 42 项相关交互测试、3 项原生鉴权测试、生产构建通过。
 - 三方合并保留主分支全部翻译键及连接管理、静态资源缓存、扩展兼容行为；未包含凭据、截图或测试数据库。
 
-以上为本地及 PR #318 验证，不代替最终整合 PR CI。发布结果以标签工作流及 GitHub Release 为准，未执行正式版主机部署。
+以上本地验证已由下述最终整合 CI 补充确认。发布结果以标签工作流及 GitHub Release 为准，未执行正式版主机部署。
+
+## 主分支与在线商店验收
+
+- PR [#320](https://github.com/moeacgx/NewAPI-Mao/pull/320) 已合并，最终发布源码为 `3cf99ca4e3f334ba3ceda3663d5651f79a42ebce`，合并前 [CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39769907953) 与 PR 检查全部成功。
+- 合并后对主分支再次执行的 [CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39770381221) 也全部成功，覆盖根模块和独立 relaykit 全量 vet/build/test、Default 类型与全量测试及 Classic 构建。
+- 标签 `v1.0.0-rc.10.1.10.352` 指向上述提交。Linux 发布流程为 [39770492026](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39770492026)，Docker 多架构流程为 [39770491976](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39770491976)。
+- 固定公开主分支在线商店已真实读取：3 个条目、5 份 Markdown 原始字节及 SHA256 与 Git 一致。实际调用 `ListSkillStore(ctx, true)` 和全部 `ImportStoreSkill` 成功，返回未发布、无分组的规范草稿；未初始化或写入数据库。
+- 发布与部署分开：本轮不改运行中的 maolaoapi/zzapi，也没有调用真实收费供应商。
+
+## 发布产物验收
+
+- Docker 发布流程全部成功，固定标签为 `ghcr.io/moeacgx/newapi-mao:v1.0.0-rc.10.1.10.352`。
+- 多架构索引摘要为 `sha256:68c51c9d134868b68568e9ec39bab1a62bd61d6fae006b40d2a0352bc6bd7009`，实际包含 `linux/amd64` 与 `linux/arm64`。
+- 两个架构镜像均已拉取，在断网、只读容器中执行 `--version`，均返回 `v1.0.0-rc.10.1.10.352`；未连接业务数据库。
+- 匿名读取确认 `latest` 与固定标签摘要一致；两架构均附 SPDX SBOM 与 SLSA v1 来源记录，源码 revision 与发布提交一致。cosign v3 签名对象存在且 subject 匹配，工作流签名成功；本次未独立执行密码学验签。
+- [GitHub Release](https://github.com/moeacgx/NewAPI-Mao/releases/tag/v1.0.0-rc.10.1.10.352) 已正式发布并设为 Latest，Linux 与 Docker 两条发布流程全部成功。
+- 两个 Linux 二进制实际读取后 SHA256 均与 `checksums-linux.txt` 及 GitHub 资产摘要一致；均在对应架构的断网、只读容器中执行 `--version` 返回 `.352`。
+  - amd64：`7b9cb8aa890c28111fbeb12f0c89cfb7aa19f298b197d82c3b4972e73f1a45a5`。
+  - arm64：`fc781c5050ccdf41d403b6cdc73a30c16162660f1bae7bed407d9272f328eb7b`。
+- ARM64 发布步骤耗时偏长的实际原因是 Ubuntu apt 交叉编译依赖下载重试，45.2 MB 下载耗时 14 分 39 秒；随后编译与发布成功，未取消、重跑或改写标签。
+
+## 跨项目边界与分享建议
+
+- 对接方可继续使用原密钥、模型 ID、路由与 usage 契约；仅新增管理 API、令牌摘要计数和操练场本人令牌身份。Claude 取消结算语义影响实际扣费，窗口与退款边界见上文。
+- NewAPIForDouDi：建议评估提示词装载与令牌徽标，需先核对其分组、预扣及前端结构，不能直接照搬迁移。
+- NewAPIModifyByGang：技能合集和管理员商店导入有分享价值，需核对其模板权限、分组与网络导入边界。以上均为建议，未创建 Issue、PR 或发送通知。
