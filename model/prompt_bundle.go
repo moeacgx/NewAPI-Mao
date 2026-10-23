@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -53,13 +54,22 @@ func normalizePromptTemplateContent(template *PromptTemplate) error {
 			if !utf8.ValidString(skill.Title) || utf8.RuneCountInString(skill.Title) < 1 || utf8.RuneCountInString(skill.Title) > 80 || seen[skill.Title] {
 				return errors.New("合集内技能标题必须为 1 至 80 个字符且不能重复")
 			}
-			if !utf8.ValidString(skill.Content) || strings.TrimSpace(skill.Content) == "" || len(skill.Content) > MaxPromptContentBytes {
-				return errors.New("合集内技能正文不能为空或超过 32768 字节")
+			if !utf8.ValidString(skill.Content) {
+				return fmt.Errorf("合集内技能「%s」正文必须为有效 UTF-8 文本", skill.Title)
+			}
+			if strings.TrimSpace(skill.Content) == "" {
+				return fmt.Errorf("合集内技能「%s」正文不能为空", skill.Title)
+			}
+			if len(skill.Content) > MaxPromptContentBytes {
+				return fmt.Errorf("合集内技能「%s」正文为 %d 字节，超过 %d 字节上限", skill.Title, len(skill.Content), MaxPromptContentBytes)
 			}
 			seen[skill.Title] = true
 			parts = append(parts, "## 技能："+skill.Title+"\n"+skill.Content)
 		}
 		template.Content = strings.Join(parts, "\n\n")
+		if len(template.Content) > MaxPromptContentBytes {
+			return fmt.Errorf("技能合集拼接正文为 %d 字节，超过 %d 字节上限（包含技能标题和分隔符），请减少技能或拆分合集", len(template.Content), MaxPromptContentBytes)
+		}
 		encoded, err := common.Marshal(template.Skills)
 		if err != nil {
 			return err
@@ -69,8 +79,14 @@ func normalizePromptTemplateContent(template *PromptTemplate) error {
 	default:
 		return errors.New("技能类型无效")
 	}
-	if !utf8.ValidString(template.Content) || strings.TrimSpace(template.Content) == "" || len(template.Content) > MaxPromptContentBytes {
-		return errors.New("提示词正文不能为空或超过 32768 字节")
+	if !utf8.ValidString(template.Content) {
+		return errors.New("提示词正文必须为有效 UTF-8 文本")
+	}
+	if strings.TrimSpace(template.Content) == "" {
+		return errors.New("提示词正文不能为空")
+	}
+	if len(template.Content) > MaxPromptContentBytes {
+		return fmt.Errorf("提示词正文为 %d 字节，超过 %d 字节上限", len(template.Content), MaxPromptContentBytes)
 	}
 	return nil
 }

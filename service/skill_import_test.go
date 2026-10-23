@@ -62,6 +62,22 @@ func TestSkillArchiveSupportsSingleMarkdownAndStripsFrontMatter(t *testing.T) {
 	assert.Empty(t, draft.Skills)
 }
 
+func TestSkillArchiveReportsFailingFileAndBodySize(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, want string
+	}{
+		{"空正文", "---\nname: 审查\n---\n \n", "提示词正文不能为空"},
+		{"超限正文", strings.Repeat("字", 10923), "提示词正文为 32769 字节，超过 32768 字节上限"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := skillArchiveFixture(t, []string{"skills/a/SKILL.md", "skills/b/SKILL.md", "README.md", "scripts/run.sh"}, []string{"有效正文", tc.body, "普通说明", "exit 1"}, false)
+			draft, err := ParseSkillArchive(data, "skills.zip")
+			require.EqualError(t, err, "技能文件 \"skills/b/SKILL.md\"："+tc.want)
+			assert.Nil(t, draft)
+		})
+	}
+}
+
 func TestSkillArchiveRejectsUnsafeOrUnboundedContent(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

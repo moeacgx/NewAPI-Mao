@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -70,12 +71,12 @@ func ParseSkillArchive(data []byte, filename string) (*model.PromptTemplate, err
 	for _, file := range markdown {
 		stream, err := file.Open()
 		if err != nil {
-			return nil, errors.New("无法读取技能文件")
+			return nil, fmt.Errorf("无法读取技能文件 %q", file.Name)
 		}
 		content, readErr := io.ReadAll(io.LimitReader(stream, maxSkillExpandedBytes+1))
 		closeErr := stream.Close()
 		if readErr != nil || closeErr != nil || len(content) > maxSkillExpandedBytes {
-			return nil, errors.New("技能文件损坏或超出大小限制")
+			return nil, fmt.Errorf("技能文件 %q 损坏或超出大小限制", file.Name)
 		}
 		readTotal += len(content)
 		if readTotal > maxSkillExpandedBytes {
@@ -83,7 +84,7 @@ func ParseSkillArchive(data []byte, filename string) (*model.PromptTemplate, err
 		}
 		item, info, err := parseSkillMarkdown(content, file.Name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("技能文件 %q：%w", file.Name, err)
 		}
 		items = append(items, item)
 		description = info

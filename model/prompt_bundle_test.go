@@ -1,12 +1,46 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPromptContentValidationExplainsFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name, content, want string
+	}{
+		{"空正文", " \n\t", "提示词正文不能为空"},
+		{"无效编码", string([]byte{0xff}), "提示词正文必须为有效 UTF-8 文本"},
+		{"中文按字节超限", strings.Repeat("字", 10923), "提示词正文为 32769 字节，超过 32768 字节上限"},
+		{"恰好到上限", strings.Repeat("字", 10922) + "ab", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := NormalizePromptTemplateContent(&PromptTemplate{Title: "示例", Content: tc.content})
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.want)
+		})
+	}
+	for _, tc := range []struct {
+		name, content, want string
+	}{
+		{"空子技能", " ", "合集内技能「审查」正文不能为空"},
+		{"无效子技能编码", string([]byte{0xff}), "合集内技能「审查」正文必须为有效 UTF-8 文本"},
+		{"子技能超限", strings.Repeat("x", MaxPromptContentBytes+1), "合集内技能「审查」正文为 32769 字节，超过 32768 字节上限"},
+		{"拼接总量超限", strings.Repeat("x", MaxPromptContentBytes), fmt.Sprintf("技能合集拼接正文为 %d 字节，超过 32768 字节上限（包含技能标题和分隔符），请减少技能或拆分合集", len("## 技能：审查\n")+MaxPromptContentBytes+len("\n\n## 技能：测试\n正文"))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := NormalizePromptTemplateContent(&PromptTemplate{Title: "示例", Kind: "bundle", Skills: []PromptSkill{{Title: "审查", Content: tc.content}, {Title: "测试", Content: "正文"}}})
+			require.EqualError(t, err, tc.want)
+		})
+	}
+}
 
 func TestPromptBundleCanonicalContentAndCategoryRename(t *testing.T) {
 	group, _ := setupGroupBindingsTest(t)

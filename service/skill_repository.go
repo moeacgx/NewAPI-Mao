@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -140,7 +141,7 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 			return nil, errors.New("技能文件必须为普通文件，不能使用符号链接")
 		}
 		if entry.Size < 0 || entry.Size > 64*1024 {
-			return nil, errors.New("单个技能文件不能超过 64 KiB")
+			return nil, fmt.Errorf("技能文件 %q 的声明大小无效或超过 64 KiB", entry.Path)
 		}
 		files = append(files, entry.Path)
 	}
@@ -157,7 +158,7 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 		}
 		body, err := reader.read("https://raw.githubusercontent.com/"+owner+"/"+repository+"/"+commit.SHA+"/"+strings.Join(segments, "/"), 64*1024)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("读取技能文件 %q 失败：%w", filename, err)
 		}
 		total += len(body)
 		if total > maxSkillExpandedBytes {
@@ -165,7 +166,7 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 		}
 		item, info, err := parseSkillMarkdown(body, filename)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("技能文件 %q：%w", filename, err)
 		}
 		items = append(items, item)
 		description = info

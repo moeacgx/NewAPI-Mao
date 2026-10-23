@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)：递归目录读取、具体文件路径和 UTF-8 字节大小诊断。
+
 - [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。
 
 - [.352 技能中心与 Claude 结算整合发布](../workflows/2026-10/22_skills_claude_352_release.md)：最终组合、兼容边界、发布门禁与产物验收。

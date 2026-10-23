@@ -119,6 +119,25 @@ func TestRepositoryImportRejectsUnsafeURLsBeforeNetwork(t *testing.T) {
 	}
 }
 
+func TestRepositoryImportReportsFailingFileAndBodySize(t *testing.T) {
+	tree := `{"tree":[{"path":"skills/a/SKILL.md","mode":"100644","type":"blob"},{"path":"skills/b/SKILL.md","mode":"100644","type":"blob"},{"path":"README.md","mode":"100644","type":"blob"},{"path":"scripts/run.sh","mode":"100644","type":"blob"}]}`
+	for _, tc := range []struct {
+		name, body, want string
+	}{
+		{"空正文", "---\nname: 审查\n---\n \n", "提示词正文不能为空"},
+		{"超限正文", strings.Repeat("字", 10923), "提示词正文为 32769 字节，超过 32768 字节上限"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests []string
+			client := repositoryFixtureClient(t, tree, map[string]string{"skills/a/SKILL.md": "有效正文", "skills/b/SKILL.md": tc.body}, &requests)
+			draft, err := importRepositorySkills(context.Background(), "https://github.com/acme/skills", client)
+			require.EqualError(t, err, "技能文件 \"skills/b/SKILL.md\"："+tc.want)
+			assert.Nil(t, draft)
+			assert.Len(t, requests, 5)
+		})
+	}
+}
+
 func TestRepositoryImportRejectsUnsafeTreesAndBodyLimits(t *testing.T) {
 	for _, test := range []struct{ name, tree, body, message string }{
 		{"树被截断", `{"truncated":true,"tree":[]}`, "", "不完整"},

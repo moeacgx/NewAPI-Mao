@@ -77,6 +77,10 @@ ZIP 最多 2 MiB、128 个条目、声明解压总量 512 KiB；有 `SKILL.md` �
 否则读取 Markdown。按路径排序后导入单项或合集，最多 16 个技能。
 读取 YAML front matter 的 name/description，剥离元数据后只装载正文；
 拒绝越界路径、符号链接、损坏 ZIP 和非 UTF-8。内容仅在内存处理，不落盘、不执行。
+仓库中的普通 README、脚本和附件不会作为技能正文读取；ZIP 无 SKILL.md 时仍按上述规则读取 Markdown。
+正文错误分别显示空正文、无效 UTF-8 或实际字节数超限；ZIP 与仓库导入附带失败文件相对路径。
+合集拼接总量超限独立提示，统计包含标题和分隔符；失败不返回部分草稿，也不截断或跳过问题技能。
+诊断修复与验证见[技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)。
 
 商店原件位于 [skill-store](../../skill-store/README.md)，编译内嵌可离线使用。
 显式在线刷新仅读取本项目 `custom-main/skill-store/`，不跟随重定向，逐文件校验 SHA256。
