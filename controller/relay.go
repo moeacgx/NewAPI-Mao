@@ -251,25 +251,28 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if attemptRequest != nil {
 			relayInfo.Request = attemptRequest
 		}
-		if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
-			newAPIError = billingErr
-			break
-		}
-		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
-			newAPIError = billingErr
-			break
-		}
-		service.BeginChannelMetricAttempt(c, relayInfo, channel.Id, channel.Name, channel.Type)
+		relayInfo, newAPIError = discoverGatewaySkills(c, relayInfo, relayFormat)
+		if newAPIError == nil {
+			if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
+				newAPIError = billingErr
+				break
+			}
+			if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
+				newAPIError = billingErr
+				break
+			}
+			service.BeginChannelMetricAttempt(c, relayInfo, channel.Id, channel.Name, channel.Type)
 
-		switch relayFormat {
-		case types.RelayFormatOpenAIRealtime:
-			newAPIError = relay.WssHelper(c, relayInfo)
-		case types.RelayFormatClaude:
-			newAPIError = relay.ClaudeHelper(c, relayInfo)
-		case types.RelayFormatGemini:
-			newAPIError = geminiRelayHandler(c, relayInfo)
-		default:
-			newAPIError = relayHandler(c, relayInfo)
+			switch relayFormat {
+			case types.RelayFormatOpenAIRealtime:
+				newAPIError = relay.WssHelper(c, relayInfo)
+			case types.RelayFormatClaude:
+				newAPIError = relay.ClaudeHelper(c, relayInfo)
+			case types.RelayFormatGemini:
+				newAPIError = geminiRelayHandler(c, relayInfo)
+			default:
+				newAPIError = relayHandler(c, relayInfo)
+			}
 		}
 
 		if newAPIError == nil {

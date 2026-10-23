@@ -31,6 +31,11 @@ export function SkillSummary(props: { template: PromptTemplate }) {
         <Badge variant='secondary' className='rounded-full'>
           {bundle ? t('Skill bundle') : t('Single skill')}
         </Badge>
+        <Badge variant='outline' className='rounded-full'>
+          {props.template.load_mode === 'progressive'
+            ? t('Read on demand')
+            : t('Always loaded')}
+        </Badge>
         <Badge
           variant='outline'
           className='max-w-full rounded-full [overflow-wrap:anywhere] whitespace-normal'

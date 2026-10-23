@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +86,7 @@ func TestRepositoryImportPinsCommitAndFiltersDirectoryOrFile(t *testing.T) {
 			assert.NotNil(t, draft.GroupIDs)
 			assert.Empty(t, draft.GroupIDs)
 			assert.Equal(t, test.count, draft.SkillCount)
+			assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
 			expectedRequests := 3 + test.count
 			if strings.Contains(test.link, "/tree/") || strings.Contains(test.link, "/blob/") {
 				expectedRequests += 2
@@ -96,7 +98,8 @@ func TestRepositoryImportPinsCommitAndFiltersDirectoryOrFile(t *testing.T) {
 				assert.Equal(t, "核验", draft.Skills[1].Title)
 			} else {
 				assert.Equal(t, "prompt", draft.Kind)
-				assert.Empty(t, draft.Skills)
+				require.Len(t, draft.Skills, 1)
+				assert.NotEmpty(t, draft.Skills[0].ID)
 			}
 		})
 	}
@@ -124,8 +127,7 @@ func TestRepositoryImportReportsFailingFileAndBodySize(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, want string
 	}{
-		{"空正文", "---\nname: 审查\n---\n \n", "提示词正文不能为空"},
-		{"超限正文", strings.Repeat("字", 10923), "提示词正文为 32769 字节，超过 32768 字节上限"},
+		{"空正文", "---\nname: 审查\n---\n \n", "技能「审查」正文必须为非空 UTF-8 文本"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var requests []string
@@ -141,12 +143,11 @@ func TestRepositoryImportReportsFailingFileAndBodySize(t *testing.T) {
 func TestRepositoryImportRejectsUnsafeTreesAndBodyLimits(t *testing.T) {
 	for _, test := range []struct{ name, tree, body, message string }{
 		{"树被截断", `{"truncated":true,"tree":[]}`, "", "不完整"},
-		{"没有技能", `{"tree":[]}`, "", "1 至 16"},
+		{"没有技能", `{"tree":[]}`, "", "1 至 128"},
 		{"符号链接", `{"tree":[{"path":"SKILL.md","mode":"120000","type":"blob"}]}`, "", "符号链接"},
 		{"子模块", `{"tree":[{"path":"module","mode":"160000","type":"commit"}]}`, "", "子模块"},
-		{"大小声明超限", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob","size":65537}]}`, "", "64 KiB"},
-		{"实际文件超限", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob","size":1}]}`, strings.Repeat("a", 65537), "大小限制"},
-		{"规范正文超限", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob"}]}`, strings.Repeat("a", 32769), "32768"},
+		{"大小声明超限", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob","size":8388609}]}`, "", "8 MiB"},
+		{"实际文件超限", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob","size":1}]}`, strings.Repeat("a", model.MaxSkillFileBytes+1), "大小限制"},
 		{"路径穿越", `{"tree":[{"path":"../SKILL.md","mode":"100644","type":"blob"}]}`, "", "无效"},
 		{"重复路径", `{"tree":[{"path":"SKILL.md","mode":"100644","type":"blob"},{"path":"SKILL.md","mode":"100644","type":"blob"}]}`, "", "重复"},
 		{"文件树响应超限", strings.Repeat("x", 2*1024*1024+1), "", "大小限制"},
@@ -157,7 +158,7 @@ func TestRepositoryImportRejectsUnsafeTreesAndBodyLimits(t *testing.T) {
 			require.ErrorContains(t, err, test.message)
 		})
 	}
-	for _, count := range []int{17, 4097} {
+	for _, count := range []int{129, 4097} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			entries := make([]map[string]interface{}, count)
 			for i := range entries {
@@ -173,31 +174,54 @@ func TestRepositoryImportRejectsUnsafeTreesAndBodyLimits(t *testing.T) {
 	}
 }
 
-func TestRepositoryImportEnforcesAggregateDownloadAndNormalizedBodyLimits(t *testing.T) {
-	for _, test := range []struct {
-		name    string
-		count   int
-		content string
-		message string
-	}{
-		{"总下载大小", 9, "---\n#" + strings.Repeat("x", 60000) + "\n---\n正文", "512 KiB"},
-		{"合集规范正文大小", 2, strings.Repeat("x", 16384), "32768"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			entries := make([]map[string]interface{}, test.count)
-			raw := make(map[string]string, test.count)
-			for i := range entries {
-				filename := fmt.Sprintf("skill-%d/SKILL.md", i)
-				entries[i] = map[string]interface{}{"path": filename, "mode": "100644", "type": "blob", "size": len(test.content)}
-				raw[filename] = test.content
-			}
-			encoded, err := common.Marshal(map[string]interface{}{"tree": entries})
-			require.NoError(t, err)
+func TestRepositoryImportPreservesLargeFilesAndScopedResources(t *testing.T) {
+	tree := `{"tree":[{"path":"skills/review/SKILL.md","mode":"100644","type":"blob"},{"path":"skills/review/references/policy.md","mode":"100644","type":"blob"},{"path":"skills/review/data/example.json","mode":"100644","type":"blob"},{"path":"skills/review/scripts/run.py","mode":"100644","type":"blob"},{"path":"skills/review/nested/SKILL.md","mode":"100644","type":"blob"},{"path":"skills/review/nested/references/child.txt","mode":"100644","type":"blob"},{"path":"README.md","mode":"100644","type":"blob"}]}`
+	body := strings.Repeat("审查步骤。", 6000)
+	raw := map[string]string{
+		"skills/review/SKILL.md":                    "---\nname: 审查\ndescription: 检查代码质量\n---\n" + body,
+		"skills/review/references/policy.md":        "规范",
+		"skills/review/data/example.json":           `{"ok":true}`,
+		"skills/review/nested/SKILL.md":             "---\nname: 嵌套技能\ndescription: 处理独立任务\n---\n子正文",
+		"skills/review/nested/references/child.txt": "子资料",
+	}
+	for _, link := range []string{"https://github.com/acme/skills", "https://github.com/acme/skills/blob/main/skills/review/SKILL.md"} {
+		t.Run(link, func(t *testing.T) {
 			var requests []string
-			_, err = importRepositorySkills(context.Background(), "https://github.com/acme/skills", repositoryFixtureClient(t, string(encoded), raw, &requests))
-			require.ErrorContains(t, err, test.message)
+			draft, err := importRepositorySkills(context.Background(), link, repositoryFixtureClient(t, tree, raw, &requests))
+			require.NoError(t, err)
+			assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
+			assert.Equal(t, body, draft.Skills[0].Content)
+			assert.Equal(t, "检查代码质量", draft.Skills[0].Description)
+			assert.Equal(t, []model.PromptSkillResource{{Path: "data/example.json", Content: `{"ok":true}`}, {Path: "references/policy.md", Content: "规范"}}, draft.Skills[0].Resources)
+			if strings.Contains(link, "/blob/") {
+				assert.Len(t, draft.Skills, 1)
+				assert.NotContains(t, strings.Join(requests, "\n"), "/nested/")
+			} else {
+				require.Len(t, draft.Skills, 2)
+				assert.Equal(t, []model.PromptSkillResource{{Path: "references/child.txt", Content: "子资料"}}, draft.Skills[1].Resources)
+				assert.Empty(t, draft.Content)
+			}
+			assert.NotContains(t, strings.Join(requests, "\n"), "run.py")
+			assert.NotContains(t, strings.Join(requests, "\n"), "/README.md")
 		})
 	}
+}
+
+func TestRepositoryImportEnforcesAggregateDownloadBudget(t *testing.T) {
+	content := strings.Repeat("a", model.MaxSkillFileBytes)
+	entries := make([]map[string]interface{}, 9)
+	raw := make(map[string]string)
+	for i := range entries {
+		filename := fmt.Sprintf("skill-%d/SKILL.md", i)
+		entries[i] = map[string]interface{}{"path": filename, "mode": "100644", "type": "blob", "size": len(content)}
+		raw[filename] = content
+	}
+	encoded, err := common.Marshal(map[string]interface{}{"tree": entries})
+	require.NoError(t, err)
+	var requests []string
+	_, err = importRepositorySkills(context.Background(), "https://github.com/acme/skills", repositoryFixtureClient(t, string(encoded), raw, &requests))
+	require.ErrorContains(t, err, "64 MiB")
+	assert.Len(t, requests, 11, "第九个文件下载前应按声明大小拒绝超限包")
 }
 
 func TestRepositoryImportRejectsPrivateAndRedirects(t *testing.T) {

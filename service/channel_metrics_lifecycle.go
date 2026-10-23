@@ -84,14 +84,15 @@ type channelMetricCallState struct {
 }
 
 type channelMetricAttemptState struct {
-	seq           int
-	startedAt     time.Time
-	channelID     int
-	channelName   string
-	channelType   int
-	upstreamModel string
-	calls         []channelMetricCallState
-	usage         *ChannelMetricUsage
+	seq            int
+	retryMetricSeq int
+	startedAt      time.Time
+	channelID      int
+	channelName    string
+	channelType    int
+	upstreamModel  string
+	calls          []channelMetricCallState
+	usage          *ChannelMetricUsage
 }
 
 type channelMetricFailureDraft struct {
@@ -130,9 +131,12 @@ type channelMetricRequestState struct {
 	stream         bool
 	trafficSource  channelmetrics.TrafficSource
 
-	attemptSeq int
-	current    *channelMetricAttemptState
-	finished   bool
+	attemptSeq         int
+	retryCount         int
+	gatewaySkillRounds bool
+	gatewayRetryIndex  int
+	current            *channelMetricAttemptState
+	finished           bool
 
 	finalChannelPresent bool
 	finalChannelID      int
@@ -227,6 +231,16 @@ func BindChannelMetricRelayInfo(c *gin.Context, info *relaycommon.RelayInfo) {
 }
 
 func BeginChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, channelID int, channelName string, channelType int) {
+	beginChannelMetricAttempt(c, info, channelID, channelName, channelType, false)
+}
+
+// BeginChannelMetricGatewaySkillAttempt 保留每轮读取的独立用量，但仅统计外层渠道重试。
+// 启用后，最终生成或切换到无技能的渠道也沿用同一请求的外层重试口径。
+func BeginChannelMetricGatewaySkillAttempt(c *gin.Context, info *relaycommon.RelayInfo, channelID int, channelName string, channelType int) {
+	beginChannelMetricAttempt(c, info, channelID, channelName, channelType, true)
+}
+
+func beginChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, channelID int, channelName string, channelType int, gatewaySkillRound bool) {
 	state := getChannelMetricRequestState(c)
 	if state == nil || info == nil {
 		return
@@ -234,13 +248,27 @@ func BeginChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, chan
 	now := time.Now()
 	state.mu.Lock()
 	state.attemptSeq++
+	state.gatewaySkillRounds = state.gatewaySkillRounds || gatewaySkillRound
+	retryMetricSeq := state.attemptSeq
+	if state.gatewaySkillRounds {
+		// 聚合器通过 AttemptSeq > 1 统计重试；同一外层尝试的后续模型轮次不能重复贡献。
+		retryMetricSeq = 1
+		if info.RetryIndex > state.gatewayRetryIndex {
+			retryMetricSeq = info.RetryIndex + 1
+			state.gatewayRetryIndex = info.RetryIndex
+		}
+		state.retryCount = channelMetricMaxInt(state.retryCount, info.RetryIndex)
+	} else {
+		state.retryCount = state.attemptSeq - 1
+	}
 	state.current = &channelMetricAttemptState{
-		seq:           state.attemptSeq,
-		startedAt:     now,
-		channelID:     channelID,
-		channelName:   channelName,
-		channelType:   channelType,
-		upstreamModel: info.OriginModelName,
+		seq:            state.attemptSeq,
+		retryMetricSeq: retryMetricSeq,
+		startedAt:      now,
+		channelID:      channelID,
+		channelName:    channelName,
+		channelType:    channelType,
+		upstreamModel:  info.OriginModelName,
 	}
 	state.finalChannelPresent = true
 	state.finalChannelID = channelID
@@ -378,7 +406,7 @@ func FinishChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, rel
 	attemptSample := channelmetrics.NewLiveSample(channelmetrics.ScopeChannelAttempt, outcome)
 	attemptSample.OccurredAt = finishedAt
 	attemptSample.RequestID = state.requestID
-	attemptSample.AttemptSeq = attempt.seq
+	attemptSample.AttemptSeq = attempt.retryMetricSeq
 	attemptSample.RetryPlanned = retryPlanned
 	applyChannelMetricAttemptDimensions(&attemptSample, attempt, requestedModel, group, trafficSource, info.IsStream)
 	attemptSample.FailureOwner = owner
@@ -417,6 +445,7 @@ func FinishChannelMetricRequest(c *gin.Context, info *relaycommon.RelayInfo, rel
 	requestID := state.requestID
 	startedAt := state.startedAt
 	attemptSeq := state.attemptSeq
+	retryCount := state.retryCount
 	finalChannelPresent := state.finalChannelPresent
 	finalChannelID := state.finalChannelID
 	finalChannelName := state.finalChannelName
@@ -434,7 +463,7 @@ func FinishChannelMetricRequest(c *gin.Context, info *relaycommon.RelayInfo, rel
 	sample := channelmetrics.NewLiveSample(channelmetrics.ScopeFinalRequest, outcome)
 	sample.OccurredAt = finishedAt
 	sample.RequestID = requestID
-	sample.RetryCount = channelMetricMaxInt(attemptSeq-1, 0)
+	sample.RetryCount = retryCount
 	if attemptSeq > 0 {
 		sample.LastStartedAttemptPresent = true
 		sample.LastStartedAttemptSeq = attemptSeq
@@ -585,7 +614,7 @@ func recordChannelMetricCalls(requestID string, attempt *channelMetricAttemptSta
 		sample := channelmetrics.NewLiveSample(channelmetrics.ScopeUpstreamCall, outcome)
 		sample.OccurredAt = finishedAt
 		sample.RequestID = requestID
-		sample.AttemptSeq = attempt.seq
+		sample.AttemptSeq = attempt.retryMetricSeq
 		sample.CallIndex = call.index
 		applyChannelMetricAttemptDimensions(&sample, attempt, requestedModel, group, source, stream)
 		sample.FailureOwner = callOwner

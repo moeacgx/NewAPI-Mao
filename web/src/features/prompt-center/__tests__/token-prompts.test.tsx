@@ -111,12 +111,45 @@ describe('令牌技能徽标', () => {
 
 describe('令牌提示词管理', () => {
   it('用户管理已安装项时不显示提示词正文', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [
+          {
+            template: {
+              ...template,
+              load_mode: 'progressive',
+              skills: [
+                {
+                  id: 'review',
+                  title: 'Review',
+                  description: 'Review code',
+                  content: 'Check correctness',
+                  resources: [
+                    {
+                      path: 'references/private.md',
+                      content: 'Private reference instructions',
+                    },
+                  ],
+                },
+              ],
+            },
+            enabled: true,
+            sort_order: 0,
+          },
+        ],
+      },
+    })
     renderWithQuery(
       <TokenPromptDialog open onOpenChange={vi.fn()} token={token} />
     )
     expect(await screen.findByText('Review')).toBeInTheDocument()
     expect(screen.queryByText('Check correctness')).not.toBeInTheDocument()
     expect(screen.queryByText('View prompt content')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Private reference instructions')
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('references/private.md')).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Uninstall Review' })
     ).toBeInTheDocument()

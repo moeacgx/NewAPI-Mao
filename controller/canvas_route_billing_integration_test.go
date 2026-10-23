@@ -57,6 +57,13 @@ func setupCanvasRouteBillingTest(t *testing.T, upstreamURL string) {
 	t.Setenv("CRYPTO_SECRET", "canvas-route-billing-crypto-secret")
 	require.NoError(t, model.DB.AutoMigrate(
 		&model.Token{},
+		&model.PromptCategory{},
+		&model.PromptTemplate{},
+		&model.PromptTemplateGroup{},
+		&model.TokenPromptBinding{},
+		&model.PromptSkillRecord{},
+		&model.PromptSkillFile{},
+		&model.PromptSkillChunk{},
 		&model.UserSession{},
 		&model.Group{},
 		&model.GroupAlias{},

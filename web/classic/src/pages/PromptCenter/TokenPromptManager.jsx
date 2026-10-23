@@ -153,6 +153,11 @@ export default function TokenPromptManager(props) {
                   'Prompts load only when the actual request group is allowed. Installation does not change token permissions.',
                 )}
               </p>
+              <p>
+                {t(
+                  'Install up to 8 packages. Always-loaded prompts share a 65536-byte enabled limit. On-demand skills add only the files read to model context and may use additional billed model rounds.',
+                )}
+              </p>
             </div>
             <Button
               className='prompt-center-primary prompt-center-save-button'

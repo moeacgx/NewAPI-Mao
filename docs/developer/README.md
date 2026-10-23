@@ -1,6 +1,10 @@
 # NewAPI-Mao 开发文档
 
-- [技能渐进式披露改造草案](../workflows/2026-10/23_skill_progressive_disclosure.md)：从全文注入改为目录发现、按需激活和引用资料读取；接入方式待确定，尚未实现。
+- [技能渐进式披露](../workflows/2026-10/23_skill_progressive_disclosure.md)：网关私有目录发现与文本按需读取、逐轮计费、四协议和状态组合边界；本地实现及模拟验收通过，尚未部署。
+- [渐进式技能存储与导入](../workflows/2026-10/23_skill_progressive_storage.md)：技能元数据、UTF-8 正文分块、稳定身份、引用资料及 ZIP/仓库/商店导入，保留旧全文限制。
+- [Default 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_default.md)：装载模式、用途说明、引用文本编辑与前端校验、构建验证。
+- [Classic 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_classic.md)：与 Default 对齐的模式及资源编辑、国际化与协议模拟回归。
+- [渐进式轮次与渠道指标](../workflows/2026-10/23_skill_progressive_metrics.md)：内部读取独立计量且不计渠道重试，auto 跨组撤权、已结算费用与原始请求恢复。
 
 - [技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)：递归目录读取、具体文件路径和 UTF-8 字节大小诊断。
 

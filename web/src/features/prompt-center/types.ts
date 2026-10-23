@@ -21,6 +21,20 @@ export interface PromptGroup {
   name: string
 }
 
+export interface SkillResource {
+  path: string
+  content: string
+}
+
+export interface PromptSkill {
+  id?: string
+  title: string
+  description?: string
+  path?: string
+  content?: string
+  resources?: SkillResource[]
+}
+
 export interface PromptTemplate {
   id: number
   title: string
@@ -32,9 +46,10 @@ export interface PromptTemplate {
   group_ids: number[]
   group_details: PromptGroup[]
   kind?: 'prompt' | 'bundle'
+  load_mode?: '' | 'eager' | 'progressive'
   category_id?: number
   category_name?: string
-  skills?: { title: string; content?: string }[]
+  skills?: PromptSkill[]
   skill_count?: number
 }
 

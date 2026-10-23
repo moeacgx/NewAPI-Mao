@@ -50,7 +50,11 @@ export async function importSkillStoreEntry(
   if (!response.data.success || !response.data.data) {
     throw new Error(response.data.message || 'Failed to import skills')
   }
-  return { ...response.data.data, id: 0 }
+  return {
+    ...response.data.data,
+    load_mode: response.data.data.load_mode || 'progressive',
+    id: 0,
+  }
 }
 
 export async function importSkillArchive(file: File): Promise<PromptTemplate> {
@@ -63,7 +67,11 @@ export async function importSkillArchive(file: File): Promise<PromptTemplate> {
   if (!response.data.success || !response.data.data) {
     throw new Error(response.data.message || 'Failed to import skills')
   }
-  return { ...response.data.data, id: 0 }
+  return {
+    ...response.data.data,
+    load_mode: response.data.data.load_mode || 'progressive',
+    id: 0,
+  }
 }
 
 export async function importSkillRepository(
@@ -76,7 +84,11 @@ export async function importSkillRepository(
   if (!response.data.success || !response.data.data) {
     throw new Error(response.data.message || 'Failed to import skills')
   }
-  return { ...response.data.data, id: 0 }
+  return {
+    ...response.data.data,
+    load_mode: response.data.data.load_mode || 'progressive',
+    id: 0,
+  }
 }
 
 export async function getPromptCategories(): Promise<PromptCategory[]> {

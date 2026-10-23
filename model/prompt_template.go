@@ -19,6 +19,7 @@ type PromptTemplate struct {
 	Description  string           `json:"description" gorm:"type:text"`
 	Content      string           `json:"content" gorm:"type:text"`
 	Kind         string           `json:"kind" gorm:"size:16"`
+	LoadMode     string           `json:"load_mode" gorm:"size:16"`
 	CategoryID   int              `json:"category_id" gorm:"index"`
 	CategoryName string           `json:"category_name" gorm:"-"`
 	SkillsJSON   string           `json:"-" gorm:"type:text"`
@@ -62,8 +63,8 @@ type TokenPromptContent struct {
 	Version int    `json:"version"`
 }
 
-func hydratePromptTemplateGroups(tx *gorm.DB, templates []PromptTemplate) error {
-	if err := hydratePromptTemplateMetadata(tx, templates); err != nil {
+func hydratePromptTemplateGroups(tx *gorm.DB, templates []PromptTemplate, includeContent bool) error {
+	if err := hydratePromptTemplateMetadata(tx, templates, includeContent); err != nil {
 		return err
 	}
 	ids := make([]int, 0, len(templates))
@@ -111,6 +112,15 @@ func hydratePromptTemplateGroups(tx *gorm.DB, templates []PromptTemplate) error 
 }
 
 func ListPromptTemplates(enabledOnly bool) ([]PromptTemplate, error) {
+	return listPromptTemplates(enabledOnly, true)
+}
+
+// ListPromptTemplateSummaries 不读取渐进式文件分块，供用户目录页面使用。
+func ListPromptTemplateSummaries(enabledOnly bool) ([]PromptTemplate, error) {
+	return listPromptTemplates(enabledOnly, false)
+}
+
+func listPromptTemplates(enabledOnly, includeContent bool) ([]PromptTemplate, error) {
 	templates := make([]PromptTemplate, 0)
 	query := DB.Order("sort_order, id")
 	if enabledOnly {
@@ -119,7 +129,7 @@ func ListPromptTemplates(enabledOnly bool) ([]PromptTemplate, error) {
 	if err := query.Find(&templates).Error; err != nil {
 		return nil, err
 	}
-	return templates, hydratePromptTemplateGroups(DB, templates)
+	return templates, hydratePromptTemplateGroups(DB, templates, includeContent)
 }
 
 func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
@@ -148,6 +158,7 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 		}
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		wasProgressive := false
 		if input.CategoryID > 0 {
 			var category PromptCategory
 			if err := tx.First(&category, input.CategoryID).Error; err != nil {
@@ -179,6 +190,7 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 			if input.Version != stored.Version {
 				return ErrPromptVersionConflict
 			}
+			wasProgressive = stored.LoadMode == PromptLoadModeProgressive
 			// 更新正文或重新上架时，也保护已有令牌的总正文边界。
 			if input.Enabled {
 				var installed []TokenPromptBinding
@@ -193,8 +205,14 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 					if err := lockForUpdate(tx.Table("prompt_templates")).Select("prompt_templates.*").Joins("JOIN token_prompt_bindings b ON b.template_id = prompt_templates.id").Where("b.token_id = ? AND b.enabled = ? AND prompt_templates.enabled = ? AND prompt_templates.id <> ?", binding.TokenID, true, true, input.ID).Find(&others).Error; err != nil {
 						return err
 					}
-					total := len(input.Content)
+					total := 0
+					if input.LoadMode != PromptLoadModeProgressive {
+						total = len(input.Content)
+					}
 					for _, other := range others {
+						if other.LoadMode == PromptLoadModeProgressive {
+							continue
+						}
 						if err := normalizePromptTemplateContent(&other); err != nil {
 							return err
 						}
@@ -206,7 +224,11 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 				}
 			}
 			input.Version++
-			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(map[string]interface{}{"title": input.Title, "description": input.Description, "content": input.Content, "kind": input.Kind, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version})
+			storedContent := input.Content
+			if input.LoadMode == PromptLoadModeProgressive {
+				storedContent = ""
+			}
+			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(map[string]interface{}{"title": input.Title, "description": input.Description, "content": storedContent, "kind": input.Kind, "load_mode": input.LoadMode, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version})
 			if result.Error != nil {
 				return result.Error
 			}
@@ -216,7 +238,17 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 		} else {
 			input.ID = 0
 			input.Version = 1
-			if err := tx.Create(&input).Error; err != nil {
+			stored := input
+			if stored.LoadMode == PromptLoadModeProgressive {
+				stored.Content = ""
+			}
+			if err := tx.Create(&stored).Error; err != nil {
+				return err
+			}
+			input.ID = stored.ID
+		}
+		if input.LoadMode == PromptLoadModeProgressive || wasProgressive {
+			if err := persistProgressiveSkills(tx, &input); err != nil {
 				return err
 			}
 		}
@@ -234,7 +266,7 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 		return nil, err
 	}
 	items := []PromptTemplate{input}
-	if err := hydratePromptTemplateGroups(DB, items); err != nil {
+	if err := hydratePromptTemplateGroups(DB, items, true); err != nil {
 		return nil, err
 	}
 	return &items[0], nil
@@ -255,6 +287,15 @@ func GetTokenForPromptInstallation(userID, tokenID int) (*Token, error) {
 }
 
 func GetTokenPromptBindings(userID, tokenID int) ([]TokenPromptInstallation, error) {
+	return getTokenPromptBindings(userID, tokenID, true)
+}
+
+// GetTokenPromptBindingSummaries 只装配安装目录，避免用户查询触发全包读取。
+func GetTokenPromptBindingSummaries(userID, tokenID int) ([]TokenPromptInstallation, error) {
+	return getTokenPromptBindings(userID, tokenID, false)
+}
+
+func getTokenPromptBindings(userID, tokenID int, includeContent bool) ([]TokenPromptInstallation, error) {
 	var token Token
 	if userID <= 0 || tokenID <= 0 {
 		return nil, errors.New("令牌身份无效")
@@ -275,7 +316,7 @@ func GetTokenPromptBindings(userID, tokenID int) ([]TokenPromptInstallation, err
 		if err := DB.Where("id IN ?", ids).Find(&templates).Error; err != nil {
 			return nil, err
 		}
-		if err := hydratePromptTemplateGroups(DB, templates); err != nil {
+		if err := hydratePromptTemplateGroups(DB, templates, includeContent); err != nil {
 			return nil, err
 		}
 	}
@@ -350,7 +391,7 @@ func ReplaceTokenPromptBindings(userID, tokenID int, inputs []TokenPromptBinding
 			if (!template.Enabled || !eligible[input.TemplateID]) && (!installed[input.TemplateID] || input.Enabled) {
 				return errors.New("提示词已下架，或令牌可用分组不在装载白名单内")
 			}
-			if input.Enabled {
+			if input.Enabled && template.LoadMode != PromptLoadModeProgressive {
 				if err := normalizePromptTemplateContent(&template); err != nil {
 					return err
 				}
@@ -390,7 +431,7 @@ func GetActiveTokenPrompts(tokenID int, groupCode string) ([]TokenPromptContent,
 		Joins("JOIN token_prompt_bindings b ON b.template_id = prompt_templates.id").
 		Joins("JOIN prompt_template_groups g ON g.template_id = prompt_templates.id").
 		Joins("JOIN tokens t ON t.id = b.token_id AND t.deleted_at IS NULL").
-		Where("b.token_id = ? AND b.enabled = ? AND prompt_templates.enabled = ? AND g.group_id = ?", tokenID, true, true, group.Id).
+		Where("b.token_id = ? AND b.enabled = ? AND prompt_templates.enabled = ? AND g.group_id = ? AND (prompt_templates.load_mode IS NULL OR prompt_templates.load_mode <> ?)", tokenID, true, true, group.Id, PromptLoadModeProgressive).
 		Order("b.sort_order, prompt_templates.id").Find(&templates).Error
 	if err != nil {
 		return nil, err

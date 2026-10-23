@@ -23,12 +23,21 @@ func ApplyTokenPromptText(body []byte, format types.RelayFormat, modelName strin
 		format != types.RelayFormatClaude && format != types.RelayFormatGemini {
 		return body, nil
 	}
-	if !gjson.ValidBytes(body) {
-		return nil, errors.New("提示词装载需要有效 JSON 正文")
-	}
 	text := strings.Join(texts, "\n\n")
 	if len(text) > model.MaxTokenPromptBytes+2*(model.MaxTokenPrompts-1) {
 		return nil, errors.New("装载提示词合计超出限制")
+	}
+	return appendSystemInstructionText(body, format, modelName, text)
+}
+
+// appendSystemInstructionText 只负责协议改写；全文装载与渐进式读取各自在调用边界验证容量。
+func appendSystemInstructionText(body []byte, format types.RelayFormat, modelName, text string) ([]byte, error) {
+	if format != types.RelayFormatOpenAI && format != types.RelayFormatOpenAIResponses &&
+		format != types.RelayFormatClaude && format != types.RelayFormatGemini {
+		return body, nil
+	}
+	if !gjson.ValidBytes(body) {
+		return nil, errors.New("提示词装载需要有效 JSON 正文")
 	}
 	if format == types.RelayFormatOpenAIResponses {
 		existing := gjson.GetBytes(body, "instructions")

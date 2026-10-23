@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,12 +34,14 @@ func TestSkillStoreBundledCatalogImportsIndependentDrafts(t *testing.T) {
 		assert.Zero(t, draft.CategoryID)
 		assert.Empty(t, draft.GroupIDs)
 		assert.Equal(t, item.SkillCount, draft.SkillCount)
-		assert.NotEmpty(t, draft.Content)
+		assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
+		require.NotEmpty(t, draft.Skills)
+		assert.NotEmpty(t, draft.Skills[0].Content)
 		// 修改导入副本不会修改仓库中的原件。
-		draft.Content = "站点自定义"
+		draft.Skills[0].Content = "站点自定义"
 		next, err := ImportStoreSkill(context.Background(), item.ID)
 		require.NoError(t, err)
-		assert.NotEqual(t, draft.Content, next.Content)
+		assert.NotEqual(t, draft.Skills[0].Content, next.Skills[0].Content)
 	}
 }
 
@@ -71,6 +74,45 @@ func TestSkillStoreOnlineUsesFixedOriginAndChecksFileHash(t *testing.T) {
 	servedContent = "被替换的正文"
 	_, err = importStoreSkill(context.Background(), "online:online-example", client)
 	require.ErrorContains(t, err, "校验")
+}
+
+func TestSkillStoreOnlineKeepsReferencedFilesWithinTheirSkill(t *testing.T) {
+	files := map[string]string{
+		"packages/demo/review/SKILL.md":              "---\nname: 代码审查\ndescription: 审查代码时使用\n---\n读取 references/rules.json。",
+		"packages/demo/review/references/rules.json": `{"rule":"可维护性"}`,
+		"packages/demo/writing/SKILL.md":             "---\nname: 写作\ndescription: 写作时使用\n---\n参考 examples/style.txt。",
+		"packages/demo/writing/examples/style.txt":   "使用自然的语言。",
+	}
+	record := skillStoreRecord{ID: "with-resources", Title: "研发合集", Description: "独立技能与引用资料", Kind: "bundle", Version: "1"}
+	for filename, body := range files {
+		digest := sha256.Sum256([]byte(body))
+		record.Files = append(record.Files, skillStoreFile{Path: filename, SHA256: hex.EncodeToString(digest[:])})
+	}
+	manifest, err := common.Marshal(struct {
+		Version int                `json:"version"`
+		Items   []skillStoreRecord `json:"items"`
+	}{Version: 1, Items: []skillStoreRecord{record}})
+	require.NoError(t, err)
+	client := &http.Client{Transport: skillStoreTransport(func(request *http.Request) (*http.Response, error) {
+		filename := strings.TrimPrefix(request.URL.Path, "/moeacgx/NewAPI-Mao/custom-main/skill-store/")
+		body, exists := files[filename]
+		if filename == "index.json" {
+			body, exists = string(manifest), true
+		}
+		require.True(t, exists, "不应请求清单之外的文件：%s", filename)
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+	draft, err := importStoreSkill(context.Background(), "online:with-resources", client)
+	require.NoError(t, err)
+	assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
+	assert.Empty(t, draft.Content)
+	require.Len(t, draft.Skills, 2)
+	assert.Equal(t, "审查代码时使用", draft.Skills[0].Description)
+	assert.Equal(t, []model.PromptSkillResource{{Path: "references/rules.json", Content: `{"rule":"可维护性"}`}}, draft.Skills[0].Resources)
+	assert.Equal(t, []model.PromptSkillResource{{Path: "examples/style.txt", Content: "使用自然的语言。"}}, draft.Skills[1].Resources)
+	files["packages/demo/review/references/rules.json"] = "被替换的引用资料"
+	_, err = importStoreSkill(context.Background(), "online:with-resources", client)
+	require.ErrorContains(t, err, "校验", "引用资料也必须通过商店清单的完整性校验")
 }
 
 func TestSkillStoreRejectsInvalidManifestAndUnknownIDs(t *testing.T) {

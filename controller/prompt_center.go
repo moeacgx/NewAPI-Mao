@@ -16,6 +16,7 @@ type promptTemplatePublic struct {
 	Title        string                 `json:"title"`
 	Description  string                 `json:"description"`
 	Kind         string                 `json:"kind"`
+	LoadMode     string                 `json:"load_mode"`
 	CategoryID   int                    `json:"category_id"`
 	CategoryName string                 `json:"category_name"`
 	Skills       []promptSkillPublic    `json:"skills"`
@@ -28,7 +29,9 @@ type promptTemplatePublic struct {
 }
 
 type promptSkillPublic struct {
-	Title string `json:"title"`
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
 }
 
 type tokenPromptInstallationPublic struct {
@@ -40,13 +43,13 @@ type tokenPromptInstallationPublic struct {
 func publicPromptTemplate(template model.PromptTemplate) promptTemplatePublic {
 	skills := make([]promptSkillPublic, 0, len(template.Skills))
 	for _, skill := range template.Skills {
-		skills = append(skills, promptSkillPublic{Title: skill.Title})
+		skills = append(skills, promptSkillPublic{ID: skill.ID, Title: skill.Title, Description: skill.Description})
 	}
 	return promptTemplatePublic{
 		ID: template.ID, Title: template.Title, Description: template.Description,
 		Enabled: template.Enabled, SortOrder: template.SortOrder, Version: template.Version,
 		GroupIDs: template.GroupIDs, GroupDetails: template.GroupDetails,
-		Kind: template.Kind, CategoryID: template.CategoryID, CategoryName: template.CategoryName,
+		Kind: template.Kind, LoadMode: template.LoadMode, CategoryID: template.CategoryID, CategoryName: template.CategoryName,
 		Skills: skills, SkillCount: template.SkillCount,
 	}
 }
@@ -88,7 +91,7 @@ func SavePromptCategory(c *gin.Context) {
 }
 
 func GetPromptTemplates(c *gin.Context) {
-	templates, err := model.ListPromptTemplates(true)
+	templates, err := model.ListPromptTemplateSummaries(true)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -111,7 +114,8 @@ func GetAdminPromptTemplates(c *gin.Context) {
 
 func SavePromptTemplate(c *gin.Context) {
 	var input model.PromptTemplate
-	if err := common.DecodeJson(http.MaxBytesReader(c.Writer, c.Request.Body, 256*1024), &input); err != nil {
+	// JSON 的 Unicode 转义与单技能镜像字段可放大正文，内容总量在模型层独立校验。
+	if err := common.DecodeJson(http.MaxBytesReader(c.Writer, c.Request.Body, (model.MaxSkillPackageBytes+model.MaxSkillFileBytes)*6+16*1024*1024), &input); err != nil {
 		common.ApiErrorMsg(c, "提示词请求格式错误或超过大小限制")
 		return
 	}
@@ -142,7 +146,7 @@ func GetTokenPrompts(c *gin.Context) {
 		common.ApiErrorMsg(c, "令牌 ID 无效")
 		return
 	}
-	installed, err := model.GetTokenPromptBindings(c.GetInt("id"), id)
+	installed, err := model.GetTokenPromptBindingSummaries(c.GetInt("id"), id)
 	if err != nil {
 		common.ApiError(c, err)
 		return

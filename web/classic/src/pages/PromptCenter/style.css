@@ -1111,6 +1111,20 @@ body[theme-mode='dark'] .prompt-center-form {
   flex-direction: column;
   gap: 14px;
 }
+.prompt-resource-editor {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+.prompt-resource-editor legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.prompt-resource-editor .prompt-center-muted {
+  margin: 0;
+}
 .prompt-bundle-skill {
   display: flex;
   min-width: 0;

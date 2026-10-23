@@ -18,6 +18,7 @@ const files = [
   'pages/PromptCenter/api.js',
   'pages/PromptCenter/SkillSummary.jsx',
   'pages/PromptCenter/BundleSkillsEditor.jsx',
+  'pages/PromptCenter/SkillResourcesEditor.jsx',
   'pages/PromptCenter/CategoryManager.jsx',
   'pages/PromptCenter/ArchiveImport.jsx',
   'pages/PromptCenter/RepositoryImport.jsx',
@@ -39,6 +40,15 @@ const keys = [
     ),
   ),
 ];
+const validationSource = fs.readFileSync(
+  path.join(source, 'pages/PromptCenter/validation.js'),
+  'utf8',
+);
+for (const match of validationSource.matchAll(
+  /(?:return\s*|\?\s*|:\s*)'([^']+)'/g,
+)) {
+  keys.push(match[1]);
+}
 
 test('八份语言资源覆盖提示词页面，保留动态名称与数量占位符', async () => {
   const resources = {};
