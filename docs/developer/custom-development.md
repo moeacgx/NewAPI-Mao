@@ -50,13 +50,16 @@
   附件及配置导入导出。此布局改动仅涉及 Classic，Default 沿用现有布局，见[对齐记录](../workflows/2026-10/22_classic_playground_alignment.md)。
 
 - 渐进式当前状态：完整后端、四协议本地模拟端到端、auto 跨组计费、双 UI 回归与构建通过；
-  携双前端的 Go 1.25.5 amd64 整包构建通过。未部署，真实供应商与 MySQL/PostgreSQL 未实跑。
+  携双前端的 Go 1.25.5 amd64 本地整包构建通过。已按顺序更新 zzapi 三节点，保持 Classic 主题；
+  同镜像通过隔离 SQLite 真实 HTTP 模拟验收，以及 PostgreSQL 15 应用数据恢复与迁移验收，
+  公网版本和资源一致。真实供应商与 MySQL 实库未实跑，正式站未更新；恢复时排除维护扩展
+  `pg_repack` 的两条定义/注释 TOC，边界及部署证据见[zzapi 记录](../workflows/2026-10/23_skill_progressive_zzapi.md)。
   契约、数据生命周期、回滚和验证边界见[令牌提示词中心](token-prompt-center.md)与
-  [渐进式主记录](../workflows/2026-10/23_skill_progressive_disclosure.md)。回滚旧程序前须停用或卸载
-  渐进式安装并保留资料备份，不能依赖旧正文列执行新模式。
+  [渐进式主记录](../workflows/2026-10/23_skill_progressive_disclosure.md)。只有尚无渐进式业务模板时
+  才回滚旧程序，单纯停用或卸载不足以保证旧管理页面兼容；已有数据时向前修复并保留资料备份。
 - 此前全文版本已部署 zzapi，随后随 `.352` 部署正式站三节点；历史隔离实例和在线商店验收见
   [.352 记录](../workflows/2026-10/22_skills_claude_352_release.md)及
-  [生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)。这些记录不代表渐进式已上线。
+  [生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)。正式站仍为该全文版本。
 - 共享契约：密钥、模型 ID 和原路由权限不变，管理摘要增加模式与技能用途；
   渐进式一次客户端请求可能产生多轮用量及消费日志，接入方不能再假定一次请求只有一次上游消费。
   最终客户端工具调用继续交由 Agent 执行，不新增客户端工具执行服务。

@@ -1,6 +1,8 @@
 # NewAPI-Mao 开发文档
 
-- [技能渐进式披露](../workflows/2026-10/23_skill_progressive_disclosure.md)：网关私有目录发现与文本按需读取、逐轮计费、四协议和状态组合边界；本地实现及模拟验收通过，尚未部署。
+- [zzapi 渐进式技能测试部署](../workflows/2026-10/23_skill_progressive_zzapi.md)：专用测试镜像、隔离验收、备份迁移与三节点更新完成，公网版本及资源验证通过。
+
+- [技能渐进式披露](../workflows/2026-10/23_skill_progressive_disclosure.md)：网关私有目录发现与文本按需读取、逐轮计费、四协议和状态组合边界；本地及隔离模拟验收通过，已更新 zzapi，正式站未更新。
 - [渐进式技能存储与导入](../workflows/2026-10/23_skill_progressive_storage.md)：技能元数据、UTF-8 正文分块、稳定身份、引用资料及 ZIP/仓库/商店导入，保留旧全文限制。
 - [Default 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_default.md)：装载模式、用途说明、引用文本编辑与前端校验、构建验证。
 - [Classic 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_classic.md)：与 Default 对齐的模式及资源编辑、国际化与协议模拟回归。
