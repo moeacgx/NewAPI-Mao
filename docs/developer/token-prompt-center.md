@@ -10,6 +10,10 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 不提供附件或 Agent 运行环境。支持 Chat Completions、Responses、Claude Messages、Gemini
 四种 HTTP 对话请求。其他端点保持原行为，页面明确列出范围。
 
+当前运行时仍是每次请求全文注入，并非 Agent Skills 的渐进式披露。
+用户已提出目录发现、按需激活和引用资料读取的改造需求，见
+[设计草案](../workflows/2026-10/23_skill_progressive_disclosure.md)；尚未实现或部署。
+
 ## 管理与装载契约
 
 - `prompt_templates` 保存 `id/title/description/content/enabled/sort_order/version`。

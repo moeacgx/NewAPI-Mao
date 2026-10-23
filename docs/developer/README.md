@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [技能渐进式披露改造草案](../workflows/2026-10/23_skill_progressive_disclosure.md)：从全文注入改为目录发现、按需激活和引用资料读取；接入方式待确定，尚未实现。
+
 - [技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)：递归目录读取、具体文件路径和 UTF-8 字节大小诊断。
 
 - [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。
