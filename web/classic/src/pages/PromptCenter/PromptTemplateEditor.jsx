@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Button, Modal } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
@@ -47,6 +47,10 @@ export default function PromptTemplateEditor(props) {
   });
   const [groups, setGroups] = useState([]);
   const [error, setError] = useState('');
+  const errorRef = useRef(null);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const busy = saving || importing;
@@ -212,11 +216,6 @@ export default function PromptTemplateEditor(props) {
       style={{ maxWidth: 'calc(100vw - 24px)' }}
     >
       <form className='prompt-center-form' onSubmit={save}>
-        {error && (
-          <p role='alert' className='prompt-center-error'>
-            {error}
-          </p>
-        )}
         <ArchiveImport
           disabled={busy}
           onBusyChange={setImporting}
@@ -433,18 +432,30 @@ export default function PromptTemplateEditor(props) {
           />
           {t('Published')}
         </label>
-        <div className='prompt-center-row'>
-          <Button
-            htmlType='submit'
-            theme='solid'
-            loading={saving}
-            disabled={busy || !groupsLoaded || !categoriesLoaded}
-          >
-            {t('Save template')}
-          </Button>
-          <Button disabled={busy} onClick={props.onCancel}>
-            {t('Cancel')}
-          </Button>
+        <div className='prompt-template-actions'>
+          {error && (
+            <p
+              ref={errorRef}
+              role='alert'
+              tabIndex={-1}
+              className='prompt-center-error'
+            >
+              {error}
+            </p>
+          )}
+          <div className='prompt-center-row'>
+            <Button
+              htmlType='submit'
+              theme='solid'
+              loading={saving}
+              disabled={busy || !groupsLoaded || !categoriesLoaded}
+            >
+              {t('Save template')}
+            </Button>
+            <Button disabled={busy} onClick={props.onCancel}>
+              {t('Cancel')}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

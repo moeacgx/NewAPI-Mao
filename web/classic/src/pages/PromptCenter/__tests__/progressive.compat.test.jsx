@@ -129,6 +129,7 @@ test('按需合集分别保存大文件，排序和失败重试不丢失技能�
   denied = true;
   await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
   await screen.findByText('Save rejected');
+  expect(document.activeElement).toBe(screen.getByRole('alert'));
   expect(screen.getByLabelText('Skill 2 description').value).toBe(
     'Plan a report.',
   );
@@ -365,5 +366,63 @@ test('合集拒绝重复主文件路径，清空路径后保留给服务端生�
     expect(
       calls.find((call) => call.method === 'put')?.body.skills[1].path,
     ).toBe(''),
+  );
+});
+
+test.each([
+  { description: '', titles: ['Outline', 'Review'] },
+  { description: 'Research collection', titles: ['Research', 'Research'] },
+])(
+  '按需合集允许可选总说明和不同路径同名技能：%j',
+  async ({ description, titles }) => {
+    const skills = titles.map((title, index) => ({
+      id: `research-${index}`,
+      title,
+      description: 'Use this skill for research.',
+      path: `skills/research-${index}/SKILL.md`,
+      content: 'Research instructions',
+      resources: [],
+    }));
+    render(
+      <PromptTemplateEditor
+        template={{
+          ...template,
+          kind: 'bundle',
+          description,
+          content: '',
+          skills,
+        }}
+        onSaved={() => {}}
+      />,
+    );
+    await screen.findByRole('checkbox', { name: 'Visible research group' });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save template' }),
+    );
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'put')?.body.skills).toEqual(
+        skills,
+      ),
+    );
+  },
+);
+
+test('未导入的无效仓库地址不阻断已有模板保存', async () => {
+  render(<PromptTemplateEditor template={template} onSaved={() => {}} />);
+  await screen.findByRole('checkbox', { name: 'Visible research group' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Import GitHub repository' }),
+  );
+  fireEvent.change(screen.getByLabelText('Public GitHub repository URL'), {
+    target: { value: 'not-a-repository-url' },
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  await waitFor(() =>
+    expect(calls.find((call) => call.method === 'put')?.body.title).toBe(
+      template.title,
+    ),
+  );
+  expect(calls.some((call) => call.url.includes('/import/repository'))).toBe(
+    false,
   );
 });

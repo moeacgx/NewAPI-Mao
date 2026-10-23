@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [技能模板保存校验与反馈修复](../workflows/2026-10/23_skill_template_save_feedback.md)：Classic 长表单反馈、渐进式合集校验与 Default 旧单技能模式切换。
+
 - [zzapi 渐进式技能测试部署](../workflows/2026-10/23_skill_progressive_zzapi.md)：专用测试镜像、隔离验收、备份迁移与三节点更新完成，公网版本及资源验证通过。
 
 - [技能渐进式披露](../workflows/2026-10/23_skill_progressive_disclosure.md)：网关私有目录发现与文本按需读取、逐轮计费、四协议和状态组合边界；本地及隔离模拟验收通过，已更新 zzapi，正式站未更新。

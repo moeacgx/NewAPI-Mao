@@ -61,7 +61,26 @@ export function PromptTemplateEditor(props: {
     queryFn: getPromptCategories,
   })
   const form = useForm<PromptTemplateForm>({
-    resolver: zodResolver(promptTemplateSchema),
+    resolver: (values, context, options) => {
+      // 单技能只编辑顶层字段，先同步隐藏的技能元数据再进行完整校验。
+      const normalizedValues = { ...values }
+      if (values.kind !== 'bundle') {
+        normalizedValues.skills = []
+        if (values.load_mode === 'progressive') {
+          normalizedValues.skills.push({
+            ...values.skills?.[0],
+            title: values.title.trim(),
+            description: values.description,
+            content: values.content,
+          })
+        }
+      }
+      return zodResolver(promptTemplateSchema)(
+        normalizedValues,
+        context,
+        options
+      )
+    },
     defaultValues: {
       title: props.template?.title ?? '',
       description: props.template?.description ?? '',
@@ -89,30 +108,14 @@ export function PromptTemplateEditor(props: {
   const progressive = form.watch('load_mode') === 'progressive'
   const categoryId = form.watch('category_id') ?? 0
   const mutation = useMutation({
-    mutationFn: (values: PromptTemplateForm) => {
-      let skills = values.skills
-      if (values.kind !== 'bundle') {
-        skills = []
-        if (values.load_mode === 'progressive') {
-          skills = [
-            {
-              ...values.skills?.[0],
-              title: values.title,
-              description: values.description,
-              content: values.content,
-            },
-          ]
-        }
-      }
-      return savePromptTemplate(
+    mutationFn: (values: PromptTemplateForm) =>
+      savePromptTemplate(
         {
           ...values,
-          skills,
           content: values.kind === 'bundle' ? '' : values.content,
         },
         props.template?.id
-      )
-    },
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['prompt-center'] })
       await queryClient.invalidateQueries({ queryKey: ['keys'] })

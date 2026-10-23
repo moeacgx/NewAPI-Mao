@@ -25,7 +25,12 @@ export function validatePromptTemplateDraft(draft) {
     (draft.enabled && !draft.group_ids.length)
   )
     return 'Enter a title and at least one allowed group before publishing';
-  if (progressive && draft.enabled && !draft.description.trim())
+  if (
+    progressive &&
+    draft.kind !== 'bundle' &&
+    draft.enabled &&
+    !draft.description.trim()
+  )
     return 'Add a description explaining when to use this skill before publishing';
 
   const skills =
@@ -37,10 +42,10 @@ export function validatePromptTemplateDraft(draft) {
     draft.kind === 'bundle' &&
     (skills.length < 2 ||
       skills.length > (progressive ? 128 : 16) ||
-      new Set(titles).size !== titles.length)
+      (!progressive && new Set(titles).size !== titles.length))
   )
     return progressive
-      ? 'Use 2 to 128 skills with unique titles'
+      ? 'A bundle contains 2 to 128 independent skills and installs as one package.'
       : 'Use 2 to 16 unique skill titles and keep the combined text within 32768 bytes';
 
   let packageBytes = 0;

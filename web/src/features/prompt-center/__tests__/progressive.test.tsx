@@ -209,6 +209,70 @@ describe('渐进式技能的管理契约', () => {
     )
   })
 
+  it('旧单技能切换按需模式后用可见字段保存正文和新增引用', async () => {
+    renderEditor({
+      ...template,
+      load_mode: 'eager',
+      content: 'Original prompt',
+      skills: [],
+    } as unknown as PromptTemplate)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    fireEvent.change(screen.getByRole('combobox', { name: 'Loading mode' }), {
+      target: { value: 'progressive' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), {
+      target: { value: 'Review updated code' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Description' }), {
+      target: { value: 'Review new changes before release' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Prompt content' }), {
+      target: { value: 'Read references/review.md before reviewing.' },
+    })
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Skill entry path' }),
+      { target: { value: 'review/SKILL.md' } }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Add reference file' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Reference path' }), {
+      target: { value: 'references/review.md' },
+    })
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Reference content' }),
+      {
+        target: { value: 'Check correctness and permissions.' },
+      }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          load_mode: 'progressive',
+          title: 'Review updated code',
+          description: 'Review new changes before release',
+          content: 'Read references/review.md before reviewing.',
+          skills: [
+            {
+              title: 'Review updated code',
+              description: 'Review new changes before release',
+              content: 'Read references/review.md before reviewing.',
+              path: 'review/SKILL.md',
+              resources: [
+                {
+                  path: 'references/review.md',
+                  content: 'Check correctness and permissions.',
+                },
+              ],
+            },
+          ],
+        })
+      )
+    )
+  })
+
   it('修改大技能后保存保留稳定身份及引用资源，失败保留草稿', async () => {
     vi.mocked(api.put).mockResolvedValueOnce({
       data: { success: false, message: 'Version conflict' },
