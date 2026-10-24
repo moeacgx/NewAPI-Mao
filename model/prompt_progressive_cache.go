@@ -65,6 +65,20 @@ func (cache *progressiveSkillContentCache) reset(database *gorm.DB) {
 	cache.order.Init()
 }
 
+// removeTemplate 删除模板后立即释放其正文页；权限检查仍以数据库为准。
+func (cache *progressiveSkillContentCache) removeTemplate(templateID int) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	for key, element := range cache.entries {
+		if key.TemplateID != templateID {
+			continue
+		}
+		cache.used -= element.Value.(*progressiveSkillCacheEntry).bytes
+		cache.order.Remove(element)
+		delete(cache.entries, key)
+	}
+}
+
 func (cache *progressiveSkillContentCache) get(database *gorm.DB, key progressiveSkillCacheKey) (SkillFilePage, bool) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()

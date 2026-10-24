@@ -83,40 +83,47 @@ func TestSkillArchiveReportsFailingFileAndBodySize(t *testing.T) {
 	}
 }
 
-func TestSkillArchiveAcceptsLongSourceDescriptionAndKeepsFullInstructions(t *testing.T) {
-	// 公开仓库中触发失败的 520 字符说明；正文使用独立的最小测试资料。
+func TestSkillArchiveKeepsLongSourceDescriptionVerbatim(t *testing.T) {
+	// 公开仓库中曾因 512 字符上限导入失败的 520 字符说明；现在必须原样进入目录说明，正文不追加任何内容。
 	description := "Provides malware analysis and network traffic techniques for CTF challenges. Use when analyzing obfuscated scripts, malicious packages, custom crypto protocols, C2 traffic, PE/.NET binaries, RC4/AES encrypted communications, YARA rules, shellcode analysis, memory forensics for malware (Volatility malfind, process injection detection), anti-analysis techniques (VM/sandbox detection, timing evasion, API hashing, process injection, environment checks), or extracting malware configurations and indicators of compromise."
-	data := skillArchiveFixture(t, []string{"ctf-malware/SKILL.md"}, []string{"---\nname: ctf-malware\ndescription: " + description + "\n---\n# Review\nKeep the original instructions."}, false)
-	draft, err := ParseSkillArchive(data, "ctf-skills.zip")
-	require.NoError(t, err)
-	assert.Equal(t, "ctf-malware", draft.Title)
-	assert.Equal(t, 512, utf8.RuneCountInString(draft.Description))
-	assert.True(t, strings.HasSuffix(draft.Description, "…"))
-	assert.Contains(t, draft.Content, description)
-	assert.True(t, strings.HasSuffix(draft.Content, "# Review\nKeep the original instructions."))
-	require.Len(t, draft.Skills, 1)
-	assert.Equal(t, draft.Content, draft.Skills[0].Content)
-	assert.Equal(t, draft.Description, draft.Skills[0].Description)
+	long := strings.Repeat("用途说明🌟", 900) // 4500 个字符、14400 字节，远超旧 512 字符上限
+	for _, test := range []struct {
+		name        string
+		description string
+	}{{"ctf-malware", description}, {"unicode", long}} {
+		t.Run(test.name, func(t *testing.T) {
+			data := skillArchiveFixture(t, []string{test.name + "/SKILL.md"}, []string{"---\nname: " + test.name + "\ndescription: " + test.description + "\n---\n# Review\nKeep the original instructions."}, false)
+			draft, err := ParseSkillArchive(data, "skills.zip")
+			require.NoError(t, err)
+			assert.Equal(t, test.name, draft.Title)
+			assert.Equal(t, test.description, draft.Description)
+			assert.Equal(t, "# Review\nKeep the original instructions.", draft.Content)
+			require.Len(t, draft.Skills, 1)
+			assert.Equal(t, test.description, draft.Skills[0].Description)
+		})
+	}
 }
 
-func TestSkillArchiveShortensUnicodeMetadataWithoutBreakingUTF8(t *testing.T) {
+func TestSkillArchiveRejectsDescriptionBeyondStorageBoundary(t *testing.T) {
+	data := skillArchiveFixture(t, []string{"SKILL.md"}, []string{"---\nname: 检查\ndescription: " + strings.Repeat("a", model.MaxPromptDescriptionBytes+1) + "\n---\n正文"}, false)
+	_, err := ParseSkillArchive(data, "huge.zip")
+	require.ErrorContains(t, err, "16 KiB")
+}
+
+func TestSkillArchiveShortensUnicodeNameWithoutBreakingUTF8(t *testing.T) {
 	name := strings.Repeat("技能🌟", 30)
-	description := strings.Repeat("用途🌟", 180)
-	data := skillArchiveFixture(t, []string{"skills/SKILL.md"}, []string{"---\nname: " + name + "\ndescription: " + description + "\n---\n保留正文。"}, false)
+	data := skillArchiveFixture(t, []string{"skills/SKILL.md"}, []string{"---\nname: " + name + "\ndescription: 用途\n---\n保留正文。"}, false)
 	draft, err := ParseSkillArchive(data, "unicode.zip")
 	require.NoError(t, err)
 	assert.Equal(t, 80, utf8.RuneCountInString(draft.Title))
-	assert.Equal(t, 512, utf8.RuneCountInString(draft.Description))
-	assert.True(t, utf8.ValidString(draft.Title+draft.Description+draft.Content))
+	assert.True(t, utf8.ValidString(draft.Title+draft.Content))
 	assert.True(t, strings.HasSuffix(draft.Title, "…"))
-	assert.True(t, strings.HasSuffix(draft.Description, "…"))
-	assert.Contains(t, draft.Content, name)
-	assert.Contains(t, draft.Content, description)
-	assert.True(t, strings.HasSuffix(draft.Content, "保留正文。"))
+	assert.Equal(t, "用途", draft.Description)
+	assert.Equal(t, "完整技能名称："+name+"\n\n保留正文。", draft.Content)
 }
 
 func TestSkillArchiveLongMetadataCannotReplaceEmptyBody(t *testing.T) {
-	data := skillArchiveFixture(t, []string{"SKILL.md"}, []string{"---\nname: 检查\ndescription: " + strings.Repeat("说明", 260) + "\n---\n \n"}, false)
+	data := skillArchiveFixture(t, []string{"SKILL.md"}, []string{"---\nname: " + strings.Repeat("检查", 50) + "\ndescription: " + strings.Repeat("说明", 260) + "\n---\n \n"}, false)
 	_, err := ParseSkillArchive(data, "empty.zip")
 	require.ErrorContains(t, err, "正文必须为非空")
 }

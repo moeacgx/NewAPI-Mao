@@ -133,7 +133,7 @@ func loadSkillStoreCatalog(ctx context.Context, source string, client *http.Clie
 	seen := make(map[string]bool, len(catalog.Items))
 	for _, record := range catalog.Items {
 		if !validSkillStoreID(record.ID) || seen[record.ID] || !utf8.ValidString(record.Title+record.Description+record.Category+record.Version) ||
-			strings.TrimSpace(record.Title) == "" || utf8.RuneCountInString(record.Title) > 80 || utf8.RuneCountInString(record.Description) > 512 ||
+			strings.TrimSpace(record.Title) == "" || utf8.RuneCountInString(record.Title) > 80 || len(record.Description) > model.MaxPromptDescriptionBytes ||
 			utf8.RuneCountInString(record.Category) > 40 || record.Version == "" || len(record.Version) > 40 ||
 			(record.Kind != "prompt" && record.Kind != "bundle") ||
 			len(record.Files) > model.MaxSkillResourceFiles || (record.Kind == "prompt" && len(skillStoreMainFiles(record)) != 1) || (record.Kind == "bundle" && (len(skillStoreMainFiles(record)) < 2 || len(skillStoreMainFiles(record)) > model.MaxProgressiveSkills)) {

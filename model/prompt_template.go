@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +31,9 @@ type PromptTemplate struct {
 	Version      int              `json:"version"`
 	GroupIDs     []int            `json:"group_ids" gorm:"-"`
 	GroupDetails []GroupReference `json:"group_details" gorm:"-"`
+	// 来源只在管理员接口返回；公共目录和令牌安装摘要使用独立的公开结构。
+	RepositorySourceJSON string                  `json:"-" gorm:"type:text"`
+	RepositorySource     *PromptRepositorySource `json:"repository_source,omitempty" gorm:"-"`
 }
 
 type PromptTemplateGroup struct {
@@ -115,6 +119,67 @@ func ListPromptTemplates(enabledOnly bool) ([]PromptTemplate, error) {
 	return listPromptTemplates(enabledOnly, true)
 }
 
+// GetAdminPromptTemplate 读取包含正文、引用文件和来源状态的单个管理员模板。
+func GetAdminPromptTemplate(id int) (*PromptTemplate, error) {
+	var template PromptTemplate
+	if err := DB.First(&template, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPromptTemplateNotFound
+		}
+		return nil, err
+	}
+	items := []PromptTemplate{template}
+	if err := hydratePromptTemplateGroups(DB, items, true); err != nil {
+		return nil, err
+	}
+	return &items[0], nil
+}
+
+// DeletePromptTemplate 按版本删除模板，并在同一事务中卸载所有令牌安装、白名单和渐进式文件。
+// 返回被自动卸载的令牌数量。
+func DeletePromptTemplate(id, version int) (int, error) {
+	if id <= 0 || version <= 0 {
+		return 0, errors.New("提示词 ID 或版本无效")
+	}
+	uninstalled := 0
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var stored PromptTemplate
+		if err := lockForUpdate(tx).Select("id", "version").First(&stored, id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrPromptTemplateNotFound
+			}
+			return err
+		}
+		if stored.Version != version {
+			return ErrPromptVersionConflict
+		}
+		bindings := tx.Where("template_id = ?", id).Delete(&TokenPromptBinding{})
+		if bindings.Error != nil {
+			return bindings.Error
+		}
+		uninstalled = int(bindings.RowsAffected)
+		for _, table := range []interface{}{&PromptSkillChunk{}, &PromptSkillFile{}, &PromptSkillRecord{}, &PromptTemplateGroup{}} {
+			if err := tx.Where("template_id = ?", id).Delete(table).Error; err != nil {
+				return err
+			}
+		}
+		deleted := tx.Where("id = ? AND version = ?", id, version).Delete(&PromptTemplate{})
+		if deleted.Error != nil {
+			return deleted.Error
+		}
+		if deleted.RowsAffected != 1 {
+			return ErrPromptVersionConflict
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	// SQLite 可能复用最大主键；清理同 ID 的正文页，避免新模板命中旧缓存。
+	progressiveSkillContents.removeTemplate(id)
+	return uninstalled, nil
+}
+
 // ListPromptTemplateSummaries 不读取渐进式文件分块，供用户目录页面使用。
 func ListPromptTemplateSummaries(enabledOnly bool) ([]PromptTemplate, error) {
 	return listPromptTemplates(enabledOnly, false)
@@ -150,6 +215,20 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 		return nil, errors.New("白名单分组无效或重复")
 	}
 	sort.Ints(groupIDs)
+	// 未提交来源的旧客户端编辑已有模板时保留数据库中的来源，不能借此清除记录。
+	sourceProvided := input.RepositorySource != nil
+	input.RepositorySourceJSON = ""
+	if sourceProvided {
+		source := *input.RepositorySource
+		if err := normalizePromptRepositorySource(&source); err != nil {
+			return nil, err
+		}
+		encoded, err := common.Marshal(source)
+		if err != nil {
+			return nil, err
+		}
+		input.RepositorySourceJSON = string(encoded)
+	}
 	// 统一按令牌、模板的顺序加锁，保证两个模板同时更新时不会突破安装总量上限。
 	var affectedTokenIDs []int
 	if input.ID > 0 {
@@ -228,7 +307,13 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 			if input.LoadMode == PromptLoadModeProgressive {
 				storedContent = ""
 			}
-			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(map[string]interface{}{"title": input.Title, "description": input.Description, "content": storedContent, "kind": input.Kind, "load_mode": input.LoadMode, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version})
+			updates := map[string]interface{}{"title": input.Title, "description": input.Description, "content": storedContent, "kind": input.Kind, "load_mode": input.LoadMode, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version}
+			if sourceProvided {
+				updates["repository_source_json"] = input.RepositorySourceJSON
+			} else {
+				input.RepositorySourceJSON = stored.RepositorySourceJSON
+			}
+			result := tx.Model(&PromptTemplate{}).Where("id = ? AND version = ?", input.ID, stored.Version).Updates(updates)
 			if result.Error != nil {
 				return result.Error
 			}

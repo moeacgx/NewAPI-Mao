@@ -6,25 +6,33 @@
 为 520 字符。导入器将其直接映射到站内最多 512 字符的目录说明，导致整个导入失败。
 该错误来自技能入口的元数据校验，与仓库中的其他文件是否被过滤无关。
 
-## 修改范围与契约
+## 方案调整
 
-- 只调整 ZIP 与公开 GitHub 导入共用的 Markdown 解析边界，保持站内保存接口与数据库限制。
-- 导入名称超过 80 字符、说明超过 512 字符时，按 Unicode 字符缩短为带省略号的目录摘要。
-- 完整名称或完整说明以前置文本保存在技能主文件正文，网关实际读取技能时仍可获得全部原文。
-- 未超限的元数据与正文保持原行为。元数据不能替代空正文，也不能绕过 UTF-8、单文件 8 MiB、
-  包内 64 MiB 等校验。不执行仓库或压缩包中的任何代码。
-- 两套前端复用相同导入接口，无需单独放宽表单字段。
+初版修复把超过 512 字符的说明截断为带省略号的摘要，并把完整说明前置到主文件正文。
+用户随后明确要求不能有 512 字符限制，因此改为取消字符数上限：
 
-## 验证计划
+- 模型层三处说明校验（全文单技能、全文合集子项、渐进式技能）不再按 512 字符拒绝，
+  改为单条最多 16 KiB UTF-8 字节（`model.MaxPromptDescriptionBytes`）。该边界只保护 MySQL TEXT 列
+  和网关目录分页，约为旧上限的 10 倍以上；超出时返回包含技能名称的明确错误。
+- 导入器原样保存 YAML `description`，不截断，也不再向正文追加说明。
+- 显示名称仍受站内 80 字符限制（`title` 列宽 320 字节）。名称超长时缩短为带省略号的摘要，
+  完整名称前置到主文件正文；元数据不能替代原本为空的正文，合并后仍受单文件 8 MiB 校验。
+- 内置商店索引的说明同样改用 16 KiB 字节边界。
+- 网关目录分页每页最多 32 KiB；单条说明在 JSON 转义后可能超过该预算，分页至少返回一条，
+  保证 `newapi_skills_list` 总能前进。
+- 两套前端去掉说明输入框的 `maxLength=512` 与表单校验上限，由后端返回超限错误。
 
-先用 520 字符说明建立失败回归，再覆盖多字节名称与说明、未超限正文、空正文和正文大小边界。
-运行导入相关 Go 测试，统一设置 `-timeout=60s`。真实仓库只用于读取元数据确认根因，
-自动化测试使用固定内容，不依赖外部网络。
+不执行仓库或压缩包中的任何代码。
 
 ## 验证结果
 
-- 固定的 520 字符说明先复现截图错误，Unicode、空正文、文件预算用例也先出现预期失败。
-- 修复后 `go test ./service -run 'TestSkillArchive|Test.*Repository' -count=1 -timeout=60s`
-  通过，涵盖现有 ZIP 与 GitHub 导入回归；未超限 Markdown 的说明和正文继续原样保留。
-- `go test ./service -count=1 -timeout=60s` 全包通过（19.813 秒）。
+- `TestSkillArchiveKeepsLongSourceDescriptionVerbatim`：520 字符真实说明与 4500 字符（14400 字节）
+  中文/表情说明原样进入草稿，正文不变。
+- `TestSkillArchiveRejectsDescriptionBeyondStorageBoundary`：超过 16 KiB 时返回明确错误。
+- `TestSkillArchiveShortensUnicodeNameWithoutBreakingUTF8`、空正文和 8 MiB 文件预算回归保留。
+- `TestPromptDescriptionsAcceptLongTextUpToStorageBoundary`：三种模板保存 3600 字符说明后原样读回，
+  超过 16 KiB 拒绝。
+- `TestGatewaySkillCataloguePagesAdvanceWithLongDescriptions`：转义后超过 32 KiB 的条目每页返回一条；
+  修复前该用例返回空页。
+- `go test ./model ./service ./controller ./router -count=1 -timeout=60s` 全部通过。
 - 真实公开仓库只读取入口元数据确认根因；未向生产站点导入、修改或执行任何技能。

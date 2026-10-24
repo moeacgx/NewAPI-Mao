@@ -30,6 +30,59 @@ func ImportRepositorySkills(ctx context.Context, repositoryURL string) (*model.P
 	return importRepositorySkills(ctx, repositoryURL, &http.Client{Transport: transport})
 }
 
+// ErrRepositoryLocalChanges 表示站内副本与上次导入内容不同，需要管理员确认覆盖。
+var ErrRepositoryLocalChanges = errors.New("该技能在站内修改过正文或引用文件，确认覆盖后才能从 GitHub 更新")
+
+// UpdatePromptTemplateFromRepository 重新读取记录的 GitHub 来源并替换技能正文与引用文件。
+// 模板 ID、令牌安装、分类、白名单、上下架、排序和站点顶层标题/说明保持不变；返回值表示内容是否发生变化。
+func UpdatePromptTemplateFromRepository(ctx context.Context, id, version int, overwriteLocal bool) (*model.PromptTemplate, bool, error) {
+	transport := &http.Transport{DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 15 * time.Second}
+	defer transport.CloseIdleConnections()
+	return updatePromptTemplateFromRepository(ctx, id, version, overwriteLocal, &http.Client{Transport: transport})
+}
+
+func updatePromptTemplateFromRepository(ctx context.Context, id, version int, overwriteLocal bool, client *http.Client) (*model.PromptTemplate, bool, error) {
+	current, err := model.GetAdminPromptTemplate(id)
+	if err != nil {
+		return nil, false, err
+	}
+	if current.Version != version {
+		return nil, false, model.ErrPromptVersionConflict
+	}
+	source := current.RepositorySource
+	if source == nil {
+		return nil, false, errors.New("该技能没有记录 GitHub 来源，无法一键更新；请重新从 GitHub 导入")
+	}
+	if source.LocallyModified && !overwriteLocal {
+		return nil, false, ErrRepositoryLocalChanges
+	}
+	draft, err := importRepositorySkills(ctx, source.URL, client)
+	if err != nil {
+		return nil, false, fmt.Errorf("从 GitHub 拉取更新失败，站内技能保持不变：%w", err)
+	}
+	if !source.LocallyModified && draft.RepositorySource.ContentHash == source.ContentHash {
+		return current, false, nil
+	}
+	updated := *current
+	updated.Kind, updated.LoadMode, updated.Content, updated.Skills = draft.Kind, draft.LoadMode, draft.Content, draft.Skills
+	// 相同主文件路径沿用原技能 ID，正在进行的目录发现和统计仍指向同一技能。
+	skillIDs := make(map[string]string, len(current.Skills))
+	for _, skill := range current.Skills {
+		skillIDs[skill.Path] = skill.ID
+	}
+	for i := range updated.Skills {
+		if skillID, ok := skillIDs[updated.Skills[i].Path]; ok {
+			updated.Skills[i].ID = skillID
+		}
+	}
+	updated.RepositorySource = draft.RepositorySource
+	saved, err := model.SavePromptTemplate(updated)
+	if err != nil {
+		return nil, false, err
+	}
+	return saved, true, nil
+}
+
 func importRepositorySkills(ctx context.Context, repositoryURL string, client *http.Client) (*model.PromptTemplate, error) {
 	parsed, err := url.Parse(strings.TrimSpace(repositoryURL))
 	if err != nil || parsed.Scheme != "https" || parsed.Host != "github.com" || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.Contains(repositoryURL, "#") {
@@ -72,15 +125,16 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 	if err := common.Unmarshal(metadataBytes, &metadata); err != nil || metadata.Private || (metadata.Visibility != "" && metadata.Visibility != "public") || !fs.ValidPath(metadata.DefaultBranch) || strings.ContainsAny(metadata.DefaultBranch, "\\\x00") || !utf8.ValidString(metadata.DefaultBranch) {
 		return nil, errors.New("仅支持可公开读取的 GitHub 仓库")
 	}
-	ref, selectedPath, blob := metadata.DefaultBranch, "", false
+	// refName 记录用户链接里的分支、标签或提交，ref 是本次读取使用的具体对象。
+	refName, ref, selectedPath, blob := metadata.DefaultBranch, metadata.DefaultBranch, "", false
 	if len(parts) > 2 {
 		blob = parts[2] == "blob"
 		rest := strings.Join(parts[3:], "/")
 		if githubCommitSHA.MatchString(parts[3]) {
-			ref = parts[3]
+			refName, ref = strings.ToLower(parts[3]), parts[3]
 			selectedPath = strings.Join(parts[4:], "/")
 		} else {
-			ref, selectedPath, err = reader.resolveReference(apiBase, rest)
+			refName, ref, selectedPath, err = reader.resolveReference(apiBase, rest)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +248,17 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 		}
 		textFiles[entry.Path] = body
 	}
-	return buildProgressiveSkillDraft(repository, files, textFiles)
+	draft, err := buildProgressiveSkillDraft(repository, files, textFiles)
+	if err != nil {
+		return nil, err
+	}
+	hash, err := model.PromptTemplateContentHash(draft)
+	if err != nil {
+		return nil, err
+	}
+	draft.RepositorySource = &model.PromptRepositorySource{URL: strings.TrimSpace(repositoryURL), Ref: refName, Path: selectedPath,
+		Commit: strings.ToLower(commit.SHA), ImportedAt: time.Now().Unix(), ContentHash: hash}
+	return draft, nil
 }
 
 type skillRepositoryReader struct {
@@ -203,14 +267,15 @@ type skillRepositoryReader struct {
 }
 
 // resolveReference 按最长完整引用识别带斜杠的分支和标签，避免把引用的一部分当成目录。
-func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (string, string, error) {
+// 返回引用名称、解引用后的提交 SHA 和引用之后的目录。
+func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (string, string, string, error) {
 	var selectedName, selectedNamespace, selectedSHA, selectedType string
 	ambiguous := false
 	first := strings.SplitN(rest, "/", 2)[0]
 	for _, namespace := range []string{"heads", "tags"} {
 		body, err := reader.read(apiBase+"/git/matching-refs/"+namespace+"/"+url.PathEscape(first), 256*1024)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 		var matches []struct {
 			Ref    string `json:"ref"`
@@ -220,13 +285,13 @@ func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (stri
 			} `json:"object"`
 		}
 		if err := common.Unmarshal(body, &matches); err != nil || len(matches) > 1024 {
-			return "", "", errors.New("GitHub 分支或标签列表无效或过大，请使用完整 commit SHA 链接")
+			return "", "", "", errors.New("GitHub 分支或标签列表无效或过大，请使用完整 commit SHA 链接")
 		}
 		prefix := "refs/" + namespace + "/"
 		for _, match := range matches {
 			name := strings.TrimPrefix(match.Ref, prefix)
 			if !strings.HasPrefix(match.Ref, prefix) || !fs.ValidPath(name) || strings.ContainsAny(name, "\\\x00") || !utf8.ValidString(name) || !githubCommitSHA.MatchString(match.Object.SHA) || (match.Object.Type != "commit" && match.Object.Type != "tag") {
-				return "", "", errors.New("GitHub 分支或标签引用无效")
+				return "", "", "", errors.New("GitHub 分支或标签引用无效")
 			}
 			if rest != name && !strings.HasPrefix(rest, name+"/") {
 				continue
@@ -245,19 +310,19 @@ func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (stri
 		}
 	}
 	if selectedName == "" {
-		return "", "", errors.New("链接没有匹配的 GitHub 分支或标签，请检查路径或使用完整 commit SHA")
+		return "", "", "", errors.New("链接没有匹配的 GitHub 分支或标签，请检查路径或使用完整 commit SHA")
 	}
 	if ambiguous {
-		return "", "", errors.New("链接同时匹配同名分支和标签，请使用完整 commit SHA 链接")
+		return "", "", "", errors.New("链接同时匹配同名分支和标签，请使用完整 commit SHA 链接")
 	}
 	// 附注标签指向标签对象；只沿官方 API 的固定 SHA 解引用，最多五层。
 	for depth := 0; selectedType == "tag"; depth++ {
 		if depth >= 5 {
-			return "", "", errors.New("GitHub 标签引用嵌套过深，请使用完整 commit SHA 链接")
+			return "", "", "", errors.New("GitHub 标签引用嵌套过深，请使用完整 commit SHA 链接")
 		}
 		body, err := reader.read(apiBase+"/git/tags/"+selectedSHA, 64*1024)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 		var tag struct {
 			Object struct {
@@ -266,11 +331,11 @@ func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (stri
 			} `json:"object"`
 		}
 		if err := common.Unmarshal(body, &tag); err != nil || !githubCommitSHA.MatchString(tag.Object.SHA) || (tag.Object.Type != "commit" && tag.Object.Type != "tag") {
-			return "", "", errors.New("GitHub 标签没有指向有效提交")
+			return "", "", "", errors.New("GitHub 标签没有指向有效提交")
 		}
 		selectedSHA, selectedType = tag.Object.SHA, tag.Object.Type
 	}
-	return selectedSHA, strings.TrimPrefix(strings.TrimPrefix(rest, selectedName), "/"), nil
+	return selectedName, selectedSHA, strings.TrimPrefix(strings.TrimPrefix(rest, selectedName), "/"), nil
 }
 
 func (reader skillRepositoryReader) read(endpoint string, maxBytes int64) ([]byte, error) {

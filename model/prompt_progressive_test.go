@@ -321,8 +321,8 @@ func TestPromptTemplateRejectsValuesUnsupportedByTextColumns(t *testing.T) {
 		input PromptTemplate
 		want  string
 	}{
-		{"元数据中的 NUL", PromptTemplate{Title: "技能", Description: "不合法\x00说明", Content: "正文", LoadMode: PromptLoadModeProgressive}, "标题或说明"},
-		{"合集子项中的 NUL", PromptTemplate{Title: "合集", Kind: "bundle", LoadMode: PromptLoadModeProgressive, Skills: []PromptSkill{{Title: "一", Description: "不合法\x00", Content: "一"}, {Title: "二", Content: "二"}}}, "标题或说明"},
+		{"元数据中的 NUL", PromptTemplate{Title: "技能", Description: "不合法\x00说明", Content: "正文", LoadMode: PromptLoadModeProgressive}, "说明必须为有效文本"},
+		{"合集子项中的 NUL", PromptTemplate{Title: "合集", Kind: "bundle", LoadMode: PromptLoadModeProgressive, Skills: []PromptSkill{{Title: "一", Description: "不合法\x00", Content: "一"}, {Title: "二", Content: "二"}}}, "说明必须为有效文本"},
 		{"旧正文中的 NUL", PromptTemplate{Title: "旧提示词", Content: "不合法\x00正文"}, "UTF-8"},
 		{"旧合集 JSON 转义膨胀", PromptTemplate{Title: "旧合集", Kind: "bundle", Skills: []PromptSkill{{Title: "一", Content: strings.Repeat("\x01", 16000)}, {Title: "二", Content: "另一个技能"}}}, "TEXT"},
 	} {
