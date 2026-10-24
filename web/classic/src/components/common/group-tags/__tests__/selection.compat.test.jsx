@@ -35,6 +35,7 @@ import EditTokenModal, {
 import { buildGroupSelectionPayload } from '../../../../helpers/groupDetails';
 import { API } from '../../../../helpers/api';
 import { StatusContext } from '../../../../context/Status';
+import { UserContext } from '../../../../context/User';
 
 const groups = [
   {
@@ -95,6 +96,8 @@ function renderToken({
   editing = false,
   initial = [],
   defaultAuto = false,
+  admin = false,
+  channels = {},
 } = {}) {
   vi.spyOn(API, 'get').mockImplementation(async (url) => {
     if (url === '/api/user/self/groups')
@@ -123,6 +126,7 @@ function renderToken({
             model_limits: '',
             ...buildGroupSelectionPayload(initial, groups),
             group_ratio_limits: '{}',
+            group_channel_ids: channels,
           },
         },
       };
@@ -135,12 +139,16 @@ function renderToken({
     <StatusContext.Provider
       value={[{ status: { default_use_auto_group: defaultAuto } }, () => {}]}
     >
-      <EditTokenModal
-        visiable
-        editingToken={editing ? { id: 9 } : {}}
-        refresh={() => {}}
-        handleClose={() => {}}
-      />
+      <UserContext.Provider
+        value={[{ user: { id: 1, role: admin ? 10 : 1 } }, () => {}]}
+      >
+        <EditTokenModal
+          visiable
+          editingToken={editing ? { id: 9 } : {}}
+          refresh={() => {}}
+          handleClose={() => {}}
+        />
+      </UserContext.Provider>
     </StatusContext.Provider>,
   );
   return save;
@@ -159,6 +167,99 @@ async function findTagGroupOption(tagName, groupName) {
 }
 
 describe('分组标签筛选', () => {
+  it('管理员编辑回读渠道，清空和删除分组后移除对应限定', async () => {
+    const save = renderToken({
+      editing: true,
+      initial: ['internal-a', 'internal-b'],
+      admin: true,
+      channels: { 11: 952, 22: 958 },
+    });
+    const first = await screen.findByRole('spinbutton', {
+      name: 'Channel ID for 开放平台旗舰',
+    });
+    expect(first.closest('.token-group-selected-row').style.flexWrap).toBe(
+      'wrap',
+    );
+    expect(first.value).toBe('952');
+    expect(
+      screen.getByRole('spinbutton', { name: 'Channel ID for 国产模型优选' })
+        .value,
+    ).toBe('958');
+    fireEvent.change(first, { target: { value: '' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove group 国产模型优选' }),
+    );
+    expect(
+      screen.queryByRole('spinbutton', { name: 'Channel ID for 国产模型优选' }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /提交/ }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        '/api/token/',
+        expect.objectContaining({ group_channel_ids: {}, group_ids: [11] }),
+      ),
+    );
+  });
+
+  it('管理员输入非法渠道 ID 时保留草稿且阻止保存', async () => {
+    const save = renderToken({
+      editing: true,
+      initial: ['internal-a'],
+      admin: true,
+    });
+    fireEvent.change(
+      await screen.findByRole('spinbutton', {
+        name: 'Channel ID for 开放平台旗舰',
+      }),
+      { target: { value: '-1' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /提交/ }));
+    expect(await screen.findByRole('alert', { name: '' })).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('spinbutton', { name: 'Channel ID for 开放平台旗舰' })
+        .value,
+    ).toBe('-1');
+  });
+  it('管理员为不同已选分组填写渠道 ID 并按稳定分组 ID 保存', async () => {
+    const save = renderToken({
+      editing: true,
+      initial: ['internal-a', 'internal-b'],
+      admin: true,
+    });
+    fireEvent.change(
+      await screen.findByRole('spinbutton', {
+        name: 'Channel ID for 开放平台旗舰',
+      }),
+      { target: { value: '952' } },
+    );
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Channel ID for 国产模型优选' }),
+      { target: { value: '958' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /提交/ }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        '/api/token/',
+        expect.objectContaining({
+          group_channel_ids: { 11: 952, 22: 958 },
+          group_ids: [11, 22],
+        }),
+      ),
+    );
+  });
+
+  it('普通用户已选分组不出现限定渠道入口且省略管理员参数', async () => {
+    const save = renderToken({ editing: true, initial: ['internal-a'] });
+    await screen.findByRole('radio', { name: /OpenAI/ });
+    await screen.findByDisplayValue('现有令牌');
+    expect(
+      screen.queryByRole('spinbutton', { name: /Channel ID for/ }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /提交/ }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(save.mock.calls[0][1]).not.toHaveProperty('group_channel_ids');
+  });
   it('有已选分组时显示带图标的已选分组标题，空选择不显示空标题', () => {
     const view = render(<Picker initial={['internal-a']} />);
 

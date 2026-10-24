@@ -115,6 +115,9 @@ func GetChannel(group string, model string, retry int, requestPath string) (*Cha
 // path filtering while omitting channels already attempted in this request.
 func GetChannelWithSelectionExclusions(group string, model string, retry int, requestPath string, exclusions ChannelSelectionExclusions) (*Channel, error) {
 	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
+	if exclusions.RequiredChannelID > 0 {
+		channelQuery = channelQuery.Where("channel_id = ?", exclusions.RequiredChannelID)
+	}
 	if len(exclusions.ChannelIDs) > 0 {
 		ids := make([]int, 0, len(exclusions.ChannelIDs))
 		for id := range exclusions.ChannelIDs {

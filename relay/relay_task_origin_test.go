@@ -84,6 +84,31 @@ func TestResolveOriginTaskAcceptsCurrentExplicitTokenGroup(t *testing.T) {
 	require.Equal(t, group.Code, info.UsingGroup)
 }
 
+func TestResolveOriginTaskHonorsGroupChannelRestriction(t *testing.T) {
+	for _, matches := range []bool{false, true} {
+		t.Run(map[bool]string{false: "限定与原渠道冲突", true: "限定与原渠道一致"}[matches], func(t *testing.T) {
+			c, info, group, channel, _ := setupOriginTaskRouteTest(t)
+			common.SetContextKey(c, constant.ContextKeyTokenGroupMode, model.TokenGroupModeExplicit)
+			common.SetContextKey(c, constant.ContextKeyTokenGroupIds, []int{group.Id})
+			requiredID := channel.Id
+			if !matches {
+				requiredID++
+			}
+			common.SetContextKey(c, constant.ContextKeyTokenGroupChannels, map[string]int{group.Code: requiredID})
+			taskErr := ResolveOriginTask(c, info)
+			if matches {
+				require.Nil(t, taskErr)
+				require.NotNil(t, info.LockedChannel)
+				return
+			}
+			require.NotNil(t, taskErr)
+			require.Equal(t, http.StatusForbidden, taskErr.StatusCode)
+			require.Equal(t, "task_channel_ineligible", taskErr.Code)
+			require.Nil(t, info.LockedChannel)
+		})
+	}
+}
+
 func TestResolveOriginTaskAcceptsCurrentAutoTokenGroup(t *testing.T) {
 	c, info, group, _, _ := setupOriginTaskRouteTest(t)
 	common.SetContextKey(c, constant.ContextKeyTokenGroupMode, model.TokenGroupModeAuto)

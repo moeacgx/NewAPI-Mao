@@ -530,6 +530,23 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	if token == nil {
 		return fmt.Errorf("token is nil")
 	}
+	if len(token.GroupChannelIds) > 0 {
+		if !model.IsAdmin(token.UserId) {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "仅管理员可使用分组限定渠道")
+			return fmt.Errorf("仅管理员可使用分组限定渠道")
+		}
+		if len(parts) > 1 {
+			abortWithOpenAiMessage(c, http.StatusBadRequest, "分组限定渠道不能与密钥渠道后缀同时使用")
+			return fmt.Errorf("分组限定渠道不能与密钥渠道后缀同时使用")
+		}
+		channels := make(map[string]int, len(token.GroupChannelIds))
+		for _, group := range token.GroupDetails {
+			if id := token.GroupChannelIds[group.Id]; id > 0 {
+				channels[group.Code] = id
+			}
+		}
+		common.SetContextKey(c, constant.ContextKeyTokenGroupChannels, channels)
+	}
 	if token.Group != "" && token.Group != "auto" {
 		if groups, err := service.ParseTokenGroupList(token.Group); err == nil {
 			common.SetContextKey(c, constant.ContextKeyTokenGroups, groups)
