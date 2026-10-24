@@ -70,6 +70,7 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { useStatus } from '@/hooks/use-status'
 import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
@@ -113,6 +114,7 @@ export function ApiKeysMutateDrawer({
   currentRow,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const isUpdate = !!currentRow
   const currentRowId = currentRow?.id
   const { triggerRefresh } = useApiKeys()
@@ -289,6 +291,7 @@ export function ApiKeysMutateDrawer({
     setIsSubmitting(true)
     try {
       const basePayload = transformFormDataToPayload(data, groups)
+      if (!isAdmin) delete basePayload.group_channel_ids
 
       if (isUpdate && currentRow) {
         const result = await updateApiKey({
@@ -448,6 +451,22 @@ export function ApiKeysMutateDrawer({
                             groups
                           )
                           field.onChange(normalized)
+                          const retainedIds = new Set(
+                            groups
+                              .filter((group) =>
+                                normalized.includes(group.value)
+                              )
+                              .map((group) => String(group.id))
+                          )
+                          form.setValue(
+                            'group_channel_ids',
+                            Object.fromEntries(
+                              Object.entries(
+                                form.getValues('group_channel_ids') ?? {}
+                              ).filter(([id]) => retainedIds.has(id))
+                            ),
+                            { shouldDirty: true }
+                          )
                           form.setValue(
                             'cross_group_retry',
                             normalized.length > 1 || normalized[0] === 'auto',
@@ -461,6 +480,65 @@ export function ApiKeysMutateDrawer({
                   </FormItem>
                 )}
               />
+
+              {isAdmin && selectedGroups.some((value) => value !== 'auto') && (
+                <FormField
+                  control={form.control}
+                  name='group_channel_ids'
+                  render={({ field }) => (
+                    <FormItem className='bg-muted/20 rounded-lg border p-3'>
+                      <FormLabel>
+                        {t('Channel restrictions (admin only)')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Leave empty for normal routing. Each group only uses its specified channel.'
+                        )}
+                      </FormDescription>
+                      {selectedGroups.map((code) => {
+                        const group = groups.find(
+                          (option) => option.value === code
+                        )
+                        if (!group?.id || code === 'auto') return null
+                        const id = String(group.id)
+                        return (
+                          <div
+                            key={id}
+                            className='grid gap-2 sm:grid-cols-[1fr_9rem] sm:items-center'
+                          >
+                            <label
+                              htmlFor={`group-channel-${id}`}
+                              className='min-w-0 text-sm break-words'
+                            >
+                              {group.label}
+                            </label>
+                            <Input
+                              id={`group-channel-${id}`}
+                              type='number'
+                              min={1}
+                              max={2147483647}
+                              step={1}
+                              placeholder={t('Channel ID')}
+                              aria-label={t('Channel ID for {{name}}', {
+                                name: group.label,
+                              })}
+                              disabled={isSubmitting}
+                              value={field.value?.[id] ?? ''}
+                              onChange={(event) => {
+                                const next = { ...field.value }
+                                if (event.target.value === '') delete next[id]
+                                else next[id] = Number(event.target.value)
+                                field.onChange(next)
+                              }}
+                            />
+                          </div>
+                        )
+                      })}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {selectedGroups.length === 1 && selectedGroups[0] === 'auto' && (
                 <FormField

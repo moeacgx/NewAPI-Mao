@@ -55,6 +55,7 @@ export const apiKeySchema = z.object({
   auto_groups: z.array(z.string()).nullish().default(null),
   group_mode: z.enum(['inherit', 'explicit', 'auto']).nullish(),
   group_ids: z.array(z.number()).optional().default([]),
+  group_channel_ids: z.record(z.string(), z.number()).optional(),
   group_details: z.array(groupReferenceSchema).optional().default([]),
   cross_group_retry: z
     .preprocess((v) => {
@@ -117,6 +118,7 @@ export interface ApiKeyFormData {
   group: string
   auto_groups: string[]
   group_ids: number[]
+  group_channel_ids?: Record<string, number>
   group_mode: GroupMode
   cross_group_retry: boolean
 }

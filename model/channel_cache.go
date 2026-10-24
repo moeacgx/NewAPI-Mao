@@ -26,12 +26,13 @@ var channelSyncLock sync.RWMutex
 // ChannelSelectionExclusions identifies candidates that must not be selected for
 // this attempt. It is intentionally request-local; no persistence is involved.
 type ChannelSelectionExclusions struct {
-	ChannelIDs map[int]struct{}
+	ChannelIDs        map[int]struct{}
+	RequiredChannelID int
 }
 
 func (e ChannelSelectionExclusions) excludes(channelID int) bool {
 	_, excluded := e.ChannelIDs[channelID]
-	return excluded
+	return excluded || (e.RequiredChannelID > 0 && channelID != e.RequiredChannelID)
 }
 
 func InitChannelCache() {

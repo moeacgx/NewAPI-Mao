@@ -26,6 +26,7 @@ const { QueryClient, QueryClientProvider } =
 const { api } = await import('@/lib/api')
 const { ApiKeysProvider } = await import('../api-keys-provider')
 const { ApiKeysMutateDrawer } = await import('../api-keys-mutate-drawer')
+const { useAuthStore } = await import('@/stores/auth-store')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
@@ -60,8 +61,18 @@ function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
             success: true,
             data: {
               auto: { desc: 'Automatic routing', ratio: 'auto' },
-              default: { desc: 'Standard access', ratio: 1 },
-              vip: { desc: 'Priority access', ratio: 2 },
+              default: {
+                id: 11,
+                name: 'Standard models',
+                desc: 'Standard access',
+                ratio: 1,
+              },
+              vip: {
+                id: 22,
+                name: 'Priority models',
+                desc: 'Priority access',
+                ratio: 2,
+              },
             },
           },
         }
@@ -105,8 +116,18 @@ async function renderCreateDrawer(): Promise<void> {
       success: true,
       data: {
         auto: { desc: 'Automatic routing', ratio: 'auto' },
-        default: { desc: 'Standard access', ratio: 1 },
-        vip: { desc: 'Priority access', ratio: 2 },
+        default: {
+          id: 11,
+          name: 'Standard models',
+          desc: 'Standard access',
+          ratio: 1,
+        },
+        vip: {
+          id: 22,
+          name: 'Priority models',
+          desc: 'Priority access',
+          ratio: 2,
+        },
       },
     },
     { updatedAt: freshAt }
@@ -194,6 +215,7 @@ function selectComboboxOption(
 }
 
 afterEach(() => {
+  useAuthStore.getState().auth.setUser(null)
   apiClient.get = originalGet
   apiClient.post = originalPost
   localStorage.clear()
@@ -204,6 +226,77 @@ afterEach(() => {
 })
 
 describe('API keys mutate drawer Auto group integration', () => {
+  test('管理员分别指定已选分组的渠道并提交稳定分组 ID', async () => {
+    useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 10 })
+    const payloads: Array<Record<string, unknown>> = []
+    installApiFixtures(payloads)
+    await renderCreateDrawer()
+    selectComboboxOption(getControlByLabel('Group'), 'Standard access')
+    selectComboboxOption(getControlByLabel('Group'), 'Priority access')
+    fireEvent.change(
+      await screen.findByRole('spinbutton', {
+        name: 'Channel ID for Standard models',
+      }),
+      { target: { value: '952' } }
+    )
+    fireEvent.change(
+      screen.getByRole('spinbutton', {
+        name: 'Channel ID for Priority models',
+      }),
+      { target: { value: '958' } }
+    )
+    changeInput(getControlByLabel('Name'), 'channel-testing')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]?.group_channel_ids).toEqual({ '11': 952, '22': 958 })
+    expect(payloads[0]?.group_ids).toEqual([11, 22])
+  })
+
+  test('普通用户选组后不显示限定渠道输入且不提交管理员字段', async () => {
+    useAuthStore.getState().auth.setUser({ id: 2, username: 'user', role: 1 })
+    const payloads: Array<Record<string, unknown>> = []
+    installApiFixtures(payloads)
+    await renderCreateDrawer()
+    selectComboboxOption(getControlByLabel('Group'), 'Standard access')
+    expect(
+      screen.queryByRole('spinbutton', { name: /Channel ID for/ })
+    ).not.toBeInTheDocument()
+    changeInput(getControlByLabel('Name'), 'normal')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]).not.toHaveProperty('group_channel_ids')
+  })
+
+  test('管理员清空一个渠道并移除另一组后提交空限定', async () => {
+    useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 10 })
+    const payloads: Array<Record<string, unknown>> = []
+    installApiFixtures(payloads)
+    await renderCreateDrawer()
+    selectComboboxOption(getControlByLabel('Group'), 'Standard access')
+    selectComboboxOption(getControlByLabel('Group'), 'Priority access')
+    const standard = await screen.findByRole('spinbutton', {
+      name: 'Channel ID for Standard models',
+    })
+    fireEvent.change(standard, { target: { value: '952' } })
+    fireEvent.change(
+      screen.getByRole('spinbutton', {
+        name: 'Channel ID for Priority models',
+      }),
+      { target: { value: '958' } }
+    )
+    fireEvent.change(standard, { target: { value: '' } })
+    selectComboboxOption(getControlByLabel('Group'), 'Priority access')
+    expect(
+      screen.queryByRole('spinbutton', {
+        name: 'Channel ID for Priority models',
+      })
+    ).not.toBeInTheDocument()
+    changeInput(getControlByLabel('Name'), 'clear-pins')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]?.group_channel_ids).toEqual({})
+    expect(payloads[0]?.group_ids).toEqual([11])
+  })
   test('inherits the root Auto order and sends an empty override for every batch-created key', async () => {
     const createdPayloads: Array<Record<string, unknown>> = []
     installApiFixtures(createdPayloads)
@@ -220,7 +313,7 @@ describe('API keys mutate drawer Auto group integration', () => {
       [
         ...document.querySelectorAll('[data-slot="global-auto-order-name"]'),
       ].map((item) => item.textContent)
-    ).toEqual(['vip', 'default'])
+    ).toEqual(['Priority models', 'Standard models'])
     expect(findButton('Restore global Auto', true).disabled).toBe(true)
 
     changeInput(getControlByLabel('Name'), 'batch')
