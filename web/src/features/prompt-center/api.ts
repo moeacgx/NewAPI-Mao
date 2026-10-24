@@ -190,6 +190,36 @@ export async function savePromptTemplate(
   }
 }
 
+export interface PromptTemplateDeleteResult {
+  id: number
+  uninstalled_tokens: number
+}
+
+export async function deletePromptTemplate(
+  id: number,
+  version: number
+): Promise<PromptTemplateDeleteResult> {
+  type DeleteResponse = PromptResponse<PromptTemplateDeleteResult>
+  let payload: DeleteResponse
+  try {
+    const response = await api.delete<DeleteResponse>(
+      `/api/prompt-center/admin/${id}?version=${version}`,
+      { skipErrorHandler: true }
+    )
+    payload = response.data
+  } catch (reason) {
+    if (!isAxiosError<DeleteResponse>(reason) || !reason.response?.data) {
+      throw reason
+    }
+    payload = reason.response.data
+  }
+  if (!payload.success) {
+    throw new Error(payload.message || 'Failed to delete skill')
+  }
+  // 删除已在服务端生效，缺少统计数据时不能误报失败。
+  return { id, uninstalled_tokens: payload.data?.uninstalled_tokens ?? 0 }
+}
+
 export async function getTokenPrompts(
   tokenId: number
 ): Promise<TokenPromptBinding[]> {

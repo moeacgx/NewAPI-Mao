@@ -1,6 +1,7 @@
 # Default GitHub 技能来源与更新
 
 状态：本地实现和验证完成，尚未部署；范围仅为 Default 模板 `web/src/features/prompt-center`。
+后续增量“管理员删除技能”和“取消用途说明 512 字符限制”见文末独立章节。
 
 ## 目标与契约
 
@@ -41,3 +42,58 @@
 Classic 由独立实现任务处理，本记录不宣称修改 Classic。
 来源和更新属于管理员控制台管理接口，不改变现有用户令牌、模型发现、转发或用量响应契约。
 本前端依赖后端新增 `repository_source` 与版本保护更新接口，不能单独部署到旧后端宣称能力完成。
+
+## 增量：管理员删除技能
+
+范围：Default 模板 `web/src/features/prompt-center`；新增 `components/skill-delete-button.tsx`，
+在 `api.ts` 增加 `deletePromptTemplate(id, version)`，技能卡片管理模式下在“编辑”旁挂载删除按钮。
+
+接口契约（后端由主工作项并行实现，本记录只用模拟响应验证）：
+
+- 请求：`DELETE /api/prompt-center/admin/:id?version=<当前模板 version>`，前端设置 `skipErrorHandler`。
+- 成功：HTTP 200 `{ "success": true, "data": { "id": 12, "uninstalled_tokens": 3 } }`。
+- 版本冲突：HTTP 409 `{ "success": false, "message": "提示词已被其他管理员更新，请刷新后重试" }`。
+- 其他失败：HTTP 200 `{ "success": false, "message": "..." }`。
+- 非 2xx 响应体与 200 业务失败统一抛出带服务端 `message` 的 Error；无消息时回退 `Failed to delete skill`。
+- 假设：`success=true` 但缺少 `data` 时仍视为删除成功，卸载数量按 0 展示，避免把已生效的删除误报为失败。
+
+交互：
+
+- 仅管理员在管理模式下显示删除按钮（危险样式、垃圾桶图标），可访问名称为 `Delete skill <标题>`；
+  普通用户和管理员浏览模式不显示。
+- 点击后使用 `@/components/confirm-dialog` 二次确认，说明删除后所有已安装该技能的令牌会自动卸载且无法撤销。
+  取消不发请求。
+- 成功：关闭确认框，从所有 `['prompt-center', *]` 缓存列表移除该模板，失效 `['prompt-center']`、
+  `['token-prompts']`、`['keys']`、`['prompt-center-tokens']`，并以 toast 提示已从多少个令牌卸载。
+- 失败（409 或业务失败）：确认框保持打开并以 `role="alert"` 显示服务端消息，卡片保留，可取消或重试。
+- 请求进行中：确认与取消按钮禁用，确认框不可关闭，重复点击不会再次提交。
+
+## 增量：取消技能用途说明 512 字符限制
+
+用户要求说明不能有 512 字符限制。前端删除 `components/prompt-template-editor.tsx` 顶层说明与
+`components/bundle-skill-editor.tsx` 技能用途说明的 `maxLength={512}`，并删除 `lib/validation.ts`
+中顶层 `description` 与 `skills[].description` 的 `.max(512)`，不新增任何字符数上限。
+prompt-center 内未发现其他 512 相关限制或提示文案。
+
+后端计划将每条说明上限设为 16 KiB（16384 个 UTF-8 字节），仅作为存储和目录安全边界，并由后端返回明确错误；
+前端沿用编辑器现有保存失败提示展示该错误，不在前端重复该字节上限。渐进式发布仍要求说明非空，行为未变。
+
+## 增量验证结果
+
+先补失败用例：`__tests__/skill-delete.test.tsx`（7 项）与 `__tests__/progressive.test.tsx` 新增“技能用途说明长度”2 项。
+实现前运行这两个文件，8 项按预期失败：6 项找不到删除按钮，2 项粘贴 900 字符说明后被截断为 512 字符；
+“普通用户不显示删除按钮”作为负向守护在实现前即通过。实现后全部通过。
+
+在 `web/` 下执行，结果均为本次实际输出：
+
+- `node ./node_modules/vitest/vitest.mjs run src/features/prompt-center`：9 个测试文件、78 项测试全部通过。
+- `node node_modules/@typescript/native-preview/lib/tsgo.js -b`：退出码 0。
+- `node node_modules/oxlint/bin/oxlint -c .oxlintrc.json <8 个改动源码与测试文件>`：退出码 0。
+- `node node_modules/oxfmt/bin/oxfmt -c .oxfmtrc.json --check <改动源码、测试与 7 个语言文件>`：
+  首次检查新测试文件存在换行差异，仅对该文件执行 `--write` 后复查通过。
+- 七语各新增 5 个键；以保持既有键序的方式插入后执行 `node scripts/sync-i18n.mjs`，
+  语言文件无额外改动，新增键未出现在未翻译报告中。
+- 本工作记录以 `oxfmt --check`（默认配置）检查 Markdown 格式通过；`git diff --check` 无问题。
+
+未执行：生产构建、全量 `format:check`（按要求只检查改动文件）、真实后端联调与 Classic 模板验证。
+删除和 16 KiB 说明上限的后端事务、令牌自动卸载及三数据库兼容由主工作项独立验收。

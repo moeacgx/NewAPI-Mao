@@ -31,7 +31,7 @@ function isSkillRelativePath(path: string): boolean {
 export const promptTemplateSchema = z
   .object({
     title: z.string().trim().min(1).max(80),
-    description: z.string().max(512),
+    description: z.string(),
     content: z.string(),
     kind: z.enum(['prompt', 'bundle']).optional(),
     load_mode: z.enum(['', 'eager', 'progressive']).optional(),
@@ -41,7 +41,7 @@ export const promptTemplateSchema = z
         z.object({
           id: z.string().optional(),
           title: z.string(),
-          description: z.string().max(512).optional(),
+          description: z.string().optional(),
           path: z.string().optional(),
           content: z.string(),
           resources: z

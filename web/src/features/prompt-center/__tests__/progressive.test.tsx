@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -375,6 +376,81 @@ describe('渐进式技能的管理契约', () => {
       expect(api.put).toHaveBeenCalledWith(
         '/api/prompt-center/admin/7',
         expect.objectContaining({ skills: [skills[1], skills[0]] })
+      )
+    )
+  })
+})
+
+describe('技能用途说明长度', () => {
+  const longDescription = '在审查发布说明前使用。'.repeat(90)
+
+  it('单技能用途说明超过 512 字符时完整输入并原样提交', async () => {
+    const user = userEvent.setup()
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    const description = screen.getByRole('textbox', { name: 'Description' })
+    await user.clear(description)
+    await user.click(description)
+    await user.paste(longDescription)
+    expect(description).toHaveValue(longDescription)
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          description: longDescription,
+          skills: [
+            expect.objectContaining({
+              id: 'review',
+              description: longDescription,
+            }),
+          ],
+        })
+      )
+    )
+  })
+
+  it('合集技能用途说明超过 512 字符时完整输入并原样提交', async () => {
+    const user = userEvent.setup()
+    const skills = [
+      {
+        id: 'review',
+        title: 'Review',
+        description: 'Review code',
+        path: 'review/SKILL.md',
+        content: 'Review instructions',
+        resources: [],
+      },
+      {
+        id: 'write',
+        title: 'Write',
+        description: 'Write prose',
+        path: 'write/SKILL.md',
+        content: 'Writing instructions',
+        resources: [],
+      },
+    ]
+    renderEditor({
+      ...template,
+      kind: 'bundle',
+      content: '',
+      skills,
+    } as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    const description = screen.getAllByRole('textbox', {
+      name: 'Skill description',
+    })[0]
+    await user.clear(description)
+    await user.click(description)
+    await user.paste(longDescription)
+    expect(description).toHaveValue(longDescription)
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          skills: [{ ...skills[0], description: longDescription }, skills[1]],
+        })
       )
     )
   })

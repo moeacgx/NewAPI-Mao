@@ -270,7 +270,6 @@ export function PromptTemplateEditor(props: {
               </Label>
               <Textarea
                 id={`${fieldId}-description`}
-                maxLength={512}
                 aria-invalid={Boolean(form.formState.errors.description)}
                 {...form.register('description')}
               />

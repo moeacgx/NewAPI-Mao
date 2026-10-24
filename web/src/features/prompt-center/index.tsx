@@ -50,6 +50,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getPromptCategories, getPromptTemplates } from './api'
 import { CategoryManager } from './components/category-manager'
 import { PromptTemplateEditor } from './components/prompt-template-editor'
+import { SkillDeleteButton } from './components/skill-delete-button'
 import { SkillImportDialog } from './components/skill-import-dialog'
 import { SkillRepositoryUpdate } from './components/skill-repository-update'
 import { SkillSummary } from './components/skill-summary'
@@ -446,10 +447,13 @@ function PromptTemplateCard(props: {
             {t('Install to token')}
           </Button>
           {props.admin && (
-            <Button size='sm' variant='outline' onClick={props.onEdit}>
-              <SlidersHorizontal aria-hidden='true' />
-              {t('Edit')}
-            </Button>
+            <>
+              <Button size='sm' variant='outline' onClick={props.onEdit}>
+                <SlidersHorizontal aria-hidden='true' />
+                {t('Edit')}
+              </Button>
+              <SkillDeleteButton template={props.template} />
+            </>
           )}
         </div>
       </div>
