@@ -38,4 +38,47 @@ PostgreSQL/Redis。节点验收包括 healthy、restart=0、revision、配置与
 
 ## 结果
 
-待执行。
+### 发布
+
+- #334 合并提交 `01d689e968369865a69651a06e9693eb746b2b91`，附注标签
+  `v1.0.0-rc.10.1.10.354`。Release（Linux）与多架构镜像工作流均成功。
+- Release 非草稿、非预发布，且为仓库 Latest；amd64 与 arm64 二进制均匹配
+  `checksums-linux.txt`。`go version -m` 确认 amd64 二进制为 linux/amd64，版本注入 `.354`，
+  `vcs.revision` 为合并提交。
+- GHCR 标签 `v1.0.0-rc.10.1.10.354` 与 `latest` 均指向索引
+  `sha256:098296645ebe5b24f03e7ffd38b36c27fc0c222ac82fe23d3898195e53e176fb`；amd64 镜像
+  标签 version/revision 与发布一致。
+
+### 正式站
+
+- 只读预检：三应用为 `.353`、healthy、restart=0，PostgreSQL/Redis 运行，`releases/354`
+  不存在。
+- 备份 `/apps/maolaoapi/backups/pre-354-20261024T220805Z`：数据库 custom dump
+  1,554,265,776 字节，TOC 可读，SHA256
+  `e73bb7620232779efc2c5cd97760a65cec95c32563972f2fc4b90a3d57fea3a6`；持久数据归档
+  88,640,019 字节，SHA256 `ac72e7a85f6ae9f431eef89e7efbbad291ec224b109b94ed77a33c020c4ce2ec`；
+  表结构 1501 列。
+- 候选镜像：匿名拉取固定索引摘要，amd64、`.354`、revision 一致，运行时默认配置与 `.353`
+  相同，断网只读 `--version` 输出 `.354`。
+- 静态资源：Classic 新旧资源 176 个、33,331,122 字节按原哈希并存，经本机 HTTPS 反代
+  逐项哈希校验通过；未知资源 404 / `no-store`；预览实例已停止，nginx 未修改。
+  与 `.352`、`.353` 相同，四个历史 `_base*` 虚拟引用（新旧版本各两个）返回 404，
+  不计为真实资源成功。
+- 主节点：新容器 `c1303d7efdb8`，`.354`、healthy、restart=0，配置与依赖不变，12 个匿名
+  保护接口均 401，样式版本参数 `.354`，启动日志无严重错误。
+- 迁移：原有 1501 列全部保留且类型不变，仅新增 `prompt_templates.repository_source_json`
+  （text、可空、无默认值）；users/tokens/channels/groups/prompt_templates 按备份前最大 ID
+  限定的行数、最大 ID、ID 总和一致；从节点当时仍为 `.353`。
+- 第一从节点：新容器 `f172a8bf8488`；第二从节点：新容器 `abbd7a48533e`。均 `.354`、
+  healthy、restart=0，部署前复核前序节点，配置、依赖、鉴权与启动日志通过。
+- 最终验收（UTC 22:32）：三节点同一固定镜像，healthy、restart=0；公网
+  `https://maolaoapi.com/api/status` 返回 `.354`、Classic，JS/CSS 可读，缺失资源 404 /
+  `no-store`；备份文件大小、SHA-256 与 0600 权限复核通过。结果保存在备份目录的
+  `deployment.verified.json`，未执行回滚。
+
+### 未覆盖
+
+- 未使用管理员会话实际执行 GitHub 导入、一键更新或删除，未发送模型请求。
+- #333（Default 编辑弹窗）未先部署 zzapi；正式站当前主题为 Classic，该改动不影响正式站
+  默认页面。
+- 本轮只发布与部署，不改变接口、鉴权、模型或计费契约，不产生跨项目适配要求。
