@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "Удалить навык «{{title}}»",
+    "Delete skill?": "Удалить навык?",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "После удаления «{{title}}» навык будет автоматически снят со всех токенов, где он установлен. Это действие нельзя отменить.",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "Навык «{{title}}» удалён и снят с токенов: {{tokens}}",
     "GitHub source": "Источник GitHub",
     "Local skill changes": "Есть локальные изменения навыка",
     "Overwrite local skill changes?": "Перезаписать локальные изменения навыка?",

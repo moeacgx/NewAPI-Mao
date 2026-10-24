@@ -283,7 +283,7 @@ test('商店在线刷新失败保留内置条目，导入只打开副本不写�
   );
 });
 
-test('已有模板压缩包导入失败保留编辑内容，成功后保留站点设置且不自动保存', async () => {
+test('压缩包导入失败保留现有编辑内容，成功后为未发布新草稿', async () => {
   render(
     <PromptTemplateEditor
       template={bundle}
@@ -309,10 +309,10 @@ test('已有模板压缩包导入失败保留编辑内容，成功后保留站�
   );
   await waitFor(() =>
     expect(screen.getByRole('checkbox', { name: 'Published' }).checked).toBe(
-      true,
+      false,
     ),
   );
-  expect(screen.getByLabelText('Skill category').value).toBe('4');
+  expect(screen.getByLabelText('Skill category').value).toBe('0');
   expect(
     calls.filter(
       (call) => call.url === '/api/prompt-center/admin/import/archive',
@@ -355,7 +355,7 @@ test('压缩包解析期间禁止保存和修改，完成后恢复编辑', async
   );
 });
 
-test('已有模板仓库导入失败保留网址与原草稿，重试成功保留发布设置且不自动保存', async () => {
+test('仓库导入失败保留网址与原草稿，重试成功转为未发布副本', async () => {
   render(
     <PromptTemplateEditor
       template={bundle}
@@ -384,7 +384,7 @@ test('已有模板仓库导入失败保留网址与原草稿，重试成功保�
   );
   await waitFor(() =>
     expect(screen.getByRole('checkbox', { name: 'Published' }).checked).toBe(
-      true,
+      false,
     ),
   );
   expect(

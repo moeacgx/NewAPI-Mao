@@ -266,6 +266,11 @@ export default function PromptCenter() {
                     ),
                   )
                 }
+                onDeleted={(id) =>
+                  setTemplates((items) =>
+                    items.filter((item) => item.id !== id),
+                  )
+                }
               />
             )}
           </div>

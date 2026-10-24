@@ -164,7 +164,7 @@ export default function PromptTemplateEditor(props) {
     }
   };
   const importDraft = (imported) => {
-    setDraft((current) => ({
+    setDraft({
       title: '',
       description: '',
       content: '',
@@ -176,19 +176,7 @@ export default function PromptTemplateEditor(props) {
       ...imported,
       skills: imported.skills || [],
       load_mode: imported.load_mode || 'progressive',
-      repository_source:
-        imported.repository_source || current.repository_source,
-      ...(current.id
-        ? {
-            id: current.id,
-            version: current.version,
-            group_ids: current.group_ids,
-            category_id: current.category_id,
-            enabled: current.enabled,
-            sort_order: current.sort_order,
-          }
-        : {}),
-    }));
+    });
     setError('');
   };
   const importText = async (event) => {
@@ -318,7 +306,6 @@ export default function PromptTemplateEditor(props) {
         </label>
         <textarea
           id={`${prefix}-description`}
-          maxLength={512}
           disabled={busy}
           value={draft.description}
           onChange={(event) => update('description', event.target.value)}

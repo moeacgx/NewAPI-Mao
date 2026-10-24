@@ -31,6 +31,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import SkillSummary from './SkillSummary';
 import RepositoryUpdate from './RepositoryUpdate';
+import TemplateDelete from './TemplateDelete';
 
 export default function PromptCatalog(props) {
   const { t } = useTranslation();
@@ -132,17 +133,25 @@ export default function PromptCatalog(props) {
                     {installed ? t('Installed') : t('Install to token')}
                   </Button>
                   {props.onEdit && (
-                    <Button
-                      className='prompt-center-edit-button'
-                      theme='borderless'
-                      icon={<PencilLine size={14} />}
-                      onClick={() => props.onEdit(template)}
-                      aria-label={t('Edit {{title}}', {
-                        title: template.title,
-                      })}
-                    >
-                      {t('Edit template')}
-                    </Button>
+                    <div className='prompt-center-card-admin-actions'>
+                      <Button
+                        className='prompt-center-edit-button'
+                        theme='borderless'
+                        icon={<PencilLine size={14} />}
+                        onClick={() => props.onEdit(template)}
+                        aria-label={t('Edit {{title}}', {
+                          title: template.title,
+                        })}
+                      >
+                        {t('Edit template')}
+                      </Button>
+                      {props.onDeleted && (
+                        <TemplateDelete
+                          template={template}
+                          onDeleted={props.onDeleted}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "删除 {{title}}",
+    "Delete skill?": "删除技能？",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "删除「{{title}}」后，所有已安装该技能的令牌会自动卸载，此操作无法撤销。",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "已删除「{{title}}」，并已从 {{tokens}} 个令牌中自动卸载",
     "GitHub source": "GitHub 来源",
     "Local skill changes": "技能已在本地修改",
     "Overwrite local skill changes?": "覆盖本地技能修改？",

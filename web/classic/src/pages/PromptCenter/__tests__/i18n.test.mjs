@@ -24,6 +24,7 @@ const files = [
   'pages/PromptCenter/RepositoryImport.jsx',
   'pages/PromptCenter/RepositorySource.jsx',
   'pages/PromptCenter/RepositoryUpdate.jsx',
+  'pages/PromptCenter/TemplateDelete.jsx',
   'pages/PromptCenter/SkillStore.jsx',
   'components/table/tokens/TokenPromptBadge.jsx',
   'components/playground/TokenSourceSelector.jsx',

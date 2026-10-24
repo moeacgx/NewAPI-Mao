@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "Xóa {{title}}",
+    "Delete skill?": "Xóa kỹ năng?",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "Xóa “{{title}}” sẽ tự động gỡ kỹ năng này khỏi mọi token đã cài đặt. Không thể hoàn tác thao tác này.",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "Đã xóa “{{title}}” và tự động gỡ khỏi {{tokens}} token",
     "GitHub source": "Nguồn GitHub",
     "Local skill changes": "Kỹ năng đã sửa cục bộ",
     "Overwrite local skill changes?": "Ghi đè thay đổi cục bộ của kỹ năng?",

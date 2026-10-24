@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "Supprimer {{title}}",
+    "Delete skill?": "Supprimer la compétence ?",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "La suppression de « {{title}} » la désinstalle automatiquement de tous les jetons qui l’ont installée. Cette action est irréversible.",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "« {{title}} » supprimée et désinstallée de {{tokens}} jetons",
     "GitHub source": "Source GitHub",
     "Local skill changes": "Compétence modifiée localement",
     "Overwrite local skill changes?": "Écraser les modifications locales ?",

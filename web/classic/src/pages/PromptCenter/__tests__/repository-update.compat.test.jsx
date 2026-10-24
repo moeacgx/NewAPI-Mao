@@ -72,7 +72,9 @@ beforeEach(() => {
   pendingUpdate = undefined;
   localStorage.setItem('user', JSON.stringify({ id: 2, role: 10 }));
   API.defaults.adapter = async (config) => {
-    const body = config.data ? JSON.parse(config.data) : undefined;
+    let body;
+    if (config.data instanceof FormData) body = config.data;
+    else if (config.data) body = JSON.parse(config.data);
     calls.push({ url: config.url, method: config.method, body });
     let data;
     if (config.url === '/api/prompt-center/categories/')
@@ -103,6 +105,17 @@ beforeEach(() => {
         category_id: 0,
         enabled: false,
         sort_order: 0,
+      };
+    else if (config.url === '/api/prompt-center/admin/import/archive')
+      data = {
+        ...current,
+        id: 0,
+        version: 0,
+        group_ids: [],
+        category_id: 0,
+        enabled: false,
+        sort_order: 0,
+        repository_source: undefined,
       };
     else if (config.url === '/api/prompt-center/admin/7/update-repository') {
       if (pendingUpdate) await pendingUpdate;
@@ -205,7 +218,7 @@ test('GitHub 导入后显示来源并在保存时提交完整来源', async () =
   );
 });
 
-test('已有模板重新导入仓库后仍保存原身份与站点配置', async () => {
+test('已有模板重新导入仓库后保存为携带来源的未发布副本，不覆盖原模板', async () => {
   render(
     <PromptTemplateEditor
       template={template}
@@ -225,22 +238,61 @@ test('已有模板重新导入仓库后仍保存原身份与站点配置', async
     screen.getByRole('button', { name: 'Import repository and edit' }),
   );
   await waitFor(() =>
-    expect(screen.getByLabelText('Prompt title').value).toBe(template.title),
+    expect(screen.getByRole('checkbox', { name: 'Published' }).checked).toBe(
+      false,
+    ),
   );
   await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
   await waitFor(() =>
-    expect(calls.find((call) => call.method === 'put')?.body).toMatchObject({
-      version: 3,
-      group_ids: [9],
-      category_id: 4,
-      sort_order: 8,
-      enabled: true,
-      repository_source: source,
-    }),
+    expect(
+      calls.find(
+        (call) =>
+          call.method === 'post' && call.url === '/api/prompt-center/admin/',
+      )?.body,
+    ).toMatchObject({ enabled: false, repository_source: source }),
   );
-  expect(calls.find((call) => call.method === 'put').url).toBe(
-    '/api/prompt-center/admin/7',
+  expect(
+    calls.find(
+      (call) =>
+        call.method === 'post' && call.url === '/api/prompt-center/admin/',
+    ).body.version,
+  ).toBeUndefined();
+  expect(calls.some((call) => call.method === 'put')).toBe(false);
+});
+
+test('GitHub 模板中导入压缩包得到的副本不沿用原仓库来源', async () => {
+  render(
+    <PromptTemplateEditor
+      template={template}
+      onCancel={() => {}}
+      onSaved={() => {}}
+    />,
   );
+  await screen.findByRole('checkbox', { name: 'Visible group' });
+  expect(screen.getByRole('link', { name: 'GitHub source' })).toBeTruthy();
+  await userEvent.upload(
+    screen.getByLabelText('Upload skill archive'),
+    new File(['zip'], 'skills.zip', { type: 'application/zip' }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('link', { name: 'GitHub source' })).toBeNull(),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  await waitFor(() =>
+    expect(
+      calls.some(
+        (call) =>
+          call.method === 'post' && call.url === '/api/prompt-center/admin/',
+      ),
+    ).toBe(true),
+  );
+  expect(
+    calls.find(
+      (call) =>
+        call.method === 'post' && call.url === '/api/prompt-center/admin/',
+    ).body.repository_source,
+  ).toBeUndefined();
+  expect(calls.some((call) => call.method === 'put')).toBe(false);
 });
 
 test('管理员一键更新后显示新提交并保留卡片，历史模板无更新入口', async () => {

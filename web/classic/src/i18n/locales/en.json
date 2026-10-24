@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "Delete {{title}}",
+    "Delete skill?": "Delete skill?",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "Deleted {{title}} and uninstalled it from {{tokens}} tokens",
     "GitHub source": "GitHub source",
     "Local skill changes": "Local skill changes",
     "Overwrite local skill changes?": "Overwrite local skill changes?",

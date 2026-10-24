@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Delete {{title}}": "{{title}} を削除",
+    "Delete skill?": "スキルを削除しますか？",
+    "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "「{{title}}」を削除すると、このスキルをインストールしたすべてのトークンから自動的にアンインストールされます。この操作は元に戻せません。",
+    "Deleted {{title}} and uninstalled it from {{tokens}} tokens": "「{{title}}」を削除し、{{tokens}} 個のトークンからアンインストールしました",
     "GitHub source": "GitHub の取得元",
     "Local skill changes": "スキルにローカル変更あり",
     "Overwrite local skill changes?": "スキルのローカル変更を上書きしますか？",
