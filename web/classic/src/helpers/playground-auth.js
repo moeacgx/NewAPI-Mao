@@ -36,6 +36,7 @@ export function createPlaygroundRequestHeaders(
   const token = getCurrentAccessToken(storage);
   return {
     'Content-Type': 'application/json',
+    'X-New-API-Skills-Display': 'metadata',
     'New-Api-User': userId,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(apiTokenId ? { 'X-Playground-Token-Id': String(apiTokenId) } : {}),

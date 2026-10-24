@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Gateway cloud Skills": "Skills đám mây của gateway",
+    "Skills used by this gateway response": "Skills được sử dụng bởi phản hồi gateway này",
     "Account mode": "Chế độ tài khoản",
     "Use account balance and selected group": "Dùng số dư tài khoản và nhóm đã chọn",
     "Request identity": "Danh tính yêu cầu",

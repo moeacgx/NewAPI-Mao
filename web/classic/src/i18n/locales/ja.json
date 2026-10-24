@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Gateway cloud Skills": "ゲートウェイ クラウド Skills",
+    "Skills used by this gateway response": "このゲートウェイ応答で使用した Skills",
     "Account mode": "アカウントモード",
     "Use account balance and selected group": "アカウント残高と選択グループを使用",
     "Request identity": "リクエストの認証",

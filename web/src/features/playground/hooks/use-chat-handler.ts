@@ -37,7 +37,12 @@ import {
   isAssistantMessageFinal,
   isAssistantMessagePending,
 } from '../lib'
-import type { Message, PlaygroundConfig, ParameterEnabled } from '../types'
+import type {
+  GatewaySkillsMetadata,
+  Message,
+  PlaygroundConfig,
+  ParameterEnabled,
+} from '../types'
 import { useStreamRequest } from './use-stream-request'
 
 interface UseChatHandlerOptions {
@@ -209,17 +214,20 @@ export function useChatHandler({
 
   // Handle stream complete
   const handleStreamComplete = useCallback(
-    (generation: number) => {
+    (generation: number, gatewaySkills?: GatewaySkillsMetadata) => {
       if (generation !== requestGenerationRef.current) return
       flushStreamUpdates(generation)
       setIsRequesting(false)
       onMessageUpdate((prev) => {
         if (generation !== requestGenerationRef.current) return prev
-        return updateLastAssistantMessage(prev, (message) =>
-          isAssistantMessageFinal(message)
+        return updateLastAssistantMessage(prev, (message) => {
+          const completedMessage = isAssistantMessageFinal(message)
             ? message
             : completeAssistantMessage(message)
-        )
+
+          if (!gatewaySkills?.skills.length) return completedMessage
+          return { ...completedMessage, gatewaySkills }
+        })
       })
     },
     [flushStreamUpdates, onMessageUpdate]
@@ -264,7 +272,7 @@ export function useChatHandler({
       void sendStreamRequest(
         payload,
         (type, chunk) => handleStreamUpdate(generation, type, chunk),
-        () => handleStreamComplete(generation),
+        (gatewaySkills) => handleStreamComplete(generation, gatewaySkills),
         (error, errorCode) => handleStreamError(generation, error, errorCode),
         tokenId
       )
@@ -300,7 +308,7 @@ export function useChatHandler({
 
       try {
         setIsRequesting(true)
-        const response = await sendChatCompletion(
+        const result = await sendChatCompletion(
           payload,
           abortController.signal,
           tokenId
@@ -312,6 +320,7 @@ export function useChatHandler({
           return
         }
 
+        const response = result.response
         const imageContent = getImageResponseContent(response)
         if (imageContent) {
           onMessageUpdate((prev) => {
@@ -338,7 +347,9 @@ export function useChatHandler({
               response
             )
 
-            return updatedMessage ?? message
+            if (!updatedMessage) return message
+            if (!result.gatewaySkills?.skills.length) return updatedMessage
+            return { ...updatedMessage, gatewaySkills: result.gatewaySkills }
           })
         })
       } catch (error: unknown) {

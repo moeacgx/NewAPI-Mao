@@ -34,6 +34,7 @@ import {
   isImageGenerationModel,
 } from '../../helpers';
 import { createPlaygroundRequestHeaders } from '../../helpers/playground-auth';
+import { parseGatewaySkillsHeader } from '../../helpers/gateway-skills';
 
 export const useApiRequest = (
   setMessage,
@@ -147,7 +148,7 @@ export const useApiRequest = (
 
   // 完成消息
   const completeMessage = useCallback(
-    (status = MESSAGE_STATUS.COMPLETE) => {
+    (status = MESSAGE_STATUS.COMPLETE, gatewaySkills = null) => {
       finishRequest();
       setMessage((prevMessage) => {
         const lastMessage = prevMessage[prevMessage.length - 1];
@@ -166,6 +167,8 @@ export const useApiRequest = (
           {
             ...lastMessage,
             status: status,
+            gatewaySkills:
+              status === MESSAGE_STATUS.COMPLETE ? gatewaySkills : null,
             ...autoCollapseState,
           },
         ];
@@ -246,6 +249,7 @@ export const useApiRequest = (
         }
 
         const data = await response.json();
+        const gatewaySkills = parseGatewaySkillsHeader(response.headers);
 
         setDebugData((prev) => ({
           ...prev,
@@ -292,6 +296,7 @@ export const useApiRequest = (
                 content: processed.content,
                 reasoningContent: processed.reasoningContent,
                 status: MESSAGE_STATUS.COMPLETE,
+                gatewaySkills,
                 ...autoCollapseState,
               };
             }
@@ -368,6 +373,11 @@ export const useApiRequest = (
       let responseData = '';
       let hasReceivedFirstResponse = false;
       let isStreamComplete = false; // 添加标志位跟踪流是否正常完成
+      let gatewaySkills = null;
+
+      source.addEventListener('open', (event) => {
+        gatewaySkills = parseGatewaySkillsHeader(event.headers);
+      });
 
       source.addEventListener('message', (e) => {
         if (e.data === '[DONE]') {
@@ -380,7 +390,7 @@ export const useApiRequest = (
             sseMessages: [...(prev.sseMessages || []), '[DONE]'], // 添加 DONE 标记
             isStreaming: false,
           }));
-          completeMessage();
+          completeMessage(MESSAGE_STATUS.COMPLETE, gatewaySkills);
           return;
         }
 

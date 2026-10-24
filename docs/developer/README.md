@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [网关云端 Skills 回复标识](../workflows/2026-10/24_gateway_skill_response_indicator.md)：双模板回复徽标、外部 API 文本标识及实际读取元数据契约。
+
 - [技能模板保存校验与反馈修复](../workflows/2026-10/23_skill_template_save_feedback.md)：Classic 长表单反馈、渐进式合集校验与 Default 旧单技能模式切换。
 
 - [zzapi 渐进式技能测试部署](../workflows/2026-10/23_skill_progressive_zzapi.md)：专用测试镜像、隔离验收、备份迁移与三节点更新完成，公网版本及资源验证通过。

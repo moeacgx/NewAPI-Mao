@@ -46,7 +46,12 @@ describe('操练场令牌请求', () => {
         stream: false,
         temperature: 0,
       },
-      expect.objectContaining({ headers: { 'X-Playground-Token-Id': '7' } })
+      expect.objectContaining({
+        headers: {
+          'X-New-API-Skills-Display': 'metadata',
+          'X-Playground-Token-Id': '7',
+        },
+      })
     )
     expect(payload.group).toBe('account-only')
   })
@@ -63,8 +68,55 @@ describe('操练场令牌请求', () => {
     expect(api.post).toHaveBeenCalledWith(
       '/pg/chat/completions',
       payload,
-      expect.objectContaining({ headers: {} })
+      expect.objectContaining({
+        headers: { 'X-New-API-Skills-Display': 'metadata' },
+      })
     )
+  })
+
+  it('非流式响应读取网关实际装载的技能元数据', async () => {
+    const metadata = {
+      version: 1,
+      total: 1,
+      skills: [
+        {
+          template_id: 15,
+          skill_id: 'review',
+          version: 2,
+          title: 'Code review',
+        },
+      ],
+      truncated: false,
+    }
+    const encoded = btoa(JSON.stringify(metadata))
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '')
+    vi.mocked(api.post).mockResolvedValue({
+      data: { choices: [] },
+      headers: { 'x-new-api-gateway-skills': encoded },
+    })
+
+    const result = await sendChatCompletion({
+      model: 'model-a',
+      messages: [],
+      stream: false,
+    })
+
+    expect(result.response).toEqual({ choices: [] })
+    expect(result.gatewaySkills).toEqual({
+      version: 1,
+      total: 1,
+      skills: [
+        {
+          templateId: 15,
+          skillId: 'review',
+          version: 2,
+          title: 'Code review',
+        },
+      ],
+      truncated: false,
+    })
   })
 
   it('模型发现使用同一令牌身份，接口失败不回退账号模型', async () => {
@@ -119,6 +171,7 @@ describe('操练场令牌请求', () => {
       { model: 'token-model', messages: [], stream: true },
       {
         Authorization: 'Bearer session-auth',
+        'X-New-API-Skills-Display': 'metadata',
         'X-Playground-Token-Id': '7',
       }
     )

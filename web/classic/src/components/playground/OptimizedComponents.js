@@ -35,6 +35,8 @@ export const OptimizedMessageContent = React.memo(
       prevProps.message.role === nextProps.message.role &&
       prevProps.message.reasoningContent ===
         nextProps.message.reasoningContent &&
+      JSON.stringify(prevProps.message.gatewaySkills) ===
+        JSON.stringify(nextProps.message.gatewaySkills) &&
       prevProps.message.isReasoningExpanded ===
         nextProps.message.isReasoningExpanded &&
       prevProps.isEditing === nextProps.isEditing &&

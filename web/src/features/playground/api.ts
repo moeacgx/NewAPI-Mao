@@ -25,12 +25,19 @@ import {
   type UserGroupsResponse,
 } from './lib/options/group-options'
 import { preparePlaygroundRequest } from './lib/streaming/token-request'
+import { parseGatewaySkillsHeader } from './lib/streaming/gateway-skills'
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
+  GatewaySkillsMetadata,
   ModelOption,
   GroupOption,
 } from './types'
+
+export interface ChatCompletionResult {
+  response: ChatCompletionResponse
+  gatewaySkills?: GatewaySkillsMetadata
+}
 
 /**
  * Send chat completion request (non-streaming)
@@ -39,14 +46,17 @@ export async function sendChatCompletion(
   payload: ChatCompletionRequest,
   signal?: AbortSignal,
   tokenId?: number
-): Promise<ChatCompletionResponse> {
+): Promise<ChatCompletionResult> {
   const request = preparePlaygroundRequest(payload, tokenId)
   const res = await api.post(API_ENDPOINTS.CHAT_COMPLETIONS, request.payload, {
     headers: request.headers,
     signal,
     skipErrorHandler: true,
   } as Record<string, unknown>)
-  return res.data
+  return {
+    response: res.data as ChatCompletionResponse,
+    gatewaySkills: parseGatewaySkillsHeader(res.headers),
+  }
 }
 
 export async function getTokenModels(tokenId: number): Promise<ModelOption[]> {

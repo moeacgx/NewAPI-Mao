@@ -19,6 +19,26 @@ const GatewaySkillMaxCalls = 8
 const gatewaySkillReadBudget = 192 * 1024
 const gatewaySkillAuditKey = "gateway_skills_audit"
 
+// GatewaySkillResponseUsageKey 保存本次正式生成实际读取成功的技能。
+// 该键只在 FinalBody 完成所有授权校验并成功装载后设置，不能用目录发现数量替代。
+const gatewaySkillResponseUsageKey = "gateway_skill_response_usage"
+
+// GatewaySkillResponseSkill 是响应头和回复标识使用的最小技能元数据。
+type GatewaySkillResponseSkill struct {
+	TemplateID int    `json:"template_id"`
+	SkillID    string `json:"skill_id"`
+	Version    int    `json:"version"`
+	Title      string `json:"title"`
+}
+
+// GatewaySkillResponseUsage 描述本次实际装载的技能，不包含正文或资源路径。
+type GatewaySkillResponseUsage struct {
+	Version   int                         `json:"version"`
+	Total     int                         `json:"total"`
+	Skills    []GatewaySkillResponseSkill `json:"skills"`
+	Truncated bool                        `json:"truncated"`
+}
+
 type gatewaySkillPage struct {
 	Skill model.TokenProgressiveSkill
 	Path  string
@@ -39,6 +59,7 @@ type GatewaySkillSession struct {
 
 func NewGatewaySkillSession(c *gin.Context, format types.RelayFormat) (*GatewaySkillSession, error) {
 	c.Set(gatewaySkillAuditKey, nil)
+	ResetGatewaySkillResponse(c)
 	if !supportsTokenPromptEndpoint(c, format) {
 		return nil, nil
 	}
@@ -289,11 +310,15 @@ func (s *GatewaySkillSession) contains(templateID int, skillID string, version i
 
 // FinalBody 重新检查撤销、版本和实际分组后，只装载本轮实际读过的文件页。
 func (s *GatewaySkillSession) FinalBody(c *gin.Context, original []byte) ([]byte, error) {
+	ResetGatewaySkillResponse(c)
 	if common.GetContextKeyString(c, constant.ContextKeyUsingGroup) != s.group {
 		return nil, errors.New("技能读取期间实际分组已改变")
 	}
 	texts := make([]string, 0, len(s.pages))
 	for _, read := range s.pages {
+		if len(read.Page.Content) == 0 {
+			continue
+		}
 		if err := c.Request.Context().Err(); err != nil {
 			return nil, err
 		}
@@ -311,7 +336,36 @@ func (s *GatewaySkillSession) FinalBody(c *gin.Context, original []byte) ([]byte
 	if len(texts) == 0 {
 		return original, nil
 	}
-	return appendSystemInstructionText(original, s.format, s.modelName, strings.Join(texts, "\n\n"))
+	modified, err := appendSystemInstructionText(original, s.format, s.modelName, strings.Join(texts, "\n\n"))
+	if err != nil {
+		return nil, err
+	}
+	usage := make([]GatewaySkillResponseSkill, 0, len(s.pages))
+	seen := make(map[string]struct{}, len(s.pages))
+	for _, read := range s.pages {
+		if len(read.Page.Content) == 0 {
+			continue
+		}
+		key := fmt.Sprintf("%d\x00%s\x00%d", read.Skill.TemplateID, read.Skill.SkillID, read.Skill.Version)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		usage = append(usage, GatewaySkillResponseSkill{
+			TemplateID: read.Skill.TemplateID,
+			SkillID:    read.Skill.SkillID,
+			Version:    read.Skill.Version,
+			Title:      read.Skill.Title,
+		})
+	}
+	if len(usage) > 0 {
+		c.Set(gatewaySkillResponseUsageKey, &GatewaySkillResponseUsage{
+			Version: 1,
+			Total:   len(usage),
+			Skills:  usage,
+		})
+	}
+	return modified, nil
 }
 
 func (s *GatewaySkillSession) Audit(c *gin.Context, stage string, round int) {

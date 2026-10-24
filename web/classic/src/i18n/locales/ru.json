@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Gateway cloud Skills": "Облачные Skills шлюза",
+    "Skills used by this gateway response": "Skills, использованные этим ответом шлюза",
     "Account mode": "Режим аккаунта",
     "Use account balance and selected group": "Баланс аккаунта и выбранная группа",
     "Request identity": "Идентификатор запроса",

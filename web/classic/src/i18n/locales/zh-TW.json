@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Gateway cloud Skills": "閘道雲端 Skills",
+    "Skills used by this gateway response": "本次回覆使用的閘道雲端 Skills",
     "Account mode": "帳號模式",
     "Use account balance and selected group": "使用帳號餘額與所選分組",
     "Request identity": "呼叫身分",

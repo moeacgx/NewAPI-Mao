@@ -234,6 +234,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	maxRetries := service.RelayMaxRetries(retryParam)
 
 	for attemptIndex := 0; attemptIndex <= maxRetries; attemptIndex++ {
+		service.ResetGatewaySkillResponse(c)
 		relayInfo.RetryIndex = attemptIndex
 		activeRequest.Attempt(activeStream, attemptIndex)
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
@@ -263,6 +264,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			service.BeginChannelMetricAttempt(c, relayInfo, channel.Id, channel.Name, channel.Type)
 
+			gatewaySkillResponse := service.BeginGatewaySkillResponse(c, relayFormat)
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
 				newAPIError = relay.WssHelper(c, relayInfo)
@@ -273,6 +275,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			default:
 				newAPIError = relayHandler(c, relayInfo)
 			}
+			if gatewaySkillResponse != nil {
+				gatewaySkillResponse.Finish(newAPIError == nil)
+			}
 		}
 
 		if newAPIError == nil {
@@ -281,6 +286,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			service.FinishChannelMetricAttempt(c, relayInfo, nil, false, "")
 			return
 		}
+		service.ResetGatewaySkillResponse(c)
 
 		service.RecordUpstreamPolicyError(c, newAPIError, "response")
 

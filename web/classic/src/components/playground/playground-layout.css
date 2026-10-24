@@ -16,6 +16,35 @@
 .playground-chat.semi-chat {
   padding: 0;
 }
+.gateway-skills-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 5px 9px;
+  border: 1px solid
+    color-mix(in srgb, var(--semi-color-primary) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--semi-color-primary) 8%, transparent);
+  color: var(--semi-color-primary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.gateway-skills-badge-names {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--semi-color-text-1);
+}
+.gateway-skills-badge-separator {
+  color: var(--semi-color-text-2);
+}
+@media (max-width: 767px) {
+  .gateway-skills-badge {
+    border-radius: 10px;
+  }
+}
 .playground-chat .semi-chat-inner {
   min-height: 0;
 }

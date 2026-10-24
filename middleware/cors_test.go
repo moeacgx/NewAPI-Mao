@@ -83,7 +83,7 @@ func TestCORSPreflightUsesExactConfiguredOrigin(t *testing.T) {
 	request := httptest.NewRequest(http.MethodOptions, "https://api.example.test/api/option", nil)
 	request.Header.Set("Origin", "https://console.example.test")
 	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	request.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-auth-session,x-security-proof")
+	request.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-auth-session,x-security-proof,x-new-api-skills-display")
 	recorder := httptest.NewRecorder()
 
 	router.ServeHTTP(recorder, request)
@@ -92,6 +92,7 @@ func TestCORSPreflightUsesExactConfiguredOrigin(t *testing.T) {
 	require.Equal(t, "https://console.example.test", recorder.Header().Get("Access-Control-Allow-Origin"))
 	require.NotEqual(t, "*", recorder.Header().Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "true", recorder.Header().Get("Access-Control-Allow-Credentials"))
+	require.Contains(t, strings.ToLower(recorder.Header().Get("Access-Control-Allow-Headers")), "x-new-api-skills-display")
 }
 
 func TestRelayCORSPreflightAllowsThirdPartyBrowserSDKHeaders(t *testing.T) {
@@ -111,6 +112,7 @@ func TestRelayCORSPreflightAllowsThirdPartyBrowserSDKHeaders(t *testing.T) {
 		"openai-organization",
 		"openai-project",
 		"x-api-key",
+		"x-new-api-skills-display",
 		"x-goog-api-client",
 		"x-goog-api-key",
 		"x-stainless-arch",
@@ -153,6 +155,7 @@ func TestRelayCORSActualRequestNeverApprovesBrowserCredentials(t *testing.T) {
 	handlerCalled := false
 	router.GET("/v1/models", func(c *gin.Context) {
 		handlerCalled = true
+		c.Header("X-New-API-Gateway-Skills", "metadata")
 		c.Status(http.StatusOK)
 	})
 	request := httptest.NewRequest(http.MethodGet, "https://api.example.test/v1/models", nil)
@@ -167,6 +170,7 @@ func TestRelayCORSActualRequestNeverApprovesBrowserCredentials(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "*", recorder.Header().Get("Access-Control-Allow-Origin"))
 	require.Empty(t, recorder.Header().Get("Access-Control-Allow-Credentials"))
+	require.Contains(t, strings.ToLower(recorder.Header().Get("Access-Control-Expose-Headers")), strings.ToLower("X-New-API-Gateway-Skills"))
 }
 
 func TestRelayCORSPreflightDoesNotAllowCookieHeader(t *testing.T) {

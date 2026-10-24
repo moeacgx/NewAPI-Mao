@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Gateway cloud Skills": "Skills cloud de la passerelle",
+    "Skills used by this gateway response": "Skills utilisés par cette réponse de la passerelle",
     "Account mode": "Mode compte",
     "Use account balance and selected group": "Utiliser le solde du compte et le groupe choisi",
     "Request identity": "Identité de la requête",

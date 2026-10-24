@@ -17,10 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
+import { Cloud } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 
+import { MESSAGE_ROLES, MESSAGE_STATUS } from '../../constants'
 import type { MessageAlignment } from '../../lib'
 import type { Message } from '../../types'
 
@@ -60,18 +63,44 @@ export function MessageMetadata(props: MessageMetadataProps) {
   const { t } = useTranslation()
   const messageTime = formatMessageTime(props.message.createdAt)
   const duration = formatDuration(props.message.durationMs, t)
+  const gatewaySkills = props.message.gatewaySkills
+  const showGatewaySkills =
+    props.message.from === MESSAGE_ROLES.ASSISTANT &&
+    props.message.status !== MESSAGE_STATUS.LOADING &&
+    props.message.status !== MESSAGE_STATUS.STREAMING &&
+    props.message.status !== MESSAGE_STATUS.ERROR &&
+    Boolean(gatewaySkills?.skills.length)
 
-  if (!messageTime && !duration) {
+  if (!messageTime && !duration && !showGatewaySkills) {
     return null
   }
+
+  const skillNames = gatewaySkills?.skills.map((skill) => skill.title) ?? []
+  const skillsLabel = skillNames.join(', ')
+  const gatewaySkillsLabel = t('Gateway cloud Skills: {{skills}}', {
+    skills: skillsLabel,
+  })
 
   return (
     <div
       className={cn(
-        'text-muted-foreground mt-1 flex min-h-4 items-center gap-1.5 text-[11px] leading-none',
+        'text-muted-foreground mt-1 flex min-h-4 min-w-0 flex-wrap items-center gap-1.5 text-[11px] leading-none',
         props.alignment === 'right' && 'justify-end'
       )}
     >
+      {showGatewaySkills && (
+        <Badge
+          aria-label={gatewaySkillsLabel}
+          className='h-auto min-h-5 max-w-full min-w-0 whitespace-normal border-sky-500/25 bg-sky-500/8 px-1.5 py-0.5 text-[10px] leading-snug text-sky-700 dark:text-sky-300'
+          title={gatewaySkillsLabel}
+          variant='outline'
+        >
+          <Cloud aria-hidden='true' className='size-3 shrink-0' />
+          <span className='shrink-0'>{t('Gateway cloud Skills')}</span>
+          <span aria-hidden='true'>·</span>
+          <span className='min-w-0 break-words'>{skillsLabel}</span>
+        </Badge>
+      )}
       {messageTime && <time>{messageTime}</time>}
       {duration && (
         <>
