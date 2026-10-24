@@ -13,6 +13,8 @@ import (
 
 func setupProgressiveSkillTest(t *testing.T) (*Group, *Group, *Token) {
 	t.Helper()
+	ClearProgressiveSkillContentCache()
+	t.Cleanup(ClearProgressiveSkillContentCache)
 	first, second := setupGroupBindingsTest(t)
 	require.NoError(t, DB.AutoMigrate(&PromptCategory{}, &PromptTemplate{}, &PromptTemplateGroup{}, &TokenPromptBinding{}, &PromptSkillRecord{}, &PromptSkillFile{}, &PromptSkillChunk{}))
 	token := &Token{UserId: 321, Key: "progressive-test-key", Group: first.Code}

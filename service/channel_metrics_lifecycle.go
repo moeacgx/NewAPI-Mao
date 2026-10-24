@@ -539,6 +539,9 @@ func classifyChannelMetricAttempt(c *gin.Context, info *relaycommon.RelayInfo, r
 		}
 		return channelmetrics.OutcomeLocalError, channelmetrics.FailureOwnerClient, channelmetrics.ErrorStagePreUpstream, false
 	}
+	if IsGatewaySkillResourceError(relayErr) {
+		return channelmetrics.OutcomeLocalError, channelmetrics.FailureOwnerGateway, channelmetrics.ErrorStagePreUpstream, false
+	}
 	if info != nil && info.IsStream && info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.HasErrors()) {
 		return channelmetrics.OutcomeStreamError, channelmetrics.FailureOwnerChannel, channelmetrics.ErrorStageStream, upstreamStarted
 	}

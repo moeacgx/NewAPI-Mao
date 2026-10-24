@@ -86,10 +86,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	//originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
 
 	var (
-		newAPIError *types.NewAPIError
-		ws          *websocket.Conn
-		relayInfo   *relaycommon.RelayInfo
+		newAPIError           *types.NewAPIError
+		ws                    *websocket.Conn
+		relayInfo             *relaycommon.RelayInfo
+		gatewaySkillAdmission *service.GatewaySkillAdmission
 	)
+	defer func() { gatewaySkillAdmission.Release() }()
 	defer func() {
 		service.FinishChannelMetricRequest(c, relayInfo, newAPIError)
 	}()
@@ -125,6 +127,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	var originalRequestBody []byte
+	var originalRequestBytes int64
 	if relayFormat != types.RelayFormatOpenAIRealtime {
 		bodyStorage, bodyErr := common.GetBodyStorage(c)
 		if bodyErr != nil {
@@ -135,6 +138,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			return
 		}
+		originalRequestBytes = bodyStorage.Size()
 		originalRequestBody, bodyErr = bodyStorage.Bytes()
 		if bodyErr != nil {
 			newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -252,7 +256,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if attemptRequest != nil {
 			relayInfo.Request = attemptRequest
 		}
-		relayInfo, newAPIError = discoverGatewaySkills(c, relayInfo, relayFormat)
+		relayInfo, newAPIError = discoverGatewaySkills(c, relayInfo, relayFormat, &gatewaySkillAdmission, originalRequestBytes)
+		if service.IsGatewaySkillResourceError(newAPIError) {
+			// 本地准入和期限不是渠道故障，不触发封禁、亲和淘汰或渠道重试。
+			service.FinishChannelMetricAttempt(c, relayInfo, newAPIError, false, string(newAPIError.GetErrorCode()))
+			break
+		}
 		if newAPIError == nil {
 			if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
 				newAPIError = billingErr

@@ -334,14 +334,19 @@ func ReadActiveTokenSkillFile(tokenID int, groupCode string, templateID int, ski
 	if err != nil || groupCode == "auto" || groupCode == "" || group.Status != GroupStatusActive {
 		return nil, errors.New("当前分组无权读取技能")
 	}
+	database := DB
+	pageKey := progressiveSkillCacheKey{TemplateID: templateID, Version: version, SkillID: skillID, Path: path, Offset: offset}
+	directoryKey := progressiveSkillCacheKey{TemplateID: templateID, Version: version, SkillID: skillID}
+	var loadedPage *SkillFilePage
+	loadedDirectory := false
 	page := &SkillFilePage{Resources: []string{}}
-	err = DB.Transaction(func(tx *gorm.DB) error {
+	err = database.Transaction(func(tx *gorm.DB) error {
 		var token Token
-		if err := lockForUpdate(tx).Select("id", "status", "expired_time").First(&token, tokenID).Error; err != nil || token.Status != common.TokenStatusEnabled || (token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp()) {
+		if err := lockForShare(tx).Select("id", "status", "expired_time").First(&token, tokenID).Error; err != nil || token.Status != common.TokenStatusEnabled || (token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp()) {
 			return errors.New("令牌已停用、过期或删除")
 		}
 		var template PromptTemplate
-		if err := lockForUpdate(tx).First(&template, templateID).Error; err != nil {
+		if err := lockForShare(tx).Select("id", "enabled", "load_mode", "version").First(&template, templateID).Error; err != nil {
 			return errors.New("技能包不存在")
 		}
 		if !template.Enabled || template.LoadMode != PromptLoadModeProgressive || template.Version != version {
@@ -354,60 +359,90 @@ func ReadActiveTokenSkillFile(tokenID int, groupCode string, templateID int, ski
 		if authorized != 1 {
 			return errors.New("当前令牌或分组无权读取技能")
 		}
-		var record PromptSkillRecord
-		if err := tx.Where("template_id = ? AND skill_id = ?", templateID, skillID).First(&record).Error; err != nil {
-			return errors.New("技能不存在于当前安装包")
-		}
-		var file PromptSkillFile
-		if err := tx.Where("template_id = ? AND skill_id = ? AND file_id = ?", templateID, skillID, skillFileID(path)).First(&file).Error; err != nil || file.Path != path {
-			return errors.New("技能文件不存在")
-		}
-		if file.TotalBytes < 0 || file.TotalBytes > MaxSkillFileBytes {
-			return errors.New("技能文件分块不完整")
-		}
-		if offset > file.TotalBytes {
-			return errors.New("技能读取偏移超过文件长度")
-		}
-		end := min(offset+limit, file.TotalBytes)
-		var chunks []PromptSkillChunk
-		if err := tx.Where("template_id = ? AND skill_id = ? AND file_id = ? AND byte_offset < ? AND byte_offset >= ?", templateID, skillID, file.FileID, end, max(0, offset-skillChunkBytes)).Order("chunk_index").Find(&chunks).Error; err != nil {
-			return err
-		}
-		content, start := "", offset
-		if len(chunks) > 0 {
-			start = chunks[0].ByteOffset
-			var builder strings.Builder
-			for _, chunk := range chunks {
-				if chunk.ByteOffset < 0 || chunk.ByteOffset != start+builder.Len() || len(chunk.Content) == 0 || len(chunk.Content) > skillChunkBytes || !utf8.ValidString(chunk.Content) {
-					return errors.New("技能文件分块不完整")
+		cached, found := progressiveSkillContents.get(database, pageKey)
+		if !found {
+			var file PromptSkillFile
+			fileErr := tx.Table("prompt_skill_files f").Select("f.*").
+				Joins("JOIN prompt_skill_records s ON s.template_id = f.template_id AND s.skill_id = f.skill_id").
+				Where("f.template_id = ? AND f.skill_id = ? AND f.file_id = ?", templateID, skillID, skillFileID(path)).First(&file).Error
+			if fileErr != nil || file.Path != path {
+				var records int64
+				if err := tx.Model(&PromptSkillRecord{}).Where("template_id = ? AND skill_id = ?", templateID, skillID).Count(&records).Error; err != nil {
+					return err
 				}
-				builder.WriteString(chunk.Content)
+				if records != 1 {
+					return errors.New("技能不存在于当前安装包")
+				}
+				return errors.New("技能文件不存在")
 			}
-			content = builder.String()
-		}
-		if start > offset || offset-start > len(content) || end-start > len(content) || len(content) > file.TotalBytes-start {
-			return errors.New("技能文件分块不完整")
-		}
-		if offset-start < len(content) && !utf8.RuneStart(content[offset-start]) {
-			return errors.New("技能读取偏移不在 UTF-8 字符边界")
-		}
-		for end > offset && end-start < len(content) && !utf8.RuneStart(content[end-start]) {
-			end--
-		}
-		if end == offset && offset < file.TotalBytes {
-			return errors.New("技能读取长度不足一个 UTF-8 字符")
-		}
-		page.Content, page.Offset, page.NextOffset, page.TotalBytes, page.EOF = content[offset-start:end-start], offset, end, file.TotalBytes, end == file.TotalBytes
-		if path == "SKILL.md" {
-			if err := tx.Model(&PromptSkillFile{}).Where("template_id = ? AND skill_id = ? AND path <> ?", templateID, skillID, "SKILL.md").Pluck("path", &page.Resources).Error; err != nil {
+			if file.TotalBytes < 0 || file.TotalBytes > MaxSkillFileBytes {
+				return errors.New("技能文件分块不完整")
+			}
+			if offset > file.TotalBytes {
+				return errors.New("技能读取偏移超过文件长度")
+			}
+			// 以固定最大页读取，正式生成以实际页长复核时仍可复用同一正文缓存。
+			end := min(offset+MaxSkillReadBytes, file.TotalBytes)
+			var chunks []PromptSkillChunk
+			if err := tx.Where("template_id = ? AND skill_id = ? AND file_id = ? AND byte_offset < ? AND byte_offset >= ?", templateID, skillID, file.FileID, end, max(0, offset-skillChunkBytes)).Order("chunk_index").Find(&chunks).Error; err != nil {
 				return err
 			}
-			sort.Strings(page.Resources)
+			content, start := "", offset
+			if len(chunks) > 0 {
+				start = chunks[0].ByteOffset
+				var builder strings.Builder
+				for _, chunk := range chunks {
+					if chunk.ByteOffset < 0 || chunk.ByteOffset != start+builder.Len() || len(chunk.Content) == 0 || len(chunk.Content) > skillChunkBytes || !utf8.ValidString(chunk.Content) {
+						return errors.New("技能文件分块不完整")
+					}
+					builder.WriteString(chunk.Content)
+				}
+				content = builder.String()
+			}
+			if start > offset || offset-start > len(content) || end-start > len(content) || len(content) > file.TotalBytes-start {
+				return errors.New("技能文件分块不完整")
+			}
+			if offset-start < len(content) && !utf8.RuneStart(content[offset-start]) {
+				return errors.New("技能读取偏移不在 UTF-8 字符边界")
+			}
+			for end > offset && end-start < len(content) && !utf8.RuneStart(content[end-start]) {
+				end--
+			}
+			cached = SkillFilePage{Content: content[offset-start : end-start], Offset: offset, NextOffset: end, TotalBytes: file.TotalBytes, EOF: end == file.TotalBytes}
+			loadedPage = &cached
+		}
+		*page = cached
+		page.Resources = []string{}
+		end := min(offset+limit, page.NextOffset)
+		for end > offset && end-offset < len(page.Content) && !utf8.RuneStart(page.Content[end-offset]) {
+			end--
+		}
+		if end == offset && offset < page.TotalBytes {
+			return errors.New("技能读取长度不足一个 UTF-8 字符")
+		}
+		page.Content, page.NextOffset, page.EOF = page.Content[:end-offset], end, end == page.TotalBytes
+		if path == "SKILL.md" {
+			if directory, found := progressiveSkillContents.get(database, directoryKey); found {
+				page.Resources = directory.Resources
+			} else {
+				if err := tx.Model(&PromptSkillFile{}).Where("template_id = ? AND skill_id = ? AND path <> ?", templateID, skillID, "SKILL.md").Pluck("path", &page.Resources).Error; err != nil {
+					return err
+				}
+				sort.Strings(page.Resources)
+				loadedDirectory = true
+			}
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	// 事务成功后才发布缓存；版本化键允许旧读取与后续更新安全交错完成。
+	if loadedPage != nil {
+		progressiveSkillContents.put(database, pageKey, *loadedPage)
+	}
+	if loadedDirectory {
+		progressiveSkillContents.put(database, directoryKey, SkillFilePage{Resources: page.Resources})
 	}
 	return page, nil
 }

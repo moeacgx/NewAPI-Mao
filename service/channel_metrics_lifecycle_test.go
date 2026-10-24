@@ -607,6 +607,34 @@ func TestClassifyChannelMetricAttemptExcludesContentPolicyFromQuality(t *testing
 	})
 }
 
+func TestClassifyChannelMetricGatewaySkillResourceErrorsAsLocal(t *testing.T) {
+	cases := []struct {
+		code   types.ErrorCode
+		status int
+	}{
+		{code: "gateway_skills_busy", status: http.StatusTooManyRequests},
+		{code: "gateway_skills_context_too_large", status: http.StatusRequestEntityTooLarge},
+		{code: "gateway_skills_timeout", status: http.StatusGatewayTimeout},
+	}
+	for _, test := range cases {
+		t.Run(string(test.code), func(t *testing.T) {
+			c := newChannelMetricTestContext(t, "request-"+string(test.code))
+			info := newChannelMetricTestRelayInfo()
+			info.IsStream = true
+			info.StreamStatus = relaycommon.NewStreamStatus()
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, context.DeadlineExceeded)
+			relayErr := types.NewErrorWithStatusCode(context.DeadlineExceeded, test.code, test.status, types.ErrOptionWithSkipRetry())
+			for _, upstreamStarted := range []bool{false, true} {
+				outcome, owner, stage, qualityEligible := classifyChannelMetricAttempt(c, info, relayErr, upstreamStarted)
+				assert.Equal(t, channelmetrics.OutcomeLocalError, outcome, "upstream_started=%v", upstreamStarted)
+				assert.Equal(t, channelmetrics.FailureOwnerGateway, owner, "upstream_started=%v", upstreamStarted)
+				assert.Equal(t, channelmetrics.ErrorStagePreUpstream, stage, "upstream_started=%v", upstreamStarted)
+				assert.False(t, qualityEligible, "upstream_started=%v", upstreamStarted)
+			}
+		})
+	}
+}
+
 func TestChannelMetricLifecycleCountsMultipleUpstreamCallsInsideOneAttempt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	collector, _ := installChannelMetricTestRuntime(t)

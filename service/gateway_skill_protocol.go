@@ -38,6 +38,15 @@ type GatewaySkillResult struct {
 
 // PrepareGatewaySkillRequest 创建独立读取阶段，最终生成仍使用原始客户端工具配置。
 func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName, catalogue string) ([]byte, error) {
+	request, err := NewGatewaySkillRequest(body, format, modelName, catalogue)
+	if err != nil {
+		return nil, err
+	}
+	return request.Bytes(), nil
+}
+
+// NewGatewaySkillRequest 只解析一次客户端正文，续轮复用不可变历史与协议字段。
+func NewGatewaySkillRequest(body []byte, format types.RelayFormat, modelName, catalogue string) (*GatewaySkillRequest, error) {
 	instruction := "You are completing a private gateway skill-discovery phase before the actual assistant answers. " +
 		"Select only installed skills relevant to the current user task. Read a skill's SKILL.md first, then read referenced text resources only when needed. " +
 		"Use next_offset to read further pages when needed, and newapi_skills_files to search or page through resource paths after reading SKILL.md. " +
@@ -46,13 +55,12 @@ func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName
 		"When the useful instructions have been read, or no skill is relevant, reply SKILL_CONTEXT_READY without tool calls. " +
 		"The gateway will give successful catalogue metadata and authorized file pages to the actual assistant together with its original tools; catalogue metadata means discovery only and does not mean that a skill was used. " +
 		"You have at most 8 discovery rounds and a bounded reading budget.\nAvailable installed skills:\n" + catalogue
-	prepared, err := appendSystemInstructionText(body, format, modelName, instruction)
+	state, request, err := parseGatewaySkillRequest(body, format)
 	if err != nil {
 		return nil, err
 	}
-	var request map[string]json.RawMessage
-	if err := common.Unmarshal(prepared, &request); err != nil || request == nil {
-		return nil, errors.New("技能读取请求必须为 JSON 对象")
+	if err := state.prependInstruction(request, modelName, instruction); err != nil {
+		return nil, err
 	}
 	listSchema := map[string]any{
 		"type": "object", "properties": map[string]any{
@@ -147,23 +155,6 @@ func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName
 		tools = []map[string]any{{"functionDeclarations": definitions}}
 		request["toolConfig"] = json.RawMessage(`{"functionCallingConfig":{"mode":"AUTO"}}`)
 		delete(request, "tool_config")
-		var generation map[string]json.RawMessage
-		if len(request["generationConfig"]) > 0 {
-			if err := common.Unmarshal(request["generationConfig"], &generation); err != nil {
-				return nil, err
-			}
-		}
-		if generation == nil {
-			generation = make(map[string]json.RawMessage)
-		}
-		delete(generation, "responseMimeType")
-		delete(generation, "responseSchema")
-		delete(generation, "responseJsonSchema")
-		generation["candidateCount"] = json.RawMessage(`1`)
-		request["generationConfig"], err = common.Marshal(generation)
-		if err != nil {
-			return nil, err
-		}
 	default:
 		return nil, errors.New("该端点不支持渐进式技能")
 	}
@@ -174,7 +165,13 @@ func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName
 	if format != types.RelayFormatGemini {
 		request["stream"] = json.RawMessage(`false`)
 	}
-	return common.Marshal(request)
+	if err := prepareGatewaySkillOutputBudget(request, format, GatewaySkillDiscoveryMaxOutputTokens()); err != nil {
+		return nil, err
+	}
+	if err := state.seal(request); err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // GatewaySkillClientTools 只认可原请求明确声明的工具，不从历史调用推断执行权限。
@@ -343,139 +340,24 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTool
 
 // RefocusGatewaySkillRequest 只追加阶段纠偏，不回填意外客户端调用或伪造执行结果。
 func RefocusGatewaySkillRequest(body []byte, format types.RelayFormat) ([]byte, error) {
-	var request map[string]json.RawMessage
-	if err := common.Unmarshal(body, &request); err != nil || request == nil {
-		return nil, errors.New("技能读取请求必须为 JSON 对象")
-	}
-	instruction := "Private gateway discovery correction: the requested client tool was NOT executed. " +
-		"You are still selecting skill context, not performing the original Agent task. " +
-		"Use only newapi_skills_list, newapi_skills_read, and newapi_skills_files. " +
-		"Read the relevant installed skill's SKILL.md before handing back to the Agent. " +
-		"If no installed skill is relevant, reply SKILL_CONTEXT_READY without tools. " +
-		"For catalogue questions, call newapi_skills_list. Original client tools will be restored for the actual assistant."
-	key := "messages"
-	message := map[string]any{"role": "user", "content": instruction}
-	switch format {
-	case types.RelayFormatOpenAI, types.RelayFormatClaude:
-	case types.RelayFormatOpenAIResponses:
-		key = "input"
-	case types.RelayFormatGemini:
-		key = "contents"
-		message = map[string]any{"role": "user", "parts": []map[string]any{{"text": instruction}}}
-	default:
-		return nil, errors.New("该端点不支持渐进式技能")
-	}
-	var history []json.RawMessage
-	if format == types.RelayFormatOpenAIResponses && common.GetJsonType(request[key]) == "string" {
-		item, err := common.Marshal(map[string]any{"role": "user", "content": request[key]})
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, item)
-	} else if len(request[key]) > 0 {
-		if err := common.Unmarshal(request[key], &history); err != nil {
-			return nil, err
-		}
-	}
-	item, err := common.Marshal(message)
+	request, err := restoreGatewaySkillRequest(body, format)
 	if err != nil {
 		return nil, err
 	}
-	request[key], err = common.Marshal(append(history, item))
-	if err != nil {
+	if err := request.Refocus(); err != nil {
 		return nil, err
 	}
-	return common.Marshal(request)
+	return request.Bytes(), nil
 }
 
 // ContinueGatewaySkillRequest 只在私有读取阶段回填结果，绝不改写客户端原始历史。
 func ContinueGatewaySkillRequest(body []byte, format types.RelayFormat, turn *GatewaySkillTurn, results []GatewaySkillResult) ([]byte, error) {
-	if turn == nil || len(turn.Calls) == 0 || len(turn.ClientCalls) > 0 || len(turn.Calls) != len(results) {
-		return nil, errors.New("技能工具结果与调用不匹配")
-	}
-	for i, result := range results {
-		if result.Call.ID != turn.Calls[i].ID || result.Call.Name != turn.Calls[i].Name {
-			return nil, errors.New("技能工具结果标识不匹配")
-		}
-	}
-	var request map[string]json.RawMessage
-	if err := common.Unmarshal(body, &request); err != nil || request == nil {
-		return nil, errors.New("技能读取请求必须为 JSON 对象")
-	}
-	key := "messages"
-	if format == types.RelayFormatGemini {
-		key = "contents"
-	} else if format == types.RelayFormatOpenAIResponses {
-		key = "input"
-	}
-	var history []json.RawMessage
-	if format == types.RelayFormatOpenAIResponses && common.GetJsonType(request[key]) == "string" {
-		item, err := common.Marshal(map[string]any{"role": "user", "content": request[key]})
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, item)
-	} else if len(request[key]) > 0 {
-		if err := common.Unmarshal(request[key], &history); err != nil {
-			return nil, err
-		}
-	}
-	switch format {
-	case types.RelayFormatOpenAI:
-		history = append(history, turn.Assistant)
-		for _, result := range results {
-			item, err := common.Marshal(map[string]any{"role": "tool", "tool_call_id": result.Call.ID, "content": string(result.Content)})
-			if err != nil {
-				return nil, err
-			}
-			history = append(history, item)
-		}
-	case types.RelayFormatOpenAIResponses:
-		history = append(history, turn.Output...)
-		for _, result := range results {
-			item, err := common.Marshal(map[string]any{"type": "function_call_output", "call_id": result.Call.ID, "output": string(result.Content)})
-			if err != nil {
-				return nil, err
-			}
-			history = append(history, item)
-		}
-	case types.RelayFormatClaude:
-		assistant, err := common.Marshal(map[string]any{"role": "assistant", "content": turn.Output})
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, assistant)
-		blocks := make([]map[string]any, 0, len(results))
-		for _, result := range results {
-			blocks = append(blocks, map[string]any{"type": "tool_result", "tool_use_id": result.Call.ID, "content": string(result.Content)})
-		}
-		user, err := common.Marshal(map[string]any{"role": "user", "content": blocks})
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, user)
-	case types.RelayFormatGemini:
-		history = append(history, turn.Assistant)
-		parts := make([]map[string]any, 0, len(results))
-		for _, result := range results {
-			response := map[string]any{"name": result.Call.Name, "response": result.Content}
-			if result.Call.ID != "" {
-				response["id"] = result.Call.ID
-			}
-			parts = append(parts, map[string]any{"functionResponse": response})
-		}
-		user, err := common.Marshal(map[string]any{"role": "user", "parts": parts})
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, user)
-	default:
-		return nil, errors.New("该端点不支持渐进式技能")
-	}
-	encoded, err := common.Marshal(history)
+	request, err := restoreGatewaySkillRequest(body, format)
 	if err != nil {
 		return nil, err
 	}
-	request[key] = encoded
-	return common.Marshal(request)
+	if err := request.Continue(turn, results); err != nil {
+		return nil, err
+	}
+	return request.Bytes(), nil
 }

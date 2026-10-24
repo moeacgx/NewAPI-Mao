@@ -84,6 +84,10 @@ func shouldRecordRelayFailure(info *relaycommon.RelayInfo, relayErr *types.NewAP
 	if info == nil || relayErr == nil || hosttypes.IsContentPolicyRejection(relayErr) {
 		return false
 	}
+	switch relayErr.GetErrorCode() {
+	case "gateway_skills_busy", "gateway_skills_context_too_large", "gateway_skills_timeout":
+		return false
+	}
 	if info.StreamStatus != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonClientGone {
 		return false
 	}

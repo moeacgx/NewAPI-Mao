@@ -3,6 +3,7 @@ package controller
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -62,7 +63,7 @@ func (w *gatewaySkillWriter) Pusher() http.Pusher { return nil }
 
 // discoverGatewaySkills 先在固定渠道完成按需读取，再恢复原始工具、输出格式和流式生成。
 // 每个模型轮次使用独立计费会话，已结算的轮次不会因后续失败而退款。
-func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format types.RelayFormat) (*relaycommon.RelayInfo, *types.NewAPIError) {
+func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format types.RelayFormat, admission **service.GatewaySkillAdmission, originalRequestBytes int64) (result *relaycommon.RelayInfo, apiError *types.NewAPIError) {
 	session, err := service.NewGatewaySkillSession(c, format)
 	if err != nil {
 		return info, gatewaySkillError(err)
@@ -70,6 +71,29 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 	if session == nil {
 		return info, nil
 	}
+	if *admission == nil {
+		var admissionErr *types.NewAPIError
+		*admission, admissionErr = service.TryAcquireGatewaySkillRequest(originalRequestBytes)
+		if admissionErr != nil {
+			return info, admissionErr
+		}
+	}
+	clientContext := c.Request.Context()
+	discoveryContext, cancelDiscovery := context.WithTimeout(clientContext, service.GatewaySkillDiscoveryTimeout())
+	c.Request = c.Request.WithContext(discoveryContext)
+	defer func() {
+		deadlineExpired := errors.Is(discoveryContext.Err(), context.DeadlineExceeded)
+		// 保留期间替换的 Body、长度和头部，只恢复客户端原有取消语义。
+		c.Request = c.Request.WithContext(clientContext)
+		cancelDiscovery()
+		if clientErr := clientContext.Err(); clientErr != nil {
+			// 子期限先到而父请求随后取消时，也必须保留父原因，避免误记渠道故障。
+			apiError = gatewaySkillError(clientErr)
+		} else if deadlineExpired {
+			apiError = types.NewErrorWithStatusCode(fmt.Errorf("云端技能读取阶段超时: %w", context.DeadlineExceeded),
+				types.ErrorCode("gateway_skills_timeout"), http.StatusGatewayTimeout, types.ErrOptionWithSkipRetry())
+		}
+	}()
 	storage, err := common.GetBodyStorage(c)
 	if err != nil {
 		return info, gatewaySkillError(err)
@@ -78,15 +102,17 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 	if err != nil {
 		return info, gatewaySkillError(err)
 	}
-	originalBody := append([]byte(nil), body...)
+	// BodyStorage 提供不可变正文；后续重建只替换 storage，无需额外复制整段历史。
+	originalBody := body
 	catalogue, err := session.Catalogue()
 	if err != nil {
 		return info, gatewaySkillError(err)
 	}
-	privateBody, err := service.PrepareGatewaySkillRequest(originalBody, format, info.OriginModelName, catalogue)
+	privateRequest, err := service.NewGatewaySkillRequest(originalBody, format, info.OriginModelName, catalogue)
 	if err != nil {
 		return info, gatewaySkillError(err)
 	}
+	privateBody := privateRequest.Bytes()
 	clientURL := c.Request.URL
 	clientHeader := c.Request.Header
 	clientStream := info.Request.IsStream(c.Request)
@@ -217,18 +243,20 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 			if clientToolCorrected || round == service.GatewaySkillMaxRounds {
 				return info, gatewaySkillError(errors.New("模型在技能读取完成前连续请求客户端工具，未读取技能正文"))
 			}
-			privateBody, err = service.RefocusGatewaySkillRequest(privateBody, format)
+			err = privateRequest.Refocus()
 			if err != nil {
 				return info, gatewaySkillError(err)
 			}
+			privateBody = privateRequest.Bytes()
 			clientToolCorrected = true
 			continue
 		}
 		if round < service.GatewaySkillMaxRounds {
-			privateBody, err = service.ContinueGatewaySkillRequest(privateBody, format, turn, results)
+			err = privateRequest.Continue(turn, results)
 			if err != nil {
 				return info, gatewaySkillError(err)
 			}
+			privateBody = privateRequest.Bytes()
 		}
 	}
 	c.Request.URL, c.Request.Header = clientURL, clientHeader
