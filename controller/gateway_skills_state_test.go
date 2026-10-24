@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -45,9 +46,14 @@ func TestGatewaySkillsRejectServerStateBeforeUpstreamAndRefund(t *testing.T) {
 			assert.Contains(t, recorder.Body.String(), "invalid_request")
 			assert.Zero(t, calls)
 			var storedUser model.User
-			require.NoError(t, model.DB.First(&storedUser, user.Id).Error)
 			var storedToken model.Token
-			require.NoError(t, model.DB.First(&storedToken, token.Id).Error)
+			// 退款异步执行，确认两份余额均恢复后再结束用例，避免清理数据库打断退款。
+			require.Eventually(t, func() bool {
+				if model.DB.First(&storedUser, user.Id).Error != nil || model.DB.First(&storedToken, token.Id).Error != nil {
+					return false
+				}
+				return storedUser.Quota == 10000 && storedToken.RemainQuota == 10000
+			}, 3*time.Second, 10*time.Millisecond, "异步退款应恢复用户和令牌余额")
 			assert.EqualValues(t, 10000, storedUser.Quota)
 			assert.EqualValues(t, 10000, storedToken.RemainQuota)
 			var count int64
