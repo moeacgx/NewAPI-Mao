@@ -51,3 +51,18 @@ zzapi 导入 `zhaoxuya520/reverse-skill` 时提示：
 - `go vet` 与 `model`、`service`、`controller`、`router` 测试通过。
 - 未运行 `-race`：本机无 C 编译器，cgo 不可用。各下载协程只写自己的切片下标，主协程在
   `WaitGroup` 结束后读取；测试夹具的请求记录已加锁。
+
+## zzapi 部署
+
+- 合并 [PR #331](https://github.com/moeacgx/NewAPI-Mao/pull/331)，合并提交 `bb52254b0`。
+- 服务器从 GitHub 下载该提交源码，`service/skill_repository.go`、`service/skill_import.go`
+  SHA256 与本地合并提交一致；构建镜像 `newapi-mao-zzapi:github-skill-import-bb52254b0`，
+  标签 `org.opencontainers.image.revision` 为完整合并提交。
+- 按 `zzapi` → `zzapi-slave-1` → `zzapi-slave-2` 逐个替换，前一节点 healthy 后再替换下一节点；
+  compose 原文件备份为 `backups/docker-compose.pre-github-skill-import-bb52254b0.yml`。
+- 验证：三节点 healthy、重启 0 次，18097/18098/18099 `/api/status` 正常，启动后日志无 panic、
+  fatal 或迁移错误；公开站点 `/api/status` 返回 200；宿主访问 `raw.githubusercontent.com`
+  约 0.2 秒；nginx `proxy_read_timeout` 为 600 秒，不会早于 90 秒导入期限断开。
+- 未在 zzapi 后台实际执行仓库导入：需要管理员登录。
+- 回滚：恢复上述 compose 备份（镜像 `newapi-mao-zzapi:github-skill-update-9f8dcf5dd`），
+  逐节点 `compose up -d --no-deps --no-build`。本次无数据库迁移。
