@@ -13,12 +13,17 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 )
+
+// 仓库导入总期限需低于正式站 Cloudflare 100 秒的源站响应上限；原始文件按有限并发下载。
+const repositoryImportTimeout = 90 * time.Second
+const repositoryDownloadConcurrency = 8
 
 var githubRepositoryName = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 var githubCommitSHA = regexp.MustCompile(`^[a-fA-F0-9]{40}$`)
@@ -105,7 +110,7 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 	if len(parts) > 2 && parts[2] == "blob" && (len(parts) < 5 || !strings.EqualFold(path.Base(parsed.Path), "SKILL.md")) {
 		return nil, errors.New("文件链接必须指向 SKILL.md")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, repositoryImportTimeout)
 	defer cancel()
 	// 不继承 Cookie，也不跟随 GitHub 返回的任意重定向地址。
 	isolatedClient := *client
@@ -212,8 +217,12 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 	for _, filename := range files {
 		selectedMains[filename] = true
 	}
-	textFiles := make(map[string][]byte)
-	total := 0
+	type repositoryTextFile struct {
+		path string
+		url  string
+	}
+	downloads := make([]repositoryTextFile, 0)
+	var declared int64
 	for _, entry := range tree.Tree {
 		if !supportedSkillTextFile(entry.Path) {
 			continue
@@ -228,25 +237,75 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 		if entry.Size < 0 || entry.Size > model.MaxSkillFileBytes {
 			return nil, fmt.Errorf("技能文件 %q 的大小无效或超过 8 MiB", entry.Path)
 		}
-		if len(textFiles) >= model.MaxSkillResourceFiles || int64(total)+entry.Size > maxSkillExpandedBytes {
+		if len(downloads) >= model.MaxSkillResourceFiles || declared+entry.Size > maxSkillExpandedBytes {
 			return nil, errors.New("技能包不能超过 64 MiB 或 4096 个文本文件")
 		}
+		declared += entry.Size
 		segments := strings.Split(entry.Path, "/")
 		for i := range segments {
 			segments[i] = url.PathEscape(segments[i])
 		}
-		body, err := reader.read("https://raw.githubusercontent.com/"+owner+"/"+repository+"/"+commit.SHA+"/"+strings.Join(segments, "/"), model.MaxSkillFileBytes)
-		if err != nil {
-			return nil, fmt.Errorf("读取技能文件 %q 失败：%w", entry.Path, err)
+		downloads = append(downloads, repositoryTextFile{path: entry.Path, url: "https://raw.githubusercontent.com/" + owner + "/" + repository + "/" + commit.SHA + "/" + strings.Join(segments, "/")})
+	}
+	// 固定提交下的文件互不依赖，按有限并发下载；任一失败立即取消其余请求，并按路径顺序报告首个错误。
+	downloadCtx, cancelDownloads := context.WithCancel(ctx)
+	defer cancelDownloads()
+	downloadReader := skillRepositoryReader{ctx: downloadCtx, client: reader.client}
+	bodies := make([][]byte, len(downloads))
+	failures := make([]error, len(downloads))
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	for worker := 0; worker < min(repositoryDownloadConcurrency, len(downloads)); worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				body, err := downloadReader.read(downloads[index].url, model.MaxSkillFileBytes)
+				if err == nil {
+					body, err = normalizeImportedSkillText(body)
+				}
+				if err != nil {
+					failures[index] = err
+					cancelDownloads()
+					continue
+				}
+				bodies[index] = body
+			}
+		}()
+	}
+	for index := range downloads {
+		if downloadCtx.Err() != nil {
+			break
 		}
-		total += len(body)
+		jobs <- index
+	}
+	close(jobs)
+	workers.Wait()
+	if err := ctx.Err(); err != nil {
+		downloaded := 0
+		for _, body := range bodies {
+			if body != nil {
+				downloaded++
+			}
+		}
+		return nil, reader.contextError(fmt.Sprintf("已读取 %d / %d 个文本文件", downloaded, len(downloads)))
+	}
+	textFiles := make(map[string][]byte, len(downloads))
+	total := 0
+	for index, download := range downloads {
+		if failures[index] != nil && !errors.Is(failures[index], context.Canceled) {
+			return nil, fmt.Errorf("读取技能文件 %q 失败：%w", download.path, failures[index])
+		}
+	}
+	for index, download := range downloads {
+		if bodies[index] == nil {
+			return nil, fmt.Errorf("读取技能文件 %q 失败：下载未完成", download.path)
+		}
+		total += len(bodies[index])
 		if total > maxSkillExpandedBytes {
 			return nil, errors.New("技能包正文合计不能超过 64 MiB")
 		}
-		if !utf8.Valid(body) || strings.ContainsRune(string(body), 0) {
-			return nil, fmt.Errorf("技能文件 %q 必须为 UTF-8 文本", entry.Path)
-		}
-		textFiles[entry.Path] = body
+		textFiles[download.path] = bodies[index]
 	}
 	draft, err := buildProgressiveSkillDraft(repository, files, textFiles)
 	if err != nil {
@@ -338,32 +397,71 @@ func (reader skillRepositoryReader) resolveReference(apiBase, rest string) (stri
 	return selectedName, selectedSHA, strings.TrimPrefix(strings.TrimPrefix(rest, selectedName), "/"), nil
 }
 
+// contextError 区分导入期限到达与客户端取消，避免把超时误报为可以直接重试的网络错误。
+func (reader skillRepositoryReader) contextError(progress string) error {
+	if !errors.Is(reader.ctx.Err(), context.DeadlineExceeded) {
+		return reader.ctx.Err()
+	}
+	if progress != "" {
+		progress = "（" + progress + "）"
+	}
+	return fmt.Errorf("GitHub 仓库导入超过 %d 秒时限%s；仓库文件较多时请改用 tree 目录链接只导入需要的技能", int(repositoryImportTimeout/time.Second), progress)
+}
+
 func (reader skillRepositoryReader) read(endpoint string, maxBytes int64) ([]byte, error) {
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme != "https" || (parsed.Host != "api.github.com" && parsed.Host != "raw.githubusercontent.com") || parsed.User != nil {
 		return nil, errors.New("技能仓库请求地址无效")
 	}
+	// 大仓库会发出数百个请求；连接中断和 GitHub 网关错误各自最多重试两次，其他状态直接失败。
+	for attempt := 0; ; attempt++ {
+		body, retryable, err := reader.readOnce(endpoint, maxBytes)
+		if err == nil || !retryable || attempt >= 2 {
+			return body, err
+		}
+		select {
+		case <-reader.ctx.Done():
+			return nil, reader.contextError("")
+		case <-time.After(time.Duration(attempt+1) * 500 * time.Millisecond):
+		}
+	}
+}
+
+func (reader skillRepositoryReader) readOnce(endpoint string, maxBytes int64) ([]byte, bool, error) {
 	request, err := http.NewRequestWithContext(reader.ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, errors.New("无法创建技能仓库请求")
+		return nil, false, errors.New("无法创建技能仓库请求")
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("User-Agent", "NewAPI-Mao-Skill-Import")
 	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	response, err := reader.client.Do(request)
 	if err != nil {
-		return nil, errors.New("无法读取 GitHub 技能仓库，请稍后重试")
+		if reader.ctx.Err() != nil {
+			return nil, false, reader.contextError("")
+		}
+		return nil, true, errors.New("无法连接 GitHub 技能仓库，请检查服务器网络后重试")
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, errors.New("GitHub 仓库不可公开读取、请求受限或链接不存在")
+	switch response.StatusCode {
+	case http.StatusOK:
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return nil, true, fmt.Errorf("GitHub 暂时不可用（HTTP %d），请稍后重试", response.StatusCode)
+	default:
+		return nil, false, errors.New("GitHub 仓库不可公开读取、请求受限或链接不存在")
 	}
 	if response.ContentLength > maxBytes {
-		return nil, errors.New("技能仓库响应超过大小限制")
+		return nil, false, errors.New("技能仓库响应超过大小限制")
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxBytes+1))
-	if err != nil || int64(len(body)) > maxBytes {
-		return nil, errors.New("技能仓库响应损坏或超过大小限制")
+	if err != nil && reader.ctx.Err() != nil {
+		return nil, false, reader.contextError("")
 	}
-	return body, nil
+	if err != nil {
+		return nil, true, errors.New("GitHub 技能仓库响应中断")
+	}
+	if int64(len(body)) > maxBytes {
+		return nil, false, errors.New("技能仓库响应超过大小限制")
+	}
+	return body, false, nil
 }
