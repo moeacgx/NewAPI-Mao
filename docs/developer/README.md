@@ -3,6 +3,7 @@
 - [网关云端 Skills 回复标识](../workflows/2026-10/24_gateway_skill_response_indicator.md)：双模板回复徽标、外部 API 文本标识及实际读取元数据契约。
 - [云端技能目录查询结果传递](../workflows/2026-10/24_gateway_skill_catalogue_visibility.md)：用户询问已安装 Skills 时的目录查询、正式生成回填、授权重检与徽标边界。
 - [云端技能正文读取与激活核验](../workflows/2026-10/24_gateway_skill_read_body_handoff.md)：真实正文读取审计、激活的自然语言语义及单次请求上下文边界。
+- [本地 Agent 接入与模型发现核验](../workflows/2026-10/24_local_agent_api_connectivity.md)：真实模型列表、普通与流式调用结果、Base URL 拼接边界及未复现客户端问题的限制。
 
 - [技能模板保存校验与反馈修复](../workflows/2026-10/23_skill_template_save_feedback.md)：Classic 长表单反馈、渐进式合集校验与 Default 旧单技能模式切换。
 
