@@ -152,14 +152,25 @@ func retryFallbackExclusions(param *RetryParam) map[int]struct{} {
 	return ids
 }
 
+// RequestGroupChannelID 返回当前请求在实际分组中的渠道限定。
+func RequestGroupChannelID(ctx *gin.Context, group string) int {
+	if ctx == nil {
+		return 0
+	}
+	value, _ := common.GetContextKey(ctx, constant.ContextKeyTokenGroupChannels)
+	channels, _ := value.(map[string]int)
+	return channels[group]
+}
+
 func selectFromGroup(param *RetryParam, group string, retry int) (*model.Channel, error) {
-	exclusions := model.ChannelSelectionExclusions{ChannelIDs: param.ExcludedChannelIDs}
+	exclusions := model.ChannelSelectionExclusions{ChannelIDs: param.ExcludedChannelIDs, RequiredChannelID: RequestGroupChannelID(param.Ctx, group)}
 	channel, err := model.GetRandomSatisfiedChannelWithSelectionExclusions(group, param.ModelName, retry, param.RequestPath, exclusions)
 	if err != nil || channel != nil {
 		return channel, err
 	}
 	if fallback := retryFallbackExclusions(param); fallback != nil {
-		return model.GetRandomSatisfiedChannelWithSelectionExclusions(group, param.ModelName, retry, param.RequestPath, model.ChannelSelectionExclusions{ChannelIDs: fallback})
+		exclusions.ChannelIDs = fallback
+		return model.GetRandomSatisfiedChannelWithSelectionExclusions(group, param.ModelName, retry, param.RequestPath, exclusions)
 	}
 	return nil, nil
 }

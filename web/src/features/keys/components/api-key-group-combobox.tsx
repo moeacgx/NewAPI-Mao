@@ -44,6 +44,7 @@ import {
 } from './auto-group-visuals'
 
 export type ApiKeyGroupOption = {
+  id?: number
   value: string
   label: string
   desc?: string
