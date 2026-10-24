@@ -50,6 +50,7 @@ import { useTranslation } from 'react-i18next'
 import type { SidebarData } from '@/components/layout/types'
 import { getExtensions } from '@/features/extensions/api'
 import { useStatus } from '@/hooks/use-status'
+import { hasPermission } from '@/lib/admin-permissions'
 import { getCanvasSettingsFromSidebarModules } from '@/lib/canvas-settings'
 import {
   getCustomNavIcon,
@@ -184,6 +185,7 @@ export function useSidebarData(): SidebarData {
           { title: t('Wallet'), url: '/wallet', icon: Wallet },
           { title: t('Activity Benefits'), url: '/benefits', icon: Gift },
           { title: t('Invoice Center'), url: '/invoices', icon: ReceiptText },
+          { title: t('Ticket Center'), url: '/tickets', icon: MessageSquare },
           {
             title: t('Affiliate Commission'),
             url: '/affiliate',
@@ -199,6 +201,16 @@ export function useSidebarData(): SidebarData {
           { title: t('Channels'), url: '/channels', icon: Radio },
           { title: t('Models'), url: '/models/metadata', icon: Box },
           { title: t('Users'), url: '/users', icon: Users },
+          ...(hasPermission(user, 'tickets', 'read')
+            ? [
+                {
+                  title: t('Ticket Management'),
+                  url: '/ticket-management',
+                  icon: MessageSquare,
+                  requiredRole: ROLE.ADMIN,
+                },
+              ]
+            : []),
           {
             title: t('Security Audit'),
             url: '/security-audit',

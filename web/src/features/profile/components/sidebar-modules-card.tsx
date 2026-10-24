@@ -140,6 +140,13 @@ export function SidebarModulesCard() {
             description: t('View invoices for paid orders'),
           },
           {
+            key: 'tickets',
+            title: t('Ticket Center'),
+            description: t(
+              'Submit requests and follow replies from the support team.'
+            ),
+          },
+          {
             key: 'affiliate',
             title: t('Affiliate Commission'),
             description: t('Referral commission and payout management'),

@@ -182,6 +182,7 @@ func main() {
 	controller.RegisterScheduledSystemTasks()
 	service.RegisterSystemTaskHandler(service.NotificationDispatcherSystemTaskHandler{})
 	service.RegisterImageTaskMaintenanceSystemTask()
+	service.RegisterTicketArchiveSystemTask()
 	service.StartSystemTaskRunner()
 
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {

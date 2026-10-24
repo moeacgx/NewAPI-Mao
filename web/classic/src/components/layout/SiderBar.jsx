@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { getLucideIcon } from '../../helpers/render';
 import { ChevronLeft } from 'lucide-react';
 import { useSidebar } from '../../hooks/common/useSidebar';
+import { useUserPermissions } from '../../hooks/common/useUserPermissions';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
 import { API, isAdmin, isRoot, showError } from '../../helpers';
 import {
@@ -44,9 +45,11 @@ const routerMap = {
   topup: '/console/topup',
   affiliate: '/console/affiliate',
   invoice: '/console/invoice',
+  tickets: '/console/tickets',
   user: '/console/user',
   subscription: '/console/subscription',
   invoice_admin: '/console/invoice-admin',
+  ticket_management: '/console/ticket-management',
   affiliate_admin: '/console/affiliate-admin',
   log: '/console/log',
   midjourney: '/console/midjourney',
@@ -76,6 +79,8 @@ const SiderBar = ({
   onNavigate = () => {},
 }) => {
   const { t } = useTranslation();
+  const { permissions } = useUserPermissions();
+  const canReadTickets = permissions?.admin_permissions?.tickets?.read === true;
   const {
     isModuleVisible,
     loading: sidebarLoading,
@@ -193,6 +198,12 @@ const SiderBar = ({
         text: t('发票中心'),
         itemKey: 'invoice',
         to: '/invoice',
+      },
+      {
+        text: t('Ticket center'),
+        itemKey: 'tickets',
+        to: '/console/tickets',
+        iconName: 'Ticket',
       },
       {
         text: t('个人设置'),
@@ -318,6 +329,13 @@ const SiderBar = ({
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
+        text: t('Ticket management'),
+        itemKey: 'ticket_management',
+        to: '/console/ticket-management',
+        iconName: 'Ticket',
+        className: isAdmin() && canReadTickets ? '' : 'tableHiddle',
+      },
+      {
         text: t('返佣分成设置'),
         itemKey: 'affiliate_admin',
         to: '/affiliate-admin',
@@ -368,6 +386,7 @@ const SiderBar = ({
     customMenuItems,
     extensionSubItems,
     extensionGroupItem,
+    canReadTickets,
   ]);
 
   const chatMenuItems = useMemo(() => {

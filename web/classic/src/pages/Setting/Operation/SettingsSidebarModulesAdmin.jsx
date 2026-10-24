@@ -244,6 +244,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           description: t('用户发票申请与下载记录'),
         },
         {
+          key: 'tickets',
+          title: t('Ticket center'),
+          description: t('Create and track your support tickets'),
+        },
+        {
           key: 'personal',
           title: t('个人设置'),
           description: t('个人信息设置'),
@@ -287,6 +292,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           key: 'invoice_admin',
           title: t('发票管理'),
           description: t('审核和处理发票工单'),
+        },
+        {
+          key: 'ticket_management',
+          title: t('Ticket management'),
+          description: t('Review and respond to customer tickets.'),
         },
         {
           key: 'notification_center',
