@@ -6597,6 +6597,7 @@
     "In use now": "Đang sử dụng",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} yêu cầu đang chạy · {{tokens}} token",
     "Loading connection status…": "Đang tải trạng thái kết nối…",
+    "Connection data is delayed. Showing the last known status.": "Dữ liệu kết nối đang bị trễ. Đang hiển thị trạng thái gần nhất.",
     "Task request": "Yêu cầu tác vụ",
     "Prompt center": "Trung tâm lời nhắc",
     "Install prompts on API keys": "Cài lời nhắc vào khóa API",

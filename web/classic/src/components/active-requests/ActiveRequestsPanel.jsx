@@ -43,7 +43,12 @@ function ActiveRequestsPanelContent({ subject }) {
   const { t } = useTranslation();
   const mobile = useIsMobile();
   const activity = useActiveRequests({ pageSize: 3, subject });
-  const serverNow = useRequestClock(activity.snapshot, activity.error);
+  const snapshotStale =
+    !!activity.snapshot && Date.now() - activity.snapshot.receivedAt > 5000;
+  const serverNow = useRequestClock(
+    activity.snapshot,
+    activity.error || snapshotStale,
+  );
   const [expanded, setExpanded] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const snapshot = activity.snapshot;
@@ -67,9 +72,12 @@ function ActiveRequestsPanelContent({ subject }) {
           )}
         </div>
         <div className='active-requests-controls'>
-          {!activity.error && !activity.loading && (
-            <span className='active-requests-live'>{t('Live updates')}</span>
-          )}
+          {!activity.error &&
+            !activity.loading &&
+            !activity.refreshing &&
+            !snapshotStale && (
+              <span className='active-requests-live'>{t('Live updates')}</span>
+            )}
           <Button
             theme='borderless'
             size='small'

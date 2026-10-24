@@ -6055,6 +6055,7 @@
     "In use now": "使用中",
     "{{total}} active requests · {{tokens}} tokens": "実行中 {{total}} 件 · トークン {{tokens}} 個",
     "Loading connection status…": "接続状態を取得中…",
+    "Connection data is delayed. Showing the last known status.": "接続データの更新が遅れています。前回取得した状態を表示しています。",
     "Task request": "タスクリクエスト",
     "Prompt center": "プロンプトセンター",
     "Install prompts on API keys": "API キーにプロンプトをインストール",

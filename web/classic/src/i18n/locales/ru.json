@@ -6145,6 +6145,7 @@
     "In use now": "Сейчас используется",
     "{{total}} active requests · {{tokens}} tokens": "Активных запросов: {{total}} · токенов: {{tokens}}",
     "Loading connection status…": "Загрузка статуса подключений…",
+    "Connection data is delayed. Showing the last known status.": "Данные о подключениях задерживаются. Показано последнее состояние.",
     "Task request": "Запрос задачи",
     "Prompt center": "Центр промптов",
     "Install prompts on API keys": "Установка промптов на ключи API",

@@ -41,6 +41,30 @@ export default function ActiveRequestsNotice(props) {
           </Button>
         </div>
       )}
+      {!props.activity.error &&
+        props.activity.refreshing &&
+        props.activity.snapshot &&
+        Date.now() - props.activity.snapshot.receivedAt > 5000 && (
+          <p className='active-requests-scope' role='status'>
+            {t('Connection data is delayed. Showing the last known status.')}
+          </p>
+        )}
+      {!props.activity.error &&
+        props.activity.refreshing &&
+        props.activity.snapshot &&
+        Date.now() - props.activity.snapshot.receivedAt <= 5000 && (
+          <p className='active-requests-scope' role='status'>
+            {t('Loading connection status…')}
+          </p>
+        )}
+      {!props.activity.error &&
+        !props.activity.refreshing &&
+        props.activity.snapshot &&
+        Date.now() - props.activity.snapshot.receivedAt > 5000 && (
+          <div className='active-requests-notice' role='status'>
+            {t('Connection status is stale. Updates are unavailable.')}
+          </div>
+        )}
       {props.activity.snapshot?.scope === 'instance' && (
         <p className='active-requests-scope'>
           {t('Only connections on the current instance are shown.')}

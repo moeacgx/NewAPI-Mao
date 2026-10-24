@@ -7,6 +7,8 @@
 - [Default 工单实现](../workflows/2026-10/22_ticket_default.md)：个人和管理员页面、浮窗、消息历史、权限及账号切换回调隔离。
 - [Classic 工单实现](../workflows/2026-10/22_ticket_classic.md)：独立 UI、侧栏配置、通知编辑器与账号切换回归。
 
+- [当前连接慢刷新过期提示修复](../workflows/2026-10/24_active_connections_freshness.md)：识别轮询中的旧快照，超过 5 秒标记过期，并覆盖两套主题。
+
 - [令牌按分组限定渠道](../workflows/2026-10/23_token_group_channel_restriction.md)：双模板管理员逐组配置渠道 ID、正式路由约束、迁移保护与本地验证边界。
 
 - [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。
