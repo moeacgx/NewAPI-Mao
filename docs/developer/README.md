@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [GitHub 大仓库技能导入超时](../workflows/2026-10/25_github_skill_import_concurrency.md)：原始文件改为 8 路并发、瞬时错误有限重试、NUL 字节转写，导入期限 90 秒；真实 506 文件仓库导入保存通过。
 - [GitHub 技能来源、一键更新与删除](../workflows/2026-10/25_github_skill_updates.md)：来源记录与站内修改识别、按版本更新、删除自动卸载、用途说明取消 512 字符限制，已更新 zzapi；[Default 前端](../workflows/2026-10/25_github_skill_update_default.md)、[Classic 前端](../workflows/2026-10/25_github_skill_update_classic.md)、[导入元数据兼容](../workflows/2026-10/25_skill_import_metadata.md)。
 
 - [.353 云端 Skills、令牌限制与工单中心发布](../workflows/2026-10/25_gateway_skills_353_release.md)：合并范围、升级边界、组合验证与发布产物验收；发布不包含线上容器更新。
