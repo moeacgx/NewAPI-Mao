@@ -217,7 +217,7 @@ func Distribute() func(c *gin.Context) {
 						if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 							for index, group := range service.GetRequestAutoGroups(c, userGroup) {
-								if model.IsChannelEnabledForGroupModel(group, modelRequest.Model, preferred.Id) {
+								if (service.RequestGroupChannelID(c, group) == 0 || service.RequestGroupChannelID(c, group) == preferred.Id) && model.IsChannelEnabledForGroupModel(group, modelRequest.Model, preferred.Id) {
 									selectGroup, channel, affinityUsable = group, preferred, true
 									common.SetContextKey(c, constant.ContextKeyAutoGroup, group)
 									setAffinityOrderedGroupRetryState(c, index)
@@ -230,7 +230,7 @@ func Distribute() func(c *gin.Context) {
 								groups = []string{usingGroup}
 							}
 							for index, group := range groups {
-								if model.IsChannelEnabledForGroupModel(group, modelRequest.Model, preferred.Id) {
+								if (service.RequestGroupChannelID(c, group) == 0 || service.RequestGroupChannelID(c, group) == preferred.Id) && model.IsChannelEnabledForGroupModel(group, modelRequest.Model, preferred.Id) {
 									selectGroup, channel, affinityUsable = group, preferred, true
 									if len(groups) > 1 {
 										setAffinityOrderedGroupRetryState(c, index)

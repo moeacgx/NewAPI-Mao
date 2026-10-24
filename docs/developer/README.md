@@ -1,9 +1,13 @@
 # NewAPI-Mao 开发文档
 
+- [工单中心 .353 合并验证](../workflows/2026-10/25_ticket_center_353_integration.md)：对齐已合并令牌渠道限定与当前连接改动，保留双模板翻译及工单权限、事务和归档回归。
+
 - [工单中心与工单管理](tickets.md)：双模板个人/管理员入口、控制台创建浮窗、会话权限及通知事件；[实施与验证记录](../workflows/2026-10/22_ticket_center.md)。
 - [工单批量操作与超时归档](../workflows/2026-10/24_ticket_bulk_archive.md)：批量状态/软删除、版本与事务保护、可配置自动归档、系统任务与操作审计。
 - [Default 工单实现](../workflows/2026-10/22_ticket_default.md)：个人和管理员页面、浮窗、消息历史、权限及账号切换回调隔离。
 - [Classic 工单实现](../workflows/2026-10/22_ticket_classic.md)：独立 UI、侧栏配置、通知编辑器与账号切换回归。
+
+- [令牌按分组限定渠道](../workflows/2026-10/23_token_group_channel_restriction.md)：双模板管理员逐组配置渠道 ID、正式路由约束、迁移保护与本地验证边界。
 
 - [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。
 

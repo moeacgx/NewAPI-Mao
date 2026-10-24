@@ -67,3 +67,66 @@
 仅缺失 Web 资源的缓存响应头变化，转发、鉴权、计费、模型与令牌契约保持。
 NewAPIForDouDi 和 NewAPIModifyByGang 均值得检查同源路由是否缓存缺失静态资源；
 只有存在相同链路才适合采用该小修复，未审查目标源码，也未发送 Issue 或 PR。
+
+## .351 发布证据
+
+- 修复 PR [#316](https://github.com/moeacgx/NewAPI-Mao/pull/316) 已合并，标签
+  `v1.0.0-rc.10.1.10.351` 指向 `2088c02169b3ed1dbd8b7c58dc1811ef777c90b6`，包含
+  原 dev 能力、5 秒保留和本次缓存修复。
+- 最终源码 [CI 39687816881](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39687816881)
+  后端与前端均通过；独立只读审查未发现阻断，未把 CodeRabbit 的跳过作为审查证据。
+- [Linux Release 39688978607](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39688978607)
+  与 [Docker 39688978581](https://github.com/moeacgx/NewAPI-Mao/actions/runs/39688978581)
+  均成功。[Release](https://github.com/moeacgx/NewAPI-Mao/releases/tag/v1.0.0-rc.10.1.10.351)
+  三资产齐全，下载校验文件与两条二进制元数据摘要匹配；未执行二进制安装验收。
+- 固定镜像为
+  `ghcr.io/moeacgx/newapi-mao@sha256:55406df0ecd564fa62f7fd491d0e402fc7143de1d788f126a81c111be7ab8754`。
+  amd64 manifest 为 `sha256:57b206b46c836b98bb2dc2c1f46444561fbd8d7bf484d4865a5250507866a83d`，
+  arm64 为 `sha256:c4053222e9a95ebf057e9036edc347fc93f76ea1093315e50d5be685c2686f99`，
+  两个平台 config 的 revision/version 均匹配上述发布提交及标签。
+- 修订后的运维脚本作业 `efac9512-4e1f-42fb-820f-3bbe72b59489` 成功，目录为
+  `/apps/maolaoapi/releases/351/`。`ops.py` SHA-256 为
+  `495f18f465cc602417f793b2faa1824118d5c1add66b5434269a6a2bf2d1a025`；
+  预览与 Nginx 脚本经过只读审查，安装后验收失败也恢复原配置并测试重载。
+- 新备份作业 `300b3a45-3697-4e7c-8fbd-789d75ce193f` 成功、exitCode=0，目录
+  `/apps/maolaoapi/backups/pre-351-20261021T230031Z`。数据库 custom dump 为
+  1,577,339,874 字节，SHA-256
+  `821b905ff1a8a0413265fc0233591f4e038cc6216335af9007137ec1a7505d01`；
+  data 为 88,640,019 字节，摘要与 `.350` 前备份相同，TOC 与 tar 目录检查通过。
+- 候选拉取作业 `227bcf4d-7988-40f9-a6ce-d1c8c2f49c45` 成功，镜像版本、revision、
+  amd64 与旧镜像默认环境均通过；三应用尚未重建。
+- 首次空 SQLite 预览按 slave 启动，因从节点跳过建表而缺失 `casbin_rule`，未就绪即停止；
+  生产应用、数据库和代理配置均未修改。随后使用另一独立预览目录按 master 初始化空库，
+  仍无生产 DSN、Redis 或生产数据挂载，容器仅监听宿主回环地址，提取结束后停止。
+- 递归清单在旧版与候选均发现两个下划线前缀 JS 分块返回 404；旧版为
+  `_basePickBy-CGq9fpEe.js`、`_baseUniq-Dzy54Pbl.js`，候选为
+  `_basePickBy-GSv9Hmqw.js`、`_baseUniq-Bo7eqJcR.js`。这是两版本已有的嵌入资源边界，
+  本轮将缺失逐项记录且不宣称所有懒加载路径已验收；未扩大修改打包规则。
+- 提取作业 `717dc334-6c73-407e-b26c-e4257a1c75d5` 成功，预置新旧 174 个公开资源、
+  共 32,771,286 字节，目录 `/var/www/maolaoapi-static/assets/`。同名文件必须 SHA-256
+  一致才复用，空库预览的 Classic、版本样式参数、结束保留标记和 404 no-store 均通过。
+- Nginx 安装验收作业 `4bc7c582-04dd-483b-bf16-8c5329c47014` 成功，`nginx -t` 与重载
+  通过，本源 TLS 入口对 174 个资源逐个核对内容 SHA-256，未知资源为 404/no-store。
+  配置从 `a32b20c4a3819e4a588f61a7dfc4819b6231fe71d4e9a9ad142dc068f5eee63a`
+  变为 `7a421c03f1ecec1efd6d327b6c18a89343023db7f419e703759ac68fea748e8b`，
+  备份为发布目录内 `nginx.before-static.conf`；仅前端 `/assets/` 优先静态读取，
+  缺失回到原 upstream，API 站点和 location 保持，应用与依赖身份未改变。
+- 第一从节点作业 `1323e046-92b6-4a60-aeef-6b2dbcfdaa79`、第二从节点作业
+  `4416583d-0e63-4dc3-960f-f9a8d4c9eb4e` 依次成功、exitCode=0。均为 `.351`、准确
+  revision、固定镜像、healthy、restart=0，配置与依赖保持，匿名接口 401、直接节点
+  缺失资产 404/no-store、样式 `?v=v1.0.0-rc.10.1.10.351` 与结束保留资源标记均通过。
+- 两从节点完成、主节点尚为 `.349` 时，Chrome 实际 `/console/log` 已显示顶栏、筛选与
+  表格，未出现白屏；该检查只证明页面渲染，不代表真实收费供应商请求验收。
+- 主节点作业 `2c5b3c66-84b8-40d6-b519-3849235fe203` 成功、exitCode=0；最终验收
+  `989f8c73-b93c-4696-8b85-125b5c676e66` 成功，三节点 `.351`、healthy、restart=0，
+  配置与依赖身份保持，备份逐项哈希再次通过。
+- 独立公网检查：首页 200/no-cache、版本 `.351`；带版本参数的 CSS 为 200，788,955
+  字节、Cloudflare MISS；未知 CSS 为 404/no-store、Cloudflare BYPASS，无 Age。
+  原清理 API 未成功，不将版本参数隔离表述为已清空 CDN。
+- 全量更新后在用户 Chrome 刷新 `/console/log`，实际看到带样式的顶栏、侧栏、实时
+  当前连接卡片、“已结束的请求保留显示 5 秒”提示、筛选和有数据的日志表格；查询按钮
+  可见，当前捕获的控制台 error 列表为空。未主动发送收费请求，未声称完成所有懒加载
+  页面或严格生产五秒计时验收。浏览器页保留供用户复查。
+- `.351` 回滚入口仍是发布目录的 `ops.py rollback`，仅恢复应用与 Compose；静态目录
+  同时保留 `.349` 和 `.351` 公开资源。若需撤销 Nginx 静态入口，核对现有配置摘要后
+  恢复 `nginx.before-static.conf`，先 `nginx -t` 再重载；不恢复在线数据库。

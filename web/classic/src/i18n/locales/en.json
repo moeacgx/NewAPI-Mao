@@ -1,6 +1,11 @@
 {
   "translation": {
     "Account mode": "Account mode",
+    "Channel ID": "Channel ID",
+    "Channel ID for {{name}}": "Channel ID for {{name}}",
+    "Channel ID must be a positive integer.": "Channel ID must be a positive integer.",
+    "Channel restrictions (admin only)": "Channel restrictions (admin only)",
+    "Leave empty for normal routing. Each group only uses its specified channel.": "Leave empty for normal routing. Each group only uses its specified channel.",
     "Use account balance and selected group": "Use account balance and selected group",
     "Request identity": "Request identity",
     "Switch API token": "Switch API token",

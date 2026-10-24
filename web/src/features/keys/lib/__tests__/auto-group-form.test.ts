@@ -63,6 +63,35 @@ const baseApiKey: ApiKey = {
 }
 
 describe('API key Auto group form mapping', () => {
+  test('编辑回读逐组限定，移除组时只提交仍选中组的限制', () => {
+    const defaults = transformApiKeyToFormDefaults({
+      ...baseApiKey,
+      group: 'default,vip',
+      group_mode: 'explicit',
+      group_ids: [11, 22],
+      group_details: [
+        { id: 11, code: 'default', name: 'Standard models', exclusive: false },
+        { id: 22, code: 'vip', name: 'Priority models', exclusive: false },
+      ],
+      group_channel_ids: { '11': 952, '22': 958 },
+    })
+    expect(defaults.group_channel_ids).toEqual({ '11': 952, '22': 958 })
+    const payload = transformFormDataToPayload(
+      { ...defaults, groups: ['vip'] },
+      [{ id: 22, value: 'vip', label: 'Priority models' }]
+    )
+    expect(payload.group_ids).toEqual([22])
+    expect(payload.group_channel_ids).toEqual({ '22': 958 })
+  })
+
+  test.each([0, -1, 1.5, 2147483648])('非法限定渠道 %s 阻止表单提交', (id) => {
+    const result = getApiKeyFormSchema(t).safeParse({
+      ...getApiKeyFormDefaultValues(false),
+      name: 'restricted',
+      group_channel_ids: { '11': id },
+    })
+    expect(result.success).toBe(false)
+  })
   test('treats legacy token responses without auto_groups as inheritance', () => {
     const legacyApiKey: Record<string, unknown> = { ...baseApiKey }
     delete legacyApiKey.auto_groups
