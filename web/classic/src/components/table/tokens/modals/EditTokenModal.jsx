@@ -68,6 +68,7 @@ import {
 import { GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../../context/Status';
+import { UserContext } from '../../../../context/User';
 import GroupTagFilter from '../../../common/group-tags/GroupTagFilter';
 import { filterGroupsByTag } from '../../../../helpers/groupTags';
 
@@ -84,6 +85,9 @@ export const GroupMultiPicker = ({
   onChange,
   groupRatioLimits,
   onGroupRatioLimitChange,
+  groupChannelIds,
+  onGroupChannelChange,
+  canSetGroupChannels = false,
   t,
 }) => {
   const [popVisible, setPopVisible] = useState(false);
@@ -334,6 +338,7 @@ export const GroupMultiPicker = ({
                 onDrop={(event) => handleDrop(event, value)}
                 style={{
                   display: 'flex',
+                  flexWrap: 'wrap',
                   alignItems: 'center',
                   gap: 8,
                   padding: '6px 10px',
@@ -377,7 +382,7 @@ export const GroupMultiPicker = ({
                     <GripVertical size={16} />
                   </span>
                 )}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                   >
@@ -432,6 +437,21 @@ export const GroupMultiPicker = ({
                       style={{ width: 96 }}
                     />
                   </div>
+                )}
+                {canSetGroupChannels && value !== 'auto' && info?.id > 0 && (
+                  <Input
+                    type='number'
+                    min={1}
+                    max={2147483647}
+                    step={1}
+                    aria-label={t('Channel ID for {{name}}', {
+                      name: displayName,
+                    })}
+                    placeholder={t('Channel ID')}
+                    value={groupChannelIds?.[info.id] ?? ''}
+                    onChange={(next) => onGroupChannelChange(info.id, next)}
+                    style={{ width: 120, flexShrink: 0 }}
+                  />
                 )}
                 <Button
                   icon={<IconDelete size='small' />}
@@ -488,6 +508,9 @@ export const GroupMultiPicker = ({
 
 const EditTokenModal = (props) => {
   const { t } = useTranslation();
+  const userContext = useContext(UserContext);
+  const canSetGroupChannels =
+    Array.isArray(userContext) && userContext[0]?.user?.role >= 10;
   const [statusState] = useContext(StatusContext);
   const [loading, setLoading] = useState(false);
   const isMobile = useIsMobile();
@@ -503,6 +526,7 @@ const EditTokenModal = (props) => {
     defaultUseAutoGroup ? ['auto'] : [],
   );
   const [groupRatioLimits, setGroupRatioLimits] = useState({});
+  const [groupChannelIds, setGroupChannelIds] = useState({});
   const [groupSelectionError, setGroupSelectionError] = useState('');
   const groupSelectionErrorRef = useRef(null);
 
@@ -571,6 +595,16 @@ const EditTokenModal = (props) => {
   const onSelectedGroupsChange = (groupsForToken) => {
     setGroupSelectionError('');
     setSelectedGroups(groupsForToken);
+    const retainedIds = new Set(
+      groups
+        .filter((group) => groupsForToken.includes(group.value))
+        .map((group) => String(group.id)),
+    );
+    setGroupChannelIds((previous) =>
+      Object.fromEntries(
+        Object.entries(previous).filter(([id]) => retainedIds.has(id)),
+      ),
+    );
     setGroupRatioLimits((prev) => cleanGroupRatioLimits(prev, groupsForToken));
   };
 
@@ -691,6 +725,7 @@ const EditTokenModal = (props) => {
         setGroups(mergedGroupOptions);
         setSelectedGroups(resolvedGroups);
         setGroupRatioLimits(parseGroupRatioLimits(data.group_ratio_limits));
+        setGroupChannelIds(data.group_channel_ids || {});
         // 分组由独立选择器维护，避免表单回传服务端旧值。
         const formData = { ...data };
         delete formData.group;
@@ -698,6 +733,7 @@ const EditTokenModal = (props) => {
         delete formData.group_mode;
         delete formData.group_details;
         delete formData.group_ratio_limits;
+        delete formData.group_channel_ids;
         if (formApiRef.current) {
           formApiRef.current.setValues({ ...getInitValues(), ...formData });
         }
@@ -717,6 +753,7 @@ const EditTokenModal = (props) => {
         formApiRef.current.setValues(getInitValues());
         onSelectedGroupsChange(defaultUseAutoGroup ? ['auto'] : []);
         setGroupRatioLimits({});
+        setGroupChannelIds({});
       }
     }
     loadModels();
@@ -731,11 +768,13 @@ const EditTokenModal = (props) => {
         formApiRef.current?.setValues(getInitValues());
         onSelectedGroupsChange(defaultUseAutoGroup ? ['auto'] : []);
         setGroupRatioLimits({});
+        setGroupChannelIds({});
       }
     } else {
       formApiRef.current?.reset();
       onSelectedGroupsChange(defaultUseAutoGroup ? ['auto'] : []);
       setGroupRatioLimits({});
+      setGroupChannelIds({});
     }
   }, [props.visiable, props.editingToken.id, defaultUseAutoGroup]);
 
@@ -752,6 +791,18 @@ const EditTokenModal = (props) => {
   };
 
   const submit = async (values) => {
+    if (
+      canSetGroupChannels &&
+      Object.values(groupChannelIds).some(
+        (value) =>
+          !Number.isInteger(Number(value)) ||
+          Number(value) <= 0 ||
+          Number(value) > 2147483647,
+      )
+    ) {
+      setGroupSelectionError(t('Channel ID must be a positive integer.'));
+      return;
+    }
     const exclusiveGroups = selectedGroups.filter(
       (value) =>
         value === 'auto' ||
@@ -787,6 +838,13 @@ const EditTokenModal = (props) => {
       let { tokenCount: _tc, ...localInputs } = values;
       Object.assign(localInputs, groupSelection);
       localInputs.group_ratio_limits = groupRatioLimitsJSON;
+      if (canSetGroupChannels)
+        localInputs.group_channel_ids = Object.fromEntries(
+          Object.entries(groupChannelIds).map(([id, value]) => [
+            id,
+            Number(value),
+          ]),
+        );
       localInputs.cross_group_retry = isMultiGroup
         ? true
         : isAuto
@@ -830,6 +888,13 @@ const EditTokenModal = (props) => {
         let { tokenCount: _tc, ...localInputs } = values;
         Object.assign(localInputs, groupSelection);
         localInputs.group_ratio_limits = groupRatioLimitsJSON;
+        if (canSetGroupChannels)
+          localInputs.group_channel_ids = Object.fromEntries(
+            Object.entries(groupChannelIds).map(([id, value]) => [
+              id,
+              Number(value),
+            ]),
+          );
         localInputs.cross_group_retry = isMultiGroup
           ? true
           : isAuto
@@ -972,9 +1037,27 @@ const EditTokenModal = (props) => {
                         selectedGroups={selectedGroups}
                         onChange={onSelectedGroupsChange}
                         groupRatioLimits={groupRatioLimits}
+                        groupChannelIds={groupChannelIds}
+                        canSetGroupChannels={canSetGroupChannels}
+                        onGroupChannelChange={(id, value) =>
+                          setGroupChannelIds((previous) => {
+                            const next = { ...previous };
+                            if (value === '') delete next[id];
+                            else next[id] = value;
+                            return next;
+                          })
+                        }
                         onGroupRatioLimitChange={handleGroupRatioLimitChange}
                         t={t}
                       />
+                      {canSetGroupChannels &&
+                        selectedGroups.some((value) => value !== 'auto') && (
+                          <Text type='tertiary' size='small'>
+                            {t(
+                              'Leave empty for normal routing. Each group only uses its specified channel.',
+                            )}
+                          </Text>
+                        )}
                       {groupSelectionError && (
                         <div
                           className='token-group-selection-error'

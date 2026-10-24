@@ -1,6 +1,11 @@
 {
   "translation": {
     "Account mode": "アカウントモード",
+    "Channel ID": "チャネル ID",
+    "Channel ID for {{name}}": "{{name}} のチャネル ID",
+    "Channel ID must be a positive integer.": "チャネル ID は正の整数で指定してください。",
+    "Channel restrictions (admin only)": "チャネル制限（管理者のみ）",
+    "Leave empty for normal routing. Each group only uses its specified channel.": "空欄の場合は通常のルーティングを使用します。各グループは指定されたチャネルのみを使用します。",
     "Use account balance and selected group": "アカウント残高と選択グループを使用",
     "Request identity": "リクエストの認証",
     "Switch API token": "API トークンを切り替え",

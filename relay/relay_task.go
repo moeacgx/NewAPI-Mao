@@ -155,6 +155,10 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	if groupErr != nil {
 		return service.TaskErrorWrapperLocal(groupErr, "task_group_forbidden", http.StatusForbidden)
 	}
+	// 续作必须沿用原渠道；令牌已限定其他渠道时拒绝，不能绕过限定或改投新渠道。
+	if requiredID := service.RequestGroupChannelID(c, originGroup); requiredID > 0 && requiredID != originTask.ChannelId {
+		return service.TaskErrorWrapperLocal(errors.New("the channel of the origin task does not match the token group restriction"), "task_channel_ineligible", http.StatusForbidden)
+	}
 
 	// Lock retries to the fully hydrated origin channel. The persisted group and
 	// model must still have an enabled ability for that channel at request time.

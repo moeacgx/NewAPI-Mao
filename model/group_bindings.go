@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -231,6 +232,7 @@ type TokenGroupBinding struct {
 	GroupId    int      `json:"group_id" gorm:"primaryKey;autoIncrement:false;index"`
 	Position   int      `json:"position" gorm:"not null;uniqueIndex:idx_token_group_position,priority:2"`
 	RatioLimit *float64 `json:"ratio_limit,omitempty"`
+	ChannelId  int      `json:"channel_id,omitempty"`
 }
 
 func (TokenGroupBinding) TableName() string { return "token_groups" }
@@ -797,11 +799,13 @@ func prepareTokenGroupBindings(tx *gorm.DB, token *Token, policy groupBindingRes
 	switch token.GroupMode {
 	case TokenGroupModeInherit:
 		token.Group = ""
+		token.GroupChannelIds = nil
 		token.GroupIds = nil
 		token.GroupDetails = nil
 		return nil
 	case TokenGroupModeAuto:
 		token.Group = "auto"
+		token.GroupChannelIds = nil
 		token.GroupIds = nil
 		token.GroupDetails = nil
 		return nil
@@ -819,6 +823,11 @@ func prepareTokenGroupBindings(tx *gorm.DB, token *Token, policy groupBindingRes
 		token.GroupIds = ids
 		token.GroupDetails = details
 		token.Group = strings.Join(codes, ",")
+		for groupID := range token.GroupChannelIds {
+			if !slices.Contains(ids, groupID) {
+				delete(token.GroupChannelIds, groupID)
+			}
+		}
 		return nil
 	default:
 		return fmt.Errorf("不支持的令牌分组模式: %s", token.GroupMode)
@@ -844,7 +853,7 @@ func buildTokenGroupBindings(token *Token) []TokenGroupBinding {
 	limits := token.GetGroupRatioLimitsMap()
 	bindings := make([]TokenGroupBinding, 0, len(token.GroupIds))
 	for position, groupID := range token.GroupIds {
-		binding := TokenGroupBinding{TokenId: token.Id, GroupId: groupID, Position: position}
+		binding := TokenGroupBinding{TokenId: token.Id, GroupId: groupID, Position: position, ChannelId: token.GroupChannelIds[groupID]}
 		if position < len(token.GroupDetails) {
 			if limit, ok := limits[token.GroupDetails[position].Code]; ok {
 				limitCopy := limit
@@ -965,6 +974,7 @@ func HydrateTokenGroupBindings(tx *gorm.DB, tokens []*Token) error {
 			continue
 		}
 		tokenIDs = append(tokenIDs, token.Id)
+		token.GroupChannelIds = nil
 		byID[token.Id] = token
 	}
 	var metadata []Token
@@ -1005,6 +1015,12 @@ func HydrateTokenGroupBindings(tx *gorm.DB, tokens []*Token) error {
 			clearedTokens[binding.TokenId] = true
 		}
 		token.GroupMode = TokenGroupModeExplicit
+		if binding.ChannelId > 0 {
+			if token.GroupChannelIds == nil {
+				token.GroupChannelIds = make(map[int]int)
+			}
+			token.GroupChannelIds[group.Id] = binding.ChannelId
+		}
 		token.GroupIds = append(token.GroupIds, group.Id)
 		token.GroupDetails = append(token.GroupDetails, newGroupReference(group))
 	}

@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -40,6 +41,40 @@ type tokenRequest struct {
 type tokenResponse struct {
 	*model.Token
 	AutoGroups []string `json:"auto_groups"`
+}
+
+// setTokenGroupChannels 只允许管理员明确修改每个稳定分组的渠道限定。
+func setTokenGroupChannels(c *gin.Context, token *model.Token, channels map[int]int) bool {
+	if channels == nil {
+		return true
+	}
+	if !model.IsAdmin(c.GetInt("id")) {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "仅管理员可设置分组限定渠道"})
+		return false
+	}
+	var err error
+	if token.Id > 0 {
+		err = model.PrepareTokenGroupBindingsForUpdate(model.DB, token)
+	} else {
+		err = model.PrepareTokenGroupBindings(model.DB, token)
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return false
+	}
+	for groupID, channelID := range channels {
+		if groupID <= 0 || channelID <= 0 || channelID > 2147483647 || !slices.Contains(token.GroupIds, groupID) {
+			common.ApiErrorMsg(c, "限定渠道必须使用已选分组 ID 和有效的正整数渠道 ID")
+			return false
+		}
+		channel, err := model.GetChannelById(channelID, false)
+		if err != nil || channel.Status != common.ChannelStatusEnabled || !slices.Contains(channel.GroupIds, groupID) {
+			common.ApiErrorMsg(c, "限定渠道不存在、未启用或不属于对应分组")
+			return false
+		}
+	}
+	token.GroupChannelIds = channels
+	return true
 }
 
 func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
@@ -378,6 +413,9 @@ func AddToken(c *gin.Context) {
 		CrossGroupRetry:    token.CrossGroupRetry,
 		AutoGroups:         token.AutoGroups,
 	}
+	if !setTokenGroupChannels(c, &cleanToken, token.GroupChannelIds) {
+		return
+	}
 	err = cleanToken.Insert()
 	if err != nil {
 		common.ApiError(c, err)
@@ -443,6 +481,10 @@ func UpdateToken(c *gin.Context) {
 			return
 		}
 	}
+	if (token.GroupChannelIds != nil || (statusOnly == "" && len(cleanToken.GroupChannelIds) > 0)) && !model.IsAdmin(userId) {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "仅管理员可设置分组限定渠道"})
+		return
+	}
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
@@ -460,6 +502,9 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.GroupDetails = append([]model.GroupReference(nil), token.GroupDetails...)
 		cleanToken.GroupRatioLimits = token.GroupRatioLimits
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		if !setTokenGroupChannels(c, cleanToken, token.GroupChannelIds) {
+			return
+		}
 		if token.Group != "auto" {
 			cleanToken.CrossGroupRetry = false
 			_ = cleanToken.SetAutoGroups(nil)
