@@ -36,4 +36,16 @@ Classic、Default 操练场及四类外部 HTTP 对话接口共用后端链路�
   切换为 amd64 工具链后通过，未修改系统安装。
 - Markdown 格式、此次新增的相对链接及 `git diff --check` 通过。全量扫描发现索引中存在
   81 处历史缺失链接，未将无关文档整理并入本次修复。
-- zzapi 逐节点更新与真实问答验证，在交付前继续记录结果。
+- 2026-10-24 将提交 `3e1dc94414ba736b5e7890fa91dfe3f5b7d7fbb7` 构建为
+  `newapi-mao-zzapi:gateway-catalogue-3e1dc9441`，按 `zzapi`、`zzapi-slave-1`、
+  `zzapi-slave-2` 顺序更新，每个节点健康后才继续。北京时间 18:23 再次确认三节点
+  使用同一新镜像且均为 healthy，三个内部状态端口及公网 `/api/status` 正常。
+  仅修改 zzapi 的镜像标签，未更新正式 maolaoapi 容器，未重启数据库或缓存。
+- 更新前的 Compose 备份保留在服务器
+  `/home/docker/zzapi/backups/docker-compose.pre-gateway-catalogue-3e1dc9441.yml`，
+  上一镜像 `newapi-mao-zzapi:gateway-skill-a7e055a7a` 保留供回退，本次未触发回滚。
+- 在 zzapi 的 Default 操练场选择已安装技能的测试令牌，使用 `deepseek-v4.1-flash`
+  提问“有哪些网关云端 Skills？只列出当前令牌可用的技能名称和用途，不读取正文。”。
+  实际回答列出 8 个技能及其用途，并明确仅查询元数据、未读取正文；未出现技能使用徽标
+  或外部尾标，符合目录查询与实际使用分离的契约。Classic 共用后端，本轮未另做
+  Classic 页面或所有真实供应商的问答实测。
