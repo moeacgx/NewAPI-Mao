@@ -17,6 +17,7 @@ import (
 const GatewaySkillMaxRounds = 8
 const GatewaySkillMaxCalls = 8
 const gatewaySkillReadBudget = 192 * 1024
+const gatewaySkillCatalogueBudget = 64 * 1024
 const gatewaySkillAuditKey = "gateway_skills_audit"
 
 // GatewaySkillResponseUsageKey 保存本次正式生成实际读取成功的技能。
@@ -45,6 +46,11 @@ type gatewaySkillPage struct {
 	Page  model.SkillFilePage
 }
 
+type gatewaySkillCatalogueQuery struct {
+	Query  string
+	Offset int
+}
+
 // GatewaySkillSession 只在一个已选定分组、渠道的读取阶段内有效，不跨重试复用。
 type GatewaySkillSession struct {
 	tokenID   int
@@ -55,6 +61,9 @@ type GatewaySkillSession struct {
 	pages     []gatewaySkillPage
 	readBytes int
 	resources map[string]map[string]bool
+	// catalogueQueries 只保存模型成功执行过的查询参数；正式生成前会按当前授权重新查询，
+	// 避免把已经撤销或改版的目录结果带入正式请求。
+	catalogueQueries []gatewaySkillCatalogueQuery
 }
 
 func NewGatewaySkillSession(c *gin.Context, format types.RelayFormat) (*GatewaySkillSession, error) {
@@ -144,6 +153,7 @@ func (s *GatewaySkillSession) Execute(c *gin.Context, calls []GatewaySkillCall) 
 				return nil, err
 			}
 			payload = map[string]any{"skills": page, "total": len(entries), "next_offset": end, "eof": end == len(entries)}
+			s.rememberCatalogueQuery(gatewaySkillCatalogueQuery{Query: strings.TrimSpace(args.Query), Offset: args.Offset})
 		case GatewaySkillsFilesTool:
 			var args struct {
 				TemplateID int    `json:"template_id"`
@@ -308,7 +318,67 @@ func (s *GatewaySkillSession) contains(templateID int, skillID string, version i
 	return false
 }
 
-// FinalBody 重新检查撤销、版本和实际分组后，只装载本轮实际读过的文件页。
+func (s *GatewaySkillSession) rememberCatalogueQuery(query gatewaySkillCatalogueQuery) {
+	for _, existing := range s.catalogueQueries {
+		if existing == query {
+			return
+		}
+	}
+	s.catalogueQueries = append(s.catalogueQueries, query)
+}
+
+// catalogueText 只重建模型实际查询过的目录页，不把完整技能包自动注入正式请求。
+// 重新读取当前授权数据是为了避免目录发现与正式生成之间发生卸载、下架或版本更新时泄漏旧元数据。
+func (s *GatewaySkillSession) catalogueText() (string, error) {
+	if len(s.catalogueQueries) == 0 {
+		return "", nil
+	}
+	current, err := model.GetActiveTokenSkills(s.tokenID, s.group)
+	if err != nil {
+		return "", err
+	}
+	lists := make([]map[string]any, 0, len(s.catalogueQueries))
+	for _, query := range s.catalogueQueries {
+		entries := make([]map[string]any, 0)
+		needle := strings.ToLower(query.Query)
+		for _, skill := range current {
+			if !s.contains(skill.TemplateID, skill.SkillID, skill.Version) {
+				continue
+			}
+			if needle != "" && !strings.Contains(strings.ToLower(skill.Title+"\n"+skill.Description+"\n"+skill.PackageTitle), needle) {
+				continue
+			}
+			entries = append(entries, map[string]any{"template_id": skill.TemplateID, "skill_id": skill.SkillID,
+				"title": skill.Title, "description": skill.Description, "package": skill.PackageTitle, "version": skill.Version})
+		}
+		page, end, err := gatewaySkillMetadataPage(entries, query.Offset)
+		if err != nil {
+			return "", err
+		}
+		lists = append(lists, map[string]any{"query": query.Query, "offset": query.Offset, "skills": page,
+			"total": len(entries), "next_offset": end, "eof": end == len(entries)})
+	}
+	metadata := map[string]any{"lists": lists, "truncated": false}
+	encoded, err := common.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	// 单页已受 32 KiB 限制；按完整查询页收拢，保留有效 JSON 和 UTF-8 边界。
+	for len(encoded) > gatewaySkillCatalogueBudget && len(lists) > 0 {
+		lists = lists[:len(lists)-1]
+		metadata["lists"] = lists
+		metadata["truncated"] = true
+		encoded, err = common.Marshal(metadata)
+		if err != nil {
+			return "", err
+		}
+	}
+	return "网关已完成当前令牌可用 Skills 的目录查询，可依据以下真实结果回答技能列表或用途问题。" +
+		"以下仅是本轮实际查询的元数据，不包含技能正文，也不代表已经使用技能：\n<gateway_skill_catalogue>\n" +
+		string(encoded) + "\n</gateway_skill_catalogue>", nil
+}
+
+// FinalBody 重新检查撤销、版本和实际分组后，只装载本轮查询的目录元数据及实际读过的文件页。
 func (s *GatewaySkillSession) FinalBody(c *gin.Context, original []byte) ([]byte, error) {
 	ResetGatewaySkillResponse(c)
 	if common.GetContextKeyString(c, constant.ContextKeyUsingGroup) != s.group {
@@ -333,10 +403,21 @@ func (s *GatewaySkillSession) FinalBody(c *gin.Context, original []byte) ([]byte
 		texts = append(texts, fmt.Sprintf("Installed skill %q (package %q, version %d), file %q, bytes %d..%d of %d, eof=%t:\n%s",
 			read.Skill.Title, read.Skill.PackageTitle, read.Skill.Version, read.Path, page.Offset, page.NextOffset, page.TotalBytes, page.EOF, page.Content))
 	}
-	if len(texts) == 0 {
+	catalogue, err := s.catalogueText()
+	if err != nil {
+		return nil, err
+	}
+	parts := make([]string, 0, 2)
+	if catalogue != "" {
+		parts = append(parts, catalogue)
+	}
+	if len(texts) > 0 {
+		parts = append(parts, strings.Join(texts, "\n\n"))
+	}
+	if len(parts) == 0 {
 		return original, nil
 	}
-	modified, err := appendSystemInstructionText(original, s.format, s.modelName, strings.Join(texts, "\n\n"))
+	modified, err := appendSystemInstructionText(original, s.format, s.modelName, strings.Join(parts, "\n\n"))
 	if err != nil {
 		return nil, err
 	}
@@ -374,5 +455,9 @@ func (s *GatewaySkillSession) Audit(c *gin.Context, stage string, round int) {
 		pages = append(pages, map[string]any{"template_id": read.Skill.TemplateID, "skill_id": read.Skill.SkillID,
 			"title": read.Skill.Title, "version": read.Skill.Version, "path": read.Path, "offset": read.Page.Offset, "bytes": len(read.Page.Content)})
 	}
-	c.Set(gatewaySkillAuditKey, map[string]any{"stage": stage, "round": round, "catalogue_count": len(s.skills), "files": pages})
+	queries := make([]map[string]any, 0, len(s.catalogueQueries))
+	for _, query := range s.catalogueQueries {
+		queries = append(queries, map[string]any{"query_bytes": len(query.Query), "offset": query.Offset})
+	}
+	c.Set(gatewaySkillAuditKey, map[string]any{"stage": stage, "round": round, "catalogue_count": len(s.skills), "catalogue_queries": queries, "files": pages})
 }

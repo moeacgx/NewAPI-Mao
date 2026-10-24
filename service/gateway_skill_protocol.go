@@ -40,8 +40,9 @@ func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName
 		"Select only installed skills relevant to the current user task. Read a skill's SKILL.md first, then read referenced text resources only when needed. " +
 		"Use next_offset to read further pages when needed, and newapi_skills_files to search or page through resource paths after reading SKILL.md. " +
 		"Do not execute scripts, perform the user's task, or call any client tools during this phase. " +
+		"If the user asks which gateway cloud Skills are installed, or asks to list available skills, you MUST call newapi_skills_list with an empty query before finishing, even when no file content is needed. " +
 		"When the useful instructions have been read, or no skill is relevant, reply SKILL_CONTEXT_READY without tool calls. " +
-		"The gateway will give the authorized file pages to the actual assistant together with its original tools. " +
+		"The gateway will give successful catalogue metadata and authorized file pages to the actual assistant together with its original tools; catalogue metadata means discovery only and does not mean that a skill was used. " +
 		"You have at most 8 discovery rounds and a bounded reading budget.\nAvailable installed skills:\n" + catalogue
 	prepared, err := appendSystemInstructionText(body, format, modelName, instruction)
 	if err != nil {
