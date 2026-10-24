@@ -1,5 +1,18 @@
 {
   "translation": {
+    "GitHub source": "GitHub 来源",
+    "Local skill changes": "技能已在本地修改",
+    "Overwrite local skill changes?": "覆盖本地技能修改？",
+    "Repository commit": "仓库提交",
+    "Repository path": "仓库路径",
+    "Repository reference": "仓库引用",
+    "Repository root": "仓库根目录",
+    "Skills are already up to date": "技能已是最新版本",
+    "Skills updated from GitHub": "已从 GitHub 更新技能",
+    "Update {{title}} from GitHub": "从 GitHub 更新 {{title}}",
+    "Update and overwrite": "更新并覆盖",
+    "Update from GitHub": "从 GitHub 更新",
+    "Updating replaces local instructions and reference files. The title, description, category, allowed groups, publication state and sort order are preserved.": "更新将替换本地正文和引用文件，保留标题、说明、分类、允许分组、上下架状态和排序。",
     "Gateway cloud Skills": "网关云端 Skills",
     "Skills used by this gateway response": "本次回复使用的网关云端 Skills",
     "Account mode": "账号模式",

@@ -24,6 +24,7 @@ import { promptError, promptRequest } from './api';
 import BundleSkillsEditor from './BundleSkillsEditor';
 import ArchiveImport from './ArchiveImport';
 import RepositoryImport from './RepositoryImport';
+import RepositorySource from './RepositorySource';
 import SkillResourcesEditor from './SkillResourcesEditor';
 import { validatePromptTemplateDraft } from './validation';
 
@@ -131,6 +132,7 @@ export default function PromptTemplateEditor(props) {
           kind: draft.kind,
           load_mode: draft.load_mode,
           category_id: draft.category_id,
+          repository_source: draft.repository_source,
           ...(draft.kind === 'bundle'
             ? {
                 skills: draft.skills.map((skill) => ({
@@ -162,7 +164,7 @@ export default function PromptTemplateEditor(props) {
     }
   };
   const importDraft = (imported) => {
-    setDraft({
+    setDraft((current) => ({
       title: '',
       description: '',
       content: '',
@@ -174,7 +176,19 @@ export default function PromptTemplateEditor(props) {
       ...imported,
       skills: imported.skills || [],
       load_mode: imported.load_mode || 'progressive',
-    });
+      repository_source:
+        imported.repository_source || current.repository_source,
+      ...(current.id
+        ? {
+            id: current.id,
+            version: current.version,
+            group_ids: current.group_ids,
+            category_id: current.category_id,
+            enabled: current.enabled,
+            sort_order: current.sort_order,
+          }
+        : {}),
+    }));
     setError('');
   };
   const importText = async (event) => {
@@ -226,6 +240,7 @@ export default function PromptTemplateEditor(props) {
           onBusyChange={setImporting}
           onImport={importDraft}
         />
+        <RepositorySource source={draft.repository_source} />
         <label htmlFor={`${prefix}-load-mode`}>{t('Loading mode')}</label>
         <select
           id={`${prefix}-load-mode`}

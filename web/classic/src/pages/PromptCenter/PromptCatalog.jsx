@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import SkillSummary from './SkillSummary';
+import RepositoryUpdate from './RepositoryUpdate';
 
 export default function PromptCatalog(props) {
   const { t } = useTranslation();
@@ -75,6 +76,14 @@ export default function PromptCatalog(props) {
               <p className='prompt-center-card-description'>
                 {template.description || t('Prompt')}
               </p>
+              {props.onEdit &&
+                props.onRepositoryUpdated &&
+                template.repository_source && (
+                  <RepositoryUpdate
+                    template={template}
+                    onUpdated={props.onRepositoryUpdated}
+                  />
+                )}
               <div className='prompt-center-card-footer'>
                 <div className='prompt-center-card-meta'>
                   <span className='prompt-center-meta-label'>

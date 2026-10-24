@@ -1,5 +1,18 @@
 {
   "translation": {
+    "GitHub source": "GitHub source",
+    "Local skill changes": "Local skill changes",
+    "Overwrite local skill changes?": "Overwrite local skill changes?",
+    "Repository commit": "Repository commit",
+    "Repository path": "Repository path",
+    "Repository reference": "Repository reference",
+    "Repository root": "Repository root",
+    "Skills are already up to date": "Skills are already up to date",
+    "Skills updated from GitHub": "Skills updated from GitHub",
+    "Update {{title}} from GitHub": "Update {{title}} from GitHub",
+    "Update and overwrite": "Update and overwrite",
+    "Update from GitHub": "Update from GitHub",
+    "Updating replaces local instructions and reference files. The title, description, category, allowed groups, publication state and sort order are preserved.": "Updating replaces local instructions and reference files. The title, description, category, allowed groups, publication state and sort order are preserved.",
     "Gateway cloud Skills": "Gateway cloud Skills",
     "Skills used by this gateway response": "Skills used by this gateway response",
     "Account mode": "Account mode",

@@ -1,5 +1,18 @@
 {
   "translation": {
+    "GitHub source": "Источник GitHub",
+    "Local skill changes": "Есть локальные изменения навыка",
+    "Overwrite local skill changes?": "Перезаписать локальные изменения навыка?",
+    "Repository commit": "Коммит репозитория",
+    "Repository path": "Путь в репозитории",
+    "Repository reference": "Ссылка на ревизию",
+    "Repository root": "Корень репозитория",
+    "Skills are already up to date": "Навыки уже обновлены",
+    "Skills updated from GitHub": "Навыки обновлены из GitHub",
+    "Update {{title}} from GitHub": "Обновить {{title}} из GitHub",
+    "Update and overwrite": "Обновить и перезаписать",
+    "Update from GitHub": "Обновить из GitHub",
+    "Updating replaces local instructions and reference files. The title, description, category, allowed groups, publication state and sort order are preserved.": "Обновление заменит локальные инструкции и справочные файлы. Название, описание, категория, разрешённые группы, статус публикации и порядок сортировки сохранятся.",
     "Gateway cloud Skills": "Облачные Skills шлюза",
     "Skills used by this gateway response": "Skills, использованные этим ответом шлюза",
     "Account mode": "Режим аккаунта",
