@@ -7322,6 +7322,7 @@
     "{{count}} more connections": "Ещё подключений: {{count}}",
     "{{count}} tokens in use": "Используется токенов: {{count}}",
     "{{total}} active requests · {{tokens}} tokens": "Активных запросов: {{total}} · токенов: {{tokens}}",
+    "Connection data is delayed. Showing the last known status.": "Данные о подключениях задерживаются. Показано последнее состояние.",
     "Connection details for {{model}}": "Сведения о подключении для {{model}}",
     "User search type": "Способ поиска пользователя",
     "Allowed groups": "Разрешённые группы",

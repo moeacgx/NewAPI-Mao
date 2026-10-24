@@ -6079,6 +6079,7 @@
     "In use now": "正在使用",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} 個進行中請求 · {{tokens}} 個權杖",
     "Loading connection status…": "正在取得連線狀態…",
+    "Connection data is delayed. Showing the last known status.": "連線資料更新較慢，目前顯示上次取得的狀態。",
     "Task request": "任務請求",
     "Prompt center": "提示詞中心",
     "Install prompts on API keys": "為 API 金鑰安裝提示詞",

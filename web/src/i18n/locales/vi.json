@@ -7322,6 +7322,7 @@
     "{{count}} more connections": "Còn {{count}} kết nối",
     "{{count}} tokens in use": "{{count}} token đang được sử dụng",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} yêu cầu đang chạy · {{tokens}} token",
+    "Connection data is delayed. Showing the last known status.": "Dữ liệu kết nối đang bị trễ. Đang hiển thị trạng thái gần nhất.",
     "Connection details for {{model}}": "Chi tiết kết nối cho {{model}}",
     "User search type": "Kiểu tìm kiếm người dùng",
     "Allowed groups": "Nhóm được phép",

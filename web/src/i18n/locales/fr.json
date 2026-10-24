@@ -7322,6 +7322,7 @@
     "{{count}} more connections": "{{count}} autres connexions",
     "{{count}} tokens in use": "{{count}} jetons en cours d’utilisation",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} requêtes en cours · {{tokens}} jetons",
+    "Connection data is delayed. Showing the last known status.": "Les données tardent à arriver. Dernier état connu affiché.",
     "Connection details for {{model}}": "Détails de connexion pour {{model}}",
     "User search type": "Type de recherche utilisateur",
     "Allowed groups": "Groupes autorisés",
