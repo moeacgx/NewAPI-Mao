@@ -20,12 +20,17 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { test, expect, vi } from 'vitest';
+import { afterEach, test, expect, vi } from 'vitest';
 import { API } from '../../../helpers/api';
 import ActiveRequestsPanel from '../ActiveRequestsPanel';
 import ActiveRequestCard from '../ActiveRequestCard';
 import { useActiveRequests } from '../useActiveRequests';
 import { renderHook } from '@testing-library/react';
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 const entries = Array.from({ length: 24 }, (_, i) => ({
   id: 'a' + i,
@@ -231,6 +236,40 @@ test('刷新失败保留上次连接，标记过期，重试成功后恢复', as
   API.get.mockResolvedValue(response());
   await act(async () => hook.result.current.refresh());
   await waitFor(() => expect(hook.result.current.error).toBe(false));
+});
+
+test('下一轮查询变慢时隐藏实时标记，快照过期后提示并在刷新成功后恢复', async () => {
+  let resolveRefresh;
+  vi.spyOn(API, 'get')
+    .mockResolvedValueOnce(response())
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    )
+    .mockResolvedValue(response());
+  render(<ActiveRequestsPanel subject={{ userId: '5215' }} />);
+  await screen.findByText('Live updates');
+  await waitFor(() => expect(API.get).toHaveBeenCalledTimes(2), {
+    timeout: 4000,
+  });
+  expect(screen.queryByText('Live updates')).toBeNull();
+
+  const now = Date.now();
+  vi.spyOn(Date, 'now').mockReturnValue(now + 6000);
+  await screen.findByText(
+    'Connection data is delayed. Showing the last known status.',
+  );
+  expect(screen.getByRole('status').textContent).toContain(
+    'Connection data is delayed. Showing the last known status.',
+  );
+
+  await act(async () => {
+    resolveRefresh(response());
+  });
+  expect(screen.queryByRole('alert')).toBeNull();
+  await waitFor(() => expect(screen.getByText('Live updates')).toBeTruthy());
 });
 
 test('实例范围明确显示提示且超长模型名保留完整可访问名称', async () => {

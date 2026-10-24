@@ -238,6 +238,64 @@ describe('管理员连接查询与日志筛选', () => {
     )
   })
 
+  it('下一轮查询变慢时标记刷新中和过期快照，成功后恢复实时状态', async () => {
+    let resolveRefresh: ((value: unknown) => void) | undefined
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: { success: true, data: snapshot } })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRefresh = resolve
+          })
+      )
+      .mockResolvedValue({ data: { success: true, data: snapshot } })
+    render(<ActiveConnectionsPanel subject={{ userId: '5215' }} />, {
+      wrapper: QueryWrapper,
+    })
+    await screen.findByRole('button', {
+      name: 'Connection details for long-model-name',
+    })
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2), {
+      timeout: 4000,
+    })
+    expect(screen.getByText('Loading connection status…')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Connection details for long-model-name',
+      })
+    ).toBeInTheDocument()
+
+    const now = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(now + 6000)
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            'Connection data is delayed. Showing the last known status.'
+          )
+        ).toBeInTheDocument(),
+      { timeout: 3000 }
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Connection data is delayed. Showing the last known status.'
+    )
+
+    await act(async () => {
+      resolveRefresh?.({ data: { success: true, data: snapshot } })
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Loading connection status…')
+    ).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          'Connection data is delayed. Showing the last known status.'
+        )
+      ).not.toBeInTheDocument()
+    )
+  })
+
   it('隐藏页面触发真实中止异常后不残留错误，恢复时可继续查询', async () => {
     let visible = 'visible'
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(

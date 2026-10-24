@@ -6312,6 +6312,7 @@
     "In use now": "In use now",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} active requests · {{tokens}} tokens",
     "Loading connection status…": "Loading connection status…",
+    "Connection data is delayed. Showing the last known status.": "Connection data is delayed. Showing the last known status.",
     "Task request": "Task request",
     "Prompt center": "Prompt center",
     "Install prompts on API keys": "Install prompts on API keys",

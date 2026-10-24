@@ -7318,6 +7318,7 @@
     "{{count}} more connections": "另有 {{count}} 条连接",
     "{{count}} tokens in use": "{{count}} 个令牌正在使用",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} 个进行中请求 · {{tokens}} 个令牌",
+    "Connection data is delayed. Showing the last known status.": "连接数据更新较慢，当前显示上次获取的状态。",
     "Connection details for {{model}}": "{{model}} 的连接详情",
     "User search type": "用户查询方式",
     "Allowed groups": "允许装载的分组",

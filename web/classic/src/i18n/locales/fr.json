@@ -6108,6 +6108,7 @@
     "In use now": "En cours d’utilisation",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} requêtes en cours · {{tokens}} jetons",
     "Loading connection status…": "Chargement de l’état des connexions…",
+    "Connection data is delayed. Showing the last known status.": "Les données tardent à arriver. Dernier état connu affiché.",
     "Task request": "Requête de tâche",
     "Prompt center": "Centre de prompts",
     "Install prompts on API keys": "Installer des prompts sur les clés API",

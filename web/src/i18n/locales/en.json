@@ -7318,6 +7318,7 @@
     "{{count}} more connections": "{{count}} more connections",
     "{{count}} tokens in use": "{{count}} tokens in use",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} active requests · {{tokens}} tokens",
+    "Connection data is delayed. Showing the last known status.": "Connection data is delayed. Showing the last known status.",
     "Connection details for {{model}}": "Connection details for {{model}}",
     "User search type": "User search type",
     "Allowed groups": "Allowed groups",

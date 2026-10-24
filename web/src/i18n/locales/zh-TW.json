@@ -7318,6 +7318,7 @@
     "{{count}} more connections": "另有 {{count}} 條連線",
     "{{count}} tokens in use": "{{count}} 個權杖正在使用",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} 個進行中請求 · {{tokens}} 個權杖",
+    "Connection data is delayed. Showing the last known status.": "連線資料更新較慢，目前顯示上次取得的狀態。",
     "Connection details for {{model}}": "{{model}} 的連線詳情",
     "User search type": "使用者查詢方式",
     "Allowed groups": "允許裝載的群組",
