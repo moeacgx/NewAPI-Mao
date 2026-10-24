@@ -1,7 +1,7 @@
 # GitHub 技能来源、一键更新与删除
 
-状态：本地实现与验证完成，尚未提交 PR、发布或部署。目标基线为 `origin/custom-main@8d0f1874d`；
-Default 与 Classic 同时提供管理入口。
+状态：已通过 [#329](https://github.com/moeacgx/NewAPI-Mao/pull/329) 合入 `custom-main@9f8dcf5dd`，已更新 zzapi 三节点；
+未发布新版本，正式站 maolaoapi 未更新。Default 与 Classic 同时提供管理入口。
 
 ## 目标与范围
 
@@ -57,3 +57,22 @@ Default 与 Classic 同时提供管理入口。
 - 未修改 `relaykit/`。MySQL、PostgreSQL 未实跑；真实 GitHub 更新未在生产执行。
 
 前端结果见 Default 与 Classic 各自记录。
+
+## zzapi 更新记录（2026-10-25）
+
+- 更新前：`zzapi`、`zzapi-slave-1`、`zzapi-slave-2` 均为 `newapi-mao-zzapi:gateway-agent-tools-f4dc1d7ac`，健康。
+  该镜像早于 `.353`，因此本次同时带入 `.353` 已发布的令牌分组渠道限制、当前连接、工单中心与云端 Skills
+  性能优化（正式站已运行 `.353`）。
+- 备份：`pg_dump -Fc` 写入 `/home/docker/zzapi/backups/zzapi-pre-github-skill-update-20261025.dump`，退出码 0，
+  `pg_restore -l` 含 110 个表数据项；另备份 compose 文件为 `docker-compose.pre-github-skill-update-9f8dcf5dd.yml`。
+- 构建：CloudSSH 文件接口当时返回 500，改为在服务器从 GitHub codeload 下载合并提交 `9f8dcf5dd` 的源码包；
+  抽查 3 个文件 SHA256 与本地 `git show` 一致。镜像 `newapi-mao-zzapi:github-skill-update-9f8dcf5dd`
+  （`sha256:abf253e8155f…`，revision 标签为完整合并提交）构建成功。
+- 发布：按主节点、从节点 1、从节点 2 顺序逐个替换，每个节点健康后再继续，失败自动回滚 compose；
+  三个本地端口 `/api/status` 均成功。
+- 验收：三节点 healthy、重启次数 0；`prompt_templates.repository_source_json` 已按 `text` 新增；
+  启动后 15 分钟内日志无 panic、fatal 或迁移错误；公网 `/api/status` 200，版本 `v1.0.0-rc.10.1.10.353`；
+  首页脚本资源 200；测试令牌 `/v1/models` 200 且包含 `deepseek-v4.1-flash`，非流式对话返回 `API_OK`。
+- 未执行：管理员页面的 GitHub 更新与删除需要管理员会话，未在 zzapi 实际点击；MySQL 实库未验证。
+- 回滚：将 compose 恢复为上述备份并逐个 `up -d --no-deps --no-build` 旧镜像；新增 TEXT 列对旧程序无影响。
+  已删除的技能只能从数据库备份恢复。
