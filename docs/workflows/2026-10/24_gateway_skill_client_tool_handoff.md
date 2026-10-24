@@ -46,4 +46,36 @@
 - 修改的 Markdown 已用仓库 Prettier 格式化，新增/修改相对链接和 `git diff --check` 通过。
   全文链接扫描发现 81 处基线已有断链，本项没有新增断链，历史目标不在本次修复范围。
 
-zzapi 镜像构建、三节点更新及真实接口验收结果将在执行后补录。模拟回归不代表原用户完整 Agent 会话复演。
+### zzapi 滚动更新
+
+- 修复源码提交为 `f4dc1d7ac0cf3aed4574d595cd7736d713b58b5d`，镜像
+  `newapi-mao-zzapi:gateway-agent-tools-f4dc1d7ac` 构建退出码为 0。
+- 通过 CloudSSH 的“API中转站 / RS2000 德国建站”入口逐一替换
+  `zzapi`、`zzapi-slave-1`、`zzapi-slave-2`；每个节点恢复健康后再继续下一个。
+- 三节点最终均为 `healthy`，镜像 ID 一致为
+  `sha256:2d58f2be236f96925119f9901d1fe2099a03a185ac8f895454650d33075fa88e`，
+  revision 标签与上述源码提交一致；三个本地状态端口及公网状态接口均返回 200。
+- Compose 备份为
+  `/home/docker/zzapi/backups/docker-compose.pre-gateway-agent-tools-f4dc1d7ac.yml`；
+  旧镜像 `newapi-mao-zzapi:gateway-catalogue-3e1dc9441` 保留用于回滚。
+  回滚时恢复该 Compose 并逐节点启动、检查健康，不涉及数据库恢复。
+- 本轮只替换 zzapi 应用镜像，未修改数据库结构、环境配置及正式站 maolaoapi。
+
+### 真实接口验收
+
+- 使用用户授权的令牌请求模型列表，返回 200，包含目标模型 `deepseek-v4.1-flash`。
+- 非流式与 SSE 流式各验证一次：原请求明确声明 `pwsh`，含合法工具调用历史，
+  要求先读取安装技能的 `SKILL.md`，再返回测试工具调用。两次均返回 200、
+  `finish_reason=tool_calls` 和客户端 `pwsh` 调用；SSE 完整收到 `[DONE]`。
+- 两次响应的技能元数据均包含“小法师”，未出现私有 READY 或纠偏文本泄漏。
+  网关与验证程序均未执行返回的命令。
+- 服务端只读消费审计确认，两次请求均有两轮 `discovery` 和一轮 `generation`，
+  正式生成阶段均记录实际读取 `SKILL.md` 的 4445 字节正文，未出现错误日志。
+  非流式消费记录为 `24885420`–`24885422`，流式为 `24885423`–`24885425`。
+- 该验收覆盖真实模型、已安装技能、正文读取及客户端工具交接，但不等同于用户原始完整
+  Agent 会话复演，也没有执行截图中的网站分析任务。真实四协议全链路未逐项实跑。
+
+共享契约的变化是私有技能阶段识别原请求已声明的客户端工具，并在实际读取正文后恢复原工具配置。
+`NewAPIForDouDi` 若采用相同渐进式网关链路，建议同步此修复；没有该链路时无需引入。
+`NewAPIModifyByGang` 同样仅在存在此类私有发现阶段时值得适配，需核对其协议转换和逐轮计费。
+未自动向兄弟项目发送消息或创建 Issue。
