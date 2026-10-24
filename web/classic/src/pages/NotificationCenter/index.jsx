@@ -46,7 +46,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { API, timestamp2string } from '../../helpers';
+import { API } from '../../helpers/api';
+import { timestamp2string } from '../../helpers/utils';
 import {
   applyInsufficientBalanceDedupPreset,
   normalizeNotificationFilterConfig,
@@ -476,7 +477,7 @@ const NotificationCenter = () => {
                 <Text type='tertiary' size='small'>
                   {t('事件类型')}
                 </Text>
-                <div>{task.event_name || task.event_type}</div>
+                <div>{t(task.event_name || task.event_type)}</div>
               </div>
               <div>
                 <Text type='tertiary' size='small'>
@@ -781,11 +782,14 @@ const NotificationCenter = () => {
             </div>
           </div>
           <div>
-            <Text strong>{t('事件类型')}</Text>
+            <Text strong id='notification-event-type-label'>
+              {t('事件类型')}
+            </Text>
             <Select
               className='mt-2'
               style={{ width: '100%' }}
               value={taskForm.event_type}
+              aria-labelledby='notification-event-type-label'
               optionList={eventOptions.map((event) => ({
                 label: t(event.label),
                 value: event.value,
@@ -994,6 +998,19 @@ const NotificationCenter = () => {
                 <Tag key={variable}>{`{{${variable}}}`}</Tag>
               ))}
             </Space>
+            {selectedEvent.value.startsWith('ticket_') && (
+              <Text type='tertiary' size='small' className='mt-2 block'>
+                {t(
+                  'Ticket notifications include the title, category, priority, status, requester and actor IDs. Message content is excluded to protect sensitive information.',
+                )}
+              </Text>
+            )}
+            {selectedEvent.value.startsWith('ticket_') &&
+              selectedEvent.variables?.includes('actor_role') && (
+                <Text type='tertiary' size='small' className='mt-2 block'>
+                  {t('Ticket actor role (user, admin or system)')}
+                </Text>
+              )}
           </div>
           <div className='flex items-center justify-between rounded border p-3'>
             <div>

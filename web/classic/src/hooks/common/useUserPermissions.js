@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect } from 'react';
-import { API } from '../../helpers';
+import { useState, useEffect, useRef } from 'react';
+import { API } from '../../helpers/api';
 
 /**
  * 用户权限钩子 - 从后端获取用户权限，替代前端角色判断
@@ -27,13 +27,18 @@ export const useUserPermissions = () => {
   const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestVersion = useRef(0);
 
   // 加载用户权限（从用户信息接口获取）
   const loadPermissions = async () => {
+    const version = ++requestVersion.current;
     try {
       setLoading(true);
+      setPermissions(null);
       setError(null);
-      const res = await API.get('/api/user/self');
+      // 账号切换后的权限读取不得复用旧组件未完成的请求。
+      const res = await API.get('/api/user/self', { disableDuplicate: true });
+      if (version !== requestVersion.current) return;
       if (res.data.success) {
         const userPermissions = res.data.data.permissions;
         setPermissions(userPermissions);
@@ -43,15 +48,19 @@ export const useUserPermissions = () => {
         console.error('获取权限失败:', res.data.message);
       }
     } catch (error) {
+      if (version !== requestVersion.current) return;
       setError('网络错误，请重试');
       console.error('加载用户权限异常:', error);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadPermissions();
+    return () => {
+      requestVersion.current += 1;
+    };
   }, []);
 
   // 检查是否有边栏设置权限

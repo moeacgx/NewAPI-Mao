@@ -34,6 +34,36 @@
 
 ## 模板生命周期
 
+### 工单事件
+
+工单中心新增四个 core 事件：新建工单 ticket_created、用户追问
+ticket_user_replied、管理员回复 ticket_admin_replied、显式状态变更
+ticket_status_changed。Default 和 Classic 通过现有 event-types 接口自动展示这些事件，
+Root 可以在现有通知中心添加通知任务、选择 Bot、目标及模板。
+
+每个事件均提供英文显示键、默认模板、变量白名单和示例负载。变量为
+mention、ticket_id、title、user_id、category、priority、status、actor_id、
+actor_role、create_time，其中 create_time 为本次事件发生时间的 Unix 秒数。
+正文不进入通知负载；title 是用户输入，沿用统一 HTML 转义。
+
+工单、消息或状态变更与通知入队位于同一事务；事件键为
+ticket:<id>:version:<version>，重复设置当前状态不写新版本或通知。
+关闭、重开、再关闭产生不同版本。没有订阅者时正常保存工单；沿用旧业务的可选通知语义，
+通知表尚未迁移时跳过且不补历史通知，其余入队错误回滚本次业务变更。
+
+通知投递到 Root 配置的接收目标，不等同于自动通知工单所有者或新增站内收件箱。
+管理员从个人入口追问按用户事件处理；管理入口回复才产生管理员事件。
+完整权限与接口见[工单中心](tickets.md)。
+
+管理员批量改状态和超时自动归档复用 `ticket_status_changed`，每条工单使用自己的递增版本和事务通知。归档的 status 为 archived，自动执行的 actor_id 为 0、actor_role 为 system。消息正文仍不进入负载；批量软删除只记主库操作审计，不新增外发事件。管理员应在通知中心订阅状态变化才能收到归档通知。
+
+管理员可以在工单管理中配置用户提交后的单次自动回复。该回复作为工单消息写入，
+不单独生成 `ticket_admin_replied` 事件，避免每个新工单同时触发“管理员回复”通知；
+新工单的 `ticket_created` 事件仍按既有通知任务发送。配置默认关闭，内容和启用状态
+通过 `/api/ticket-admin/automation/auto-reply` 保存。
+
+### 通用模板规则
+
 模板使用 `{{variable}}` 语法，所有负载值在发送前转义为 Telegram HTML。创建和更新任务时，后端使用该事件的示例负载校验模板；异步发送时再次按实际事件负载渲染，避免绕过管理端校验的历史数据发送错误消息。
 
 通知中心前端在切换事件类型时，如果当前模板为空或仍等于原事件默认模板，会替换为目标事件默认模板；用户已经自定义的模板会保留。

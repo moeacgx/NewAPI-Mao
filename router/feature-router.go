@@ -12,6 +12,7 @@ import (
 func registerFeatureAPIRoutes(apiRouter *gin.RouterGroup) {
 	registerExtensionRoutes(apiRouter)
 	registerGameRoutes(apiRouter)
+	registerTicketRoutes(apiRouter)
 	registerNotificationRoutes(apiRouter)
 	registerChannelAnalyticsRoutes(apiRouter)
 }

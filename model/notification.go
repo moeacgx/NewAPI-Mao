@@ -67,6 +67,14 @@ func NormalizeNotificationTaskTemplate(eventType, template string) string {
 		return NotificationChannelDisabledTemplate
 	case NotificationEventTypeChannelEnabled:
 		return NotificationChannelEnabledTemplate
+	case NotificationEventTypeTicketCreated:
+		return NotificationTicketCreatedTemplate
+	case NotificationEventTypeTicketUserReplied:
+		return NotificationTicketUserRepliedTemplate
+	case NotificationEventTypeTicketAdminReplied:
+		return NotificationTicketAdminRepliedTemplate
+	case NotificationEventTypeTicketStatusChanged:
+		return NotificationTicketStatusChangedTemplate
 	default:
 		return template
 	}

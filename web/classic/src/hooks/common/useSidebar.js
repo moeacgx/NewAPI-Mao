@@ -62,6 +62,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     benefits: true,
     affiliate: true,
     invoice: true,
+    tickets: true,
     personal: true,
   },
   admin: {
@@ -75,6 +76,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     subscription: true,
     game_management: true,
     invoice_admin: true,
+    ticket_management: true,
     affiliate_admin: true,
     notification_center: true,
     extension_admin: true,
