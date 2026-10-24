@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [GitHub 技能来源、一键更新与删除](../workflows/2026-10/25_github_skill_updates.md)：来源记录与站内修改识别、按版本更新、删除自动卸载、用途说明取消 512 字符限制；[Default 前端](../workflows/2026-10/25_github_skill_update_default.md)、[Classic 前端](../workflows/2026-10/25_github_skill_update_classic.md)、[导入元数据兼容](../workflows/2026-10/25_skill_import_metadata.md)。
+
 - [.353 云端 Skills、令牌限制与工单中心发布](../workflows/2026-10/25_gateway_skills_353_release.md)：合并范围、升级边界、组合验证与发布产物验收；发布不包含线上容器更新。
 
 - [云端 Skills 资源控制与性能优化](../workflows/2026-10/24_gateway_skill_performance.md)：长历史复用、版本化正文缓存、共享读锁与每实例准入、私有读取期限和输出预算。

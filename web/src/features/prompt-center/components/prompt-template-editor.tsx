@@ -42,6 +42,7 @@ import {
 } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 import { BundleSkillEditor } from './bundle-skill-editor'
+import { SkillRepositoryDetails } from './skill-repository-details'
 import { SkillResourceEditor } from './skill-resource-editor'
 
 export function PromptTemplateEditor(props: {
@@ -113,6 +114,9 @@ export function PromptTemplateEditor(props: {
         {
           ...values,
           content: values.kind === 'bundle' ? '' : values.content,
+          ...(props.template?.repository_source && {
+            repository_source: props.template.repository_source,
+          }),
         },
         props.template?.id
       ),
@@ -146,6 +150,11 @@ export function PromptTemplateEditor(props: {
           onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
         >
           <fieldset disabled={mutation.isPending} className='space-y-4'>
+            {props.template?.repository_source && (
+              <SkillRepositoryDetails
+                source={props.template.repository_source}
+              />
+            )}
             <div className='bg-primary/[0.04] border-primary/15 space-y-2 rounded-xl border p-4'>
               <Label htmlFor={`${fieldId}-load-mode`}>
                 {t('Loading mode')}
@@ -261,7 +270,6 @@ export function PromptTemplateEditor(props: {
               </Label>
               <Textarea
                 id={`${fieldId}-description`}
-                maxLength={512}
                 aria-invalid={Boolean(form.formState.errors.description)}
                 {...form.register('description')}
               />

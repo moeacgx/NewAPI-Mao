@@ -426,3 +426,50 @@ test('未导入的无效仓库地址不阻断已有模板保存', async () => {
     false,
   );
 });
+
+test('单技能用途说明超过 512 字符时可完整输入并原样提交', async () => {
+  const description = '用'.repeat(900);
+  render(<PromptTemplateEditor template={template} onSaved={() => {}} />);
+  await screen.findByRole('checkbox', { name: 'Visible research group' });
+  const input = screen.getByLabelText('Prompt description');
+  await userEvent.clear(input);
+  await userEvent.paste(description);
+  expect(input.value).toBe(description);
+  await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  await waitFor(() =>
+    expect(calls.find((call) => call.method === 'put')?.body).toMatchObject({
+      description,
+      skills: [{ id: 'research', description }],
+    }),
+  );
+});
+
+test('合集内技能用途说明超过 512 字符时可完整输入并原样提交', async () => {
+  const description = '用'.repeat(900);
+  const skills = ['Outline', 'Review'].map((title, index) => ({
+    id: `long-${index}`,
+    title,
+    description: `Use for ${title}.`,
+    path: `skills/long-${index}/SKILL.md`,
+    content: `${title} instructions`,
+    resources: [],
+  }));
+  render(
+    <PromptTemplateEditor
+      template={{ ...template, kind: 'bundle', content: '', skills }}
+      onSaved={() => {}}
+    />,
+  );
+  await screen.findByRole('checkbox', { name: 'Visible research group' });
+  const input = screen.getByLabelText('Skill 1 description');
+  await userEvent.clear(input);
+  await userEvent.paste(description);
+  expect(input.value).toBe(description);
+  await userEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  await waitFor(() =>
+    expect(calls.find((call) => call.method === 'put')?.body.skills).toEqual([
+      { ...skills[0], description },
+      skills[1],
+    ]),
+  );
+});

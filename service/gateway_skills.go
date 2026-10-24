@@ -292,7 +292,8 @@ func gatewaySkillMetadataPage(entries []map[string]any, offset int) ([]map[strin
 		if err != nil {
 			return nil, 0, err
 		}
-		if size+len(encoded)+1 > 32*1024 {
+		// 单条说明可接近 16 KiB；每页至少返回一条，保证目录分页总能前进。
+		if size+len(encoded)+1 > 32*1024 && end > start {
 			break
 		}
 		size += len(encoded) + 1

@@ -95,7 +95,6 @@ export default function BundleSkillsEditor(props) {
               <textarea
                 id={`${props.prefix}-skill-${index}-description`}
                 rows={2}
-                maxLength={512}
                 value={skill.description || ''}
                 onChange={(event) =>
                   change(index, 'description', event.target.value)

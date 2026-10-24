@@ -209,6 +209,14 @@ func parseSkillMarkdown(data []byte, filename string) (model.PromptSkill, string
 		}
 	}
 	item.Content, item.Description, item.Path = strings.TrimSpace(text), strings.TrimSpace(metadata.Description), filename
+	// 用途说明按原文保存，不做截断。显示名称受站内 80 字符列宽限制，超长时完整名称保留在按需读取的主文件中；
+	// 元数据不能替代原本为空的正文，合并后的文本继续接受文件和包总量校验。
+	if titleRunes := []rune(item.Title); len(titleRunes) > 80 {
+		item.Title = string(titleRunes[:79]) + "…"
+		if item.Content != "" {
+			item.Content = "完整技能名称：" + string(titleRunes) + "\n\n" + item.Content
+		}
+	}
 	check := &model.PromptTemplate{Title: item.Title, Description: item.Description, Content: item.Content, Kind: "prompt", LoadMode: model.PromptLoadModeProgressive, Skills: []model.PromptSkill{item}}
 	if err := model.NormalizePromptTemplateContent(check); err != nil {
 		return item, "", err

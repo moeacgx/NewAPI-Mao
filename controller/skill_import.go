@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
@@ -87,4 +90,35 @@ func ImportRepositorySkills(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, draft)
+}
+
+func UpdatePromptTemplateRepository(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorMsg(c, "提示词 ID 无效")
+		return
+	}
+	var input struct {
+		Version        int  `json:"version"`
+		OverwriteLocal bool `json:"overwrite_local"`
+	}
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1025))
+	if err != nil || len(body) > 1024 || common.Unmarshal(body, &input) != nil || input.Version <= 0 {
+		common.ApiErrorMsg(c, "技能更新请求格式错误，缺少当前版本")
+		return
+	}
+	template, updated, err := service.UpdatePromptTemplateFromRepository(c.Request.Context(), id, input.Version, input.OverwriteLocal)
+	if errors.Is(err, service.ErrRepositoryLocalChanges) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": "repository_local_changes", "message": err.Error()})
+		return
+	}
+	if errors.Is(err, model.ErrPromptVersionConflict) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"template": template, "updated": updated})
 }

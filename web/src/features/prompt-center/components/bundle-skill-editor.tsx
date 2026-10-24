@@ -134,7 +134,6 @@ export function BundleSkillEditor(props: {
               <Textarea
                 id={`${props.fieldId}-skill-${field.id}-description`}
                 rows={2}
-                maxLength={512}
                 aria-invalid={Boolean(error?.[index]?.description)}
                 {...props.form.register(`skills.${index}.description`)}
               />

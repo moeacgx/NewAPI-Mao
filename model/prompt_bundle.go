@@ -30,8 +30,11 @@ func NormalizePromptTemplateContent(template *PromptTemplate) error {
 		return errors.New("技能内容不能为空")
 	}
 	template.Title = strings.TrimSpace(template.Title)
-	if !utf8.ValidString(template.Title) || !utf8.ValidString(template.Description) || strings.ContainsRune(template.Title+template.Description, 0) || utf8.RuneCountInString(template.Title) < 1 || utf8.RuneCountInString(template.Title) > 80 || utf8.RuneCountInString(template.Description) > 512 {
-		return errors.New("提示词标题或说明长度不合法")
+	if !utf8.ValidString(template.Title) || strings.ContainsRune(template.Title, 0) || utf8.RuneCountInString(template.Title) < 1 || utf8.RuneCountInString(template.Title) > 80 {
+		return errors.New("技能标题必须为 1 至 80 个字符的有效文本")
+	}
+	if !utf8.ValidString(template.Description) || strings.ContainsRune(template.Description, 0) || len(template.Description) > MaxPromptDescriptionBytes {
+		return fmt.Errorf("技能说明必须为有效文本，且不超过 %d KiB", MaxPromptDescriptionBytes/1024)
 	}
 	return normalizePromptTemplateContent(template)
 }
@@ -73,8 +76,8 @@ func normalizePromptTemplateContent(template *PromptTemplate) error {
 			if !utf8.ValidString(skill.Title) || strings.ContainsRune(skill.Title, 0) || utf8.RuneCountInString(skill.Title) < 1 || utf8.RuneCountInString(skill.Title) > 80 || seen[skill.Title] {
 				return errors.New("合集内技能标题必须为 1 至 80 个字符且不能重复")
 			}
-			if !utf8.ValidString(skill.Description) || strings.ContainsRune(skill.Description, 0) || utf8.RuneCountInString(skill.Description) > 512 {
-				return fmt.Errorf("合集内技能「%s」说明必须为不超过 512 字符的有效 UTF-8 文本", skill.Title)
+			if !utf8.ValidString(skill.Description) || strings.ContainsRune(skill.Description, 0) || len(skill.Description) > MaxPromptDescriptionBytes {
+				return fmt.Errorf("合集内技能「%s」说明必须为有效文本，且不超过 %d KiB", skill.Title, MaxPromptDescriptionBytes/1024)
 			}
 			if !utf8.ValidString(skill.Content) || strings.ContainsRune(skill.Content, 0) {
 				return fmt.Errorf("合集内技能「%s」正文必须为有效 UTF-8 文本", skill.Title)
@@ -126,6 +129,10 @@ func hydratePromptTemplateMetadata(tx *gorm.DB, templates []PromptTemplate, incl
 			if err := normalizePromptTemplateContent(&templates[i]); err != nil {
 				return err
 			}
+		}
+		templates[i].RepositorySource = nil
+		if includeContent {
+			hydratePromptRepositorySource(&templates[i])
 		}
 		if templates[i].CategoryID > 0 {
 			categoryIDs = append(categoryIDs, templates[i].CategoryID)

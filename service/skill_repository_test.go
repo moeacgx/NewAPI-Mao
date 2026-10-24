@@ -87,6 +87,21 @@ func TestRepositoryImportPinsCommitAndFiltersDirectoryOrFile(t *testing.T) {
 			assert.Empty(t, draft.GroupIDs)
 			assert.Equal(t, test.count, draft.SkillCount)
 			assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
+			encoded, encodeErr := common.Marshal(draft)
+			require.NoError(t, encodeErr)
+			var metadata struct {
+				Source struct {
+					URL    string `json:"url"`
+					Ref    string `json:"ref"`
+					Commit string `json:"commit"`
+					Hash   string `json:"content_hash"`
+				} `json:"repository_source"`
+			}
+			require.NoError(t, common.Unmarshal(encoded, &metadata))
+			assert.Equal(t, test.link, metadata.Source.URL)
+			assert.Equal(t, "main", metadata.Source.Ref)
+			assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", metadata.Source.Commit)
+			assert.Len(t, metadata.Source.Hash, 64)
 			expectedRequests := 3 + test.count
 			if strings.Contains(test.link, "/tree/") || strings.Contains(test.link, "/blob/") {
 				expectedRequests += 2

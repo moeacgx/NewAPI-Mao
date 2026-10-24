@@ -24,6 +24,7 @@ import { promptError, promptRequest } from './api';
 import BundleSkillsEditor from './BundleSkillsEditor';
 import ArchiveImport from './ArchiveImport';
 import RepositoryImport from './RepositoryImport';
+import RepositorySource from './RepositorySource';
 import SkillResourcesEditor from './SkillResourcesEditor';
 import { validatePromptTemplateDraft } from './validation';
 
@@ -131,6 +132,7 @@ export default function PromptTemplateEditor(props) {
           kind: draft.kind,
           load_mode: draft.load_mode,
           category_id: draft.category_id,
+          repository_source: draft.repository_source,
           ...(draft.kind === 'bundle'
             ? {
                 skills: draft.skills.map((skill) => ({
@@ -226,6 +228,7 @@ export default function PromptTemplateEditor(props) {
           onBusyChange={setImporting}
           onImport={importDraft}
         />
+        <RepositorySource source={draft.repository_source} />
         <label htmlFor={`${prefix}-load-mode`}>{t('Loading mode')}</label>
         <select
           id={`${prefix}-load-mode`}
@@ -303,7 +306,6 @@ export default function PromptTemplateEditor(props) {
         </label>
         <textarea
           id={`${prefix}-description`}
-          maxLength={512}
           disabled={busy}
           value={draft.description}
           onChange={(event) => update('description', event.target.value)}

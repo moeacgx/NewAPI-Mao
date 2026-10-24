@@ -259,6 +259,18 @@ export default function PromptCenter() {
                 canInstall
                 onInstall={(template) => setPicker({ template })}
                 onEdit={admin && manage ? setEditing : undefined}
+                onRepositoryUpdated={(updated) =>
+                  setTemplates((items) =>
+                    items.map((item) =>
+                      item.id === updated.id ? updated : item,
+                    ),
+                  )
+                }
+                onDeleted={(id) =>
+                  setTemplates((items) =>
+                    items.filter((item) => item.id !== id),
+                  )
+                }
               />
             )}
           </div>
