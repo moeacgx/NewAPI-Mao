@@ -10,13 +10,14 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/tidwall/gjson"
 )
 
 const GatewaySkillsListTool = "newapi_skills_list"
 const GatewaySkillsReadTool = "newapi_skills_read"
 const GatewaySkillsFilesTool = "newapi_skills_files"
 
-// GatewaySkillCall 仅描述网关读取阶段声明的工具，不执行客户端工具。
+// GatewaySkillCall 描述私有阶段返回的工具调用；客户端调用仅用于交接，不执行。
 type GatewaySkillCall struct {
 	ID        string
 	Name      string
@@ -24,9 +25,10 @@ type GatewaySkillCall struct {
 }
 
 type GatewaySkillTurn struct {
-	Calls     []GatewaySkillCall
-	Assistant json.RawMessage
-	Output    []json.RawMessage
+	Calls       []GatewaySkillCall
+	ClientCalls []GatewaySkillCall
+	Assistant   json.RawMessage
+	Output      []json.RawMessage
 }
 
 type GatewaySkillResult struct {
@@ -175,8 +177,42 @@ func PrepareGatewaySkillRequest(body []byte, format types.RelayFormat, modelName
 	return common.Marshal(request)
 }
 
-// ParseGatewaySkillTurn 保留原始助手内容，含推理签名与未知字段，供同渠道续轮使用。
-func ParseGatewaySkillTurn(response []byte, format types.RelayFormat) (*GatewaySkillTurn, error) {
+// GatewaySkillClientTools 只认可原请求明确声明的工具，不从历史调用推断执行权限。
+func GatewaySkillClientTools(body []byte, format types.RelayFormat) map[string]bool {
+	names := make(map[string]bool)
+	for _, tool := range gjson.GetBytes(body, "tools").Array() {
+		var name string
+		switch format {
+		case types.RelayFormatOpenAI:
+			if tool.Get("type").String() == "function" {
+				name = tool.Get("function.name").String()
+			}
+		case types.RelayFormatOpenAIResponses:
+			if tool.Get("type").String() == "function" {
+				name = tool.Get("name").String()
+			}
+		case types.RelayFormatClaude:
+			name = tool.Get("name").String()
+		case types.RelayFormatGemini:
+			declarations := tool.Get("functionDeclarations")
+			if !declarations.Exists() {
+				declarations = tool.Get("function_declarations")
+			}
+			for _, declaration := range declarations.Array() {
+				if name := declaration.Get("name").String(); name != "" {
+					names[name] = true
+				}
+			}
+		}
+		if name != "" {
+			names[name] = true
+		}
+	}
+	return names
+}
+
+// ParseGatewaySkillTurn 保留私有助手内容，将原客户端工具意图与网关读取分开；均不直接回传客户端。
+func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTools map[string]bool) (*GatewaySkillTurn, error) {
 	turn := &GatewaySkillTurn{}
 	switch format {
 	case types.RelayFormatOpenAI:
@@ -281,22 +317,80 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat) (*GatewayS
 	default:
 		return nil, errors.New("该端点不支持渐进式技能")
 	}
+	if len(turn.Calls) > GatewaySkillMaxCalls {
+		return nil, errors.New("技能读取阶段单轮工具调用超过 8 项")
+	}
 	seen := make(map[string]bool, len(turn.Calls))
+	internalCalls := make([]GatewaySkillCall, 0, len(turn.Calls))
 	for _, call := range turn.Calls {
-		if call.Name != GatewaySkillsListTool && call.Name != GatewaySkillsReadTool && call.Name != GatewaySkillsFilesTool {
+		internal := call.Name == GatewaySkillsListTool || call.Name == GatewaySkillsReadTool || call.Name == GatewaySkillsFilesTool
+		if !internal && !clientTools[call.Name] {
 			return nil, fmt.Errorf("技能读取阶段返回未声明工具 %q", call.Name)
 		}
 		if (format != types.RelayFormatGemini && call.ID == "") || (call.ID != "" && seen[call.ID]) {
 			return nil, errors.New("技能读取工具调用标识缺失或重复")
 		}
 		seen[call.ID] = true
+		if internal {
+			internalCalls = append(internalCalls, call)
+		} else {
+			turn.ClientCalls = append(turn.ClientCalls, call)
+		}
 	}
+	turn.Calls = internalCalls
 	return turn, nil
+}
+
+// RefocusGatewaySkillRequest 只追加阶段纠偏，不回填意外客户端调用或伪造执行结果。
+func RefocusGatewaySkillRequest(body []byte, format types.RelayFormat) ([]byte, error) {
+	var request map[string]json.RawMessage
+	if err := common.Unmarshal(body, &request); err != nil || request == nil {
+		return nil, errors.New("技能读取请求必须为 JSON 对象")
+	}
+	instruction := "Private gateway discovery correction: the requested client tool was NOT executed. " +
+		"You are still selecting skill context, not performing the original Agent task. " +
+		"Use only newapi_skills_list, newapi_skills_read, and newapi_skills_files. " +
+		"Read the relevant installed skill's SKILL.md before handing back to the Agent. " +
+		"If no installed skill is relevant, reply SKILL_CONTEXT_READY without tools. " +
+		"For catalogue questions, call newapi_skills_list. Original client tools will be restored for the actual assistant."
+	key := "messages"
+	message := map[string]any{"role": "user", "content": instruction}
+	switch format {
+	case types.RelayFormatOpenAI, types.RelayFormatClaude:
+	case types.RelayFormatOpenAIResponses:
+		key = "input"
+	case types.RelayFormatGemini:
+		key = "contents"
+		message = map[string]any{"role": "user", "parts": []map[string]any{{"text": instruction}}}
+	default:
+		return nil, errors.New("该端点不支持渐进式技能")
+	}
+	var history []json.RawMessage
+	if format == types.RelayFormatOpenAIResponses && common.GetJsonType(request[key]) == "string" {
+		item, err := common.Marshal(map[string]any{"role": "user", "content": request[key]})
+		if err != nil {
+			return nil, err
+		}
+		history = append(history, item)
+	} else if len(request[key]) > 0 {
+		if err := common.Unmarshal(request[key], &history); err != nil {
+			return nil, err
+		}
+	}
+	item, err := common.Marshal(message)
+	if err != nil {
+		return nil, err
+	}
+	request[key], err = common.Marshal(append(history, item))
+	if err != nil {
+		return nil, err
+	}
+	return common.Marshal(request)
 }
 
 // ContinueGatewaySkillRequest 只在私有读取阶段回填结果，绝不改写客户端原始历史。
 func ContinueGatewaySkillRequest(body []byte, format types.RelayFormat, turn *GatewaySkillTurn, results []GatewaySkillResult) ([]byte, error) {
-	if turn == nil || len(turn.Calls) == 0 || len(turn.Calls) != len(results) {
+	if turn == nil || len(turn.Calls) == 0 || len(turn.ClientCalls) > 0 || len(turn.Calls) != len(results) {
 		return nil, errors.New("技能工具结果与调用不匹配")
 	}
 	for i, result := range results {

@@ -119,6 +119,8 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 	privateHeader.Set("Accept", "application/json")
 	c.Request.URL = &privateURL
 	c.Request.Header = privateHeader
+	clientTools := service.GatewaySkillClientTools(originalBody, format)
+	clientToolCorrected := false
 	for round := 1; round <= service.GatewaySkillMaxRounds; round++ {
 		if err := c.Request.Context().Err(); err != nil {
 			return info, gatewaySkillError(err)
@@ -196,16 +198,31 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 			return info, freshErr
 		}
 		info = fresh
-		turn, parseErr := service.ParseGatewaySkillTurn(captured.body.Bytes(), format)
+		turn, parseErr := service.ParseGatewaySkillTurn(captured.body.Bytes(), format, clientTools)
 		if parseErr != nil {
 			return info, gatewaySkillError(parseErr)
 		}
-		if len(turn.Calls) == 0 {
+		if len(turn.Calls) == 0 && len(turn.ClientCalls) == 0 {
 			break
 		}
 		results, executeErr := session.Execute(c, turn.Calls)
 		if executeErr != nil {
 			return info, gatewaySkillError(executeErr)
+		}
+		if len(turn.ClientCalls) > 0 {
+			// 先处理同轮授权读取；客户端动作只在从原请求重建的正式生成阶段交回 Agent。
+			if session.HasReadFiles() {
+				break
+			}
+			if clientToolCorrected || round == service.GatewaySkillMaxRounds {
+				return info, gatewaySkillError(errors.New("模型在技能读取完成前连续请求客户端工具，未读取技能正文"))
+			}
+			privateBody, err = service.RefocusGatewaySkillRequest(privateBody, format)
+			if err != nil {
+				return info, gatewaySkillError(err)
+			}
+			clientToolCorrected = true
+			continue
 		}
 		if round < service.GatewaySkillMaxRounds {
 			privateBody, err = service.ContinueGatewaySkillRequest(privateBody, format, turn, results)

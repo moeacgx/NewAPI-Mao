@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [云端技能读取与 Agent 工具交接](../workflows/2026-10/24_gateway_skill_client_tool_handoff.md)：私有阶段客户端工具纠偏、已读正文交接、未知工具拒绝与逐轮计费。
+
 - [网关云端 Skills 回复标识](../workflows/2026-10/24_gateway_skill_response_indicator.md)：双模板回复徽标、外部 API 文本标识及实际读取元数据契约。
 - [云端技能目录查询结果传递](../workflows/2026-10/24_gateway_skill_catalogue_visibility.md)：用户询问已安装 Skills 时的目录查询、正式生成回填、授权重检与徽标边界。
 - [云端技能正文读取与激活核验](../workflows/2026-10/24_gateway_skill_read_body_handoff.md)：真实正文读取审计、激活的自然语言语义及单次请求上下文边界。

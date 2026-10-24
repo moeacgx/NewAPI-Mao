@@ -94,7 +94,7 @@ func TestGatewaySkillProtocolsPreservePrivateContinuation(t *testing.T) {
 			if test.format == types.RelayFormatOpenAIResponses {
 				assert.Len(t, gjson.GetBytes(prepared, "include").Array(), 1)
 			}
-			turn, err := ParseGatewaySkillTurn([]byte(test.response), test.format)
+			turn, err := ParseGatewaySkillTurn([]byte(test.response), test.format, nil)
 			require.NoError(t, err)
 			require.Len(t, turn.Calls, 1)
 			continued, err := ContinueGatewaySkillRequest(prepared, test.format, turn,
@@ -117,7 +117,7 @@ func TestGatewaySkillProtocolsRejectUnmatchedTools(t *testing.T) {
 		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"function":{"name":"newapi_skills_list","arguments":"{}"}}]}}]}`,
 		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"x","function":{"name":"newapi_skills_list","arguments":"{}"}},{"id":"x","function":{"name":"newapi_skills_read","arguments":"{}"}}]}}]}`,
 	} {
-		_, err := ParseGatewaySkillTurn([]byte(response), types.RelayFormatOpenAI)
+		_, err := ParseGatewaySkillTurn([]byte(response), types.RelayFormatOpenAI, nil)
 		require.Error(t, err)
 	}
 	turn := &GatewaySkillTurn{Calls: []GatewaySkillCall{{ID: "a", Name: GatewaySkillsReadTool}}}

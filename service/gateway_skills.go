@@ -66,6 +66,16 @@ type GatewaySkillSession struct {
 	catalogueQueries []gatewaySkillCatalogueQuery
 }
 
+// HasReadFiles 表示本次私有阶段实际读到了授权正文，不把目录或空 EOF 页当作正文读取。
+func (s *GatewaySkillSession) HasReadFiles() bool {
+	for _, page := range s.pages {
+		if len(page.Page.Content) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func NewGatewaySkillSession(c *gin.Context, format types.RelayFormat) (*GatewaySkillSession, error) {
 	c.Set(gatewaySkillAuditKey, nil)
 	ResetGatewaySkillResponse(c)
