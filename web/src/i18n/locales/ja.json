@@ -2856,7 +2856,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "AtlasCloud gpt-image-2/edit では、AtlasCloud プリセットを適用して currency_rate を更新してください。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For example, 3 means the third returned order": "例：3 は返された順序の3番目を意味します",
@@ -7459,6 +7459,7 @@
     "Zhipu V4": "Zhipu V 4",
     "ZIP files are checked on the server. Only skill text is imported.": "ZIP はサーバーで検証され、スキルのテキストのみが取り込まれます。",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP は最大 16 MiB で、サーバー側で検証します。参照テキストを含め最大 128 スキルを取り込み、スクリプトは実行しません。",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Connection data is delayed. Showing the last known status.": "接続データの更新が遅れています。前回取得した状態を表示しています。"
   }
 }

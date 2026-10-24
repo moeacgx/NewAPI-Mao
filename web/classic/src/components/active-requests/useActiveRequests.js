@@ -36,6 +36,7 @@ export function useActiveRequests(options = {}) {
   const [snapshotState, setSnapshot] = useState(null);
   const [errorState, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
   const refresh = useCallback(() => setRefreshIndex((value) => value + 1), []);
 
@@ -55,6 +56,7 @@ export function useActiveRequests(options = {}) {
     const poll = async () => {
       if (disposed || document.visibilityState === 'hidden') return;
       const current = ++sequence;
+      setRefreshing(true);
       controller = new AbortController();
       try {
         const result = await API.get(
@@ -87,6 +89,7 @@ export function useActiveRequests(options = {}) {
         setError(subjectKey);
       } finally {
         if (!disposed && current === sequence) {
+          setRefreshing(false);
           setLoading(false);
           timer = window.setTimeout(poll, 2000);
         }
@@ -124,7 +127,7 @@ export function useActiveRequests(options = {}) {
   const snapshot =
     snapshotState?.key === subjectKey ? snapshotState.value : null;
   const error = errorState === subjectKey;
-  return { snapshot, error, loading, refresh };
+  return { snapshot, error, loading, refreshing, refresh };
 }
 
 export function useRequestClock(snapshot, stale) {

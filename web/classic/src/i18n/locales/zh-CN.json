@@ -6191,6 +6191,7 @@
     "In use now": "正在使用",
     "{{total}} active requests · {{tokens}} tokens": "{{total}} 个进行中请求 · {{tokens}} 个令牌",
     "Loading connection status…": "正在获取连接状态…",
+    "Connection data is delayed. Showing the last known status.": "连接数据更新较慢，当前显示上次获取的状态。",
     "Task request": "任务请求",
     "Prompt center": "提示词中心",
     "Install prompts on API keys": "为 API 密钥安装提示词",

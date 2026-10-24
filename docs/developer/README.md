@@ -22,6 +22,8 @@
 - [渐进式轮次与渠道指标](../workflows/2026-10/23_skill_progressive_metrics.md)：内部读取独立计量且不计渠道重试，auto 跨组撤权、已结算费用与原始请求恢复。
 
 - [技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)：递归目录读取、具体文件路径和 UTF-8 字节大小诊断。
+- [当前连接慢刷新过期提示修复](../workflows/2026-10/24_active_connections_freshness.md)：识别轮询中的旧快照，超过 5 秒标记过期，并覆盖两套主题。
+
 - [令牌按分组限定渠道](../workflows/2026-10/23_token_group_channel_restriction.md)：双模板管理员逐组配置渠道 ID、正式路由约束、迁移保护与本地验证边界。
 
 - [maolaoapi .352 逐节点生产部署](../workflows/2026-10/22_maolaoapi_352_deployment.md)：生产备份、迁移、静态资源预置与逐节点验收。

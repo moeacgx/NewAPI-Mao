@@ -2856,7 +2856,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相關項目",
     "footer.defaultCopyright": "版權所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
+    "footer.newapi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "對於 AtlasCloud gpt-image-2/edit，請套用 AtlasCloud 預設並更新 currency_rate。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "對於 2025 年 5 月 10 日之後新增的渠道，在部署時無需從模型名稱中移除 \".\"",
     "For example, 3 means the third returned order": "例如，3 表示傳回順序中的第三個",
@@ -7459,6 +7459,7 @@
     "Zhipu V4": "智譜 V4",
     "ZIP files are checked on the server. Only skill text is imported.": "壓縮檔由伺服器驗證，僅匯入技能文字。",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP 最大 16 MiB，由伺服器檢查。最多匯入 128 項技能與其文字參考，不執行腳本。",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Connection data is delayed. Showing the last known status.": "連線資料更新較慢，目前顯示上次取得的狀態。"
   }
 }

@@ -2856,7 +2856,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For example, 3 means the third returned order": "For example, 3 means the third returned order",
@@ -7459,6 +7459,7 @@
     "Zhipu V4": "Zhipu V4",
     "ZIP files are checked on the server. Only skill text is imported.": "ZIP files are checked on the server. Only skill text is imported.",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Connection data is delayed. Showing the last known status.": "Connection data is delayed. Showing the last known status."
   }
 }

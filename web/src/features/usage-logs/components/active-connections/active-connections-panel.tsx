@@ -193,33 +193,50 @@ function ConnectionRow({
 function ConnectionNotice({
   error,
   stale,
+  refreshing,
+  hasSnapshot,
   retry,
   scope,
 }: {
   error: boolean
   stale: boolean
+  refreshing: boolean
+  hasSnapshot: boolean
   retry: () => void
   scope?: string
 }) {
   const { t } = useTranslation()
-  if (error) {
+  if (error || (stale && !refreshing)) {
+    const message = stale
+      ? t('Connection status is stale. Updates are unavailable.')
+      : t('Connection status is unavailable.')
     return (
       <div
-        role='alert'
+        role={error ? 'alert' : 'status'}
         className='bg-muted/40 flex items-center justify-between gap-2 rounded-lg border p-3 text-xs'
       >
-        <span>
-          {t(
-            stale
-              ? 'Connection status is stale. Updates are unavailable.'
-              : 'Connection status is unavailable.'
-          )}
-        </span>
-        <Button variant='outline' size='sm' onClick={retry}>
-          <RefreshCw />
-          {t('Retry')}
-        </Button>
+        <span>{message}</span>
+        {error && (
+          <Button variant='outline' size='sm' onClick={retry}>
+            <RefreshCw />
+            {t('Retry')}
+          </Button>
+        )}
       </div>
+    )
+  }
+  if (refreshing && hasSnapshot) {
+    if (stale) {
+      return (
+        <p role='status' className='text-muted-foreground text-xs'>
+          {t('Connection data is delayed. Showing the last known status.')}
+        </p>
+      )
+    }
+    return (
+      <p role='status' className='text-muted-foreground text-xs'>
+        {t('Loading connection status…')}
+      </p>
     )
   }
   return scope === 'instance' ? (
@@ -255,12 +272,13 @@ function ConnectionsDrawer({
     )
     return () => window.clearTimeout(timer)
   }, [searchInput])
-  const { snapshot, now, loading, error, refresh } = useActiveConnections({
-    subject,
-    ...filters,
-    pageSize: 10,
-    enabled: open,
-  })
+  const { snapshot, now, loading, refreshing, stale, error, refresh } =
+    useActiveConnections({
+      subject,
+      ...filters,
+      pageSize: 10,
+      enabled: open,
+    })
   const pages = Math.max(1, Math.ceil((snapshot?.total || 0) / 10))
   // 轮询期间连接可能结束；页码越界时回到最后一页，避免误显示为空。
   useEffect(() => {
@@ -313,11 +331,13 @@ function ConnectionsDrawer({
           </div>
           <ConnectionNotice
             error={!!error}
-            stale={!!snapshot}
+            stale={stale}
+            refreshing={refreshing}
+            hasSnapshot={!!snapshot}
             retry={() => void refresh()}
             scope={snapshot?.scope}
           />
-          {loading && (
+          {loading && !snapshot && (
             <p role='status' className='text-muted-foreground text-sm'>
               {t('Loading connection status…')}
             </p>
@@ -372,9 +392,8 @@ function ConnectionsForSubject({ subject }: { subject?: ConnectionSubject }) {
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
   const [open, setOpen] = useState(false)
-  const { snapshot, now, loading, error, refresh } = useActiveConnections({
-    subject,
-  })
+  const { snapshot, now, loading, refreshing, stale, error, refresh } =
+    useActiveConnections({ subject })
   const targeted = !!(subject?.userId || subject?.username)
   let title = t('Current connections')
   if (snapshot?.subject) {
@@ -416,11 +435,13 @@ function ConnectionsForSubject({ subject }: { subject?: ConnectionSubject }) {
           <CardContent className='space-y-3 p-3'>
             <ConnectionNotice
               error={!!error}
-              stale={!!snapshot}
+              stale={stale}
+              refreshing={refreshing}
+              hasSnapshot={!!snapshot}
               retry={() => void refresh()}
               scope={snapshot?.scope}
             />
-            {loading && (
+            {loading && !snapshot && (
               <p role='status' className='text-muted-foreground text-xs'>
                 {t('Loading connection status…')}
               </p>

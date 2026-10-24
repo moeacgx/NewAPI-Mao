@@ -163,6 +163,7 @@ export function useActiveConnections({
     return () => window.clearInterval(timer)
   }, [enabled, visible, query.error])
   const snapshot = query.data
+  const stale = !!snapshot && clock - snapshot.receivedAt > 5000
   const now = snapshot
     ? snapshot.observed_at +
       Math.max(
@@ -176,6 +177,8 @@ export function useActiveConnections({
     snapshot,
     now,
     loading: query.isPending,
+    refreshing: query.isFetching,
+    stale,
     error: query.error,
     refresh: query.refetch,
   }

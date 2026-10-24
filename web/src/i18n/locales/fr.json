@@ -2856,7 +2856,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "Pour AtlasCloud gpt-image-2/edit, appliquez le préréglage AtlasCloud et mettez à jour currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For example, 3 means the third returned order": "Par exemple, 3 désigne le troisième ordre renvoyé",
@@ -7459,6 +7459,7 @@
     "Zhipu V4": "Zhipu V4",
     "ZIP files are checked on the server. Only skill text is imported.": "Les archives sont vérifiées sur le serveur. Seul le texte des compétences est importé.",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "Les ZIP de 16 Mio maximum sont vérifiés côté serveur. Importez jusqu’à 128 compétences et leurs références textuelles ; aucun script n’est exécuté.",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Connection data is delayed. Showing the last known status.": "Les données tardent à arriver. Dernier état connu affiché."
   }
 }
