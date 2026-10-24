@@ -134,7 +134,8 @@ export function PromptTemplateEditor(props: {
         if (!open && !mutation.isPending) props.onClose()
       }}
     >
-      <DialogContent className='max-h-[90dvh] overflow-y-auto sm:max-w-2xl'>
+      {/* 文本框按内容定宽，长行会撑开默认 auto 网格列；固定单列 minmax(0,1fr) 防止横向溢出。 */}
+      <DialogContent className='max-h-[90dvh] grid-cols-1 overflow-y-auto sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
             {props.template?.id ? t('Edit prompt') : t('Create prompt')}
@@ -457,28 +458,33 @@ export function PromptTemplateEditor(props: {
               </p>
             )}
           </fieldset>
-          {mutation.isError && (
-            <p role='alert' className='text-destructive'>
-              {t(mutation.error.message)}
-            </p>
-          )}
-          <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button
-              type='button'
-              variant='outline'
-              disabled={mutation.isPending}
-              onClick={props.onClose}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              type='submit'
-              disabled={
-                mutation.isPending || !groups.isSuccess || !categories.isSuccess
-              }
-            >
-              {t('Save')}
-            </Button>
+          {/* 合集可能很长，保存操作和保存错误固定在弹窗底部；粘性定位以内边距为界，-bottom-4 抵消 p-4 贴住底边。 */}
+          <div className='bg-popover sticky -bottom-4 z-10 -mx-4 -mb-4 space-y-2 border-t px-4 pt-3 pb-4'>
+            {mutation.isError && (
+              <p role='alert' className='text-destructive'>
+                {t(mutation.error.message)}
+              </p>
+            )}
+            <div className='flex justify-end gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                disabled={mutation.isPending}
+                onClick={props.onClose}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                type='submit'
+                disabled={
+                  mutation.isPending ||
+                  !groups.isSuccess ||
+                  !categories.isSuccess
+                }
+              >
+                {t('Save')}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>
