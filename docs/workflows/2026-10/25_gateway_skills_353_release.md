@@ -14,8 +14,9 @@
 - 以主分支为最终集成基线，保留双方业务和翻译；通过 PR 留存合并与验证记录。
 - Skills 读取使用模型工具调用，实际读到的正文进入该次正式生成上下文；不安装本地文件，
   不代替 Agent 执行脚本。一次客户端请求可产生多轮上游用量和消费日志。
-- 每实例默认最多 16 个在途 Skills 请求、32 MiB 原始正文预算；私有发现最多 120 秒、
-  单轮输出最多 4096 Token。预算不等于进程内存硬上限，不能把本地对照当成生产容量保证。
+- 每实例默认最多 16 个在途 Skills 请求、32 MiB 原始正文预算；每次路由尝试的私有发现
+  默认使用 120 秒协作式期限、单轮输出最多 4096 Token。预算不等于进程内存硬上限，
+  不能把本地对照当成生产容量保证。
 - 正文页及目录缓存以版本区分，授权实时查库；下架、卸载、停用与实际分组限制仍然生效。
 - 令牌渠道限制持久化使用稳定分组 ID，展示当前名称。新增 `token_groups.channel_id`；
   先升级全部节点再配置限制，混用旧版无法保证限制。回滚前须清理新限制。
@@ -54,8 +55,58 @@
 - 独立审查未发现阻断问题；新增文档相对链接 45 项、定向格式及 `git diff --check` 通过。
   现有前端构建警告保留，不把本地模拟与自动化回归表述为真实供应商或生产验收。
 
-发布 PR 的合并前后 CI 与正式产物验收结果在完成后补充。未运行真实 MySQL/PostgreSQL、
-Telegram、供应商与生产集成；本地通过不代表已发布或部署。
+未运行本轮真实 MySQL/PostgreSQL、Telegram、供应商与生产集成；自动化和产物验收不代表
+线上部署或生产容量测试。
+
+## 主分支与发布来源
+
+- #323、#324、#325 均已合入主分支；#325 的合并后
+  [CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40116264539) 全部成功。
+- 云端 Skills 与资源保护通过 [#326](https://github.com/moeacgx/NewAPI-Mao/pull/326)
+  合并，最终发布源码为 `69eef59e5982645201e1e75b8b886995228d4c0c`。
+- #326 的 [PR 检查](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40116717484)、
+  [合并前 CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40116717409) 与
+  [合并后 CI](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40117295943) 均通过。
+- 标签 `v1.0.0-rc.10.1.10.353` 固定指向上述提交；标签创建后不移动。
+  发布验收记录后续通过独立文档提交补充，不重建已经发布的二进制和镜像。
+
+## 发布产物验收
+
+北京时间 2026-10-25 完成正式产物只读验收：
+
+- [GitHub Release](https://github.com/moeacgx/NewAPI-Mao/releases/tag/v1.0.0-rc.10.1.10.353)
+  已正式发布并设为 Latest，非草稿、非预发布，已补充中文变更及升级说明。
+- [Linux 发布流程](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40117750365)
+  与 [Docker 发布流程](https://github.com/moeacgx/NewAPI-Mao/actions/runs/40117750341)
+  均成功，源码提交与标签一致。
+- 三个 Linux 资产实际下载后，字节长度与 GitHub 元数据一致，SHA256 与 GitHub digest
+  一致；两个二进制也均匹配 `checksums-linux.txt`，校验文件仅包含这两个二进制。
+  - amd64：`new-api-v1.0.0-rc.10.1.10.353`，160989449 字节，
+    SHA256 `de82b1d45d628e4b8e69bc2eef99dac25ed5aaef8523b9c0dd31d0acd9cf9f6b`。
+  - arm64：`new-api-arm64-v1.0.0-rc.10.1.10.353`，155648265 字节，
+    SHA256 `fc49514aaaae8323248c9dfdc109dbcaa16f0f59dbeee06bd181575dfc0aa24e`。
+  - 校验文件：`checksums-linux.txt`，198 字节，
+    SHA256 `663262f6e3eee5899be93b217f642c9f2f6848335fc8c1f7dc73938d6f9cc4c3`。
+- `go version -m` 静态读取确认两份二进制均为 Linux，架构正确，
+  `common.Version` 构建参数为 `v1.0.0-rc.10.1.10.353`，内嵌 `vcs.revision` 均为
+  `69eef59e5982645201e1e75b8b886995228d4c0c`。本次未执行二进制或另行验证静态链接。
+- amd64 的 `vcs.modified=false`，arm64 为 `true`。发布工作流先在仓库根目录生成
+  amd64 二进制，再构建 arm64；现有忽略规则未覆盖 `new-api-*`，前一个输出可解释
+  后一次构建的脏工作树标记。这是基于工作流及忽略规则的推断，未独立重建确认唯一来源，
+  不把 arm64 描述为干净工作树构建。
+- 固定镜像为 `ghcr.io/moeacgx/newapi-mao:v1.0.0-rc.10.1.10.353`，匿名读取确认
+  它与 `latest` 的多架构索引摘要均为
+  `sha256:4bce6ec322e8dde4eb026cabaec20266815a99623ca59757129029d79a3c9836`。
+- 索引实际包含 `linux/amd64` 和 `linux/arm64`；两个平台清单和配置的逐级摘要校验通过，
+  OCI 版本标签为 `v1.0.0-rc.10.1.10.353`、源码 revision 均符合上述提交。此结论来自镜像配置，
+  本次未拉取运行镜像或进行容器内功能测试。
+- 两架构 SBOM 及来源证明导出、cosign 签名步骤均有成功状态和日志证据。签名对象为
+  单架构构建索引，组合后的多架构索引没有独立签名；本次未做本地密码学验签。
+- 首次匿名读取子清单遇到 TLS EOF，原命令重跑后完整通过；没有摘要、版本或架构
+  断言失败。GitHub 部分步骤曾返回缓存状态，签名结论已通过单独作业及日志补充核对。
+- 补录文档的 Markdown 格式及 `git diff --check` 通过，本发布记录的索引入口有效。
+  扩展扫描整个开发文档索引时发现 81 处历史断链，与补录前 HEAD 完全一致；
+  本次未新增断链，也未把全量索引检查描述为通过。
 
 ## 跨项目边界
 
