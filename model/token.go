@@ -32,6 +32,7 @@ type Token struct {
 	Group              string           `json:"group" gorm:"default:''"`
 	GroupMode          string           `json:"group_mode" gorm:"type:varchar(16);default:'inherit'"`
 	GroupIds           []int            `json:"group_ids,omitempty" gorm:"-"`
+	GroupChannelIds    map[int]int      `json:"group_channel_ids,omitempty" gorm:"-"`
 	GroupDetails       []GroupReference `json:"group_details,omitempty" gorm:"-"`
 	GroupRatioLimits   string           `json:"group_ratio_limits" gorm:"type:text;default:''"`
 	CrossGroupRetry    bool             `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效

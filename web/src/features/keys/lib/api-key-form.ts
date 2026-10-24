@@ -54,6 +54,16 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
       model_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
       groups: z.array(z.string()),
+      group_channel_ids: z
+        .record(
+          z.string(),
+          z
+            .number()
+            .int(t('Channel ID must be a positive integer.'))
+            .min(1, t('Channel ID must be a positive integer.'))
+            .max(2147483647, t('Channel ID must be a positive integer.'))
+        )
+        .optional(),
       auto_groups_mode: z.enum(['inherit', 'custom']),
       auto_groups: z.array(z.string()),
       cross_group_retry: z.boolean().optional(),
@@ -134,6 +144,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   model_limits: [],
   allow_ips: '',
   groups: [DEFAULT_GROUP],
+  group_channel_ids: {},
   auto_groups_mode: 'inherit',
   auto_groups: [],
   cross_group_retry: true,
@@ -184,6 +195,11 @@ export function transformFormDataToPayload(
     allow_ips: data.allow_ips || '',
     group: groupSelection.group,
     group_ids: groupSelection.group_ids,
+    group_channel_ids: Object.fromEntries(
+      Object.entries(data.group_channel_ids ?? {}).filter(([id]) =>
+        groupSelection.group_ids.includes(Number(id))
+      )
+    ),
     group_mode: groupSelection.group_mode,
     auto_groups:
       isAuto && data.auto_groups_mode === 'custom' ? data.auto_groups : [],
@@ -226,6 +242,7 @@ export function transformApiKeyToFormDefaults(
       : [],
     allow_ips: apiKey.allow_ips || '',
     groups: resolveApiKeyGroups(apiKey),
+    group_channel_ids: apiKey.group_channel_ids ?? {},
     auto_groups_mode: autoGroupsMode,
     auto_groups: autoGroups,
     cross_group_retry: !!apiKey.cross_group_retry,

@@ -437,11 +437,18 @@ func buildTokenGroupMigrationPlans(
 		token := &tokens[index]
 		tokenBindings := bindingsByTokenID[token.Id]
 		groupIDs := make([]int, 0, len(tokenBindings))
+		token.GroupChannelIds = make(map[int]int)
 		bindingLimits := make(map[int]*float64, len(tokenBindings))
 		containsSourceBinding := false
 		for _, binding := range tokenBindings {
 			groupIDs = append(groupIDs, binding.GroupId)
+			if binding.GroupId == sourceGroupID && binding.ChannelId > 0 && !token.DeletedAt.Valid {
+				return nil, nil, fmt.Errorf("令牌 %d 的源分组存在限定渠道，请先在令牌设置中清空后再迁移", token.Id)
+			}
 			bindingLimits[binding.GroupId] = binding.RatioLimit
+			if binding.ChannelId > 0 && binding.GroupId != sourceGroupID {
+				token.GroupChannelIds[binding.GroupId] = binding.ChannelId
+			}
 			if binding.GroupId == sourceGroupID {
 				containsSourceBinding = true
 			}
