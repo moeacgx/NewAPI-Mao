@@ -44,7 +44,8 @@ func TestTokenPromptAuthenticatedRelaySettlesUsageAndAudit(t *testing.T) {
 					defer upstream.Close()
 					setupCanvasRouteBillingTest(t, upstream.URL)
 					model.InitDBColumns()
-					require.NoError(t, model.DB.AutoMigrate(&model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}))
+					require.NoError(t, model.DB.AutoMigrate(&model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{},
+						&model.PromptSkillRecord{}, &model.PromptSkillFile{}, &model.PromptSkillChunk{}))
 					user, _ := createCanvasRouteUserSession(t, "prompt-end-to-end", "wallet_only", 10000)
 					token := model.Token{UserId: user.Id, Name: "prompt-e2e", Key: "prompte2ekey", Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 10000}
 					require.NoError(t, model.DB.Create(&token).Error)

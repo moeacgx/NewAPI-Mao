@@ -18,7 +18,9 @@ func CORS() gin.HandlerFunc {
 		"Accept", "Authorization", "Cache-Control", "Content-Length", "Content-Type",
 		"Anthropic-Beta", "Anthropic-Version", "Mj-Api-Secret", "New-API-User", "Origin",
 		"X-API-Key", "X-Auth-Session", "X-Goog-Api-Key", "X-Requested-With", "X-Security-Proof", "X-Playground-Token-Id",
+		"X-New-API-Skills-Display",
 	}
+	config.ExposeHeaders = []string{"X-New-API-Gateway-Skills"}
 	config.AllowOriginWithContextFunc = func(c *gin.Context, origin string) bool {
 		return isAllowedCredentialOrigin(c, origin)
 	}
@@ -37,6 +39,7 @@ func RelayCORS() gin.HandlerFunc {
 			"Content-Type", "Idempotency-Key", "Mj-Api-Secret", "New-API-User", "OpenAI-Beta",
 			"OpenAI-Organization", "OpenAI-Project", "Origin", "Sec-WebSocket-Protocol", "X-API-Key",
 			"X-Auth-Session", "X-Goog-Api-Client", "X-Goog-Api-Key", "X-Requested-With", "X-Security-Proof",
+			"X-New-API-Skills-Display",
 			"X-Stainless-Arch", "X-Stainless-Async", "X-Stainless-Custom-Poll-Interval",
 			"X-Stainless-Event-Id", "X-Stainless-Helper-Method", "X-Stainless-Lang", "X-Stainless-OS",
 			"X-Stainless-Package-Version", "X-Stainless-Poll-Helper", "X-Stainless-Raw-Response",
@@ -46,6 +49,7 @@ func RelayCORS() gin.HandlerFunc {
 		ExposeHeaders: []string{
 			"Content-Encoding", "Content-Length", "Content-Type", "OpenAI-Organization",
 			"OpenAI-Processing-Ms", "OpenAI-Version", "Request-Id", "X-New-Api-Version", "X-Request-Id",
+			"X-New-API-Gateway-Skills",
 		},
 	}
 	return cors.New(config)

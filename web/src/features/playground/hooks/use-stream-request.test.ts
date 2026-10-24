@@ -35,12 +35,26 @@ class FakeStreamSource {
   streamed = false
   private listeners = new Map<
     string,
-    Array<(event: Event & { data?: string; readyState?: number }) => void>
+    Array<
+      (
+        event: Event & {
+          data?: string
+          readyState?: number
+          headers?: Record<string, string[]>
+        }
+      ) => void
+    >
   >()
 
   addEventListener(
     type: string,
-    listener: (event: Event & { data?: string; readyState?: number }) => void
+    listener: (
+      event: Event & {
+        data?: string
+        readyState?: number
+        headers?: Record<string, string[]>
+      }
+    ) => void
   ) {
     const listeners = this.listeners.get(type) ?? []
     listeners.push(listener)
@@ -55,11 +69,12 @@ class FakeStreamSource {
     this.streamed = true
   }
 
-  emit(type: string, data?: string) {
+  emit(type: string, data?: string, headers?: Record<string, string[]>) {
     for (const listener of this.listeners.get(type) ?? []) {
-      listener({ data, readyState: this.readyState } as Event & {
+      listener({ data, headers, readyState: this.readyState } as Event & {
         data?: string
         readyState?: number
+        headers?: Record<string, string[]>
       })
     }
   }
@@ -195,5 +210,61 @@ describe('latest-wins stream request coordination', () => {
     )
 
     expect(updates).toEqual(['current'])
+  })
+
+  test('reads gateway skills metadata from the SSE open event on completion', async () => {
+    const source = new FakeStreamSource()
+    const completed: unknown[] = []
+    const controller = createStreamRequestController({
+      getHeaders: () => Promise.resolve({}),
+      createSource: () => source,
+      setStreaming: () => undefined,
+    })
+
+    await controller.send(payload, {
+      onUpdate: () => undefined,
+      onComplete: (metadata) => completed.push(metadata),
+      onError: () => undefined,
+    })
+
+    const headerPayload = JSON.stringify({
+      version: 1,
+      total: 1,
+      skills: [
+        {
+          template_id: 12,
+          skill_id: 'review',
+          version: 3,
+          title: 'Code review',
+        },
+      ],
+      truncated: false,
+    })
+    const encoded = btoa(headerPayload)
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '')
+
+    source.emit('open', undefined, {
+      'x-new-api-gateway-skills': [encoded],
+    })
+    source.emit('message', '[DONE]')
+
+    expect(completed).toEqual([
+      {
+        version: 1,
+        total: 1,
+        skills: [
+          {
+            templateId: 12,
+            skillId: 'review',
+            version: 3,
+            title: 'Code review',
+          },
+        ],
+        truncated: false,
+      },
+    ])
+    controller.dispose()
   })
 })

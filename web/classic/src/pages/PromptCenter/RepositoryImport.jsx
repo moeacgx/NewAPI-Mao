@@ -70,7 +70,10 @@ export default function RepositoryImport(props) {
           <div className='prompt-center-row'>
             <input
               id={`${prefix}-url`}
-              type='url'
+              type='text'
+              inputMode='url'
+              autoCapitalize='none'
+              spellCheck={false}
               maxLength={2048}
               placeholder='https://github.com/owner/repository'
               value={url}

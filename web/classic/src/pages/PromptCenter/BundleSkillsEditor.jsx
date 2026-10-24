@@ -21,6 +21,7 @@ import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import SkillResourcesEditor from './SkillResourcesEditor';
 
 export default function BundleSkillsEditor(props) {
   const { t } = useTranslation();
@@ -39,10 +40,16 @@ export default function BundleSkillsEditor(props) {
     <fieldset disabled={props.disabled} className='prompt-bundle-editor'>
       <legend>{t('Bundle skills')}</legend>
       <p className='prompt-center-muted'>
-        {t('A bundle contains 2 to 16 text skills and installs as one item.')}
+        {props.progressive
+          ? t(
+              'A bundle contains 2 to 128 independent skills and installs as one package.',
+            )
+          : t(
+              'A bundle contains 2 to 16 text skills and installs as one item.',
+            )}
       </p>
       {props.skills.map((skill, index) => (
-        <section className='prompt-bundle-skill' key={index}>
+        <section className='prompt-bundle-skill' key={skill.id || index}>
           <div className='prompt-center-row'>
             <strong>{t('Skill {{number}}', { number: index + 1 })}</strong>
             <Button
@@ -80,6 +87,31 @@ export default function BundleSkillsEditor(props) {
             value={skill.title}
             onChange={(event) => change(index, 'title', event.target.value)}
           />
+          {props.progressive && (
+            <>
+              <label htmlFor={`${props.prefix}-skill-${index}-description`}>
+                {t('Skill {{number}} description', { number: index + 1 })}
+              </label>
+              <textarea
+                id={`${props.prefix}-skill-${index}-description`}
+                rows={2}
+                maxLength={512}
+                value={skill.description || ''}
+                onChange={(event) =>
+                  change(index, 'description', event.target.value)
+                }
+              />
+              <label htmlFor={`${props.prefix}-skill-${index}-path`}>
+                {t('Skill {{number}} file path', { number: index + 1 })}
+              </label>
+              <input
+                id={`${props.prefix}-skill-${index}-path`}
+                value={skill.path || ''}
+                placeholder='skills/review/SKILL.md'
+                onChange={(event) => change(index, 'path', event.target.value)}
+              />
+            </>
+          )}
           <label htmlFor={`${props.prefix}-skill-${index}-text`}>
             {t('Skill {{number}} text', { number: index + 1 })}
           </label>
@@ -90,11 +122,23 @@ export default function BundleSkillsEditor(props) {
             value={skill.content || ''}
             onChange={(event) => change(index, 'content', event.target.value)}
           />
+          {props.progressive && (
+            <SkillResourcesEditor
+              prefix={`${props.prefix}-skill-${index}`}
+              skillNumber={index + 1}
+              resources={skill.resources}
+              disabled={props.disabled}
+              onChange={(resources) => change(index, 'resources', resources)}
+            />
+          )}
         </section>
       ))}
       <Button
         icon={<Plus size={14} />}
-        disabled={props.disabled || props.skills.length >= 16}
+        disabled={
+          props.disabled ||
+          props.skills.length >= (props.progressive ? 128 : 16)
+        }
         onClick={() =>
           props.onChange([...props.skills, { title: '', content: '' }])
         }

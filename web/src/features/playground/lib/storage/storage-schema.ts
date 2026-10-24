@@ -63,6 +63,29 @@ const sourceSchema = z.object({
   title: z.string(),
 })
 
+const gatewaySkillSchema = z.object({
+  templateId: z.number().int().positive(),
+  skillId: z.string().min(1).max(256),
+  version: z.number().int().positive(),
+  title: z.string().trim().min(1).max(512),
+})
+
+const gatewaySkillsSchema = z
+  .object({
+    version: z.literal(1),
+    total: z.number().int().nonnegative().max(1_000_000),
+    skills: z.array(gatewaySkillSchema).max(256),
+    truncated: z.boolean(),
+  })
+  .superRefine((metadata, context) => {
+    if (
+      metadata.total < metadata.skills.length ||
+      (!metadata.truncated && metadata.total !== metadata.skills.length)
+    ) {
+      context.addIssue({ code: 'custom', message: 'Invalid skill count' })
+    }
+  })
+
 const reasoningSchema = z.object({
   content: z.string(),
   duration: z.number(),
@@ -86,6 +109,7 @@ const messageSchema = z.object({
   isContentComplete: z.boolean().optional(),
   status: messageStatusSchema.optional(),
   errorCode: z.string().nullable().optional(),
+  gatewaySkills: gatewaySkillsSchema.optional(),
 })
 
 export const messagesSchema = z.array(messageSchema)

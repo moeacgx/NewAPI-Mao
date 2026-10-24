@@ -193,7 +193,7 @@ export default function PromptCenter() {
                 <ShieldCheck size={16} aria-hidden='true' />
                 <span>
                   {t(
-                    'Supports Chat Completions, Responses, Claude Messages and Gemini conversations. Markdown and SKILL.md are text only; scripts, attachments and tools do not run.',
+                    'Supports Chat Completions, Responses, Claude Messages and Gemini conversations. On-demand skills expose a directory first; selected text files are read by the gateway. Scripts are not executed.',
                   )}
                 </span>
               </p>

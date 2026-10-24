@@ -8,6 +8,8 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"path"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -59,7 +61,7 @@ func ListSkillStore(ctx context.Context, online bool) ([]SkillStoreSummary, erro
 	items := make([]SkillStoreSummary, 0, len(records))
 	for _, record := range records {
 		items = append(items, SkillStoreSummary{ID: source + ":" + record.ID, Title: record.Title, Description: record.Description,
-			Kind: record.Kind, Category: record.Category, Version: record.Version, Source: source, SkillCount: len(record.Files)})
+			Kind: record.Kind, Category: record.Category, Version: record.Version, Source: source, SkillCount: len(skillStoreMainFiles(record))})
 	}
 	return items, nil
 }
@@ -83,28 +85,33 @@ func importStoreSkill(ctx context.Context, id string, client *http.Client) (*mod
 		if record.ID != recordID {
 			continue
 		}
-		draft := &model.PromptTemplate{Title: record.Title, Description: record.Description, Kind: record.Kind, GroupIDs: []int{}}
+		files := make(map[string][]byte, len(record.Files))
+		total := 0
 		for _, file := range record.Files {
-			data, err := readSkillStoreFile(ctx, source, file.Path, 64*1024, client)
+			data, err := readSkillStoreFile(ctx, source, file.Path, model.MaxSkillFileBytes, client)
 			if err != nil {
 				return nil, err
 			}
 			digest := sha256.Sum256(data)
 			if hex.EncodeToString(digest[:]) != file.SHA256 {
-				return nil, errors.New("技能商店文件校验失败，请刷新商店后重试")
+				return nil, errors.New("技能商店文件校验失败，请刷新目录后重试")
 			}
-			item, _, err := parseSkillMarkdown(data, file.Path)
-			if err != nil {
-				return nil, err
+			if !utf8.Valid(data) || strings.ContainsRune(string(data), 0) {
+				return nil, errors.New("技能商店文件必须为 UTF-8 文本")
 			}
-			if draft.Kind == "prompt" {
-				draft.Content = item.Content
-			} else {
-				draft.Skills = append(draft.Skills, item)
+			total += len(data)
+			if total > model.MaxSkillPackageBytes {
+				return nil, errors.New("技能包正文合计不能超过 64 MiB")
 			}
+			files[file.Path] = data
 		}
-		if err := model.NormalizePromptTemplateContent(draft); err != nil {
+		draft, err := buildProgressiveSkillDraft(record.Title, skillStoreMainFiles(record), files)
+		if err != nil {
 			return nil, err
+		}
+		draft.Title, draft.Description = record.Title, record.Description
+		if draft.Kind == "prompt" {
+			draft.Skills[0].Title, draft.Skills[0].Description = record.Title, record.Description
 		}
 		return draft, nil
 	}
@@ -129,7 +136,7 @@ func loadSkillStoreCatalog(ctx context.Context, source string, client *http.Clie
 			strings.TrimSpace(record.Title) == "" || utf8.RuneCountInString(record.Title) > 80 || utf8.RuneCountInString(record.Description) > 512 ||
 			utf8.RuneCountInString(record.Category) > 40 || record.Version == "" || len(record.Version) > 40 ||
 			(record.Kind != "prompt" && record.Kind != "bundle") ||
-			(record.Kind == "prompt" && len(record.Files) != 1) || (record.Kind == "bundle" && (len(record.Files) < 2 || len(record.Files) > 16)) {
+			len(record.Files) > model.MaxSkillResourceFiles || (record.Kind == "prompt" && len(skillStoreMainFiles(record)) != 1) || (record.Kind == "bundle" && (len(skillStoreMainFiles(record)) < 2 || len(skillStoreMainFiles(record)) > model.MaxProgressiveSkills)) {
 			return nil, errors.New("技能商店条目格式无效")
 		}
 		seen[record.ID] = true
@@ -137,7 +144,7 @@ func loadSkillStoreCatalog(ctx context.Context, source string, client *http.Clie
 		for _, file := range record.Files {
 			checksum, err := hex.DecodeString(file.SHA256)
 			if !fs.ValidPath(file.Path) || !strings.HasPrefix(file.Path, "packages/") || strings.ContainsAny(file.Path, "\\:?#%\x00") ||
-				!strings.HasSuffix(file.Path, ".md") || files[file.Path] || len(file.Path) > 240 || err != nil || len(checksum) != 32 || file.SHA256 != strings.ToLower(file.SHA256) {
+				!supportedSkillTextFile(file.Path) || files[file.Path] || len(file.Path) > 240 || err != nil || len(checksum) != 32 || file.SHA256 != strings.ToLower(file.SHA256) {
 				return nil, errors.New("技能商店文件路径或校验和无效")
 			}
 			files[file.Path] = true
@@ -192,4 +199,22 @@ func readSkillStoreFile(ctx context.Context, source, filename string, limit int6
 		return nil, errors.New("技能商店文件读取失败或超过大小限制")
 	}
 	return data, nil
+}
+
+// skillStoreMainFiles 优先识别技能入口，缺少标准入口时兼容 Markdown 单文件。
+func skillStoreMainFiles(record skillStoreRecord) []string {
+	mains, markdown := []string{}, []string{}
+	for _, file := range record.Files {
+		if strings.EqualFold(path.Ext(file.Path), ".md") {
+			markdown = append(markdown, file.Path)
+		}
+		if strings.EqualFold(path.Base(file.Path), "SKILL.md") {
+			mains = append(mains, file.Path)
+		}
+	}
+	if len(mains) == 0 {
+		mains = markdown
+	}
+	sort.Strings(mains)
+	return mains
 }

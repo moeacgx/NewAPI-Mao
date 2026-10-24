@@ -29,14 +29,24 @@ import {
   parseStreamErrorDetails,
   parseStreamMessageUpdates,
 } from '../lib'
+import { parseGatewaySkillsHeader } from '../lib/streaming/gateway-skills'
 import { preparePlaygroundRequest } from '../lib/streaming/token-request'
-import type { ChatCompletionRequest } from '../types'
+import type {
+  ChatCompletionRequest,
+  GatewaySkillsMetadata,
+} from '../types'
 
 interface StreamEventSource {
   readyState?: number
   addEventListener: (
     type: string,
-    listener: (event: Event & { data?: string; readyState?: number }) => void
+    listener: (
+      event: Event & {
+        data?: string
+        readyState?: number
+        headers?: Record<string, string[]>
+      }
+    ) => void
   ) => void
   close: () => void
   stream: () => void
@@ -44,7 +54,7 @@ interface StreamEventSource {
 
 interface StreamRequestCallbacks {
   onUpdate: (type: 'reasoning' | 'content', chunk: string) => void
-  onComplete: () => void
+  onComplete: (gatewaySkills?: GatewaySkillsMetadata) => void
   onError: (error: string, errorCode?: string) => void
 }
 
@@ -105,6 +115,7 @@ export function createStreamRequestController(
     source = nextSource
     runtime.setStreaming(true)
     let completed = false
+    let gatewaySkills: GatewaySkillsMetadata | undefined
 
     const isCurrent = () =>
       generation === requestGeneration && source === nextSource
@@ -122,7 +133,7 @@ export function createStreamRequestController(
       if (isStreamDoneMessage(data)) {
         completed = true
         closeActiveSource(nextSource)
-        callbacks.onComplete()
+        callbacks.onComplete(gatewaySkills)
         return
       }
 
@@ -137,6 +148,11 @@ export function createStreamRequestController(
         console.error('Failed to parse SSE message:', error)
         handleError(ERROR_MESSAGES.PARSE_ERROR)
       }
+    })
+
+    nextSource.addEventListener('open', (event) => {
+      if (!isCurrent() || completed) return
+      gatewaySkills = parseGatewaySkillsHeader(event.headers)
     })
 
     nextSource.addEventListener('error', (event) => {
@@ -211,7 +227,7 @@ export function useStreamRequest() {
     (
       payload: ChatCompletionRequest,
       onUpdate: (type: 'reasoning' | 'content', chunk: string) => void,
-      onComplete: () => void,
+      onComplete: (gatewaySkills?: GatewaySkillsMetadata) => void,
       onError: (error: string, errorCode?: string) => void,
       tokenId?: number
     ) =>

@@ -37,7 +37,7 @@ func ImportSkillArchive(c *gin.Context) {
 		data, err = io.ReadAll(io.LimitReader(part, service.MaxSkillArchiveBytes+1))
 		part.Close()
 		if err != nil || len(data) > service.MaxSkillArchiveBytes {
-			common.ApiErrorMsg(c, "压缩包上传失败或超过 2 MiB 限制")
+			common.ApiErrorMsg(c, "压缩包上传失败或超过 16 MiB 限制")
 			return
 		}
 	}

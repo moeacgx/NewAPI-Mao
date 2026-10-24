@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
 import type { PromptTemplateForm } from '../lib/validation'
+import { SkillResourceEditor } from './skill-resource-editor'
 
 export function BundleSkillEditor(props: {
   form: UseFormReturn<PromptTemplateForm>
@@ -33,6 +34,8 @@ export function BundleSkillEditor(props: {
 }) {
   const { t } = useTranslation()
   const array = useFieldArray({ control: props.form.control, name: 'skills' })
+  const progressive = props.form.watch('load_mode') === 'progressive'
+  const limit = progressive ? 128 : 16
   const error = props.form.formState.errors.skills
   return (
     <section
@@ -41,13 +44,13 @@ export function BundleSkillEditor(props: {
     >
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <h3 className='text-sm font-medium'>
-          {t('Bundle skills')} · {array.fields.length}/16
+          {t('Bundle skills')} · {array.fields.length}/{limit}
         </h3>
         <Button
           type='button'
           size='sm'
           variant='outline'
-          disabled={array.fields.length >= 16}
+          disabled={array.fields.length >= limit}
           onClick={() => array.append({ title: '', content: '' })}
         >
           <Plus aria-hidden='true' />
@@ -55,9 +58,13 @@ export function BundleSkillEditor(props: {
         </Button>
       </div>
       <p className='text-muted-foreground text-xs'>
-        {t(
-          'Skills load in this order. Install and uninstall the bundle as one item.'
-        )}
+        {progressive
+          ? t(
+              'Each skill is discovered and read independently. Install and uninstall the bundle as one package.'
+            )
+          : t(
+              'Skills load in this order. Install and uninstall the bundle as one item.'
+            )}
       </p>
       {array.fields.map((field, index) => (
         <div
@@ -116,8 +123,27 @@ export function BundleSkillEditor(props: {
           />
           {error?.[index]?.title && (
             <p role='alert' className='text-destructive text-xs'>
-              {t('Use a unique skill title of 1 to 80 characters')}
+              {t(error[index].title.message || '')}
             </p>
+          )}
+          {progressive && (
+            <>
+              <Label htmlFor={`${props.fieldId}-skill-${field.id}-description`}>
+                {t('Skill description')}
+              </Label>
+              <Textarea
+                id={`${props.fieldId}-skill-${field.id}-description`}
+                rows={2}
+                maxLength={512}
+                aria-invalid={Boolean(error?.[index]?.description)}
+                {...props.form.register(`skills.${index}.description`)}
+              />
+              {error?.[index]?.description && (
+                <p role='alert' className='text-destructive text-xs'>
+                  {t(error[index].description.message || '')}
+                </p>
+              )}
+            </>
           )}
           <Label htmlFor={`${props.fieldId}-skill-${field.id}-content`}>
             {t('Skill content')}
@@ -131,8 +157,15 @@ export function BundleSkillEditor(props: {
           />
           {error?.[index]?.content && (
             <p role='alert' className='text-destructive text-xs'>
-              {t('Enter prompt text up to 32768 bytes')}
+              {t(error[index].content.message || '')}
             </p>
+          )}
+          {progressive && (
+            <SkillResourceEditor
+              form={props.form}
+              skillIndex={index}
+              fieldId={`${props.fieldId}-skill-${field.id}`}
+            />
           )}
         </div>
       ))}

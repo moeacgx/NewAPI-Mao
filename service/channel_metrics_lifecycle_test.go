@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/channel_metrics_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -313,6 +314,136 @@ func TestChannelMetricLifecycleKeepsFailedAttemptWhenRetrySucceeds(t *testing.T)
 	require.False(t, event.ClientStatusPresent, "前一次失败不能附加重试成功后的客户端状态码")
 }
 
+func TestChannelMetricGatewaySkillRoundsOnlyCountActualRouteRetries(t *testing.T) {
+	type attempt struct {
+		gateway bool
+		retry   int
+		failed  bool
+	}
+	cases := []struct {
+		name        string
+		attempts    []attempt
+		retries     int64
+		failureSeqs []int
+	}{
+		{
+			name: "three discovery rounds and generation without retry",
+			attempts: []attempt{
+				{gateway: true}, {gateway: true}, {gateway: true}, {},
+			},
+		},
+		{
+			name: "discovery failure retries a complete skill pipeline",
+			attempts: []attempt{
+				{gateway: true, failed: true},
+				{gateway: true, retry: 1}, {gateway: true, retry: 1}, {gateway: true, retry: 1}, {retry: 1},
+			},
+			retries:     1,
+			failureSeqs: []int{1},
+		},
+		{
+			name: "late discovery failure keeps its unique event sequence",
+			attempts: []attempt{
+				{gateway: true}, {gateway: true}, {gateway: true, failed: true},
+				{gateway: true, retry: 1}, {retry: 1},
+			},
+			retries:     1,
+			failureSeqs: []int{3},
+		},
+		{
+			name: "retry route has no skills",
+			attempts: []attempt{
+				{gateway: true, failed: true}, {retry: 1},
+			},
+			retries:     1,
+			failureSeqs: []int{1},
+		},
+		{
+			name: "skills become available after a regular route failure",
+			attempts: []attempt{
+				{failed: true}, {gateway: true, retry: 1}, {gateway: true, retry: 1}, {retry: 1},
+			},
+			retries:     1,
+			failureSeqs: []int{1},
+		},
+		{
+			name: "multiple route failures keep their existing retry count",
+			attempts: []attempt{
+				{failed: true}, {retry: 1, failed: true},
+				{gateway: true, retry: 2}, {gateway: true, retry: 2}, {retry: 2},
+			},
+			retries:     2,
+			failureSeqs: []int{1, 2},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			collector, failureCh := installChannelMetricTestRuntime(t)
+			c := newChannelMetricTestContext(t, testCase.name)
+			BeginChannelMetricRequest(c)
+			var info *relaycommon.RelayInfo
+			var successfulRounds int64
+			for _, round := range testCase.attempts {
+				info = newChannelMetricTestRelayInfo()
+				info.RetryIndex = round.retry
+				BindChannelMetricRelayInfo(c, info)
+				channelID := 17 + round.retry
+				if round.gateway {
+					BeginChannelMetricGatewaySkillAttempt(c, info, channelID, "技能渠道", 1)
+				} else {
+					BeginChannelMetricAttempt(c, info, channelID, "模型渠道", 1)
+				}
+				callIndex := BeginChannelMetricUpstreamCall(c)
+				status := http.StatusOK
+				var relayErr *types.NewAPIError
+				if round.failed {
+					status = http.StatusTooManyRequests
+					relayErr = types.NewOpenAIError(errors.New("rate limited"), types.ErrorCodeBadResponseStatusCode, status)
+				} else {
+					successfulRounds++
+					AttachChannelMetricUsage(c, ChannelMetricUsage{InputTokensTotal: 20, OutputTokens: 5, ChargedQuota: 100})
+				}
+				CompleteChannelMetricUpstreamHeader(c, callIndex, status, nil)
+				FinishChannelMetricAttempt(c, info, relayErr, round.failed, "http_429")
+			}
+			c.Writer.WriteHeader(http.StatusOK)
+			FinishChannelMetricRequest(c, info, nil)
+			batch := drainChannelMetricTestBatch(t, collector)
+			for _, scope := range []channelmetrics.Scope{channelmetrics.ScopeChannelAttempt, channelmetrics.ScopeUpstreamCall} {
+				var eventCount, retryCount, usageCount, inputTokens, chargedQuota int64
+				for _, bucket := range batch.Buckets {
+					if bucket.Dimension.Scope != scope {
+						continue
+					}
+					eventCount += bucket.Counters.EventCount
+					retryCount += bucket.Counters.NonFirstAttemptCount
+					usageCount += bucket.Counters.UsageSampleCount
+					inputTokens += bucket.Counters.InputTokensTotal
+					chargedQuota += bucket.Counters.ChargedQuota
+				}
+				assert.EqualValues(t, len(testCase.attempts), eventCount, scope)
+				assert.Equal(t, testCase.retries, retryCount, scope)
+				if scope == channelmetrics.ScopeChannelAttempt {
+					assert.Equal(t, successfulRounds, usageCount)
+					assert.Equal(t, successfulRounds*20, inputTokens)
+					assert.Equal(t, successfulRounds*100, chargedQuota)
+				}
+			}
+			assert.EqualValues(t, 1, channelMetricTestEventCount(channelMetricTestBuckets(batch, channelmetrics.ScopeFinalRequest, channelmetrics.OutcomeSuccess)))
+			if len(testCase.failureSeqs) > 0 {
+				events := receiveChannelMetricFailureEvents(t, failureCh)
+				require.Len(t, events, len(testCase.failureSeqs))
+				for index, event := range events {
+					assert.Equal(t, testCase.failureSeqs[index], event.AttemptSeq)
+					assert.True(t, event.RetryPlanned)
+					assert.False(t, event.IsLastStartedAttempt)
+				}
+			}
+		})
+	}
+}
+
 func TestChannelMetricLifecycleClassifiesStreamFailureAfterHTTP200(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	collector, failureCh := installChannelMetricTestRuntime(t)
@@ -474,6 +605,34 @@ func TestClassifyChannelMetricAttemptExcludesContentPolicyFromQuality(t *testing
 		require.Equal(t, channelmetrics.ErrorStagePreUpstream, stage)
 		require.False(t, qualityEligible)
 	})
+}
+
+func TestClassifyChannelMetricGatewaySkillResourceErrorsAsLocal(t *testing.T) {
+	cases := []struct {
+		code   types.ErrorCode
+		status int
+	}{
+		{code: "gateway_skills_busy", status: http.StatusTooManyRequests},
+		{code: "gateway_skills_context_too_large", status: http.StatusRequestEntityTooLarge},
+		{code: "gateway_skills_timeout", status: http.StatusGatewayTimeout},
+	}
+	for _, test := range cases {
+		t.Run(string(test.code), func(t *testing.T) {
+			c := newChannelMetricTestContext(t, "request-"+string(test.code))
+			info := newChannelMetricTestRelayInfo()
+			info.IsStream = true
+			info.StreamStatus = relaycommon.NewStreamStatus()
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, context.DeadlineExceeded)
+			relayErr := types.NewErrorWithStatusCode(context.DeadlineExceeded, test.code, test.status, types.ErrOptionWithSkipRetry())
+			for _, upstreamStarted := range []bool{false, true} {
+				outcome, owner, stage, qualityEligible := classifyChannelMetricAttempt(c, info, relayErr, upstreamStarted)
+				assert.Equal(t, channelmetrics.OutcomeLocalError, outcome, "upstream_started=%v", upstreamStarted)
+				assert.Equal(t, channelmetrics.FailureOwnerGateway, owner, "upstream_started=%v", upstreamStarted)
+				assert.Equal(t, channelmetrics.ErrorStagePreUpstream, stage, "upstream_started=%v", upstreamStarted)
+				assert.False(t, qualityEligible, "upstream_started=%v", upstreamStarted)
+			}
+		})
+	}
 }
 
 func TestChannelMetricLifecycleCountsMultipleUpstreamCallsInsideOneAttempt(t *testing.T) {

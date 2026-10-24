@@ -18,16 +18,24 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ChatCompletionRequest } from '../../types'
 
+import {
+  SKILLS_DISPLAY_REQUEST_HEADER,
+  SKILLS_DISPLAY_REQUEST_VALUE,
+} from './gateway-skills'
+
 // 账号登录态仍由统一请求层维护，令牌模式只传递本人令牌 ID。
 export function preparePlaygroundRequest(
   payload: ChatCompletionRequest,
   tokenId?: number
 ): { payload: ChatCompletionRequest; headers: Record<string, string> } {
-  if (!tokenId) return { payload, headers: {} }
+  const headers = {
+    [SKILLS_DISPLAY_REQUEST_HEADER]: SKILLS_DISPLAY_REQUEST_VALUE,
+  }
+  if (!tokenId) return { payload, headers }
   const tokenPayload = { ...payload }
   delete tokenPayload.group
   return {
     payload: tokenPayload,
-    headers: { 'X-Playground-Token-Id': String(tokenId) },
+    headers: { ...headers, 'X-Playground-Token-Id': String(tokenId) },
   }
 }

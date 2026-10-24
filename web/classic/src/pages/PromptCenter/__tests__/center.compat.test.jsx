@@ -364,6 +364,10 @@ test('管理员导入 SKILL.md 按原始文本创建模板，白名单只提交�
     expect(screen.getByLabelText('Prompt text').value).toBe(content),
   );
   await userEvent.type(screen.getByLabelText('Prompt title'), 'Review text');
+  await userEvent.type(
+    screen.getByLabelText('Prompt description'),
+    'Review code when requested.',
+  );
   await userEvent.click(
     await screen.findByRole('checkbox', { name: '高级模型组' }),
   );

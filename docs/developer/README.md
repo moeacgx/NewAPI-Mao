@@ -1,13 +1,35 @@
 # NewAPI-Mao 开发文档
 
+- [.353 云端 Skills、令牌限制与工单中心发布](../workflows/2026-10/25_gateway_skills_353_release.md)：合并范围、升级边界、组合验证与发布产物验收；发布不包含线上容器更新。
+
+- [云端 Skills 资源控制与性能优化](../workflows/2026-10/24_gateway_skill_performance.md)：长历史复用、版本化正文缓存、共享读锁与每实例准入、私有读取期限和输出预算。
+
+- [云端技能读取与 Agent 工具交接](../workflows/2026-10/24_gateway_skill_client_tool_handoff.md)：私有阶段客户端工具纠偏、已读正文交接、未知工具拒绝与逐轮计费。
+
+- [网关云端 Skills 回复标识](../workflows/2026-10/24_gateway_skill_response_indicator.md)：双模板回复徽标、外部 API 文本标识及实际读取元数据契约。
+- [云端技能目录查询结果传递](../workflows/2026-10/24_gateway_skill_catalogue_visibility.md)：用户询问已安装 Skills 时的目录查询、正式生成回填、授权重检与徽标边界。
+- [云端技能正文读取与激活核验](../workflows/2026-10/24_gateway_skill_read_body_handoff.md)：真实正文读取审计、激活的自然语言语义及单次请求上下文边界。
+- [本地 Agent 接入与模型发现核验](../workflows/2026-10/24_local_agent_api_connectivity.md)：真实模型列表、普通与流式调用结果、Base URL 拼接边界及未复现客户端问题的限制。
+
+- [技能模板保存校验与反馈修复](../workflows/2026-10/23_skill_template_save_feedback.md)：Classic 长表单反馈、渐进式合集校验与 Default 旧单技能模式切换。
+
+- [zzapi 渐进式技能测试部署](../workflows/2026-10/23_skill_progressive_zzapi.md)：专用测试镜像、隔离验收、备份迁移与三节点更新完成，公网版本及资源验证通过。
+
+- [技能渐进式披露](../workflows/2026-10/23_skill_progressive_disclosure.md)：网关私有目录发现与文本按需读取、逐轮计费、四协议和状态组合边界；本地及隔离模拟验收通过，已更新 zzapi，正式站未更新。
+- [渐进式技能存储与导入](../workflows/2026-10/23_skill_progressive_storage.md)：技能元数据、UTF-8 正文分块、稳定身份、引用资料及 ZIP/仓库/商店导入，保留旧全文限制。
+- [Default 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_default.md)：装载模式、用途说明、引用文本编辑与前端校验、构建验证。
+- [Classic 渐进式技能编辑](../workflows/2026-10/23_skill_progressive_classic.md)：与 Default 对齐的模式及资源编辑、国际化与协议模拟回归。
+- [渐进式轮次与渠道指标](../workflows/2026-10/23_skill_progressive_metrics.md)：内部读取独立计量且不计渠道重试，auto 跨组撤权、已结算费用与原始请求恢复。
+
+- [技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)：递归目录读取、具体文件路径和 UTF-8 字节大小诊断。
+- [当前连接慢刷新过期提示修复](../workflows/2026-10/24_active_connections_freshness.md)：识别轮询中的旧快照，超过 5 秒标记过期，并覆盖两套主题。
+
 - [工单中心 .353 合并验证](../workflows/2026-10/25_ticket_center_353_integration.md)：对齐已合并令牌渠道限定与当前连接改动，保留双模板翻译及工单权限、事务和归档回归。
 
 - [工单中心与工单管理](tickets.md)：双模板个人/管理员入口、控制台创建浮窗、会话权限及通知事件；[实施与验证记录](../workflows/2026-10/22_ticket_center.md)。
 - [工单批量操作与超时归档](../workflows/2026-10/24_ticket_bulk_archive.md)：批量状态/软删除、版本与事务保护、可配置自动归档、系统任务与操作审计。
 - [Default 工单实现](../workflows/2026-10/22_ticket_default.md)：个人和管理员页面、浮窗、消息历史、权限及账号切换回调隔离。
 - [Classic 工单实现](../workflows/2026-10/22_ticket_classic.md)：独立 UI、侧栏配置、通知编辑器与账号切换回归。
-
-- [当前连接慢刷新过期提示修复](../workflows/2026-10/24_active_connections_freshness.md)：识别轮询中的旧快照，超过 5 秒标记过期，并覆盖两套主题。
 
 - [令牌按分组限定渠道](../workflows/2026-10/23_token_group_channel_restriction.md)：双模板管理员逐组配置渠道 ID、正式路由约束、迁移保护与本地验证边界。
 

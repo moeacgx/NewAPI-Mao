@@ -35,6 +35,11 @@ export default function SkillSummary(props) {
         <span className='prompt-center-group-chip'>
           {template.category_name || t('Uncategorized')}
         </span>
+        <span className='prompt-center-group-chip'>
+          {template.load_mode === 'progressive'
+            ? t('On-demand skill')
+            : t('Always-loaded prompt')}
+        </span>
       </div>
       {bundle && (
         <details>

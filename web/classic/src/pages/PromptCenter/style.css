@@ -1057,6 +1057,22 @@ body[theme-mode='dark'] .prompt-center-form {
   overflow-y: auto;
 }
 
+.prompt-template-actions {
+  position: sticky;
+  z-index: 3;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0 2px;
+  border-top: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-1);
+}
+
+.prompt-template-actions .prompt-center-error {
+  margin: 0;
+}
+
 .prompt-center-install-button.semi-button-disabled {
   opacity: 0.4;
 }
@@ -1110,6 +1126,20 @@ body[theme-mode='dark'] .prompt-center-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+.prompt-resource-editor {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+.prompt-resource-editor legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.prompt-resource-editor .prompt-center-muted {
+  margin: 0;
 }
 .prompt-bundle-skill {
   display: flex;

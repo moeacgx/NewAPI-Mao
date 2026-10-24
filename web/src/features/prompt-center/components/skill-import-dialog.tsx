@@ -94,7 +94,7 @@ export function SkillImportDialog(props: {
           <DialogTitle>{t('Skill store')}</DialogTitle>
           <DialogDescription>
             {t(
-              'Import a copy, review its text and choose permissions before publishing. Scripts and tools do not run.'
+              'Import a progressive skill copy, review instructions and references, then choose permissions before publishing. Skill scripts are not executed.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -131,7 +131,7 @@ export function SkillImportDialog(props: {
             </div>
             <p className='text-muted-foreground text-xs'>
               {t(
-                'Use a public GitHub repository, directory or SKILL.md link. Only skill text is imported; scripts and tools do not run.'
+                'Use a public GitHub repository, directory or SKILL.md link. Skill instructions and supported text references are imported for on-demand reading.'
               )}
             </p>
           </form>
@@ -152,7 +152,7 @@ export function SkillImportDialog(props: {
             />
             <p className='text-muted-foreground text-xs'>
               {t(
-                'ZIP files are checked on the server. Only skill text is imported.'
+                'ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.'
               )}
             </p>
           </div>

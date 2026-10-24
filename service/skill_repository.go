@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -119,66 +120,81 @@ func importRepositorySkills(ctx context.Context, repositoryURL string, client *h
 	if err := common.Unmarshal(treeBytes, &tree); err != nil || tree.Truncated || len(tree.Tree) > 4096 {
 		return nil, errors.New("仓库文件树不完整或超过 4096 项，请使用更小的技能仓库")
 	}
-	files := make([]string, 0, 16)
+	files := make([]string, 0, model.MaxProgressiveSkills)
+	allMains := make([]string, 0)
 	seen := make(map[string]bool)
 	for _, entry := range tree.Tree {
-		if !fs.ValidPath(entry.Path) || strings.ContainsAny(entry.Path, "\\\x00") || !utf8.ValidString(entry.Path) || seen[entry.Path] {
-			return nil, errors.New("仓库包含无效或重复文件路径")
+		if !fs.ValidPath(entry.Path) || strings.ContainsAny(entry.Path, "\\:\x00") || !utf8.ValidString(entry.Path) || len(entry.Path) > 1024 || seen[entry.Path] {
+			return nil, errors.New("仓库存在无效或重复的文件路径")
 		}
 		seen[entry.Path] = true
+		if strings.EqualFold(path.Base(entry.Path), "SKILL.md") {
+			allMains = append(allMains, entry.Path)
+		}
 		selected := selectedPath == "" || entry.Path == selectedPath || (!blob && strings.HasPrefix(entry.Path, selectedPath+"/"))
 		if !selected {
 			continue
 		}
 		if entry.Mode == "160000" || entry.Type == "commit" {
-			return nil, errors.New("选中的技能目录不能包含 Git 子模块")
+			return nil, errors.New("技能目录不能包含 Git 子模块")
 		}
-		if !strings.EqualFold(path.Base(entry.Path), "SKILL.md") || (blob && entry.Path != selectedPath) {
+		if !strings.EqualFold(path.Base(entry.Path), "SKILL.md") {
 			continue
 		}
 		if entry.Type != "blob" || (entry.Mode != "100644" && entry.Mode != "100755") {
-			return nil, errors.New("技能文件必须为普通文件，不能使用符号链接")
+			return nil, errors.New("技能入口必须为普通文件，不能使用符号链接")
 		}
-		if entry.Size < 0 || entry.Size > 64*1024 {
-			return nil, errors.New("单个技能文件不能超过 64 KiB")
+		if entry.Size < 0 || entry.Size > model.MaxSkillFileBytes {
+			return nil, fmt.Errorf("技能文件 %q 的大小无效或超过 8 MiB", entry.Path)
 		}
 		files = append(files, entry.Path)
 	}
-	if len(files) == 0 || len(files) > 16 {
-		return nil, errors.New("所选仓库或目录必须包含 1 至 16 个 SKILL.md 文件")
+	if len(files) == 0 || len(files) > model.MaxProgressiveSkills {
+		return nil, errors.New("技能仓库必须包含 1 至 128 个 SKILL.md 文件")
 	}
 	sort.Strings(files)
-	items := make([]model.PromptSkill, 0, len(files))
-	total, description := 0, ""
+	sort.Strings(allMains)
+	selectedMains := make(map[string]bool, len(files))
 	for _, filename := range files {
-		segments := strings.Split(filename, "/")
+		selectedMains[filename] = true
+	}
+	textFiles := make(map[string][]byte)
+	total := 0
+	for _, entry := range tree.Tree {
+		if !supportedSkillTextFile(entry.Path) {
+			continue
+		}
+		skillOwner := skillFileOwner(entry.Path, allMains)
+		if skillOwner < 0 || !selectedMains[allMains[skillOwner]] {
+			continue
+		}
+		if entry.Type != "blob" || (entry.Mode != "100644" && entry.Mode != "100755") {
+			return nil, fmt.Errorf("技能文件 %q 必须为普通文件，不能使用符号链接", entry.Path)
+		}
+		if entry.Size < 0 || entry.Size > model.MaxSkillFileBytes {
+			return nil, fmt.Errorf("技能文件 %q 的大小无效或超过 8 MiB", entry.Path)
+		}
+		if len(textFiles) >= model.MaxSkillResourceFiles || int64(total)+entry.Size > maxSkillExpandedBytes {
+			return nil, errors.New("技能包不能超过 64 MiB 或 4096 个文本文件")
+		}
+		segments := strings.Split(entry.Path, "/")
 		for i := range segments {
 			segments[i] = url.PathEscape(segments[i])
 		}
-		body, err := reader.read("https://raw.githubusercontent.com/"+owner+"/"+repository+"/"+commit.SHA+"/"+strings.Join(segments, "/"), 64*1024)
+		body, err := reader.read("https://raw.githubusercontent.com/"+owner+"/"+repository+"/"+commit.SHA+"/"+strings.Join(segments, "/"), model.MaxSkillFileBytes)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("读取技能文件 %q 失败：%w", entry.Path, err)
 		}
 		total += len(body)
 		if total > maxSkillExpandedBytes {
-			return nil, errors.New("技能文件合计不能超过 512 KiB")
+			return nil, errors.New("技能包正文合计不能超过 64 MiB")
 		}
-		item, info, err := parseSkillMarkdown(body, filename)
-		if err != nil {
-			return nil, err
+		if !utf8.Valid(body) || strings.ContainsRune(string(body), 0) {
+			return nil, fmt.Errorf("技能文件 %q 必须为 UTF-8 文本", entry.Path)
 		}
-		items = append(items, item)
-		description = info
+		textFiles[entry.Path] = body
 	}
-	draft := &model.PromptTemplate{Title: repository, Kind: "bundle", Skills: items, GroupIDs: []int{}}
-	if len(items) == 1 {
-		draft.Kind, draft.Title, draft.Content, draft.Description = "prompt", items[0].Title, items[0].Content, description
-		draft.Skills = nil
-	}
-	if err := model.NormalizePromptTemplateContent(draft); err != nil {
-		return nil, err
-	}
-	return draft, nil
+	return buildProgressiveSkillDraft(repository, files, textFiles)
 }
 
 type skillRepositoryReader struct {

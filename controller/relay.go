@@ -86,10 +86,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	//originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
 
 	var (
-		newAPIError *types.NewAPIError
-		ws          *websocket.Conn
-		relayInfo   *relaycommon.RelayInfo
+		newAPIError           *types.NewAPIError
+		ws                    *websocket.Conn
+		relayInfo             *relaycommon.RelayInfo
+		gatewaySkillAdmission *service.GatewaySkillAdmission
 	)
+	defer func() { gatewaySkillAdmission.Release() }()
 	defer func() {
 		service.FinishChannelMetricRequest(c, relayInfo, newAPIError)
 	}()
@@ -125,6 +127,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	var originalRequestBody []byte
+	var originalRequestBytes int64
 	if relayFormat != types.RelayFormatOpenAIRealtime {
 		bodyStorage, bodyErr := common.GetBodyStorage(c)
 		if bodyErr != nil {
@@ -135,6 +138,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			return
 		}
+		originalRequestBytes = bodyStorage.Size()
 		originalRequestBody, bodyErr = bodyStorage.Bytes()
 		if bodyErr != nil {
 			newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -234,6 +238,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	maxRetries := service.RelayMaxRetries(retryParam)
 
 	for attemptIndex := 0; attemptIndex <= maxRetries; attemptIndex++ {
+		service.ResetGatewaySkillResponse(c)
 		relayInfo.RetryIndex = attemptIndex
 		activeRequest.Attempt(activeStream, attemptIndex)
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
@@ -251,25 +256,37 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if attemptRequest != nil {
 			relayInfo.Request = attemptRequest
 		}
-		if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
-			newAPIError = billingErr
+		relayInfo, newAPIError = discoverGatewaySkills(c, relayInfo, relayFormat, &gatewaySkillAdmission, originalRequestBytes)
+		if service.IsGatewaySkillResourceError(newAPIError) {
+			// 本地准入和期限不是渠道故障，不触发封禁、亲和淘汰或渠道重试。
+			service.FinishChannelMetricAttempt(c, relayInfo, newAPIError, false, string(newAPIError.GetErrorCode()))
 			break
 		}
-		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
-			newAPIError = billingErr
-			break
-		}
-		service.BeginChannelMetricAttempt(c, relayInfo, channel.Id, channel.Name, channel.Type)
+		if newAPIError == nil {
+			if billingErr := prepareTokenPromptBilling(c, relayInfo); billingErr != nil {
+				newAPIError = billingErr
+				break
+			}
+			if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
+				newAPIError = billingErr
+				break
+			}
+			service.BeginChannelMetricAttempt(c, relayInfo, channel.Id, channel.Name, channel.Type)
 
-		switch relayFormat {
-		case types.RelayFormatOpenAIRealtime:
-			newAPIError = relay.WssHelper(c, relayInfo)
-		case types.RelayFormatClaude:
-			newAPIError = relay.ClaudeHelper(c, relayInfo)
-		case types.RelayFormatGemini:
-			newAPIError = geminiRelayHandler(c, relayInfo)
-		default:
-			newAPIError = relayHandler(c, relayInfo)
+			gatewaySkillResponse := service.BeginGatewaySkillResponse(c, relayFormat)
+			switch relayFormat {
+			case types.RelayFormatOpenAIRealtime:
+				newAPIError = relay.WssHelper(c, relayInfo)
+			case types.RelayFormatClaude:
+				newAPIError = relay.ClaudeHelper(c, relayInfo)
+			case types.RelayFormatGemini:
+				newAPIError = geminiRelayHandler(c, relayInfo)
+			default:
+				newAPIError = relayHandler(c, relayInfo)
+			}
+			if gatewaySkillResponse != nil {
+				gatewaySkillResponse.Finish(newAPIError == nil)
+			}
 		}
 
 		if newAPIError == nil {
@@ -278,6 +295,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			service.FinishChannelMetricAttempt(c, relayInfo, nil, false, "")
 			return
 		}
+		service.ResetGatewaySkillResponse(c)
 
 		service.RecordUpstreamPolicyError(c, newAPIError, "response")
 

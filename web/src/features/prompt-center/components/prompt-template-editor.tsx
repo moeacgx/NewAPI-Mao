@@ -42,6 +42,7 @@ import {
 } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 import { BundleSkillEditor } from './bundle-skill-editor'
+import { SkillResourceEditor } from './skill-resource-editor'
 
 export function PromptTemplateEditor(props: {
   template?: PromptTemplate
@@ -60,7 +61,26 @@ export function PromptTemplateEditor(props: {
     queryFn: getPromptCategories,
   })
   const form = useForm<PromptTemplateForm>({
-    resolver: zodResolver(promptTemplateSchema),
+    resolver: (values, context, options) => {
+      // 单技能只编辑顶层字段，先同步隐藏的技能元数据再进行完整校验。
+      const normalizedValues = { ...values }
+      if (values.kind !== 'bundle') {
+        normalizedValues.skills = []
+        if (values.load_mode === 'progressive') {
+          normalizedValues.skills.push({
+            ...values.skills?.[0],
+            title: values.title.trim(),
+            description: values.description,
+            content: values.content,
+          })
+        }
+      }
+      return zodResolver(promptTemplateSchema)(
+        normalizedValues,
+        context,
+        options
+      )
+    },
     defaultValues: {
       title: props.template?.title ?? '',
       description: props.template?.description ?? '',
@@ -70,9 +90,12 @@ export function PromptTemplateEditor(props: {
       version: props.template?.version ?? 0,
       group_ids: props.template?.group_ids ?? [],
       kind: props.template?.kind ?? 'prompt',
+      load_mode:
+        props.template?.load_mode ||
+        (props.template?.id ? 'eager' : 'progressive'),
       category_id: props.template?.category_id ?? 0,
       skills: props.template?.skills?.map((skill) => ({
-        title: skill.title,
+        ...skill,
         content: skill.content ?? '',
       })) ?? [
         { title: '', content: '' },
@@ -82,13 +105,13 @@ export function PromptTemplateEditor(props: {
   })
   const selectedGroups = form.watch('group_ids')
   const kind = form.watch('kind')
+  const progressive = form.watch('load_mode') === 'progressive'
   const categoryId = form.watch('category_id') ?? 0
   const mutation = useMutation({
     mutationFn: (values: PromptTemplateForm) =>
       savePromptTemplate(
         {
           ...values,
-          skills: values.kind === 'bundle' ? values.skills : [],
           content: values.kind === 'bundle' ? '' : values.content,
         },
         props.template?.id
@@ -114,7 +137,7 @@ export function PromptTemplateEditor(props: {
           </DialogTitle>
           <DialogDescription>
             {t(
-              'Updates apply to installed tokens on subsequent requests. Only text is loaded; scripts and tools are not executed.'
+              'Updates apply on subsequent requests. Skills are read by gateway tools; skill scripts are not executed.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -123,6 +146,44 @@ export function PromptTemplateEditor(props: {
           onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
         >
           <fieldset disabled={mutation.isPending} className='space-y-4'>
+            <div className='bg-primary/[0.04] border-primary/15 space-y-2 rounded-xl border p-4'>
+              <Label htmlFor={`${fieldId}-load-mode`}>
+                {t('Loading mode')}
+              </Label>
+              <select
+                id={`${fieldId}-load-mode`}
+                className='bg-background h-9 w-full rounded-md border px-3 text-sm'
+                {...form.register('load_mode')}
+              >
+                <option value='progressive'>
+                  {t('Progressive skill disclosure')}
+                </option>
+                <option value='eager'>{t('Always load prompt')}</option>
+              </select>
+              <p className='text-muted-foreground text-xs leading-5'>
+                {progressive
+                  ? t(
+                      'The model first sees the skill catalog. The gateway reads instructions and references only when needed. Extra model rounds are billed; scripts are not executed.'
+                    )
+                  : t(
+                      'The full prompt is added to every matching request. Each prompt is limited to 32768 bytes, with 65536 enabled bytes per token.'
+                    )}
+              </p>
+              {progressive && (
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Up to 8 MiB per file and 64 MiB per package. Files are read in pages; model context limits still apply.'
+                  )}
+                </p>
+              )}
+              {!progressive && (
+                <p className='text-xs leading-5 text-amber-700 dark:text-amber-400'>
+                  {t(
+                    'Saving in always-loaded mode removes reference files. Choose progressive disclosure to keep them.'
+                  )}
+                </p>
+              )}
+            </div>
             <div className='grid gap-3 sm:grid-cols-2'>
               <div className='space-y-1.5'>
                 <Label htmlFor={`${fieldId}-kind`}>{t('Skill type')}</Label>
@@ -201,8 +262,14 @@ export function PromptTemplateEditor(props: {
               <Textarea
                 id={`${fieldId}-description`}
                 maxLength={512}
+                aria-invalid={Boolean(form.formState.errors.description)}
                 {...form.register('description')}
               />
+              {form.formState.errors.description && (
+                <p role='alert' className='text-destructive text-xs'>
+                  {t(form.formState.errors.description.message || '')}
+                </p>
+              )}
             </div>
             {kind === 'bundle' ? (
               <BundleSkillEditor form={form} fieldId={fieldId} />
@@ -220,9 +287,11 @@ export function PromptTemplateEditor(props: {
                     if (!file) return
                     setImportError('')
                     try {
-                      if (file.size > 32768) {
+                      if (file.size > (progressive ? 8 * 1024 * 1024 : 32768)) {
                         throw new Error(
-                          'Prompt content must not exceed 32768 bytes'
+                          progressive
+                            ? 'Enter skill text up to 8 MiB per file'
+                            : 'Prompt content must not exceed 32768 bytes'
                         )
                       }
                       const text = await file.text()
@@ -259,8 +328,15 @@ export function PromptTemplateEditor(props: {
                 />
                 {form.formState.errors.content && (
                   <p role='alert' className='text-destructive text-xs'>
-                    {t('Enter prompt text up to 32768 bytes')}
+                    {t(form.formState.errors.content.message || '')}
                   </p>
+                )}
+                {progressive && (
+                  <SkillResourceEditor
+                    form={form}
+                    skillIndex={0}
+                    fieldId={`${fieldId}-single`}
+                  />
                 )}
               </div>
             )}

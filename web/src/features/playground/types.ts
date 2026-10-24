@@ -28,6 +28,20 @@ export interface MessageVersion {
   content: string
 }
 
+export interface GatewaySkillUsage {
+  templateId: number
+  skillId: string
+  version: number
+  title: string
+}
+
+export interface GatewaySkillsMetadata {
+  version: 1
+  total: number
+  skills: GatewaySkillUsage[]
+  truncated: boolean
+}
+
 export interface Message {
   key: string
   from: MessageRole
@@ -49,6 +63,7 @@ export interface Message {
   isContentComplete?: boolean
   status?: MessageStatus
   errorCode?: string | null
+  gatewaySkills?: GatewaySkillsMetadata
 }
 
 // API payload types

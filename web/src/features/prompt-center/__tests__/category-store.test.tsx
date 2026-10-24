@@ -148,7 +148,11 @@ describe('技能商店与 ZIP 导入', () => {
     expect(screen.getByText('Writing kit')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Import and edit' }))
     await waitFor(() =>
-      expect(onImported).toHaveBeenCalledWith({ ...draft, id: 0 })
+      expect(onImported).toHaveBeenCalledWith({
+        ...draft,
+        load_mode: 'progressive',
+        id: 0,
+      })
     )
     expect(api.post).toHaveBeenCalledExactlyOnceWith(
       '/api/prompt-center/admin/store/bundled%3Awriting-kit/import'
@@ -225,7 +229,11 @@ describe('技能商店与 ZIP 导入', () => {
     expect(onImported).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Import repository' }))
     await waitFor(() =>
-      expect(onImported).toHaveBeenCalledWith({ ...draft, id: 0 })
+      expect(onImported).toHaveBeenCalledWith({
+        ...draft,
+        load_mode: 'progressive',
+        id: 0,
+      })
     )
     expect(api.post).toHaveBeenCalledTimes(2)
     expect(api.post).toHaveBeenLastCalledWith(
@@ -270,7 +278,11 @@ describe('技能商店与 ZIP 导入', () => {
       finish?.({ data: { success: true, data: draft } })
     })
     await waitFor(() =>
-      expect(onImported).toHaveBeenCalledWith({ ...draft, id: 0 })
+      expect(onImported).toHaveBeenCalledWith({
+        ...draft,
+        load_mode: 'progressive',
+        id: 0,
+      })
     )
     expect(button).not.toBeDisabled()
   })

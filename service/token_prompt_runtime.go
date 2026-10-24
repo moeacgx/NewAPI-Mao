@@ -17,15 +17,7 @@ const tokenPromptManagedKey = "token_prompt_managed"
 func ApplySelectedTokenPrompts(c *gin.Context, format types.RelayFormat, body []byte) ([]byte, error) {
 	c.Set(tokenPromptAuditKey, nil)
 	tokenID := common.GetContextKeyInt(c, constant.ContextKeyTokenId)
-	if tokenID <= 0 || c.Request == nil || c.Request.URL == nil {
-		return body, nil
-	}
-	path := c.Request.URL.Path
-	supported := (format == types.RelayFormatOpenAI && strings.HasSuffix(path, "/chat/completions")) ||
-		(format == types.RelayFormatOpenAIResponses && strings.HasSuffix(path, "/responses")) ||
-		(format == types.RelayFormatClaude && strings.HasSuffix(path, "/messages")) ||
-		(format == types.RelayFormatGemini && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")))
-	if !supported {
+	if tokenID <= 0 || !supportsTokenPromptEndpoint(c, format) {
 		return body, nil
 	}
 	prompts, err := model.GetActiveTokenPrompts(tokenID, common.GetContextKeyString(c, constant.ContextKeyUsingGroup))
@@ -50,6 +42,17 @@ func ApplySelectedTokenPrompts(c *gin.Context, format types.RelayFormat, body []
 	return modified, nil
 }
 
+func supportsTokenPromptEndpoint(c *gin.Context, format types.RelayFormat) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := c.Request.URL.Path
+	return (format == types.RelayFormatOpenAI && strings.HasSuffix(path, "/chat/completions")) ||
+		(format == types.RelayFormatOpenAIResponses && strings.HasSuffix(path, "/responses")) ||
+		(format == types.RelayFormatClaude && strings.HasSuffix(path, "/messages")) ||
+		(format == types.RelayFormatGemini && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")))
+}
+
 // TokenPromptManaged 表示本请求已装载过模板；换组不命中时仍需恢复计数与计费快照。
 func TokenPromptManaged(c *gin.Context) bool { return c.GetBool(tokenPromptManagedKey) }
 
@@ -59,5 +62,8 @@ func AppendTokenPromptLog(c *gin.Context, other map[string]interface{}) {
 	}
 	if audit, ok := c.Get(tokenPromptAuditKey); ok && audit != nil {
 		other["prompt_templates"] = audit
+	}
+	if audit, ok := c.Get(gatewaySkillAuditKey); ok && audit != nil {
+		other["gateway_skills"] = audit
 	}
 }

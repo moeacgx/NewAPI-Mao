@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/perf_metrics_setting"
 	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -47,6 +48,26 @@ func TestRecordRelayFailureExcludesClientCancellation(t *testing.T) {
 
 	relayErr := types.NewError(context.Canceled, types.ErrorCodeDoRequestFailed)
 	require.False(t, shouldRecordRelayFailure(info, relayErr))
+}
+
+func TestRecordRelayFailureExcludesGatewaySkillResourceErrors(t *testing.T) {
+	info := &relaycommon.RelayInfo{OriginModelName: "gateway-skill-resource-test", UsingGroup: "default"}
+	cases := []struct {
+		code   types.ErrorCode
+		status int
+	}{
+		{code: "gateway_skills_busy", status: 429},
+		{code: "gateway_skills_context_too_large", status: 413},
+		{code: "gateway_skills_timeout", status: 504},
+	}
+	for _, test := range cases {
+		t.Run(string(test.code), func(t *testing.T) {
+			relayErr := types.NewErrorWithStatusCode(context.DeadlineExceeded, test.code, test.status, types.ErrOptionWithSkipRetry())
+			assert.False(t, shouldRecordRelayFailure(info, relayErr))
+		})
+	}
+	relayErr := types.NewErrorWithStatusCode(context.DeadlineExceeded, types.ErrorCodeDoRequestFailed, 504)
+	assert.True(t, shouldRecordRelayFailure(info, relayErr), "真实上游超时仍应计入模型可靠性")
 }
 
 func TestMatchesFailureFilterRuleSupportsFieldsModesAndInvalidRegex(t *testing.T) {

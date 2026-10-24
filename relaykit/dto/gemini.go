@@ -246,6 +246,7 @@ func (g *GeminiInlineData) UnmarshalJSON(data []byte) error {
 }
 
 type FunctionCall struct {
+	ID           string `json:"id,omitempty"`
 	FunctionName string `json:"name"`
 	Arguments    any    `json:"args"`
 }

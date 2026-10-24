@@ -186,7 +186,7 @@ export function PromptCenter() {
                 />
                 <span>
                   {t(
-                    'Supports Chat Completions, Responses, Claude Messages and Gemini conversations. Markdown and SKILL.md are text only; scripts, attachments and tools do not run.'
+                    'Supports Chat Completions, Responses, Claude Messages and Gemini conversations. Skills and text references are read on demand by the gateway; skill scripts are not executed.'
                   )}
                 </span>
               </p>

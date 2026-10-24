@@ -142,11 +142,14 @@ function TokenPromptEditor(props: {
 
   return (
     <div className='space-y-3'>
+      <p className='bg-muted/20 text-muted-foreground rounded-xl border p-3 text-xs leading-5'>
+        {t(
+          'Install up to 8 skill packages. Always-loaded prompts share a 65536-byte limit. Progressive skills add only the text read to model context; extra model rounds are billed.'
+        )}
+      </p>
       {invalid && (
         <p role='alert' className='text-destructive'>
-          {t(
-            'Install at most 8 prompts with up to 65536 enabled bytes in total.'
-          )}
+          {t('Install at most 8 skill packages per token.')}
         </p>
       )}
       {bindings.length === 0 && (

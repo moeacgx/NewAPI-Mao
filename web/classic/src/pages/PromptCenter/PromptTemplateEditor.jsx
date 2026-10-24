@@ -17,13 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Button, Modal } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
 import BundleSkillsEditor from './BundleSkillsEditor';
 import ArchiveImport from './ArchiveImport';
 import RepositoryImport from './RepositoryImport';
+import SkillResourcesEditor from './SkillResourcesEditor';
+import { validatePromptTemplateDraft } from './validation';
 
 export default function PromptTemplateEditor(props) {
   const { t } = useTranslation();
@@ -37,17 +39,22 @@ export default function PromptTemplateEditor(props) {
     sort_order: 0,
     kind: 'prompt',
     category_id: 0,
-    skills: [
-      { title: '', content: '' },
-      { title: '', content: '' },
-    ],
     ...props.template,
+    skills: props.template?.skills || [],
+    load_mode:
+      props.template?.load_mode ||
+      (props.template?.id ? 'eager' : 'progressive'),
   });
   const [groups, setGroups] = useState([]);
   const [error, setError] = useState('');
+  const errorRef = useRef(null);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const busy = saving || importing;
+  const progressive = draft.load_mode === 'progressive';
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [categories, setCategories] = useState(props.categories || []);
   const [categoriesLoaded, setCategoriesLoaded] = useState(
@@ -94,44 +101,9 @@ export default function PromptTemplateEditor(props) {
   const save = async (event) => {
     event.preventDefault();
     if (busy) return;
-    if (draft.kind === 'bundle') {
-      const titles = draft.skills.map((skill) => skill.title.trim());
-      const combined = draft.skills
-        .map((skill) => `## 技能：${skill.title.trim()}\n${skill.content}`)
-        .join('\n\n');
-      if (
-        draft.skills.length < 2 ||
-        draft.skills.length > 16 ||
-        new Set(titles).size !== titles.length ||
-        draft.skills.some(
-          (skill) =>
-            !skill.title.trim() ||
-            Array.from(skill.title.trim()).length > 80 ||
-            !skill.content?.trim() ||
-            new TextEncoder().encode(skill.content).length > 32768,
-        ) ||
-        new TextEncoder().encode(combined).length > 32768
-      ) {
-        setError(
-          t(
-            'Use 2 to 16 unique skill titles and keep the combined text within 32768 bytes',
-          ),
-        );
-        return;
-      }
-    }
-    if (
-      !draft.title.trim() ||
-      (draft.kind !== 'bundle' &&
-        (!draft.content.trim() ||
-          new TextEncoder().encode(draft.content).length > 32768)) ||
-      (draft.enabled && !draft.group_ids.length)
-    ) {
-      setError(
-        t(
-          'Enter a title, prompt text up to 32768 bytes, and at least one allowed group',
-        ),
-      );
+    const validationError = validatePromptTemplateDraft(draft);
+    if (validationError) {
+      setError(t(validationError));
       return;
     }
     setSaving(true);
@@ -157,15 +129,28 @@ export default function PromptTemplateEditor(props) {
           enabled,
           sort_order,
           kind: draft.kind,
+          load_mode: draft.load_mode,
           category_id: draft.category_id,
           ...(draft.kind === 'bundle'
             ? {
                 skills: draft.skills.map((skill) => ({
+                  ...skill,
                   title: skill.title.trim(),
                   content: skill.content,
                 })),
               }
-            : {}),
+            : {
+                skills: [
+                  {
+                    ...draft.skills[0],
+                    title: title.trim(),
+                    description,
+                    content,
+                    path: draft.skills[0]?.path || 'SKILL.md',
+                    resources: draft.skills[0]?.resources || [],
+                  },
+                ],
+              }),
           ...(draft.id ? { version } : {}),
         },
       );
@@ -186,28 +171,34 @@ export default function PromptTemplateEditor(props) {
       group_ids: [],
       enabled: false,
       sort_order: 0,
-      skills: [
-        { title: '', content: '' },
-        { title: '', content: '' },
-      ],
       ...imported,
+      skills: imported.skills || [],
+      load_mode: imported.load_mode || 'progressive',
     });
     setError('');
   };
   const importText = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 32768) {
-      setError(t('Prompt text must not exceed 32768 bytes'));
+    event.target.value = '';
+    if (file.size > 8 * 1024 * 1024) {
+      setError(t('Each skill file must not exceed 8 MiB'));
       return;
     }
+    setImporting(true);
     try {
-      update('content', await file.text());
+      const content = await file.text();
+      setDraft((current) => ({
+        ...current,
+        content,
+        load_mode: 'progressive',
+      }));
       setError('');
     } catch {
       setError(t('Unable to read prompt file'));
+    } finally {
+      setImporting(false);
     }
-    event.target.value = '';
   };
   return (
     <Modal
@@ -225,11 +216,6 @@ export default function PromptTemplateEditor(props) {
       style={{ maxWidth: 'calc(100vw - 24px)' }}
     >
       <form className='prompt-center-form' onSubmit={save}>
-        {error && (
-          <p role='alert' className='prompt-center-error'>
-            {error}
-          </p>
-        )}
         <ArchiveImport
           disabled={busy}
           onBusyChange={setImporting}
@@ -240,6 +226,25 @@ export default function PromptTemplateEditor(props) {
           onBusyChange={setImporting}
           onImport={importDraft}
         />
+        <label htmlFor={`${prefix}-load-mode`}>{t('Loading mode')}</label>
+        <select
+          id={`${prefix}-load-mode`}
+          disabled={busy}
+          value={draft.load_mode}
+          onChange={(event) => update('load_mode', event.target.value)}
+        >
+          <option value='progressive'>{t('On-demand skill')}</option>
+          <option value='eager'>{t('Always-loaded prompt')}</option>
+        </select>
+        <p className='prompt-center-muted'>
+          {progressive
+            ? t(
+                'The model sees the skill directory first. The gateway reads selected files as needed and bills each model round.',
+              )
+            : t(
+                'The full prompt is added to every request. A template is limited to 32768 bytes.',
+              )}
+        </p>
         <label htmlFor={`${prefix}-kind`}>{t('Skill type')}</label>
         <select
           id={`${prefix}-kind`}
@@ -253,7 +258,13 @@ export default function PromptTemplateEditor(props) {
                 current.skills.length >= 2
                   ? current.skills
                   : [
-                      { title: '', content: '' },
+                      {
+                        ...current.skills[0],
+                        title: current.title,
+                        description: current.description,
+                        content: current.content,
+                        path: current.skills[0]?.path || 'SKILL.md',
+                      },
                       { title: '', content: '' },
                     ],
             }))
@@ -301,6 +312,7 @@ export default function PromptTemplateEditor(props) {
           <BundleSkillsEditor
             prefix={prefix}
             skills={draft.skills}
+            progressive={progressive}
             disabled={busy}
             onChange={(items) => update('skills', items)}
           />
@@ -315,6 +327,35 @@ export default function PromptTemplateEditor(props) {
               value={draft.content}
               onChange={(event) => update('content', event.target.value)}
             />
+            {progressive && (
+              <>
+                <label htmlFor={`${prefix}-skill-path`}>
+                  {t('Skill file path')}
+                </label>
+                <input
+                  id={`${prefix}-skill-path`}
+                  disabled={busy}
+                  value={draft.skills[0]?.path || 'SKILL.md'}
+                  onChange={(event) =>
+                    update('skills', [
+                      { ...draft.skills[0], path: event.target.value },
+                      ...draft.skills.slice(1),
+                    ])
+                  }
+                />
+                <SkillResourcesEditor
+                  prefix={prefix}
+                  resources={draft.skills[0]?.resources}
+                  disabled={busy}
+                  onChange={(resources) =>
+                    update('skills', [
+                      { ...draft.skills[0], resources },
+                      ...draft.skills.slice(1),
+                    ])
+                  }
+                />
+              </>
+            )}
             <label htmlFor={`${prefix}-file`}>
               {t('Import Markdown or SKILL.md as text')}
             </label>
@@ -329,7 +370,7 @@ export default function PromptTemplateEditor(props) {
         )}
         <p className='prompt-center-muted'>
           {t(
-            'Text prompts only. Scripts, tools and attachments in full Skills are not executed.',
+            'Skill files and reference resources are text only. The gateway does not execute scripts.',
           )}
         </p>
         <fieldset disabled={busy || !groupsLoaded}>
@@ -391,18 +432,30 @@ export default function PromptTemplateEditor(props) {
           />
           {t('Published')}
         </label>
-        <div className='prompt-center-row'>
-          <Button
-            htmlType='submit'
-            theme='solid'
-            loading={saving}
-            disabled={busy || !groupsLoaded || !categoriesLoaded}
-          >
-            {t('Save template')}
-          </Button>
-          <Button disabled={busy} onClick={props.onCancel}>
-            {t('Cancel')}
-          </Button>
+        <div className='prompt-template-actions'>
+          {error && (
+            <p
+              ref={errorRef}
+              role='alert'
+              tabIndex={-1}
+              className='prompt-center-error'
+            >
+              {error}
+            </p>
+          )}
+          <div className='prompt-center-row'>
+            <Button
+              htmlType='submit'
+              theme='solid'
+              loading={saving}
+              disabled={busy || !groupsLoaded || !categoriesLoaded}
+            >
+              {t('Save template')}
+            </Button>
+            <Button disabled={busy} onClick={props.onCancel}>
+              {t('Cancel')}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>
