@@ -280,6 +280,7 @@ describe('渐进式技能的管理契约', () => {
     })
     renderEditor(structuredClone(template) as unknown as PromptTemplate)
     await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Reference content' }),
       { target: { value: 'New rule draft' } }
@@ -314,6 +315,7 @@ describe('渐进式技能的管理契约', () => {
   it('切到始终装载时提示不保留资源，未保存切回时恢复资源草稿', async () => {
     renderEditor(structuredClone(template) as unknown as PromptTemplate)
     await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Reference content' }),
       { target: { value: 'Unsaved reference' } }
@@ -326,6 +328,7 @@ describe('渐进式技能的管理契约', () => {
       )
     ).toBeInTheDocument()
     fireEvent.change(mode, { target: { value: 'progressive' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     expect(
       screen.getByRole('textbox', { name: 'Reference content' })
     ).toHaveValue('Unsaved reference')
@@ -368,9 +371,9 @@ describe('渐进式技能的管理契约', () => {
     ).toEqual(['Write', 'Review'])
     expect(
       screen
-        .getAllByRole('textbox', { name: 'Reference content' })
-        .map((input) => (input as HTMLTextAreaElement).value)
-    ).toEqual(['Writing style', 'Review rules'])
+        .getAllByRole('textbox', { name: 'Reference path' })
+        .map((input) => (input as HTMLInputElement).value)
+    ).toEqual(['references/writing.md', 'references/review.md'])
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith(
@@ -453,5 +456,86 @@ describe('技能用途说明长度', () => {
         })
       )
     )
+  })
+})
+
+describe('引用文件正文默认折叠', () => {
+  it('已有引用默认只显示路径，展开后可编辑，折叠状态下保存仍提交完整正文', async () => {
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    expect(screen.getByRole('textbox', { name: 'Reference path' })).toHaveValue(
+      'references/rules.md'
+    )
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Reference content' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('Check ownership.')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          skills: [
+            expect.objectContaining({
+              resources: [
+                { path: 'references/rules.md', content: 'Check ownership.' },
+              ],
+            }),
+          ],
+        })
+      )
+    )
+  })
+
+  it('新增引用文件默认展开以便填写，已有引用保持折叠', async () => {
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Add reference file' }))
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Reference content' })
+        .map((button) => button.getAttribute('aria-expanded'))
+    ).toEqual(['false', 'true'])
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('')
+  })
+
+  it('折叠的引用正文校验失败时自动展开并显示错误', async () => {
+    renderEditor({
+      ...template,
+      skills: [
+        {
+          ...template.skills[0],
+          resources: [{ path: 'references/rules.md', content: 'bad\0text' }],
+        },
+      ],
+    } as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Reference text must not exceed 8 MiB per file')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('bad\0text')
+    expect(api.put).not.toHaveBeenCalled()
   })
 })
