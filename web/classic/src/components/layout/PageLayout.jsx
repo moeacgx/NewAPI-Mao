@@ -22,6 +22,7 @@ import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './SiderBar';
 import App from '../../App';
 import FooterBar from './Footer';
+import TicketFloatingButton from '../../pages/Tickets/TicketFloatingButton';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from '../common/ErrorBoundary';
 import React, { useContext, useEffect, useState } from 'react';
@@ -232,6 +233,7 @@ const PageLayout = () => {
             }}
           >
             <SiderBar
+              key={userState?.user?.id || 'anonymous'}
               collapsed={collapsed}
               onSidebarToggle={toggleCollapsed}
               onNavigate={() => {
@@ -280,6 +282,7 @@ const PageLayout = () => {
         </Layout>
       </Layout>
       <ToastContainer />
+      <TicketFloatingButton user={userState?.user} />
     </Layout>
   );
 };

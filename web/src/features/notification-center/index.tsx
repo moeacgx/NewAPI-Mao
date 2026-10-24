@@ -113,6 +113,10 @@ const EVENT_LABEL_KEYS: Record<string, string> = {
   [FALLBACK_EVENT.value]: FALLBACK_EVENT.label,
   channel_disabled: 'Channel disabled',
   channel_enabled: 'Channel enabled',
+  ticket_created: 'Ticket created',
+  ticket_user_replied: 'Ticket user replied',
+  ticket_admin_replied: 'Ticket administrator replied',
+  ticket_status_changed: 'Ticket status changed',
 }
 
 const EVENT_DESCRIPTION_KEYS: Record<string, string> = {
@@ -120,6 +124,23 @@ const EVENT_DESCRIPTION_KEYS: Record<string, string> = {
   channel_disabled: 'Triggered after a channel is automatically disabled.',
   channel_enabled:
     'Triggered after an automatically disabled channel recovers.',
+  ticket_created: 'Triggered when a user creates a support ticket.',
+  ticket_user_replied: 'Triggered when a user replies to a support ticket.',
+  ticket_admin_replied:
+    'Triggered when an administrator replies to a support ticket.',
+  ticket_status_changed: 'Triggered when a support ticket status is changed.',
+}
+
+const TICKET_VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
+  ticket_id: 'Ticket ID',
+  title: 'Ticket title',
+  user_id: 'Ticket requester user ID',
+  category: 'Ticket category code',
+  priority: 'Ticket priority code',
+  status: 'Ticket status code',
+  actor_id: 'User ID that performed the ticket action',
+  actor_role: 'Ticket actor role (user, admin or system)',
+  create_time: 'Ticket event creation time',
 }
 
 const VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
@@ -160,6 +181,12 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   module_id: 'channel-quality',
   event_type: 'extension.channel-quality.alert',
   event_key: 'event-123',
+  ticket_id: '123',
+  category: 'technical',
+  priority: 'normal',
+  status: 'open',
+  actor_id: '123',
+  actor_role: 'user',
 }
 
 const DEFAULT_VARIABLE_DESCRIPTION = 'Custom event payload value'
@@ -829,15 +856,21 @@ function TaskSheet(props: {
                         <code className='font-mono text-xs'>{`{{${variable}}}`}</code>
                         <p className='mt-1 text-xs'>
                           {t(
-                            VARIABLE_DESCRIPTION_KEYS[variable] ??
+                            (selectedEvent.value.startsWith('ticket_')
+                              ? TICKET_VARIABLE_DESCRIPTION_KEYS[variable]
+                              : undefined) ??
+                              VARIABLE_DESCRIPTION_KEYS[variable] ??
                               DEFAULT_VARIABLE_DESCRIPTION
                           )}
                         </p>
                         <p className='text-muted-foreground mt-1 text-xs break-words'>
                           {t('Example: {{value}}', {
                             value:
-                              VARIABLE_EXAMPLES[variable] ??
-                              t('A value from the event payload'),
+                              selectedEvent.value.startsWith('ticket_') &&
+                              variable === 'title'
+                                ? t('Technical support')
+                                : (VARIABLE_EXAMPLES[variable] ??
+                                  t('A value from the event payload')),
                           })}
                         </p>
                       </div>

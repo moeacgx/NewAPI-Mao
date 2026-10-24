@@ -99,6 +99,7 @@ export default function SettingsSidebarModulesUser() {
         topup: isSidebarModuleAllowed('personal', 'topup'),
         affiliate: isSidebarModuleAllowed('personal', 'affiliate'),
         invoice: isSidebarModuleAllowed('personal', 'invoice'),
+        tickets: isSidebarModuleAllowed('personal', 'tickets'),
         personal: isSidebarModuleAllowed('personal', 'personal'),
       };
     }
@@ -115,6 +116,7 @@ export default function SettingsSidebarModulesUser() {
         game_management: isSidebarModuleAllowed('admin', 'game_management'),
         user: isSidebarModuleAllowed('admin', 'user'),
         invoice_admin: isSidebarModuleAllowed('admin', 'invoice_admin'),
+        ticket_management: isSidebarModuleAllowed('admin', 'ticket_management'),
         affiliate_admin: isSidebarModuleAllowed('admin', 'affiliate_admin'),
         extension_admin: isSidebarModuleAllowed('admin', 'extension_admin'),
         task_plugins: isSidebarModuleAllowed('admin', 'task_plugins'),
@@ -362,6 +364,11 @@ export default function SettingsSidebarModulesUser() {
           description: t('发票申请与记录'),
         },
         {
+          key: 'tickets',
+          title: t('Ticket center'),
+          description: t('Create and track your support tickets'),
+        },
+        {
           key: 'personal',
           title: t('个人设置'),
           description: t('个人信息设置'),
@@ -400,6 +407,11 @@ export default function SettingsSidebarModulesUser() {
           key: 'invoice_admin',
           title: t('发票管理'),
           description: t('审核和处理发票工单'),
+        },
+        {
+          key: 'ticket_management',
+          title: t('Ticket management'),
+          description: t('Review and respond to customer tickets.'),
         },
         {
           key: 'affiliate_admin',

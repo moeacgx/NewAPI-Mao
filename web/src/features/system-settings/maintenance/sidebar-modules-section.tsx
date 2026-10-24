@@ -153,6 +153,12 @@ export function SidebarModulesSection({
         title: t('Invoice Center'),
         description: t('View invoices for paid orders.'),
       },
+      tickets: {
+        title: t('Ticket Center'),
+        description: t(
+          'Submit requests and follow replies from the support team.'
+        ),
+      },
       affiliate: {
         title: t('Affiliate Commission'),
         description: t('Referral commission and payout center.'),
@@ -200,6 +206,10 @@ export function SidebarModulesSection({
       invoice_admin: {
         title: t('Invoice Management'),
         description: t('Review invoice requests and issued invoice files.'),
+      },
+      ticket_management: {
+        title: t('Ticket Management'),
+        description: t('Review requests and reply to users.'),
       },
       notification_center: {
         title: t('Notification Center'),

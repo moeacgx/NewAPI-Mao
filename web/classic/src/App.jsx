@@ -61,6 +61,7 @@ import NotificationCenter from './pages/NotificationCenter';
 
 const Home = lazy(() => import('./pages/Home'));
 const TaskPlugins = lazy(() => import('./pages/TaskPlugins'));
+const Tickets = lazy(() => import('./pages/Tickets'));
 const PromptCenter = lazy(() => import('./pages/PromptCenter'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
@@ -119,6 +120,26 @@ function App() {
           }
         />
         <Route path='/forbidden' element={<Forbidden />} />
+        <Route
+          path='/console/tickets'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <Tickets />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/ticket-management'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <Tickets admin />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
         <Route
           path='/console/models'
           element={

@@ -83,6 +83,7 @@ const NotificationSettings = ({
       topup: true,
       affiliate: true,
       invoice: true,
+      tickets: true,
       personal: true,
     },
     admin: {
@@ -95,6 +96,7 @@ const NotificationSettings = ({
       user: true,
       affiliate_admin: true,
       invoice_admin: true,
+      ticket_management: true,
       setting: true,
     },
   });
@@ -175,6 +177,7 @@ const NotificationSettings = ({
         topup: true,
         affiliate: true,
         invoice: true,
+        tickets: true,
         personal: true,
       },
       admin: {
@@ -187,6 +190,7 @@ const NotificationSettings = ({
         user: true,
         affiliate_admin: true,
         invoice_admin: true,
+        ticket_management: true,
         setting: true,
       },
     };
@@ -308,6 +312,11 @@ const NotificationSettings = ({
           description: t('用户发票申请与下载记录'),
         },
         {
+          key: 'tickets',
+          title: t('Ticket center'),
+          description: t('Create and track your support tickets'),
+        },
+        {
           key: 'personal',
           title: t('个人设置'),
           description: t('个人信息设置'),
@@ -342,6 +351,11 @@ const NotificationSettings = ({
           key: 'invoice_admin',
           title: t('发票管理'),
           description: t('审核和处理发票工单'),
+        },
+        {
+          key: 'ticket_management',
+          title: t('Ticket management'),
+          description: t('Review and respond to customer tickets.'),
         },
         {
           key: 'affiliate_admin',
@@ -516,7 +530,10 @@ const NotificationSettings = ({
                     checkedText={t('开')}
                     uncheckedText={t('关')}
                     onChange={(value) =>
-                      handleFormChange('upstreamModelUpdateNotifyEnabled', value)
+                      handleFormChange(
+                        'upstreamModelUpdateNotifyEnabled',
+                        value,
+                      )
                     }
                     extraText={t(
                       '仅管理员可用。开启后，当系统定时检测全部渠道发现上游模型变更或检测异常时，将按你选择的通知方式发送汇总通知；渠道或模型过多时会自动省略部分明细。',

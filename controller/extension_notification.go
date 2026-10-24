@@ -91,6 +91,7 @@ func notificationEventDefinitions(includeDisabled bool) []notificationEventTypeD
 			},
 		},
 	}
+	definitions = append(definitions, ticketNotificationEventDefinitions()...)
 	for _, registered := range extension.DefaultManager.NotificationEvents(includeDisabled) {
 		variables := []string{"mention", "module_id", "event_type", "event_key"}
 		sample := map[string]any{
