@@ -35,6 +35,16 @@ export interface PromptSkill {
   resources?: SkillResource[]
 }
 
+export interface SkillRepositorySource {
+  url: string
+  ref: string
+  path: string
+  commit: string
+  imported_at: number
+  content_hash: string
+  locally_modified: boolean
+}
+
 export interface PromptTemplate {
   id: number
   title: string
@@ -51,6 +61,7 @@ export interface PromptTemplate {
   category_name?: string
   skills?: PromptSkill[]
   skill_count?: number
+  repository_source?: SkillRepositorySource
 }
 
 export interface PromptCategory {
