@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -109,21 +110,43 @@ func TestGatewaySkillProtocolsPreservePrivateContinuation(t *testing.T) {
 	}
 }
 
-func TestGatewaySkillProtocolsRejectUnmatchedTools(t *testing.T) {
+func TestGatewaySkillProtocolsRejectMalformedToolCalls(t *testing.T) {
 	for _, response := range []string{
 		`{`,
 		`{"choices":[]}`,
-		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"x","function":{"name":"client_tool","arguments":"{}"}}]}}]}`,
+		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"x","function":{"name":"","arguments":"{}"}}]}}]}`,
 		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"function":{"name":"newapi_skills_list","arguments":"{}"}}]}}]}`,
 		`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"x","function":{"name":"newapi_skills_list","arguments":"{}"}},{"id":"x","function":{"name":"newapi_skills_read","arguments":"{}"}}]}}]}`,
 	} {
 		_, err := ParseGatewaySkillTurn([]byte(response), types.RelayFormatOpenAI, nil)
 		require.Error(t, err)
 	}
-	turn := &GatewaySkillTurn{Calls: []GatewaySkillCall{{ID: "a", Name: GatewaySkillsReadTool}}}
-	_, err := ContinueGatewaySkillRequest([]byte(`{"messages":[]}`), types.RelayFormatOpenAI, turn,
+	turn, err := ParseGatewaySkillTurn([]byte(`{"status":"completed","output":[{"type":"function_call","call_id":"x","name":"client_tool","arguments":"{}"}]}`), types.RelayFormatOpenAIResponses, nil)
+	require.NoError(t, err)
+	assert.True(t, turn.UnrecognizedClientCalls)
+	require.Len(t, turn.ClientCalls, 1)
+	assert.Equal(t, "client_tool", turn.ClientCalls[0].Name)
+	readTurn := &GatewaySkillTurn{Calls: []GatewaySkillCall{{ID: "a", Name: GatewaySkillsReadTool}}}
+	_, err = ContinueGatewaySkillRequest([]byte(`{"messages":[]}`), types.RelayFormatOpenAI, readTurn,
 		[]GatewaySkillResult{{Call: GatewaySkillCall{ID: "other", Name: GatewaySkillsReadTool}}})
 	require.Error(t, err)
+}
+
+func TestGatewaySkillResponsesPreserveCallerInstructionPriorityAndCustomCalls(t *testing.T) {
+	original := []byte(`{"model":"test","input":"question","instructions":"Caller agent tools remain available during normal generation.","tools":[{"type":"custom","name":"terminal"}]}`)
+	prepared, err := PrepareGatewaySkillRequest(original,
+		types.RelayFormatOpenAIResponses, "test", `{"skills":[]}`)
+	require.NoError(t, err)
+	instructions := gjson.GetBytes(prepared, "instructions").String()
+	assert.Less(t, strings.Index(instructions, "Caller agent tools remain available"), strings.Index(instructions, "You are completing a private gateway skill-discovery phase"))
+	assert.Equal(t, map[string]bool{"terminal": true}, GatewaySkillClientTools(original, types.RelayFormatOpenAIResponses))
+
+	turn, err := ParseGatewaySkillTurn([]byte(`{"status":"completed","output":[{"type":"custom_tool_call","call_id":"custom_1","name":"terminal","input":"echo hello"}]}`),
+		types.RelayFormatOpenAIResponses, map[string]bool{"terminal": true})
+	require.NoError(t, err)
+	require.Len(t, turn.ClientCalls, 1)
+	assert.Equal(t, "terminal", turn.ClientCalls[0].Name)
+	assert.False(t, turn.UnrecognizedClientCalls)
 }
 
 func TestGatewaySkillPrivateClaudeDoesNotInvokeClientMCP(t *testing.T) {

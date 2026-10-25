@@ -15,6 +15,7 @@
 - [云端 Skills 资源控制与性能优化](../workflows/2026-10/24_gateway_skill_performance.md)：长历史复用、版本化正文缓存、共享读锁与每实例准入、私有读取期限和输出预算。
 
 - [云端技能读取与 Agent 工具交接](../workflows/2026-10/24_gateway_skill_client_tool_handoff.md)：私有阶段客户端工具纠偏、已读正文交接、未知工具拒绝与逐轮计费。
+- [Responses 网关 Skills 未识别 Agent 工具 502 修复](../workflows/2026-10/25_gateway_skills_responses_runtime_tools.md)：Responses 指令优先级、custom 工具隔离、重试后安全回退与审计。
 
 - [网关云端 Skills 回复标识](../workflows/2026-10/24_gateway_skill_response_indicator.md)：双模板回复徽标、外部 API 文本标识及实际读取元数据契约。
 - [云端技能目录查询结果传递](../workflows/2026-10/24_gateway_skill_catalogue_visibility.md)：用户询问已安装 Skills 时的目录查询、正式生成回填、授权重检与徽标边界。

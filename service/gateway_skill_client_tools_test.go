@@ -45,8 +45,15 @@ func TestGatewaySkillProtocolsSeparateDeclaredClientTools(t *testing.T) {
 			require.Len(t, turn.ClientCalls, 1)
 			assert.Equal(t, GatewaySkillsReadTool, turn.Calls[0].Name)
 			assert.Equal(t, "pwsh", turn.ClientCalls[0].Name)
-			_, err = ParseGatewaySkillTurn([]byte(test.response), test.format, nil)
-			require.ErrorContains(t, err, "未声明工具")
+			unknownTurn, err := ParseGatewaySkillTurn([]byte(test.response), test.format, nil)
+			if test.format == types.RelayFormatOpenAIResponses {
+				require.NoError(t, err)
+				assert.True(t, unknownTurn.UnrecognizedClientCalls)
+				require.Len(t, unknownTurn.ClientCalls, 1)
+				assert.Equal(t, "pwsh", unknownTurn.ClientCalls[0].Name)
+			} else {
+				require.ErrorContains(t, err, "未声明工具")
+			}
 			duplicate := strings.ReplaceAll(test.response, "call_read", "call_client")
 			_, err = ParseGatewaySkillTurn([]byte(duplicate), test.format, clientTools)
 			require.ErrorContains(t, err, "重复")

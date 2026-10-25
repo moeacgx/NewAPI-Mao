@@ -241,6 +241,12 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 				break
 			}
 			if clientToolCorrected || round == service.GatewaySkillMaxRounds {
+				if turn.UnrecognizedClientCalls && format == types.RelayFormatOpenAIResponses {
+					// 纠偏后仍返回原请求未声明的调用时，结束可选发现阶段并恢复原请求。
+					// 不执行私有调用，也不让它阻断原本可用的正式请求。
+					session.MarkDiscoveryFallback()
+					break
+				}
 				return info, gatewaySkillError(errors.New("模型在技能读取完成前连续请求客户端工具，未读取技能正文"))
 			}
 			err = privateRequest.Refocus()
