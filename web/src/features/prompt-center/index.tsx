@@ -50,7 +50,9 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getPromptCategories, getPromptTemplates } from './api'
 import { CategoryManager } from './components/category-manager'
 import { PromptTemplateEditor } from './components/prompt-template-editor'
+import { SkillDeleteButton } from './components/skill-delete-button'
 import { SkillImportDialog } from './components/skill-import-dialog'
+import { SkillRepositoryUpdate } from './components/skill-repository-update'
 import { SkillSummary } from './components/skill-summary'
 import { TokenPicker } from './components/token-picker'
 import { TokenPromptDialog } from './components/token-prompt-dialog'
@@ -406,6 +408,11 @@ function PromptTemplateCard(props: {
       <div className='mb-4'>
         <SkillSummary template={props.template} />
       </div>
+      {props.admin && props.template.repository_source && (
+        <div className='mb-4'>
+          <SkillRepositoryUpdate template={props.template} />
+        </div>
+      )}
       <div className='border-border/60 mt-auto flex flex-wrap items-end justify-between gap-4 border-t pt-4'>
         <div className='min-w-0 flex-1 basis-32'>
           <div className='text-muted-foreground mb-2 flex items-center gap-1.5 text-xs font-medium'>
@@ -440,10 +447,13 @@ function PromptTemplateCard(props: {
             {t('Install to token')}
           </Button>
           {props.admin && (
-            <Button size='sm' variant='outline' onClick={props.onEdit}>
-              <SlidersHorizontal aria-hidden='true' />
-              {t('Edit')}
-            </Button>
+            <>
+              <Button size='sm' variant='outline' onClick={props.onEdit}>
+                <SlidersHorizontal aria-hidden='true' />
+                {t('Edit')}
+              </Button>
+              <SkillDeleteButton template={props.template} />
+            </>
           )}
         </div>
       </div>

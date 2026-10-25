@@ -31,7 +31,8 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 - `load_mode=progressive` 时，单技能将模板标题、说明和正文镜像到 `skills[0]`，保留该项稳定
   `id/path/resources`；合集包含 2–128 个独立技能，不拼接正文。技能项包含
   `id/title/description/path/content/resources:[{path,content}]`。发布时每项用途说明必填，
-  最多 512 字符；主文件和引用文本单文件最多 8 MiB，包内文本总量最多 64 MiB，
+  不限制字符数，仅保留单条 16 KiB UTF-8 字节的存储与目录分页保护（`MaxPromptDescriptionBytes`）；
+  主文件和引用文本单文件最多 8 MiB，包内文本总量最多 64 MiB，
   每包最多 4096 个文件（含主文件）。这些内容不占用旧全文模式的正文额度。
 - 合集作为一个安装项启停、排序、卸载，共用模板白名单；内部数量通过 `skill_count` 展示。
   分类只用于目录组织，不影响子技能选择或授权。
@@ -43,7 +44,7 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
   分类可以创建和改名，不提供删除；未分类为 ID 0。分类不授予分组或令牌权限。
 - `token_prompt_bindings` 以 `(token_id, template_id)` 唯一关联，保存 `enabled/sort_order`。
   绑定只记录 ID，不读取或复制令牌密钥，不修改令牌额度、分组与其他限制。
-- 模板标题 1–80 字符，说明最多 512 字符；上架时至少选择一个实体分组；
+- 模板标题 1–80 字符；说明不限字符数，单条最多 16 KiB UTF-8 字节；上架时至少选择一个实体分组；
   下架草稿可以没有分组。最多 1000 个白名单分组，排序范围 -1000000 至 1000000。
   每个令牌最多安装 8 项。全文模式单模板正文最多 32768 UTF-8 字节，启用全文项合计最多
   65536 字节；渐进式模式使用上述文件和包限制，不提高一次请求的读取预算。
@@ -54,6 +55,9 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 - 模板、版本、渐进式文件及分块替换在同一事务中完成，失败保留旧资料和版本。
   切回全文模式时清理该模板的渐进式元数据与文件，全文合集不保留引用资料。
   下架保留资料但拒绝后续读取；卸载或删除令牌只撤销安装，不删除管理员模板。
+- 管理员删除模板时按当前 `version` 加锁，在同一事务中删除模板、白名单、全部令牌安装和渐进式
+  元数据/文件/分块，并清理该模板 ID 的正文页缓存（SQLite 可能复用最大主键）。删除后令牌自动卸载，
+  后续请求不再装载；已发出的请求和历史消费日志中的模板 ID、标题与版本保持不变。删除不可撤销。
 - 安装仅接受当前启用模板，且白名单与令牌当前可用分组至少有一个交集。
   已下架的安装项仍可查看、停用或卸载；不能通过替换列表重新启用已下架项。
 - 持久化采用 GORM、普通关联表和 TEXT；兼容 SQLite、MySQL、PostgreSQL。
@@ -70,6 +74,11 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 - `POST /api/prompt-center/admin/`：创建模板；管理员。
 - `PUT /api/prompt-center/admin/:id`：更新模板；管理员，提交当前 `version` 防止覆盖并发编辑。
   版本冲突返回 HTTP 409。
+- `DELETE /api/prompt-center/admin/:id?version=N`：管理员删除模板，成功返回
+  `{id,uninstalled_tokens}`；版本缺失或无效返回业务错误，版本冲突 HTTP 409，已删除返回业务错误。
+- `POST /api/prompt-center/admin/:id/update-repository`：管理员从记录的 GitHub 来源更新，
+  请求 `{version,overwrite_local}`，成功返回 `{template,updated}`。站内改过来源内容且未确认覆盖时
+  返回 HTTP 409 与 `code=repository_local_changes`；版本冲突 HTTP 409；无来源或拉取失败返回业务错误。
 - `GET /api/prompt-center/categories/`：分类数组，登录用户可读。
 - `POST /api/prompt-center/admin/categories/`：管理员创建分类 `{name}`。
 - `PUT /api/prompt-center/admin/categories/:id`：管理员改名 `{name,version}`，版本冲突 HTTP 409。
@@ -86,7 +95,9 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
   列表批量汇总，避免逐行查询；徽标不表示当前每个分组都生效。
 
 模板响应包括 `group_ids` 与 `group_details:[{id,name}]`，不把分组显示名称用作权限标识。
-模板管理支持上下架，不提供物理删除接口，保留安装关系及历史可追溯性。
+模板管理支持上下架和按版本删除；删除会同时卸载所有令牌安装，历史日志仍保留当时的模板信息。
+管理员模板额外返回 `repository_source:{url,ref,path,commit,imported_at,content_hash,locally_modified}`，
+`locally_modified` 为读取时计算的只读值；用户目录与令牌安装摘要不返回来源。
 用户模板及安装摘要含 `kind/load_mode/category_id/category_name/skill_count` 和
 `skills:[{id,title,description}]`，不返回主正文、子技能正文、主文件路径或引用资料。
 渐进式公共目录只查询元数据，不读取文件与正文分块；管理员接口提供完整编辑内容。
@@ -101,6 +112,8 @@ Classic、Default 均提供 ZIP、公开 GitHub 仓库链接和商店导入。�
 不写库、不自动上架。
 管理员检查内容，选择站点分类与白名单后通过原保存接口生成站点副本。
 导入失败保留原编辑内容；商店更新不会覆盖站点副本，站点修改不会回写仓库。
+YAML `description` 原样保存为用途说明，不截断；`name` 超过 80 字符时显示名称缩短为带省略号的
+摘要，完整名称前置到主文件正文。
 
 ZIP 最多 16 MiB、4096 个条目，所有条目声明解压总量最多 64 MiB；被忽略文件也占用此预算。
 有 `SKILL.md` 时只将这些文件作为独立技能入口，否则读取 Markdown，按路径排序后导入单项或
@@ -111,7 +124,8 @@ HTML、HTM 和 TEX 保存为引用文本；嵌套技能归最深技能根目录�
 
 主文件路径可保留包内入口位置，如 `skills/review/SKILL.md`；运行时用空路径或 `SKILL.md` 读取。
 引用路径相对于各自技能根目录，最多 1024 字节，不能使用大小写任意的 `SKILL.md`。
-拒绝绝对路径、反斜杠、越界路径、符号链接、损坏 ZIP、非 UTF-8 和 NUL 文本。
+拒绝绝对路径、反斜杠、越界路径、符号链接、损坏 ZIP 和非 UTF-8 文本；文本中的 NUL 字节
+转写为字面 ` `（PostgreSQL TEXT 无法保存 NUL），保留示例原意而不拒绝整个技能包。
 内容仅在内存处理，不落盘、不执行。正文错误分别显示空正文、无效 UTF-8 或实际字节数超限，
 ZIP 与仓库导入附带失败文件相对路径；失败不返回部分草稿，也不截断或跳过问题技能。
 诊断修复与验证见[技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)。
@@ -123,6 +137,30 @@ ZIP 与仓库导入附带失败文件相对路径；失败不返回部分草稿�
 仓库链接导入则使用固定 GitHub API 与原始文件主机，固定提交读取公开技能文件，
 不接受私有仓库凭据、任意下载地址或自定义 Git 主机。细节、边界和测试见
 [合集与导入记录](../workflows/2026-10/22_skill_bundles_categories.md)。
+仓库导入总期限 90 秒（低于 Cloudflare 100 秒源站响应上限），原始文件按 8 路并发下载；
+连接中断与 GitHub 502/503/504 各最多重试两次，其他状态立即失败，任一文件失败即取消其余下载。
+超时会提示已读取文件数，并建议改用 `tree` 目录链接只导入所需技能。修复记录见
+[GitHub 大仓库导入超时](../workflows/2026-10/25_github_skill_import_concurrency.md)。
+
+### GitHub 来源记录与一键更新
+
+公开 GitHub 导入的草稿携带 `repository_source`，首次保存时写入 `prompt_templates.repository_source_json`
+（TEXT，三库均通过 AutoMigrate 新增列）。`url` 为管理员提交的原链接，`ref` 为分支、标签或 commit 名称，
+`path` 为仓库内目录或 `SKILL.md`，`commit` 为本次读取的固定提交，`content_hash` 为导入内容指纹。
+旧客户端保存时省略该字段会保留数据库中的来源；提交新来源需通过 GitHub HTTPS、引用、目录、
+提交与指纹格式校验。ZIP、Markdown 和商店导入不记录来源，历史导入不会被反推或自动关联。
+
+内容指纹忽略随机技能 ID，覆盖装载模式、类型、主文件路径、正文、引用文件，以及合集内各技能的
+标题和说明；单技能标题和说明属于站点设置，不计入指纹。读取管理员模板时重新计算指纹，
+与记录不一致即 `locally_modified=true`。
+
+一键更新先校验模板版本与来源，站内修改且未确认覆盖时在访问 GitHub 前返回 409。随后按原链接
+重新导入：仓库根链接跟随当前默认分支，tree/blob 链接跟随原分支或标签，commit 链接保持固定。
+上游内容未变且无站内修改时不写库，返回 `updated=false`。有变化时以原版本走普通保存事务：
+保留模板 ID、令牌安装、分类、白名单、上下架、排序和顶层标题/说明，替换技能正文与引用文件，
+同一主文件路径沿用技能 ID，上游删除的文件同步删除，并递增版本使缓存失效。拉取、解析、
+校验或并发冲突失败时保留原副本。更新不执行仓库脚本，也不开启定时同步。
+实现与验证见[GitHub 技能来源与更新记录](../workflows/2026-10/25_github_skill_updates.md)。
 
 ## 请求与计费
 
@@ -147,7 +185,8 @@ Chat 使用适合模型的 system/developer 角色，Responses 使用 `instructi
 网关先执行独立的私有非流式发现阶段，只向上游提供技能目录及三个内部工具：
 
 - `newapi_skills_list`：按名称、用途或包名搜索目录，支持 `query/offset`，每页最多 32 项和
-  32 KiB。初始目录不超过 64 KiB 时完整提供，超过则只提供一页并由模型继续查询。
+  32 KiB；单条超长说明独占一页，保证分页总能前进。初始目录不超过 64 KiB 时完整提供，
+  超过则只提供一页并由模型继续查询。
 - `newapi_skills_read`：按 `template_id/skill_id/version/path/offset` 读取，空路径或 `SKILL.md`
   为主文件。读取主文件后才能读取该技能的已披露引用路径；每页正文最多 24 KiB。
 - `newapi_skills_files`：读取主文件后按 `query/offset` 搜索引用路径目录，每页最多 32 项和
@@ -184,6 +223,7 @@ auto 或跨组重试重新选定实际分组后，从原客户端请求重新开
 已成功结算的读取轮次不会因为后续生成失败而退款；失败轮沿用现有失败与退款逻辑。
 正常读取轮次不计为渠道重试，只有外层实际渠道重试计入重试数。
 日志 `gateway_skills` 记录阶段、轮次、模板与技能 ID、版本、路径、偏移和字节数，不额外记录正文。
+两套模板的使用日志据此及 `prompt_templates` 显示技能徽标，见[使用日志技能徽标](../workflows/2026-10/25_usage_log_skill_badge.md)。
 
 以下状态组合仅在实际命中渐进式技能时返回 HTTP 400，在上游调用前拒绝，
 退回入口已完成的预扣，不产生消费：

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -279,6 +280,7 @@ describe('渐进式技能的管理契约', () => {
     })
     renderEditor(structuredClone(template) as unknown as PromptTemplate)
     await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Reference content' }),
       { target: { value: 'New rule draft' } }
@@ -313,6 +315,7 @@ describe('渐进式技能的管理契约', () => {
   it('切到始终装载时提示不保留资源，未保存切回时恢复资源草稿', async () => {
     renderEditor(structuredClone(template) as unknown as PromptTemplate)
     await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Reference content' }),
       { target: { value: 'Unsaved reference' } }
@@ -325,6 +328,7 @@ describe('渐进式技能的管理契约', () => {
       )
     ).toBeInTheDocument()
     fireEvent.change(mode, { target: { value: 'progressive' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Reference content' }))
     expect(
       screen.getByRole('textbox', { name: 'Reference content' })
     ).toHaveValue('Unsaved reference')
@@ -367,9 +371,9 @@ describe('渐进式技能的管理契约', () => {
     ).toEqual(['Write', 'Review'])
     expect(
       screen
-        .getAllByRole('textbox', { name: 'Reference content' })
-        .map((input) => (input as HTMLTextAreaElement).value)
-    ).toEqual(['Writing style', 'Review rules'])
+        .getAllByRole('textbox', { name: 'Reference path' })
+        .map((input) => (input as HTMLInputElement).value)
+    ).toEqual(['references/writing.md', 'references/review.md'])
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith(
@@ -377,5 +381,161 @@ describe('渐进式技能的管理契约', () => {
         expect.objectContaining({ skills: [skills[1], skills[0]] })
       )
     )
+  })
+})
+
+describe('技能用途说明长度', () => {
+  const longDescription = '在审查发布说明前使用。'.repeat(90)
+
+  it('单技能用途说明超过 512 字符时完整输入并原样提交', async () => {
+    const user = userEvent.setup()
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    const description = screen.getByRole('textbox', { name: 'Description' })
+    await user.clear(description)
+    await user.click(description)
+    await user.paste(longDescription)
+    expect(description).toHaveValue(longDescription)
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          description: longDescription,
+          skills: [
+            expect.objectContaining({
+              id: 'review',
+              description: longDescription,
+            }),
+          ],
+        })
+      )
+    )
+  })
+
+  it('合集技能用途说明超过 512 字符时完整输入并原样提交', async () => {
+    const user = userEvent.setup()
+    const skills = [
+      {
+        id: 'review',
+        title: 'Review',
+        description: 'Review code',
+        path: 'review/SKILL.md',
+        content: 'Review instructions',
+        resources: [],
+      },
+      {
+        id: 'write',
+        title: 'Write',
+        description: 'Write prose',
+        path: 'write/SKILL.md',
+        content: 'Writing instructions',
+        resources: [],
+      },
+    ]
+    renderEditor({
+      ...template,
+      kind: 'bundle',
+      content: '',
+      skills,
+    } as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    const description = screen.getAllByRole('textbox', {
+      name: 'Skill description',
+    })[0]
+    await user.clear(description)
+    await user.click(description)
+    await user.paste(longDescription)
+    expect(description).toHaveValue(longDescription)
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          skills: [{ ...skills[0], description: longDescription }, skills[1]],
+        })
+      )
+    )
+  })
+})
+
+describe('引用文件正文默认折叠', () => {
+  it('已有引用默认只显示路径，展开后可编辑，折叠状态下保存仍提交完整正文', async () => {
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    expect(screen.getByRole('textbox', { name: 'Reference path' })).toHaveValue(
+      'references/rules.md'
+    )
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Reference content' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('Check ownership.')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({
+          skills: [
+            expect.objectContaining({
+              resources: [
+                { path: 'references/rules.md', content: 'Check ownership.' },
+              ],
+            }),
+          ],
+        })
+      )
+    )
+  })
+
+  it('新增引用文件默认展开以便填写，已有引用保持折叠', async () => {
+    renderEditor(structuredClone(template) as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    fireEvent.click(screen.getByRole('button', { name: 'Add reference file' }))
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Reference content' })
+        .map((button) => button.getAttribute('aria-expanded'))
+    ).toEqual(['false', 'true'])
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('')
+  })
+
+  it('折叠的引用正文校验失败时自动展开并显示错误', async () => {
+    renderEditor({
+      ...template,
+      skills: [
+        {
+          ...template.skills[0],
+          resources: [{ path: 'references/rules.md', content: 'bad\0text' }],
+        },
+      ],
+    } as unknown as PromptTemplate)
+    await screen.findByRole('checkbox', { name: 'Premium models' })
+    expect(
+      screen.queryByRole('textbox', { name: 'Reference content' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Reference text must not exceed 8 MiB per file')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('textbox', { name: 'Reference content' })
+    ).toHaveValue('bad\0text')
+    expect(api.put).not.toHaveBeenCalled()
   })
 })

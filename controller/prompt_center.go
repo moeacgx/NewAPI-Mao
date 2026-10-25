@@ -140,6 +140,25 @@ func SavePromptTemplate(c *gin.Context) {
 	common.ApiSuccess(c, saved)
 }
 
+func DeletePromptTemplate(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	version, versionErr := strconv.Atoi(c.Query("version"))
+	if err != nil || id <= 0 || versionErr != nil || version <= 0 {
+		common.ApiErrorMsg(c, "提示词 ID 或版本无效")
+		return
+	}
+	uninstalled, err := model.DeletePromptTemplate(id, version)
+	if errors.Is(err, model.ErrPromptVersionConflict) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"id": id, "uninstalled_tokens": uninstalled})
+}
+
 func GetTokenPrompts(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {

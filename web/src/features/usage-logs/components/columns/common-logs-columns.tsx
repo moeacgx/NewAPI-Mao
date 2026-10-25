@@ -54,6 +54,7 @@ import {
   isViolationFeeLog,
   renderAuditContent,
 } from '../../lib/format'
+import { getLogSkillUsage } from '../../lib/skill-usage'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -64,6 +65,7 @@ import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
+import { SkillUsageBadge } from '../skill-usage-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
 import { WebSocketBadge } from '../websocket-badge'
@@ -310,6 +312,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const timestamp = row.getValue('created_at') as number
         const config = getLogTypeConfig(log.type)
         const other = parseLogOther(log.other)
+        const skillUsage = getLogSkillUsage(other)
 
         return (
           <div className='flex min-w-0 flex-col gap-0.5'>
@@ -325,6 +328,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                 className='-ml-1.5 !text-xs [&_span]:!text-xs'
               />
               {isWebSocketLog(other) && <WebSocketBadge />}
+              {skillUsage && <SkillUsageBadge usage={skillUsage} />}
             </div>
           </div>
         )

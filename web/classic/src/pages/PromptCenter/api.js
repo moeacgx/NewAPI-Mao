@@ -27,8 +27,11 @@ export async function promptRequest(method, url, data, signal) {
     signal,
     skipErrorHandler: true,
   });
-  if (!response.data?.success)
-    throw new Error(response.data?.message || 'Prompt request failed');
+  if (!response.data?.success) {
+    const error = new Error(response.data?.message || 'Prompt request failed');
+    error.code = response.data?.code;
+    throw error;
+  }
   return response.data.data;
 }
 

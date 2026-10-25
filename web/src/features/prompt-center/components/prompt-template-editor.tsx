@@ -42,6 +42,7 @@ import {
 } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 import { BundleSkillEditor } from './bundle-skill-editor'
+import { SkillRepositoryDetails } from './skill-repository-details'
 import { SkillResourceEditor } from './skill-resource-editor'
 
 export function PromptTemplateEditor(props: {
@@ -113,6 +114,9 @@ export function PromptTemplateEditor(props: {
         {
           ...values,
           content: values.kind === 'bundle' ? '' : values.content,
+          ...(props.template?.repository_source && {
+            repository_source: props.template.repository_source,
+          }),
         },
         props.template?.id
       ),
@@ -130,7 +134,8 @@ export function PromptTemplateEditor(props: {
         if (!open && !mutation.isPending) props.onClose()
       }}
     >
-      <DialogContent className='max-h-[90dvh] overflow-y-auto sm:max-w-2xl'>
+      {/* 文本框按内容定宽，长行会撑开默认 auto 网格列；固定单列 minmax(0,1fr) 防止横向溢出。 */}
+      <DialogContent className='max-h-[90dvh] grid-cols-1 overflow-y-auto sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
             {props.template?.id ? t('Edit prompt') : t('Create prompt')}
@@ -146,6 +151,11 @@ export function PromptTemplateEditor(props: {
           onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
         >
           <fieldset disabled={mutation.isPending} className='space-y-4'>
+            {props.template?.repository_source && (
+              <SkillRepositoryDetails
+                source={props.template.repository_source}
+              />
+            )}
             <div className='bg-primary/[0.04] border-primary/15 space-y-2 rounded-xl border p-4'>
               <Label htmlFor={`${fieldId}-load-mode`}>
                 {t('Loading mode')}
@@ -261,7 +271,6 @@ export function PromptTemplateEditor(props: {
               </Label>
               <Textarea
                 id={`${fieldId}-description`}
-                maxLength={512}
                 aria-invalid={Boolean(form.formState.errors.description)}
                 {...form.register('description')}
               />
@@ -449,28 +458,33 @@ export function PromptTemplateEditor(props: {
               </p>
             )}
           </fieldset>
-          {mutation.isError && (
-            <p role='alert' className='text-destructive'>
-              {t(mutation.error.message)}
-            </p>
-          )}
-          <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button
-              type='button'
-              variant='outline'
-              disabled={mutation.isPending}
-              onClick={props.onClose}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              type='submit'
-              disabled={
-                mutation.isPending || !groups.isSuccess || !categories.isSuccess
-              }
-            >
-              {t('Save')}
-            </Button>
+          {/* 合集可能很长，保存操作和保存错误固定在弹窗底部；粘性定位以内边距为界，-bottom-4 抵消 p-4 贴住底边。 */}
+          <div className='bg-popover sticky -bottom-4 z-10 -mx-4 -mb-4 space-y-2 border-t px-4 pt-3 pb-4'>
+            {mutation.isError && (
+              <p role='alert' className='text-destructive'>
+                {t(mutation.error.message)}
+              </p>
+            )}
+            <div className='flex justify-end gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                disabled={mutation.isPending}
+                onClick={props.onClose}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                type='submit'
+                disabled={
+                  mutation.isPending ||
+                  !groups.isSuccess ||
+                  !categories.isSuccess
+                }
+              >
+                {t('Save')}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

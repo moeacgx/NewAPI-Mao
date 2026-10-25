@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -148,4 +149,61 @@ func TestPromptCategoryAPIUsesVersionAndURLIdentity(t *testing.T) {
 	require.True(t, decodeAPIResponse(t, recorder).Success)
 	assert.Contains(t, recorder.Body.String(), "专业写作")
 	assert.NotContains(t, recorder.Body.String(), "name_key")
+}
+
+func TestPromptTemplateDeleteAndRepositoryUpdateAPIContracts(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}, &model.PromptSkillRecord{}, &model.PromptSkillFile{}, &model.PromptSkillChunk{}))
+	group := model.Group{Code: "repo-api-group", Name: "仓库技能展示名", Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(&group).Error)
+	source := &model.PromptRepositorySource{URL: "https://github.com/acme/skills", Ref: "main", Commit: strings.Repeat("a", 40), ImportedAt: 1792843200, ContentHash: strings.Repeat("b", 64)}
+	skill, err := model.SavePromptTemplate(model.PromptTemplate{Title: "仓库技能", Description: "用途", Content: "正文", LoadMode: model.PromptLoadModeProgressive, Enabled: true, GroupIDs: []int{group.Id}, RepositorySource: source})
+	require.NoError(t, err)
+	require.True(t, skill.RepositorySource.LocallyModified, "指纹与正文不一致时视为站内已修改")
+	token := seedToken(t, db, 61, "repo-api-token", "private-repo-api-key")
+	require.NoError(t, model.ReplaceTokenPromptBindings(61, token.Id, []model.TokenPromptBindingInput{{TemplateID: skill.ID, Enabled: true}}, []int{group.Id}))
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/prompt-center/", nil, 61)
+	GetPromptTemplates(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.NotContains(t, recorder.Body.String(), "repository_source")
+	assert.NotContains(t, recorder.Body.String(), "github.com")
+	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/prompt-center/admin/", nil, 1)
+	GetAdminPromptTemplates(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.Contains(t, recorder.Body.String(), `"repository_source":{"url":"https://github.com/acme/skills"`)
+
+	// 站内修改未确认时在访问 GitHub 前返回专用冲突码；版本不一致返回普通冲突。
+	ctx, recorder = newAuthenticatedContext(t, http.MethodPost, "/api/prompt-center/admin/1/update-repository", map[string]any{"version": skill.Version}, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(skill.ID)}}
+	UpdatePromptTemplateRepository(ctx)
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"code":"repository_local_changes"`)
+	ctx, recorder = newAuthenticatedContext(t, http.MethodPost, "/api/prompt-center/admin/1/update-repository", map[string]any{"version": skill.Version + 1, "overwrite_local": true}, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(skill.ID)}}
+	UpdatePromptTemplateRepository(ctx)
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.NotContains(t, recorder.Body.String(), "repository_local_changes")
+
+	for _, query := range []string{"", "?version=0", "?version=abc"} {
+		ctx, recorder = newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/1"+query, nil, 1)
+		ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(skill.ID)}}
+		DeletePromptTemplate(ctx)
+		assert.False(t, decodeAPIResponse(t, recorder).Success, query)
+	}
+	ctx, recorder = newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/1?version="+strconv.Itoa(skill.Version+1), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(skill.ID)}}
+	DeletePromptTemplate(ctx)
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	ctx, recorder = newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/1?version="+strconv.Itoa(skill.Version), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(skill.ID)}}
+	DeletePromptTemplate(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success, recorder.Body.String())
+	assert.Contains(t, recorder.Body.String(), `"uninstalled_tokens":1`)
+
+	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/1/prompts", nil, 61)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}
+	GetTokenPrompts(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.NotContains(t, recorder.Body.String(), "仓库技能")
 }

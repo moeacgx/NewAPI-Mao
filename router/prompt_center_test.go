@@ -34,6 +34,8 @@ func TestPromptCenterRoutesRequireAdminAndKeepUserOwnership(t *testing.T) {
 			{http.MethodPost, "/api/prompt-center/admin/store/bundled:code-review/import"},
 			{http.MethodPost, "/api/prompt-center/admin/import/archive"},
 			{http.MethodPost, "/api/prompt-center/admin/import/repository"},
+			{http.MethodPost, "/api/prompt-center/admin/1/update-repository"},
+			{http.MethodDelete, "/api/prompt-center/admin/1?version=1"},
 		} {
 			response = managementRequest(fixture.engine, route.method, route.path, credential, "192.0.2.180", `{}`)
 			assert.Equal(t, http.StatusForbidden, response.Code)
@@ -47,4 +49,11 @@ func TestPromptCenterRoutesRequireAdminAndKeepUserOwnership(t *testing.T) {
 	response = managementRequest(fixture.engine, http.MethodGet, "/api/prompt-center/admin/store/", fixture.owner.pat, "192.0.2.180", "")
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), `"source":"bundled"`)
+	// 管理员可以到达删除与更新处理器；不存在的模板返回业务错误而不是路由缺失。
+	response = managementRequest(fixture.engine, http.MethodDelete, "/api/prompt-center/admin/999?version=1", fixture.owner.pat, "192.0.2.180", "")
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `"success":false`)
+	response = managementRequest(fixture.engine, http.MethodPost, "/api/prompt-center/admin/999/update-repository", fixture.owner.pat, "192.0.2.180", `{"version":1}`)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `"success":false`)
 }

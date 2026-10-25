@@ -121,7 +121,7 @@ func CreateTicket(userID int, input TicketCreateInput) (*Ticket, error) {
 				return err
 			}
 		}
-		return enqueueTicketNotificationTx(tx, ticket, NotificationEventTypeTicketCreated, userID, "user")
+		return enqueueTicketUserNotificationTx(tx, ticket, TicketNotificationActionCreated, userID)
 	})
 	return ticket, err
 }
@@ -198,10 +198,10 @@ func ReplyTicket(ticketID, userID int, admin bool, content string) (*TicketMessa
 		return nil, ErrTicketInvalidInput
 	}
 	message := &TicketMessage{TicketId: ticketID, AuthorId: userID, AuthorRole: "user", Content: content, CreatedAt: nowUnix()}
-	status, eventType := TicketStatusOpen, NotificationEventTypeTicketUserReplied
+	status := TicketStatusOpen
 	if admin {
 		message.AuthorRole = "admin"
-		status, eventType = TicketStatusProcessing, NotificationEventTypeTicketAdminReplied
+		status = TicketStatusProcessing
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var ticket Ticket
@@ -217,7 +217,10 @@ func ReplyTicket(ticketID, userID int, admin bool, content string) (*TicketMessa
 		if err := tx.Create(message).Error; err != nil {
 			return err
 		}
-		return enqueueTicketNotificationTx(tx, &ticket, eventType, userID, message.AuthorRole)
+		if admin {
+			return nil
+		}
+		return enqueueTicketUserNotificationTx(tx, &ticket, TicketNotificationActionReplied, userID)
 	})
 	return message, err
 }
@@ -225,10 +228,6 @@ func ReplyTicket(ticketID, userID int, admin bool, content string) (*TicketMessa
 func ChangeTicketStatus(ticketID, userID int, admin bool, status string) (*Ticket, error) {
 	if ticketID <= 0 || userID <= 0 || !ValidTicketStatus(status) || (!admin && status != TicketStatusOpen && status != TicketStatusClosed) {
 		return nil, ErrTicketInvalidInput
-	}
-	actorRole := "user"
-	if admin {
-		actorRole = "admin"
 	}
 	ticket := &Ticket{}
 	err := DB.Transaction(func(tx *gorm.DB) error {
@@ -238,10 +237,7 @@ func ChangeTicketStatus(ticketID, userID int, admin bool, status string) (*Ticke
 		if ticket.Status == status {
 			return nil
 		}
-		if err := updateTicketStateTx(tx, ticket, status); err != nil {
-			return err
-		}
-		return enqueueTicketNotificationTx(tx, ticket, NotificationEventTypeTicketStatusChanged, userID, actorRole)
+		return updateTicketStateTx(tx, ticket, status)
 	})
 	return ticket, err
 }
@@ -263,10 +259,12 @@ func updateTicketStateTx(tx *gorm.DB, ticket *Ticket, status string) error {
 	return nil
 }
 
-func enqueueTicketNotificationTx(tx *gorm.DB, ticket *Ticket, eventType string, actorID int, actorRole string) error {
-	return EnqueueNotificationEventTx(tx, eventType, fmt.Sprintf("ticket:%d:version:%d", ticket.Id, ticket.Version), map[string]any{
+// enqueueTicketUserNotificationTx 只在用户新建或追加回复时入队，与业务变更同一事务。
+func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string, actorID int) error {
+	return EnqueueNotificationEventTx(tx, NotificationEventTypeTicketUserMessage, fmt.Sprintf("ticket:%d:version:%d", ticket.Id, ticket.Version), map[string]any{
 		"ticket_id": ticket.Id, "title": ticket.Title, "user_id": ticket.UserId,
 		"category": ticket.Category, "priority": ticket.Priority, "status": ticket.Status,
-		"actor_id": actorID, "actor_role": actorRole, "create_time": ticket.UpdatedAt,
+		"actor_id": actorID, "actor_role": "user", "create_time": ticket.UpdatedAt,
+		"action": action, "action_label": ticketNotificationActionLabels[action],
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -24,6 +25,8 @@ func repositoryFixtureClient(t *testing.T, treeBody string, raw map[string]strin
 	t.Helper()
 	const commitSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	const treeSHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	// 原始文件并发下载，请求记录需要加锁。
+	var mu sync.Mutex
 	return &http.Client{Transport: skillRepositoryTransport(func(request *http.Request) (*http.Response, error) {
 		assert.Equal(t, "https", request.URL.Scheme)
 		assert.Empty(t, request.Header.Get("Authorization"))
@@ -31,7 +34,9 @@ func repositoryFixtureClient(t *testing.T, treeBody string, raw map[string]strin
 		deadline, ok := request.Context().Deadline()
 		require.True(t, ok)
 		assert.False(t, deadline.IsZero())
+		mu.Lock()
 		*requests = append(*requests, request.URL.String())
+		mu.Unlock()
 		var body string
 		switch request.URL.Host {
 		case "api.github.com":
@@ -87,6 +92,21 @@ func TestRepositoryImportPinsCommitAndFiltersDirectoryOrFile(t *testing.T) {
 			assert.Empty(t, draft.GroupIDs)
 			assert.Equal(t, test.count, draft.SkillCount)
 			assert.Equal(t, model.PromptLoadModeProgressive, draft.LoadMode)
+			encoded, encodeErr := common.Marshal(draft)
+			require.NoError(t, encodeErr)
+			var metadata struct {
+				Source struct {
+					URL    string `json:"url"`
+					Ref    string `json:"ref"`
+					Commit string `json:"commit"`
+					Hash   string `json:"content_hash"`
+				} `json:"repository_source"`
+			}
+			require.NoError(t, common.Unmarshal(encoded, &metadata))
+			assert.Equal(t, test.link, metadata.Source.URL)
+			assert.Equal(t, "main", metadata.Source.Ref)
+			assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", metadata.Source.Commit)
+			assert.Len(t, metadata.Source.Hash, 64)
 			expectedRequests := 3 + test.count
 			if strings.Contains(test.link, "/tree/") || strings.Contains(test.link, "/blob/") {
 				expectedRequests += 2
@@ -221,7 +241,7 @@ func TestRepositoryImportEnforcesAggregateDownloadBudget(t *testing.T) {
 	var requests []string
 	_, err = importRepositorySkills(context.Background(), "https://github.com/acme/skills", repositoryFixtureClient(t, string(encoded), raw, &requests))
 	require.ErrorContains(t, err, "64 MiB")
-	assert.Len(t, requests, 11, "第九个文件下载前应按声明大小拒绝超限包")
+	assert.Len(t, requests, 3, "按声明大小在下载任何原始文件前拒绝超限包")
 }
 
 func TestRepositoryImportRejectsPrivateAndRedirects(t *testing.T) {

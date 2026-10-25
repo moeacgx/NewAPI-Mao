@@ -115,8 +115,11 @@ func normalizeProgressiveSkills(template *PromptTemplate) error {
 		}
 		ids[skill.ID] = true
 		skill.Title, skill.Description = strings.TrimSpace(skill.Title), strings.TrimSpace(skill.Description)
-		if !utf8.ValidString(skill.Title+skill.Description) || strings.ContainsRune(skill.Title+skill.Description, 0) || utf8.RuneCountInString(skill.Title) < 1 || utf8.RuneCountInString(skill.Title) > 80 || utf8.RuneCountInString(skill.Description) > 512 {
-			return errors.New("技能标题或说明长度不合法")
+		if !utf8.ValidString(skill.Title) || strings.ContainsRune(skill.Title, 0) || utf8.RuneCountInString(skill.Title) < 1 || utf8.RuneCountInString(skill.Title) > 80 {
+			return errors.New("技能标题必须为 1 至 80 个字符的有效文本")
+		}
+		if !utf8.ValidString(skill.Description) || strings.ContainsRune(skill.Description, 0) || len(skill.Description) > MaxPromptDescriptionBytes {
+			return fmt.Errorf("技能「%s」用途说明必须为有效文本，且不超过 %d KiB", skill.Title, MaxPromptDescriptionBytes/1024)
 		}
 		if template.Enabled && skill.Description == "" {
 			return fmt.Errorf("技能「%s」发布前需要填写用途说明", skill.Title)

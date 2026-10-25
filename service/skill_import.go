@@ -99,8 +99,9 @@ func ParseSkillArchive(data []byte, filename string) (*model.PromptTemplate, err
 		if readTotal > maxSkillExpandedBytes {
 			return nil, errors.New("技能包文本合计不能超过 64 MiB")
 		}
-		if !utf8.Valid(content) || bytes.ContainsRune(content, 0) {
-			return nil, fmt.Errorf("技能文件 %q 必须为 UTF-8 文本", name)
+		content, err = normalizeImportedSkillText(content)
+		if err != nil {
+			return nil, fmt.Errorf("技能文件 %q %w", name, err)
 		}
 		textFiles[name] = content
 	}
@@ -123,6 +124,18 @@ func skillFileOwner(filename string, mains []string) int {
 		}
 	}
 	return owner
+}
+
+// normalizeImportedSkillText 校验外部技能文本编码。真实 NUL 字节（如空字节截断 payload 示例）
+// 无法写入 PostgreSQL TEXT，替换为可读的 \x00 转义，保留原意而不是拒绝整个技能包。
+func normalizeImportedSkillText(content []byte) ([]byte, error) {
+	if !utf8.Valid(content) {
+		return nil, errors.New("不是 UTF-8 文本，请先转换编码")
+	}
+	if !bytes.ContainsRune(content, 0) {
+		return content, nil
+	}
+	return bytes.ReplaceAll(content, []byte{0}, []byte(`\x00`)), nil
 }
 
 func supportedSkillTextFile(filename string) bool {
@@ -209,6 +222,14 @@ func parseSkillMarkdown(data []byte, filename string) (model.PromptSkill, string
 		}
 	}
 	item.Content, item.Description, item.Path = strings.TrimSpace(text), strings.TrimSpace(metadata.Description), filename
+	// 用途说明按原文保存，不做截断。显示名称受站内 80 字符列宽限制，超长时完整名称保留在按需读取的主文件中；
+	// 元数据不能替代原本为空的正文，合并后的文本继续接受文件和包总量校验。
+	if titleRunes := []rune(item.Title); len(titleRunes) > 80 {
+		item.Title = string(titleRunes[:79]) + "…"
+		if item.Content != "" {
+			item.Content = "完整技能名称：" + string(titleRunes) + "\n\n" + item.Content
+		}
+	}
 	check := &model.PromptTemplate{Title: item.Title, Description: item.Description, Content: item.Content, Kind: "prompt", LoadMode: model.PromptLoadModeProgressive, Skills: []model.PromptSkill{item}}
 	if err := model.NormalizePromptTemplateContent(check); err != nil {
 		return item, "", err
