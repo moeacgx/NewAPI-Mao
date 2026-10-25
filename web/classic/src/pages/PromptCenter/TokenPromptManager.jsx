@@ -196,8 +196,14 @@ export default function TokenPromptManager(props) {
                     {t('Allowed groups')}
                   </span>
                   <div className='prompt-center-group-chips'>
-                    {binding.template.group_details?.length ? (
-                      binding.template.group_details.map((group) => (
+                    {binding.template.all_groups && (
+                      <span className='prompt-center-group-chip'>
+                        <Users size={12} aria-hidden='true' />
+                        {t('All groups (no restriction)')}
+                      </span>
+                    )}
+                    {!binding.template.all_groups &&
+                      binding.template.group_details?.map((group) => (
                         <span
                           className='prompt-center-group-chip'
                           key={group.id}
@@ -205,12 +211,13 @@ export default function TokenPromptManager(props) {
                           <Users size={12} aria-hidden='true' />
                           {group.name}
                         </span>
-                      ))
-                    ) : (
-                      <span className='prompt-center-muted'>
-                        {t('No eligible groups')}
-                      </span>
-                    )}
+                      ))}
+                    {!binding.template.all_groups &&
+                      !binding.template.group_details?.length && (
+                        <span className='prompt-center-muted'>
+                          {t('No eligible groups')}
+                        </span>
+                      )}
                   </div>
                 </div>
                 <div className='prompt-center-card-actions prompt-center-card-actions-management'>

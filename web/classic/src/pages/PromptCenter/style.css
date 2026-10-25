@@ -802,6 +802,17 @@ body[theme-mode='dark'] .prompt-center-form {
   overflow-wrap: anywhere;
 }
 
+.prompt-center-all-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.prompt-center-all-groups-hint {
+  margin: 4px 0 10px;
+}
+
 .prompt-center-stack {
   display: flex;
   min-width: 0;

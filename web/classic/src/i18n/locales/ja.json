@@ -6351,6 +6351,8 @@
     "You do not have permission to view ticket management.": "チケット管理を閲覧する権限がありません。",
     "You have read-only access to this ticket.": "このチケットは閲覧のみ可能です。",
     "You have read-only access to ticket automation.": "チケット自動化は閲覧のみ可能です。",
-    "Your reply": "返信内容"
+    "Your reply": "返信内容",
+    "All groups (no restriction)": "すべてのグループ（制限なし）",
+    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どのグループでもこのスキルをインストールして読み込めます。"
   }
 }

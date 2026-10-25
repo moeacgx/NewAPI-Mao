@@ -24,6 +24,7 @@ type promptTemplatePublic struct {
 	Enabled      bool                   `json:"enabled"`
 	SortOrder    int                    `json:"sort_order"`
 	Version      int                    `json:"version"`
+	AllGroups    bool                   `json:"all_groups"`
 	GroupIDs     []int                  `json:"group_ids"`
 	GroupDetails []model.GroupReference `json:"group_details"`
 }
@@ -48,7 +49,7 @@ func publicPromptTemplate(template model.PromptTemplate) promptTemplatePublic {
 	return promptTemplatePublic{
 		ID: template.ID, Title: template.Title, Description: template.Description,
 		Enabled: template.Enabled, SortOrder: template.SortOrder, Version: template.Version,
-		GroupIDs: template.GroupIDs, GroupDetails: template.GroupDetails,
+		AllGroups: template.AllGroups, GroupIDs: template.GroupIDs, GroupDetails: template.GroupDetails,
 		Kind: template.Kind, LoadMode: template.LoadMode, CategoryID: template.CategoryID, CategoryName: template.CategoryName,
 		Skills: skills, SkillCount: template.SkillCount,
 	}

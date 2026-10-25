@@ -7601,6 +7601,8 @@
     "Zhipu V4": "Zhipu V4",
     "ZIP files are checked on the server. Only skill text is imported.": "Tệp ZIP được kiểm tra trên máy chủ. Chỉ nhập văn bản kỹ năng.",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "Tệp ZIP tối đa 16 MiB được máy chủ kiểm tra. Nhập tối đa 128 kỹ năng kèm tệp tham chiếu văn bản; tập lệnh không được chạy.",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "All groups (no restriction)": "Tất cả nhóm (không giới hạn)",
+    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và tải kỹ năng này."
   }
 }

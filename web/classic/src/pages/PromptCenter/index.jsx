@@ -58,11 +58,13 @@ export default function PromptCenter() {
   const [categoryManager, setCategoryManager] = useState(false);
   const [store, setStore] = useState(false);
   const publishedCount = templates.filter((item) => item.enabled).length;
-  const groupCount = new Set(
-    templates.flatMap((item) =>
-      (item.group_details || []).map((group) => group.id),
-    ),
-  ).size;
+  const groupCount = templates.some((item) => item.all_groups === true)
+    ? t('All groups (no restriction)')
+    : new Set(
+        templates.flatMap((item) =>
+          (item.group_details || []).map((group) => group.id),
+        ),
+      ).size;
   const filteredTemplates = templates.filter(
     (item) =>
       (category === 'all' || String(item.category_id || 0) === category) &&

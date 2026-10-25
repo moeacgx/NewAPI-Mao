@@ -7601,6 +7601,8 @@
     "Zhipu V4": "Zhipu V 4",
     "ZIP files are checked on the server. Only skill text is imported.": "ZIP はサーバーで検証され、スキルのテキストのみが取り込まれます。",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP は最大 16 MiB で、サーバー側で検証します。参照テキストを含め最大 128 スキルを取り込み、スクリプトは実行しません。",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "All groups (no restriction)": "すべてのグループ（制限なし）",
+    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どれでもこのスキルをインストールして読み込めます。"
   }
 }

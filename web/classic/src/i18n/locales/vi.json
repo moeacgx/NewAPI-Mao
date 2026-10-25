@@ -6893,6 +6893,8 @@
     "You do not have permission to view ticket management.": "Bạn không có quyền xem quản lý yêu cầu.",
     "You have read-only access to this ticket.": "Bạn chỉ có quyền xem yêu cầu này.",
     "You have read-only access to ticket automation.": "Bạn chỉ có quyền xem tự động hóa phiếu.",
-    "Your reply": "Phản hồi của bạn"
+    "Your reply": "Phản hồi của bạn",
+    "All groups (no restriction)": "Tất cả nhóm (không giới hạn)",
+    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và nạp kỹ năng này."
   }
 }

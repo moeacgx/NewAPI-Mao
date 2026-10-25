@@ -22,7 +22,7 @@ export function validatePromptTemplateDraft(draft) {
   if (
     !draft.title.trim() ||
     Array.from(draft.title.trim()).length > 80 ||
-    (draft.enabled && !draft.group_ids.length)
+    (draft.enabled && !draft.all_groups && !draft.group_ids.length)
   )
     return 'Enter a title and at least one allowed group before publishing';
   if (

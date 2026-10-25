@@ -41,6 +41,7 @@ export default function PromptTemplateEditor(props) {
     kind: 'prompt',
     category_id: 0,
     ...props.template,
+    all_groups: Boolean(props.template?.all_groups),
     skills: props.template?.skills || [],
     load_mode:
       props.template?.load_mode ||
@@ -126,7 +127,8 @@ export default function PromptTemplateEditor(props) {
           title: title.trim(),
           description,
           content,
-          group_ids,
+          all_groups: draft.all_groups,
+          group_ids: draft.all_groups ? [] : group_ids,
           enabled,
           sort_order,
           kind: draft.kind,
@@ -174,6 +176,7 @@ export default function PromptTemplateEditor(props) {
       enabled: false,
       sort_order: 0,
       ...imported,
+      all_groups: Boolean(imported.all_groups),
       skills: imported.skills || [],
       load_mode: imported.load_mode || 'progressive',
     });
@@ -377,43 +380,69 @@ export default function PromptTemplateEditor(props) {
         </p>
         <fieldset disabled={busy || !groupsLoaded}>
           <legend>{t('Allowed groups')}</legend>
-          <div className='prompt-center-group-options'>
-            {groupsLoaded &&
-              draft.group_ids
-                .filter((id) => !groups.some((group) => group.id === id))
-                .map((id) => (
-                  <label key={`deleted-${id}`}>
-                    <input
-                      type='checkbox'
-                      checked
-                      onChange={() =>
-                        update(
-                          'group_ids',
-                          draft.group_ids.filter((value) => value !== id),
-                        )
-                      }
-                    />
-                    {t('Unavailable group')} · {id}
-                  </label>
-                ))}
-            {groups.map((group) => (
-              <label key={group.id}>
-                <input
-                  type='checkbox'
-                  checked={draft.group_ids.includes(group.id)}
-                  onChange={(event) =>
-                    update(
-                      'group_ids',
-                      event.target.checked
-                        ? [...draft.group_ids, group.id]
-                        : draft.group_ids.filter((id) => id !== group.id),
-                    )
-                  }
-                />
-                {group.name}
-              </label>
-            ))}
-          </div>
+          <label className='prompt-center-all-groups'>
+            <input
+              type='checkbox'
+              checked={draft.all_groups}
+              aria-describedby={`${prefix}-all-groups-hint`}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  all_groups: event.target.checked,
+                  // 不限分组时服务端会清空白名单；取消后需重新选择分组
+                  group_ids: event.target.checked ? [] : current.group_ids,
+                }))
+              }
+            />
+            {t('All groups (no restriction)')}
+          </label>
+          <p
+            id={`${prefix}-all-groups-hint`}
+            className='prompt-center-muted prompt-center-all-groups-hint'
+          >
+            {t(
+              'Any enabled group used by the token can install and load this skill.',
+            )}
+          </p>
+          {!draft.all_groups && (
+            <div className='prompt-center-group-options'>
+              {groupsLoaded &&
+                draft.group_ids
+                  .filter((id) => !groups.some((group) => group.id === id))
+                  .map((id) => (
+                    <label key={`deleted-${id}`}>
+                      <input
+                        type='checkbox'
+                        checked
+                        onChange={() =>
+                          update(
+                            'group_ids',
+                            draft.group_ids.filter((value) => value !== id),
+                          )
+                        }
+                      />
+                      {t('Unavailable group')} · {id}
+                    </label>
+                  ))}
+              {groups.map((group) => (
+                <label key={group.id}>
+                  <input
+                    type='checkbox'
+                    checked={draft.group_ids.includes(group.id)}
+                    onChange={(event) =>
+                      update(
+                        'group_ids',
+                        event.target.checked
+                          ? [...draft.group_ids, group.id]
+                          : draft.group_ids.filter((id) => id !== group.id),
+                      )
+                    }
+                  />
+                  {group.name}
+                </label>
+              ))}
+            </div>
+          )}
         </fieldset>
         <label htmlFor={`${prefix}-order`}>{t('Sort order')}</label>
         <input

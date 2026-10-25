@@ -7601,6 +7601,8 @@
     "Zhipu V4": "Zhipu V4",
     "ZIP files are checked on the server. Only skill text is imported.": "Les archives sont vérifiées sur le serveur. Seul le texte des compétences est importé.",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "Les ZIP de 16 Mio maximum sont vérifiés côté serveur. Importez jusqu’à 128 compétences et leurs références textuelles ; aucun script n’est exécuté.",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "All groups (no restriction)": "Tous les groupes (sans restriction)",
+    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence."
   }
 }

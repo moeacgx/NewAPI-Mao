@@ -53,6 +53,8 @@ export interface PromptTemplate {
   enabled: boolean
   sort_order: number
   version: number
+  // 不限分组时服务端清空白名单；旧模板可能缺少该字段，按 false 处理。
+  all_groups?: boolean
   group_ids: number[]
   group_details: PromptGroup[]
   kind?: 'prompt' | 'bundle'

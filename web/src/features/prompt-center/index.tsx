@@ -101,11 +101,15 @@ export function PromptCenter() {
   const publishedCount = allTemplates.filter(
     (template) => template.enabled
   ).length
-  const groupCount = new Set(
-    allTemplates.flatMap((template) =>
-      (template.group_details ?? []).map((group) => group.id)
-    )
-  ).size
+  const groupCount = allTemplates.some(
+    (template) => template.all_groups === true
+  )
+    ? t('All groups (no restriction)')
+    : new Set(
+        allTemplates.flatMap((template) =>
+          (template.group_details ?? []).map((group) => group.id)
+        )
+      ).size
 
   return (
     <SectionPageLayout>
@@ -365,7 +369,7 @@ export function PromptCenter() {
   )
 }
 
-function Stat(props: { label: string; value: number }) {
+function Stat(props: { label: string; value: number | string }) {
   return (
     <div className='border-border/60 border-l px-3 py-1 first:border-l-0 sm:px-4'>
       <p className='text-muted-foreground truncate text-[11px] font-medium tracking-wide uppercase'>
@@ -385,7 +389,10 @@ function PromptTemplateCard(props: {
   onEdit: () => void
 }) {
   const { t } = useTranslation()
-  const groups = props.template.group_details ?? []
+  // 不限分组没有白名单明细，用单个标签代替分组列表。
+  const groups = props.template.all_groups
+    ? [{ id: 0, name: t('All groups') }]
+    : (props.template.group_details ?? [])
   return (
     <article className='group border-border/70 bg-background hover:border-primary/30 flex min-w-0 flex-col rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md'>
       <div className='flex items-start justify-between gap-3'>
