@@ -8,6 +8,11 @@ import { transformSync } from 'esbuild';
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 
+import {
+  describeLogSkillUsage,
+  getLogSkillUsage,
+} from '../../../../helpers/log.js';
+
 const requireFromTest = createRequire(import.meta.url);
 const hookSource = fs.readFileSync(
   new URL('../../../../hooks/usage-logs/useUsageLogsData.jsx', import.meta.url),
@@ -39,6 +44,8 @@ function loadUseLogsData(api, errors) {
     renderQuota: (value) => String(value),
     renderNumber: (value) => String(value),
     getLogOther: (value) => value || {},
+    getLogSkillUsage,
+    describeLogSkillUsage,
     copy: async () => true,
     renderClaudeLogContent: () => '',
     renderLogContent: () => '',

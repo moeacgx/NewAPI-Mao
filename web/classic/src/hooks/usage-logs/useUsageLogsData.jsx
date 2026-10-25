@@ -30,6 +30,8 @@ import {
   renderQuota,
   renderNumber,
   getLogOther,
+  getLogSkillUsage,
+  describeLogSkillUsage,
   copy,
   renderClaudeLogContent,
   renderLogContent,
@@ -618,6 +620,20 @@ export const useLogsData = () => {
             }),
           });
         }
+      }
+      const skillUsage = getLogSkillUsage(other);
+      if (skillUsage) {
+        const skillText = describeLogSkillUsage(skillUsage, t);
+        expandDataLocal.push({
+          key: t('技能'),
+          value: (
+            <div style={{ lineHeight: 1.6 }}>
+              {[skillText.label, ...skillText.lines].map((line) => (
+                <div key={line}>{line}</div>
+              ))}
+            </div>
+          ),
+        });
       }
       if (isAdminUser && other?.upstream_error) {
         expandDataLocal.push({

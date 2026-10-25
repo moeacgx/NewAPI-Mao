@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "技能",
+    "技能 {{count}}": "技能 {{count}}",
+    "始终装载": "始终装载",
+    "按需读取": "按需读取",
+    "未用技能": "未用技能",
+    "可用 {{count}} 个技能，本次未读取": "可用 {{count}} 个技能，本次未读取",
+    "技能发现 · 第 {{round}} 轮": "技能发现 · 第 {{round}} 轮",
+    "私有技能发现轮次，单独计费": "私有技能发现轮次，单独计费",
+    "已读技能": "已读技能",
     "Delete {{title}}": "删除 {{title}}",
     "Delete skill?": "删除技能？",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "删除「{{title}}」后，所有已安装该技能的令牌会自动卸载，此操作无法撤销。",

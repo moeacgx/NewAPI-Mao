@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "スキル",
+    "技能 {{count}}": "スキル {{count}}",
+    "始终装载": "常に読み込み",
+    "按需读取": "必要時に読み込み",
+    "未用技能": "スキル未使用",
+    "可用 {{count}} 个技能，本次未读取": "利用可能なスキル {{count}} 件、今回は読み込みなし",
+    "技能发现 · 第 {{round}} 轮": "スキル探索 · 第 {{round}} ラウンド",
+    "私有技能发现轮次，单独计费": "非公開のスキル探索ラウンド（別途課金）",
+    "已读技能": "読み込み済みスキル",
     "Delete {{title}}": "{{title}} を削除",
     "Delete skill?": "スキルを削除しますか？",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "「{{title}}」を削除すると、このスキルをインストールしたすべてのトークンから自動的にアンインストールされます。この操作は元に戻せません。",

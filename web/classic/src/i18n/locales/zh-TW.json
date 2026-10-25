@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "技能",
+    "技能 {{count}}": "技能 {{count}}",
+    "始终装载": "一律載入",
+    "按需读取": "按需讀取",
+    "未用技能": "未用技能",
+    "可用 {{count}} 个技能，本次未读取": "可用 {{count}} 個技能，本次未讀取",
+    "技能发现 · 第 {{round}} 轮": "技能發現 · 第 {{round}} 輪",
+    "私有技能发现轮次，单独计费": "私有技能發現輪次，單獨計費",
+    "已读技能": "已讀技能",
     "Delete {{title}}": "刪除 {{title}}",
     "Delete skill?": "刪除技能？",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "刪除「{{title}}」後，所有已安裝該技能的權杖會自動解除安裝，此操作無法復原。",

@@ -31,6 +31,8 @@ import {
   renderQuota,
   stringToColor,
   getLogOther,
+  getLogSkillUsage,
+  describeLogSkillUsage,
   isWebSocketLog,
   renderModelTag,
   renderModelPriceSimple,
@@ -800,7 +802,38 @@ export const getLogsColumns = ({
       title: t('类型'),
       dataIndex: 'type',
       render: (text, record, index) => {
-        return <>{renderType(text, t)}</>;
+        const skillUsage = getLogSkillUsage(getLogOther(record.other));
+        if (!skillUsage) {
+          return <>{renderType(text, t)}</>;
+        }
+        const skillText = describeLogSkillUsage(skillUsage, t);
+        return (
+          <Space wrap>
+            {renderType(text, t)}
+            <Tooltip
+              content={
+                <div
+                  style={{
+                    lineHeight: 1.6,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  {skillText.lines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
+                </div>
+              }
+            >
+              <Tag
+                color={skillUsage.kind === 'used' ? 'violet' : 'grey'}
+                shape='circle'
+              >
+                {skillText.label}
+              </Tag>
+            </Tooltip>
+          </Space>
+        );
       },
     },
     {

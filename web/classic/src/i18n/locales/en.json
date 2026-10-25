@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "Skills",
+    "技能 {{count}}": "Skills {{count}}",
+    "始终装载": "Always loaded",
+    "按需读取": "Read on demand",
+    "未用技能": "Skills unused",
+    "可用 {{count}} 个技能，本次未读取": "{{count}} skills available, none read in this request",
+    "技能发现 · 第 {{round}} 轮": "Skill discovery · round {{round}}",
+    "私有技能发现轮次，单独计费": "Private skill-discovery round, billed separately",
+    "已读技能": "Skills read",
     "Delete {{title}}": "Delete {{title}}",
     "Delete skill?": "Delete skill?",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.",
