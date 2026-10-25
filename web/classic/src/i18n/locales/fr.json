@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "Compétences",
+    "技能 {{count}}": "Compétences {{count}}",
+    "始终装载": "Toujours chargé",
+    "按需读取": "Lecture à la demande",
+    "未用技能": "Compétences non utilisées",
+    "可用 {{count}} 个技能，本次未读取": "Compétences disponibles : {{count}}, aucune lue dans cette requête",
+    "技能发现 · 第 {{round}} 轮": "Découverte de compétences · tour {{round}}",
+    "私有技能发现轮次，单独计费": "Tour privé de découverte de compétences, facturé séparément",
+    "已读技能": "Compétences lues",
     "Delete {{title}}": "Supprimer {{title}}",
     "Delete skill?": "Supprimer la compétence ?",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "La suppression de « {{title}} » la désinstalle automatiquement de tous les jetons qui l’ont installée. Cette action est irréversible.",

@@ -92,6 +92,7 @@ import {
   getReasoningEffortVariant,
   renderAuditContent,
 } from '../../lib/format'
+import { describeLogSkillUsage, getLogSkillUsage } from '../../lib/skill-usage'
 import {
   getLogTypeConfig,
   isPerCallBilling,
@@ -724,6 +725,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const reasoningEffortVariant = getReasoningEffortVariant(
     other?.reasoning_effort
   )
+  const skillUsage = getLogSkillUsage(other)
+  const skillUsageText = skillUsage
+    ? describeLogSkillUsage(skillUsage, t)
+    : null
 
   return (
     <Dialog
@@ -1156,6 +1161,23 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 size='sm'
                 copyable={false}
               />
+            }
+          />
+        )}
+
+        {/* Skills used by this request (always loaded / read on demand). */}
+        {skillUsageText && (
+          <DetailRow
+            label={t('Skills')}
+            value={
+              <span className='flex flex-col gap-0.5'>
+                <span>{skillUsageText.label}</span>
+                {skillUsageText.lines.map((line) => (
+                  <span key={line} className='text-muted-foreground'>
+                    {line}
+                  </span>
+                ))}
+              </span>
             }
           />
         )}

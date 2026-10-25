@@ -1,5 +1,14 @@
 {
   "translation": {
+    "技能": "Kỹ năng",
+    "技能 {{count}}": "Kỹ năng {{count}}",
+    "始终装载": "Luôn được tải",
+    "按需读取": "Đọc khi cần",
+    "未用技能": "Không dùng kỹ năng",
+    "可用 {{count}} 个技能，本次未读取": "Có {{count}} kỹ năng khả dụng, yêu cầu này không đọc kỹ năng nào",
+    "技能发现 · 第 {{round}} 轮": "Khám phá kỹ năng · vòng {{round}}",
+    "私有技能发现轮次，单独计费": "Vòng khám phá kỹ năng riêng, tính phí riêng",
+    "已读技能": "Kỹ năng đã đọc",
     "Delete {{title}}": "Xóa {{title}}",
     "Delete skill?": "Xóa kỹ năng?",
     "Deleting “{{title}}” automatically uninstalls it from every token that installed it. This action cannot be undone.": "Xóa “{{title}}” sẽ tự động gỡ kỹ năng này khỏi mọi token đã cài đặt. Không thể hoàn tác thao tác này.",

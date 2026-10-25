@@ -136,6 +136,36 @@ export interface TieredBillingTokenParams {
   ao?: number
 }
 
+/** 始终装载（全文）模式实际注入本次请求的模板。 */
+export interface LogPromptTemplateAudit {
+  id?: number
+  title?: string
+  version?: number
+}
+
+/** 按需读取（渐进式）技能已读取的页面。 */
+export interface LogGatewaySkillFileAudit {
+  template_id?: number
+  skill_id?: string
+  title?: string
+  version?: number
+  path?: string
+  offset?: number
+  bytes?: number
+}
+
+/**
+ * 按需读取（渐进式）技能审计。私有发现轮次 stage 为 `discovery`（round 从 1 起），
+ * 最终生成为 `generation`。
+ */
+export interface LogGatewaySkillsAudit {
+  stage?: string
+  round?: number
+  catalogue_count?: number
+  catalogue_queries?: Array<{ query_bytes?: number; offset?: number }>
+  files?: Array<LogGatewaySkillFileAudit | null>
+}
+
 export interface LogOtherData {
   [key: `billing_formula_calc_${string}`]: string | number | undefined
   [key: `billing_formula_var_${string}`]: string | number | undefined
@@ -280,6 +310,8 @@ export interface LogOtherData {
   image_generation_call_price?: number
   image_generation_call_count?: number
   is_system_prompt_overwritten?: boolean
+  prompt_templates?: Array<LogPromptTemplateAudit | null>
+  gateway_skills?: LogGatewaySkillsAudit
   po?: string[]
   billing_source?: string
   group?: string

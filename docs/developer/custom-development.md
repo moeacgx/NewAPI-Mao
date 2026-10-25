@@ -53,6 +53,10 @@
   仅保留单条 16 KiB 字节存储边界。状态：#329 已合入并更新 zzapi，未发布新版本，正式站未更新；
   见[GitHub 技能来源与更新记录](../workflows/2026-10/25_github_skill_updates.md)。
 
+- 使用日志按 `other.prompt_templates` 与 `other.gateway_skills` 显示技能徽标：已使用技能、可用但未读取、
+  私有发现轮次三种状态，管理员与日志所属用户可见，只显示技能名称；纯前端，见
+  [使用日志技能徽标](../workflows/2026-10/25_usage_log_skill_badge.md)。
+
 - 新建与导入默认 `load_mode=progressive`：按需读取主文件及技能根内引用文本，单文件 8 MiB、
   每包 64 MiB、最多 128 个技能和 4096 个文件；ZIP 最多 16 MiB。元数据、文件索引与正文分块
   独立入表，旧表正文列不做破坏性变更。旧空值及 `eager` 保持全文装载，单模板 32768 字节、
