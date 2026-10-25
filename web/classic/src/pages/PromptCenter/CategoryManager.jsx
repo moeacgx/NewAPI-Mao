@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Modal } from '@douyinfe/semi-ui';
+import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { promptError, promptRequest } from './api';
+import { showSuccess } from '../../helpers/utils';
+import { deletePromptCategory, promptError, promptRequest } from './api';
 
 export default function CategoryManager(props) {
   const { t } = useTranslation();
@@ -28,10 +30,60 @@ export default function CategoryManager(props) {
   const [names, setNames] = useState({});
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const confirmRef = useRef(null);
+  const returnFocusRef = useRef(null);
   useEffect(() => {
     setCategories(props.categories || []);
   }, [props.categories]);
+  useEffect(() => {
+    if (deleting) {
+      confirmRef.current?.focus();
+      return;
+    }
+    returnFocusRef.current?.focus();
+    returnFocusRef.current = null;
+  }, [deleting]);
+  const closeDelete = () => {
+    if (busyRef.current) return;
+    setDeleting(null);
+    setDeleteError('');
+  };
+  const remove = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setDeleteError('');
+    try {
+      const result = await deletePromptCategory(deleting.id, deleting.version);
+      const next = categories.filter((item) => item.id !== deleting.id);
+      setCategories(next);
+      setNames((current) => {
+        const rest = { ...current };
+        delete rest[deleting.id];
+        return rest;
+      });
+      setDeleting(null);
+      showSuccess(
+        t(
+          'Deleted category {{name}}. {{count}} skills moved to Uncategorized',
+          {
+            name: deleting.name,
+            count: result?.moved_templates ?? 0,
+          },
+        ),
+      );
+      props.onChange(next);
+    } catch (reason) {
+      setDeleteError(promptError(reason, t));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
   const save = async (category) => {
     const value = (
       category ? (names[category.id] ?? category.name) : name
@@ -60,13 +112,32 @@ export default function CategoryManager(props) {
       setBusy(false);
     }
   };
+  // 删除确认作为同一弹窗的一步展示：Semi 弹窗标题 id 固定，叠加弹窗的可访问名称会变成外层标题
   return (
     <Modal
       visible
-      title={t('Manage categories')}
-      footer={null}
+      title={deleting ? t('Delete category?') : t('Manage categories')}
+      footer={
+        deleting ? (
+          <div className='prompt-center-row'>
+            <Button disabled={busy} onClick={closeDelete}>
+              {t('Cancel')}
+            </Button>
+            <Button
+              type='danger'
+              theme='solid'
+              loading={busy}
+              disabled={busy}
+              onClick={remove}
+            >
+              {t('Delete')}
+            </Button>
+          </div>
+        ) : null
+      }
       onCancel={() => {
-        if (!busy) props.onCancel();
+        if (deleting) closeDelete();
+        else if (!busy) props.onCancel();
       }}
       closable={!busy}
       closeOnEsc={!busy}
@@ -74,7 +145,23 @@ export default function CategoryManager(props) {
       width={560}
       style={{ maxWidth: 'calc(100vw - 24px)' }}
     >
-      <div className='prompt-center-form'>
+      {deleting && (
+        <div ref={confirmRef} tabIndex={-1} className='prompt-category-delete'>
+          <p>
+            {t(
+              'Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.',
+              { name: deleting.name },
+            )}
+          </p>
+          {deleteError && (
+            <p role='alert' className='prompt-template-delete-error'>
+              {deleteError}
+            </p>
+          )}
+        </div>
+      )}
+      {/* 确认期间仅隐藏列表，取消后焦点可回到原删除按钮 */}
+      <div className='prompt-center-form' hidden={Boolean(deleting)}>
         {error && (
           <p className='prompt-center-error' role='alert'>
             {error}
@@ -132,6 +219,23 @@ export default function CategoryManager(props) {
                 aria-label={t('Save {{name}}', { name: category.name })}
               >
                 {t('Save')}
+              </Button>
+              <Button
+                className='prompt-center-delete-button'
+                type='danger'
+                theme='borderless'
+                icon={<Trash2 size={14} aria-hidden='true' />}
+                disabled={busy}
+                aria-label={t('Delete category {{name}}', {
+                  name: category.name,
+                })}
+                onClick={(event) => {
+                  returnFocusRef.current = event.currentTarget;
+                  setDeleteError('');
+                  setDeleting(category);
+                }}
+              >
+                {t('Delete')}
               </Button>
             </form>
           ))}

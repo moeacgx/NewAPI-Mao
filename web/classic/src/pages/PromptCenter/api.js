@@ -35,6 +35,13 @@ export async function promptRequest(method, url, data, signal) {
   return response.data.data;
 }
 
+export function deletePromptCategory(id, version) {
+  return promptRequest(
+    'delete',
+    `/api/prompt-center/admin/categories/${id}?version=${encodeURIComponent(version)}`,
+  );
+}
+
 export function promptError(error, t) {
   if (error.response?.status === 401 || error.response?.status === 403)
     return t('No permission to manage prompts');

@@ -15,6 +15,39 @@ type PromptCategory struct {
 	Version int    `json:"version"`
 }
 
+var ErrPromptCategoryNotFound = errors.New("技能分类不存在或已删除")
+
+// DeletePromptCategory 按版本删除分类，并把其下模板改为未分类，返回移动的模板数。
+// 分类只用于目录组织，不影响授权和技能正文，因此不递增模板版本，避免网关技能目录失效。
+func DeletePromptCategory(id, version int) (int64, error) {
+	if id <= 0 || version <= 0 {
+		return 0, errors.New("技能分类 ID 或版本无效")
+	}
+	var moved int64
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var stored PromptCategory
+		if err := lockForUpdate(tx).First(&stored, id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrPromptCategoryNotFound
+			}
+			return err
+		}
+		if stored.Version != version {
+			return ErrPromptVersionConflict
+		}
+		result := tx.Model(&PromptTemplate{}).Where("category_id = ?", id).Update("category_id", 0)
+		if result.Error != nil {
+			return result.Error
+		}
+		moved = result.RowsAffected
+		return tx.Delete(&PromptCategory{}, id).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return moved, nil
+}
+
 func ListPromptCategories() ([]PromptCategory, error) {
 	items := make([]PromptCategory, 0)
 	err := DB.Order("id").Find(&items).Error

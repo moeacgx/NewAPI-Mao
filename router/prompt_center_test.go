@@ -36,6 +36,7 @@ func TestPromptCenterRoutesRequireAdminAndKeepUserOwnership(t *testing.T) {
 			{http.MethodPost, "/api/prompt-center/admin/import/repository"},
 			{http.MethodPost, "/api/prompt-center/admin/1/update-repository"},
 			{http.MethodDelete, "/api/prompt-center/admin/1?version=1"},
+			{http.MethodDelete, "/api/prompt-center/admin/categories/1?version=1"},
 		} {
 			response = managementRequest(fixture.engine, route.method, route.path, credential, "192.0.2.180", `{}`)
 			assert.Equal(t, http.StatusForbidden, response.Code)
@@ -54,6 +55,9 @@ func TestPromptCenterRoutesRequireAdminAndKeepUserOwnership(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), `"success":false`)
 	response = managementRequest(fixture.engine, http.MethodPost, "/api/prompt-center/admin/999/update-repository", fixture.owner.pat, "192.0.2.180", `{"version":1}`)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `"success":false`)
+	response = managementRequest(fixture.engine, http.MethodDelete, "/api/prompt-center/admin/categories/999?version=1", fixture.owner.pat, "192.0.2.180", "")
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), `"success":false`)
 }

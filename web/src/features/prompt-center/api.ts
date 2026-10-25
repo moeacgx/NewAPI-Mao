@@ -160,6 +160,36 @@ export async function savePromptCategory(
   }
 }
 
+export interface PromptCategoryDeleteResult {
+  id: number
+  moved_templates: number
+}
+
+export async function deletePromptCategory(
+  id: number,
+  version: number
+): Promise<PromptCategoryDeleteResult> {
+  type DeleteResponse = PromptResponse<PromptCategoryDeleteResult>
+  let payload: DeleteResponse
+  try {
+    const response = await api.delete<DeleteResponse>(
+      `/api/prompt-center/admin/categories/${id}`,
+      { params: { version }, skipErrorHandler: true }
+    )
+    payload = response.data
+  } catch (reason) {
+    if (!isAxiosError<DeleteResponse>(reason) || !reason.response?.data) {
+      throw reason
+    }
+    payload = reason.response.data
+  }
+  if (!payload.success) {
+    throw new Error(payload.message || 'Failed to delete skill category')
+  }
+  // 删除已在服务端生效，缺少统计数据时不能误报失败。
+  return { id, moved_templates: payload.data?.moved_templates ?? 0 }
+}
+
 export async function getPromptTemplates(
   admin: boolean
 ): Promise<PromptTemplate[]> {

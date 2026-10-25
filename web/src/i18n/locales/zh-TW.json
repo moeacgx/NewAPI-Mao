@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP 最大 16 MiB，由伺服器檢查。最多匯入 128 項技能與其文字參考，不執行腳本。",
     "Zoom": "縮放",
     "All groups (no restriction)": "不限群組",
-    "Any enabled group used by the token can install and load this skill.": "任何啟用群組的權杖都可安裝和裝載此技能。"
+    "Any enabled group used by the token can install and load this skill.": "任何啟用群組的權杖都可安裝和裝載此技能。",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "分類已刪除，{{count}} 個技能已移至未分類。",
+    "Delete category {{name}}": "刪除分類 {{name}}",
+    "Delete skill category?": "刪除技能分類？",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "刪除「{{name}}」後，其中的技能將移至未分類，此操作無法復原。",
+    "Failed to delete skill category": "技能分類刪除失敗"
   }
 }

@@ -151,6 +151,31 @@ func TestPromptCategoryAPIUsesVersionAndURLIdentity(t *testing.T) {
 	assert.NotContains(t, recorder.Body.String(), "name_key")
 }
 
+func TestPromptCategoryDeleteAPIContract(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.PromptCategory{}, &model.PromptTemplate{}))
+	category, err := model.SavePromptCategory(model.PromptCategory{Name: "待删除分类"})
+	require.NoError(t, err)
+	_, err = model.SavePromptTemplate(model.PromptTemplate{Title: "待移动模板", Content: "正文", CategoryID: category.ID, Enabled: false})
+	require.NoError(t, err)
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/categories/"+strconv.Itoa(category.ID)+"?version="+strconv.Itoa(category.Version+1), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(category.ID)}}
+	DeletePromptCategory(ctx)
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+
+	ctx, recorder = newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/categories/"+strconv.Itoa(category.ID)+"?version="+strconv.Itoa(category.Version), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(category.ID)}}
+	DeletePromptCategory(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.Contains(t, recorder.Body.String(), `"moved_templates":1`)
+
+	ctx, recorder = newAuthenticatedContext(t, http.MethodDelete, "/api/prompt-center/admin/categories/"+strconv.Itoa(category.ID)+"?version="+strconv.Itoa(category.Version), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(category.ID)}}
+	DeletePromptCategory(ctx)
+	assert.False(t, decodeAPIResponse(t, recorder).Success)
+}
+
 func TestPromptTemplateDeleteAndRepositoryUpdateAPIContracts(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}, &model.PromptSkillRecord{}, &model.PromptSkillFile{}, &model.PromptSkillChunk{}))

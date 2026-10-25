@@ -65,9 +65,15 @@ export default function PromptCenter() {
           (item.group_details || []).map((group) => group.id),
         ),
       ).size;
+  // 已删除的分类不再作为筛选条件，回退到全部分类
+  const activeCategory =
+    category === '0' || categories.some((item) => String(item.id) === category)
+      ? category
+      : 'all';
   const filteredTemplates = templates.filter(
     (item) =>
-      (category === 'all' || String(item.category_id || 0) === category) &&
+      (activeCategory === 'all' ||
+        String(item.category_id || 0) === activeCategory) &&
       (kind === 'all' || (item.kind || 'prompt') === kind) &&
       `${item.title} ${item.description || ''}`
         .toLocaleLowerCase()
@@ -215,7 +221,7 @@ export default function PromptCenter() {
                 {t('Filter category')}
                 <select
                   aria-label={t('Filter category')}
-                  value={category}
+                  value={activeCategory}
                   onChange={(event) => setCategory(event.target.value)}
                 >
                   <option value='all'>{t('All categories')}</option>

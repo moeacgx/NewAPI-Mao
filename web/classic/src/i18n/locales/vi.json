@@ -6895,6 +6895,10 @@
     "You have read-only access to ticket automation.": "Bạn chỉ có quyền xem tự động hóa phiếu.",
     "Your reply": "Phản hồi của bạn",
     "All groups (no restriction)": "Tất cả nhóm (không giới hạn)",
-    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và nạp kỹ năng này."
+    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và nạp kỹ năng này.",
+    "Delete category {{name}}": "Xóa danh mục {{name}}",
+    "Delete category?": "Xóa danh mục?",
+    "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Xóa danh mục “{{name}}”? Các kỹ năng trong đó sẽ chuyển sang Chưa phân loại. Không thể hoàn tác thao tác này.",
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Đã xóa danh mục “{{name}}”. {{count}} kỹ năng đã được chuyển sang Chưa phân loại"
   }
 }

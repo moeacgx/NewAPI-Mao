@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label'
 
 import { getPromptCategories, savePromptCategory } from '../api'
 import type { PromptCategory } from '../types'
+import { CategoryDeleteButton } from './category-delete-button'
 
 export function CategoryManager(props: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -99,18 +100,30 @@ export function CategoryManager(props: { onClose: () => void }) {
               <span className='min-w-0 [overflow-wrap:anywhere]'>
                 {category.name}
               </span>
-              <Button
-                variant='outline'
-                size='sm'
-                disabled={mutation.isPending}
-                onClick={() => {
-                  setEditing(category)
-                  setName(category.name)
-                  mutation.reset()
-                }}
-              >
-                {t('Rename')}
-              </Button>
+              <div className='flex shrink-0 gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={mutation.isPending}
+                  onClick={() => {
+                    setEditing(category)
+                    setName(category.name)
+                    mutation.reset()
+                  }}
+                >
+                  {t('Rename')}
+                </Button>
+                <CategoryDeleteButton
+                  category={category}
+                  disabled={mutation.isPending}
+                  onDeleted={() => {
+                    if (editing?.id !== category.id) return
+                    setEditing(undefined)
+                    setName('')
+                    mutation.reset()
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>

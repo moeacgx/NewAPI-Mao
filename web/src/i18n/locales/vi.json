@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "Tệp ZIP tối đa 16 MiB được máy chủ kiểm tra. Nhập tối đa 128 kỹ năng kèm tệp tham chiếu văn bản; tập lệnh không được chạy.",
     "Zoom": "Zoom",
     "All groups (no restriction)": "Tất cả nhóm (không giới hạn)",
-    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và tải kỹ năng này."
+    "Any enabled group used by the token can install and load this skill.": "Mọi nhóm đang bật mà token sử dụng đều có thể cài đặt và tải kỹ năng này.",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "Đã xóa danh mục. Đã chuyển {{count}} kỹ năng sang Chưa phân loại.",
+    "Delete category {{name}}": "Xóa danh mục {{name}}",
+    "Delete skill category?": "Xóa danh mục kỹ năng?",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "Xóa \"{{name}}\" sẽ chuyển các kỹ năng trong đó sang Chưa phân loại. Hành động này không thể hoàn tác.",
+    "Failed to delete skill category": "Xóa danh mục kỹ năng thất bại"
   }
 }

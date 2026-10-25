@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "Les ZIP de 16 Mio maximum sont vérifiés côté serveur. Importez jusqu’à 128 compétences et leurs références textuelles ; aucun script n’est exécuté.",
     "Zoom": "Zoom",
     "All groups (no restriction)": "Tous les groupes (sans restriction)",
-    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence."
+    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence.",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "Catégorie supprimée. {{count}} compétence(s) déplacée(s) vers Sans catégorie.",
+    "Delete category {{name}}": "Supprimer la catégorie {{name}}",
+    "Delete skill category?": "Supprimer la catégorie ?",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "La suppression de « {{name}} » déplace ses compétences vers Sans catégorie. Cette action est irréversible.",
+    "Failed to delete skill category": "Échec de la suppression de la catégorie"
   }
 }

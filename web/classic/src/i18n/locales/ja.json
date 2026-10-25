@@ -6353,6 +6353,10 @@
     "You have read-only access to ticket automation.": "チケット自動化は閲覧のみ可能です。",
     "Your reply": "返信内容",
     "All groups (no restriction)": "すべてのグループ（制限なし）",
-    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どのグループでもこのスキルをインストールして読み込めます。"
+    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どのグループでもこのスキルをインストールして読み込めます。",
+    "Delete category {{name}}": "カテゴリ {{name}} を削除",
+    "Delete category?": "カテゴリを削除しますか？",
+    "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "カテゴリ「{{name}}」を削除しますか？含まれるスキルは未分類になります。この操作は元に戻せません。",
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "カテゴリ「{{name}}」を削除し、{{count}} 個のスキルを未分類に移動しました"
   }
 }

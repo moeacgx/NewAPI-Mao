@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.",
     "Zoom": "Zoom",
     "All groups (no restriction)": "All groups (no restriction)",
-    "Any enabled group used by the token can install and load this skill.": "Any enabled group used by the token can install and load this skill."
+    "Any enabled group used by the token can install and load this skill.": "Any enabled group used by the token can install and load this skill.",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "Category deleted. {{count}} skill(s) moved to Uncategorized.",
+    "Delete category {{name}}": "Delete category {{name}}",
+    "Delete skill category?": "Delete skill category?",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.",
+    "Failed to delete skill category": "Failed to delete skill category"
   }
 }

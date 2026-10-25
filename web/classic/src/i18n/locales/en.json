@@ -6615,6 +6615,10 @@
     "You have read-only access to ticket automation.": "You have read-only access to ticket automation.",
     "Your reply": "Your reply",
     "All groups (no restriction)": "All groups (no restriction)",
-    "Any enabled group used by the token can install and load this skill.": "Any enabled group used by the token can install and load this skill."
+    "Any enabled group used by the token can install and load this skill.": "Any enabled group used by the token can install and load this skill.",
+    "Delete category {{name}}": "Delete category {{name}}",
+    "Delete category?": "Delete category?",
+    "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.",
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Deleted category {{name}}. Skills moved to Uncategorized: {{count}}"
   }
 }
