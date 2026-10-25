@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} override",
     "{{count}} selected events will be permanently deleted.": "{{count}} selected events will be permanently deleted.",
     "{{count}} selected targets available for bulk copy.": "{{count}} selected targets available for bulk copy.",
-    "{{count}} skills available, none read in this request": "{{count}} skills available, none read in this request",
+    "Available skills: {{count}}, none read in this request": "Available skills: {{count}}, none read in this request",
     "{{count}} skills in this bundle": "{{count}} skills in this bundle",
     "{{count}} tiers": "{{count}} tiers",
     "{{count}} times": "{{count}} times",

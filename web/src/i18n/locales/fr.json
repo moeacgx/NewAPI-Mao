@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} remplacement",
     "{{count}} selected events will be permanently deleted.": "Les {{count}} événements sélectionnés seront définitivement supprimés.",
     "{{count}} selected targets available for bulk copy.": "{{count}} cibles sélectionnées disponibles pour la copie en lot.",
-    "{{count}} skills available, none read in this request": "{{count}} compétences disponibles, aucune lue dans cette requête",
+    "Available skills: {{count}}, none read in this request": "Compétences disponibles : {{count}}, aucune lue dans cette requête",
     "{{count}} skills in this bundle": "{{count}} compétences incluses",
     "{{count}} tiers": "{{count}} paliers",
     "{{count}} times": "{{count}} fois",

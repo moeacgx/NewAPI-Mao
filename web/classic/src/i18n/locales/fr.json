@@ -5,7 +5,7 @@
     "始终装载": "Toujours chargé",
     "按需读取": "Lecture à la demande",
     "未用技能": "Compétences non utilisées",
-    "可用 {{count}} 个技能，本次未读取": "{{count}} compétences disponibles, aucune lue dans cette requête",
+    "可用 {{count}} 个技能，本次未读取": "Compétences disponibles : {{count}}, aucune lue dans cette requête",
     "技能发现 · 第 {{round}} 轮": "Découverte de compétences · tour {{round}}",
     "私有技能发现轮次，单独计费": "Tour privé de découverte de compétences, facturé séparément",
     "已读技能": "Compétences lues",

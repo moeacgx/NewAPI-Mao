@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} 個のオーバーライド",
     "{{count}} selected events will be permanently deleted.": "選択した {{count}} 件のイベントは完全に削除されます。",
     "{{count}} selected targets available for bulk copy.": "一括コピーに使用できる対象が {{count}} 個選択されています。",
-    "{{count}} skills available, none read in this request": "利用可能なスキル {{count}} 件、今回は読み込みなし",
+    "Available skills: {{count}}, none read in this request": "利用可能なスキル {{count}} 件、今回は読み込みなし",
     "{{count}} skills in this bundle": "{{count}} 個のスキルを含む",
     "{{count}} tiers": "{{count}} 段階",
     "{{count}} times": "{{count}} 回",

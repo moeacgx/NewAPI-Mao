@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} ghi đè",
     "{{count}} selected events will be permanently deleted.": "{{count}} sự kiện đã chọn sẽ bị xóa vĩnh viễn.",
     "{{count}} selected targets available for bulk copy.": "Có {{count}} mục tiêu đã chọn để sao chép hàng loạt.",
-    "{{count}} skills available, none read in this request": "Có {{count}} kỹ năng khả dụng, yêu cầu này không đọc kỹ năng nào",
+    "Available skills: {{count}}, none read in this request": "Có {{count}} kỹ năng khả dụng, yêu cầu này không đọc kỹ năng nào",
     "{{count}} skills in this bundle": "Gồm {{count}} kỹ năng",
     "{{count}} tiers": "{{count}} bậc",
     "{{count}} times": "{{count}} lần",

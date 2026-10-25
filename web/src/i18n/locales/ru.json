@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} переопределений",
     "{{count}} selected events will be permanently deleted.": "Выбранные события ({{count}}) будут удалены без возможности восстановления.",
     "{{count}} selected targets available for bulk copy.": "Для массового копирования выбрано целей: {{count}}.",
-    "{{count}} skills available, none read in this request": "Доступно навыков: {{count}}, в этом запросе ни один не прочитан",
+    "Available skills: {{count}}, none read in this request": "Доступно навыков: {{count}}, в этом запросе ни один не прочитан",
     "{{count}} skills in this bundle": "Навыков в наборе: {{count}}",
     "{{count}} tiers": "{{count}} уровней",
     "{{count}} times": "{{count}} раз",

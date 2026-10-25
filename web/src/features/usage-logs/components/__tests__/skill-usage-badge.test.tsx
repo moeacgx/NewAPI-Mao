@@ -121,7 +121,7 @@ describe('usage log time column skill badge', () => {
     expect(screen.getByText('Skills unused')).toBeInTheDocument()
     expect(
       screen.getByLabelText(
-        'Skills unused. 5 skills available, none read in this request'
+        'Skills unused. Available skills: 5, none read in this request'
       )
     ).toBeInTheDocument()
   })

@@ -219,7 +219,7 @@ describe('describeLogSkillUsage', () => {
       describeLogSkillUsage({ kind: 'unused', catalogueCount: 5 }, i18next.t)
     ).toEqual({
       label: 'Skills unused',
-      lines: ['5 skills available, none read in this request'],
+      lines: ['Available skills: 5, none read in this request'],
     })
   })
 })

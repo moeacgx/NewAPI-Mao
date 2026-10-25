@@ -28,7 +28,7 @@ const SKILL_USAGE_KEYS = [
   'Always loaded',
   'Read on demand',
   'Skills unused',
-  '{{count}} skills available, none read in this request',
+  'Available skills: {{count}}, none read in this request',
   'Skill discovery · round {{round}}',
   'Private skill-discovery round, billed separately',
   'Skills read',

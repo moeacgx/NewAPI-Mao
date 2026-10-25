@@ -67,7 +67,7 @@
     "{{count}} override": "{{count}} 個覆蓋",
     "{{count}} selected events will be permanently deleted.": "選取的 {{count}} 個事件將永久刪除。",
     "{{count}} selected targets available for bulk copy.": "已選擇 {{count}} 個目標，可用於大量複製。",
-    "{{count}} skills available, none read in this request": "可用 {{count}} 個技能，本次未讀取",
+    "Available skills: {{count}}, none read in this request": "可用 {{count}} 個技能，本次未讀取",
     "{{count}} skills in this bundle": "包含 {{count}} 個技能",
     "{{count}} tiers": "{{count}} 檔",
     "{{count}} times": "{{count}} 次",

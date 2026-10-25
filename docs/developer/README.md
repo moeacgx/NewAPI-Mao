@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [使用日志技能徽标](../workflows/2026-10/25_usage_log_skill_badge.md)：Default 与 Classic 使用日志显示已使用技能、未用技能和技能发现轮次，读取现有日志字段，不改后端。
 - [.354 技能更新、删除与大仓库导入发布](../workflows/2026-10/25_skill_updates_354_release.md)：合入 #329、#331、#333，唯一表结构变更为可空 TEXT 来源列，已逐节点更新正式站；[maolaoapi 逐节点部署](../workflows/2026-10/25_maolaoapi_354_deployment.md)。
 - [技能编辑弹窗引用正文折叠与横向溢出](../workflows/2026-10/25_skill_editor_reference_collapse.md)：Default 引用正文默认折叠、新增与校验失败时展开，修复长行撑开弹窗，保存栏固定在弹窗底部。
 - [GitHub 大仓库技能导入超时](../workflows/2026-10/25_github_skill_import_concurrency.md)：原始文件改为 8 路并发、瞬时错误有限重试、NUL 字节转写，导入期限 90 秒；真实 506 文件仓库导入保存通过，已更新 zzapi。

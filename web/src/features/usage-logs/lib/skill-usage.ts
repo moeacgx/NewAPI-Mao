@@ -107,7 +107,7 @@ export function describeLogSkillUsage(
     return {
       label: t('Skills unused'),
       lines: [
-        t('{{count}} skills available, none read in this request', {
+        t('Available skills: {{count}}, none read in this request', {
           count: usage.catalogueCount,
         }),
       ],
