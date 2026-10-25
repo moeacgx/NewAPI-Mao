@@ -519,7 +519,10 @@ describe('upstream model guard native page', () => {
     fireEvent.change(screen.getByLabelText('Search channels'), {
       target: { value: 'Provider' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    // 首次渠道加载期间搜索按钮禁用，CI 较慢时点击会被忽略；与下方翻页一样等待可用后再点。
+    const searchButton = screen.getByRole('button', { name: 'Search' })
+    await waitFor(() => expect(searchButton).toBeEnabled())
+    fireEvent.click(searchButton)
     const choices = screen.getByRole('group', { name: 'Available channels' })
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith(`${base}/channels`, {

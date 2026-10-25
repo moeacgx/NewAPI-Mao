@@ -22,6 +22,16 @@ import { expect, test, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LogsFilters from '../UsageLogsFilters';
+
+// 分组筛选已改为按接口加载的下拉框（bffe91161）；与同目录测试使用相同的模拟，
+// 避免 Classic 关闭隔离时模块模拟在文件间共享导致结果依赖执行顺序。
+vi.mock('../../../../helpers', () => ({
+  API: {
+    get: vi.fn(() => Promise.resolve({ data: { success: true, data: [] } })),
+  },
+  showError: vi.fn(),
+}));
+
 test('日志筛选不创建密码输入，查询仍提交稳定分组标识', async () => {
   let api;
   const refresh = vi.fn();
@@ -43,7 +53,6 @@ test('日志筛选不创建密码输入，查询仍提交稳定分组标识', as
   expect(container.querySelector('form').getAttribute('autocomplete')).toBe(
     'off',
   );
-  expect(screen.getByPlaceholderText('分组').value).toBe('group-42');
   await userEvent.setup().click(screen.getByRole('button', { name: '查询' }));
   expect(api.getValues().group).toBe('group-42');
 });
