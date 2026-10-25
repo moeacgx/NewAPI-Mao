@@ -1,7 +1,7 @@
 # NewAPI-Mao 开发文档
 
-- [.355 网关 Skills 与提示词中心整合发布](../workflows/2026-10/26_gateway_skills_355_release.md)：整合 .354 后的 Responses 安全回退、技能不限分组与分类删除，并列明兼容和发布门禁。
-- [maolaoapi .355 逐节点生产部署](../workflows/2026-10/26_maolaoapi_355_deployment.md)：固定镜像、备份、数据库迁移、静态资源预置及三节点滚动验收。
+- [.355 网关 Skills 与提示词中心整合发布](../workflows/2026-10/26_gateway_skills_355_release.md)：整合 PR #328、#336–#342，记录 CI、Release、双架构固定镜像及跨项目评估。
+- [maolaoapi .355 逐节点生产部署](../workflows/2026-10/26_maolaoapi_355_deployment.md)：记录生产备份、可空字段迁移、静态资源预置、三节点滚动更新与公网验收。
 - [Default 任务日志请求 404 修复](../workflows/2026-10/24_default_task_log_404.md)：Default 管理员列表路径、后端兼容路由及鉴权边界。
 - [使用日志技能徽标](../workflows/2026-10/25_usage_log_skill_badge.md)：Default 与 Classic 使用日志显示已使用技能、未用技能和技能发现轮次，读取现有日志字段，不改后端。
 - [工单通知合并](../workflows/2026-10/25_ticket_notification_merge.md)：新工单与用户追加回复合并为 `ticket_user_message`，管理员回复与状态变更不再通知，主节点迁移旧通知任务。

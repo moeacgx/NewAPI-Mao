@@ -48,5 +48,31 @@ Responses 安全回退可能结束可选 Skills 发现并恢复原请求；发�
 
 ## 发布结果
 
-发布前填写：PR 与合并提交、CI、Release 和镜像 digest、架构/版本/revision、产物哈希及验证边界。
-生产更新与现场验收记录见[maolaoapi .355 部署记录](26_maolaoapi_355_deployment.md)。
+- 发布准备 PR [#343](https://github.com/moeacgx/NewAPI-Mao/pull/343) 已合并，
+  合并提交为 `6e2921014bd379e3db918548aaca557e793f4b78`；PR CI 与合并后 CI
+  （run `40229974670`）均成功。
+- 附注标签 `v1.0.0-rc.10.1.10.355` peeled SHA 与上述提交相同。Linux Release
+  （run `40230429793`）和多架构 Docker（run `40230429732`）成功；Release 已发布、非预发布并设为 Latest。
+- Release 资产：amd64 二进制 SHA-256 为
+  `b73ab73e0a01928fe4703b542dac69a5f0e99a0920f3ead0cbf1f28cc0a808fd`；
+  arm64 二进制 SHA-256 为
+  `42d7e8f83315ca72f9e8bf4707c8a52eff881b66aae33942291ac6c1f8e8d893`；
+  `checksums-linux.txt` SHA-256 为
+  `13ba8aede8ea92c32fa46472872d8d747aa186eb3f9cf031b35e49fc12324f04`。
+  两个二进制值与校验文件内容一致。
+- GHCR 多架构索引 digest 与 `latest` 相同：
+  `sha256:62fdd34becf5d62ff2444b21bbaa797081be4bc891b78271248cef9d174f5e12`。
+  OCI manifest 包含 linux/amd64 与 linux/arm64；两个架构的 version 均为 `.355`，
+  revision 均为 `6e2921014bd379e3db918548aaca557e793f4b78`。
+- 部署顺序、备份、数据库列和公网验收见
+  [maolaoapi .355 部署记录](26_maolaoapi_355_deployment.md)。生产部署没有修改网关 Skills
+  配置开关，也没有调用收费模型；因此本记录不声称已验证开关开启时的真实上游请求。
+
+## 共享契约与跨项目评估
+
+- Responses 的内部技能发现遇到不识别的客户端工具后可安全结束发现并恢复正式请求；回退不执行该工具，
+  也不保证本轮已读取技能正文。该修复只影响网关 Skills 启用的请求路径，普通请求契约不变。
+- 技能 `all_groups` 是管理与授权能力；其对外仍使用既有请求密钥、模型 ID 和计费格式。
+  工单通知合并属于管理通知语义，不影响模型接入方。
+- NewAPIForDouDi、NewAPIModifyByGang：可评估 Responses 安全回退、技能授权编辑和使用日志徽标；
+  本次未检查目标实现，不能断言目标缺少这些能力或可直接移植。
