@@ -6377,6 +6377,10 @@
     "You have read-only access to ticket automation.": "您對工單自動化僅有唯讀權限。",
     "Your reply": "回覆內容",
     "All groups (no restriction)": "不限群組",
-    "Any enabled group used by the token can install and load this skill.": "任意啟用群組的權杖都可安裝和載入此技能。"
+    "Any enabled group used by the token can install and load this skill.": "任意啟用群組的權杖都可安裝和載入此技能。",
+    "Delete category {{name}}": "刪除分類 {{name}}",
+    "Delete category?": "刪除分類？",
+    "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "刪除分類「{{name}}」？其中的技能將變為未分類，刪除後無法復原。",
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已刪除分類「{{name}}」，{{count}} 個技能已移至未分類"
   }
 }

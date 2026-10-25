@@ -43,7 +43,8 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
   新增普通表，不对旧正文列做破坏性 ALTER；文件路径使用 SHA256 作为索引标识。
   技能 ID 全局唯一，同包编辑和重排保持身份，禁止把其他模板的技能 ID 移入本包。
 - `prompt_categories` 保存分类 ID、名称和乐观锁版本，名称 1–40 字符且唯一。
-  分类可以创建和改名，不提供删除；未分类为 ID 0。分类不授予分组或令牌权限。
+  分类可以创建、改名和按版本删除；未分类为 ID 0。删除时同一事务把其下模板改为未分类，
+  不递增模板版本；保存模板时对分类加共享锁，与删除分类串行。分类不授予分组或令牌权限。
 - `token_prompt_bindings` 以 `(token_id, template_id)` 唯一关联，保存 `enabled/sort_order`。
   绑定只记录 ID，不读取或复制令牌密钥，不修改令牌额度、分组与其他限制。
 - 模板标题 1–80 字符；说明不限字符数，单条最多 16 KiB UTF-8 字节；上架时须选择“不限分组”
@@ -85,6 +86,8 @@ Classic 与 Default 提供相同能力的提示词中心：管理员发布文本
 - `GET /api/prompt-center/categories/`：分类数组，登录用户可读。
 - `POST /api/prompt-center/admin/categories/`：管理员创建分类 `{name}`。
 - `PUT /api/prompt-center/admin/categories/:id`：管理员改名 `{name,version}`，版本冲突 HTTP 409。
+- `DELETE /api/prompt-center/admin/categories/:id?version=N`：管理员按版本删除分类，成功返回
+  `{id,moved_templates}`。其下模板改为未分类且模板版本不变；版本冲突 HTTP 409。
 - `POST /api/prompt-center/admin/import/archive`：管理员上传 multipart `file` ZIP，返回草稿。
 - `POST /api/prompt-center/admin/import/repository`：管理员提交 `{url}` 公开 GitHub 链接，返回草稿。
 - `GET /api/prompt-center/admin/store/`：管理员浏览内置商店摘要；`?source=online` 刷新官方仓库。

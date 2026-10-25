@@ -85,6 +85,14 @@ export function PromptCenter() {
     queryKey: ['prompt-categories'],
     queryFn: getPromptCategories,
   })
+  // 正在筛选的分类被删除后回到全部分类，避免列表停留在不存在的分类上。
+  const activeCategory =
+    category !== 'all' &&
+    category !== '0' &&
+    categories.isSuccess &&
+    !categories.data.some((item) => String(item.id) === category)
+      ? 'all'
+      : category
   const templates = useMemo(
     () =>
       query.data?.filter(
@@ -92,11 +100,11 @@ export function PromptCenter() {
           `${template.title} ${template.description}`
             .toLocaleLowerCase()
             .includes(search.toLocaleLowerCase()) &&
-          (category === 'all' ||
-            (template.category_id ?? 0) === Number(category)) &&
+          (activeCategory === 'all' ||
+            (template.category_id ?? 0) === Number(activeCategory)) &&
           (kind === 'all' || (template.kind ?? 'prompt') === kind)
       ) ?? [],
-    [query.data, search, category, kind]
+    [query.data, search, activeCategory, kind]
   )
   const publishedCount = allTemplates.filter(
     (template) => template.enabled
@@ -218,7 +226,7 @@ export function PromptCenter() {
                 <select
                   aria-label={t('Skill category')}
                   className='bg-background h-9 w-full rounded-lg border px-3 text-sm'
-                  value={category}
+                  value={activeCategory}
                   onChange={(event) => setCategory(event.target.value)}
                 >
                   <option value='all'>{t('All skill categories')}</option>

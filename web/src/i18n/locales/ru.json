@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP до 16 МиБ проверяются сервером. Можно импортировать до 128 навыков со справочными текстами; скрипты не выполняются.",
     "Zoom": "Zoom",
     "All groups (no restriction)": "Все группы (без ограничений)",
-    "Any enabled group used by the token can install and load this skill.": "Любая включённая группа, используемая токеном, может устанавливать и загружать этот навык."
+    "Any enabled group used by the token can install and load this skill.": "Любая включённая группа, используемая токеном, может устанавливать и загружать этот навык.",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "Категория удалена. Навыков перемещено в «Без категории»: {{count}}.",
+    "Delete category {{name}}": "Удалить категорию {{name}}",
+    "Delete skill category?": "Удалить категорию навыков?",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "После удаления «{{name}}» её навыки будут перемещены в «Без категории». Это действие невозможно отменить.",
+    "Failed to delete skill category": "Не удалось удалить категорию навыков"
   }
 }

@@ -6411,6 +6411,10 @@
     "You have read-only access to ticket automation.": "Vous avez un accès en lecture seule à l’automatisation des tickets.",
     "Your reply": "Votre réponse",
     "All groups (no restriction)": "Tous les groupes (sans restriction)",
-    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence."
+    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence.",
+    "Delete category {{name}}": "Supprimer la catégorie {{name}}",
+    "Delete category?": "Supprimer la catégorie ?",
+    "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Supprimer la catégorie « {{name}} » ? Ses compétences passeront dans Sans catégorie. Cette action est irréversible.",
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Catégorie « {{name}} » supprimée. Compétences déplacées vers Sans catégorie : {{count}}"
   }
 }

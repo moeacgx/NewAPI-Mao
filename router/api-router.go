@@ -387,6 +387,7 @@ func SetApiRouter(router *gin.Engine) {
 			promptAdminRoute.POST("/:id/update-repository", controller.UpdatePromptTemplateRepository)
 			promptAdminRoute.POST("/categories/", controller.SavePromptCategory)
 			promptAdminRoute.PUT("/categories/:id", controller.SavePromptCategory)
+			promptAdminRoute.DELETE("/categories/:id", controller.DeletePromptCategory)
 			promptAdminRoute.GET("/store/", controller.GetSkillStore)
 			promptAdminRoute.POST("/store/:id/import", controller.ImportStoreSkill)
 			promptAdminRoute.POST("/import/archive", controller.ImportSkillArchive)

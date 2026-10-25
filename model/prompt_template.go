@@ -247,9 +247,10 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		wasProgressive := false
 		if input.CategoryID > 0 {
+			// 与分类删除的排他锁串行，避免保存到正在删除的分类。
 			var category PromptCategory
-			if err := tx.First(&category, input.CategoryID).Error; err != nil {
-				return errors.New("技能分类不存在")
+			if err := lockForShare(tx).First(&category, input.CategoryID).Error; err != nil {
+				return errors.New("技能分类不存在或已删除，请重新选择分类")
 			}
 		}
 		lockedTokenIDs := make(map[int]bool, len(affectedTokenIDs))

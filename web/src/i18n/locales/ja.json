@@ -7603,6 +7603,11 @@
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP は最大 16 MiB で、サーバー側で検証します。参照テキストを含め最大 128 スキルを取り込み、スクリプトは実行しません。",
     "Zoom": "ズーム",
     "All groups (no restriction)": "すべてのグループ（制限なし）",
-    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どれでもこのスキルをインストールして読み込めます。"
+    "Any enabled group used by the token can install and load this skill.": "トークンが使用する有効なグループであれば、どれでもこのスキルをインストールして読み込めます。",
+    "Category deleted. {{count}} skill(s) moved to Uncategorized.": "分類を削除しました。{{count}} 件のスキルを未分類に移動しました。",
+    "Delete category {{name}}": "分類 {{name}} を削除",
+    "Delete skill category?": "スキル分類を削除しますか？",
+    "Deleting \"{{name}}\" moves its skills to Uncategorized. This action cannot be undone.": "「{{name}}」を削除すると、その中のスキルは未分類に移動します。この操作は元に戻せません。",
+    "Failed to delete skill category": "スキル分類の削除に失敗しました"
   }
 }

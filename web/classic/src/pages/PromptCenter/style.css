@@ -1201,6 +1201,15 @@ body[theme-mode='dark'] .prompt-center-form {
   border: 1px solid var(--semi-color-border);
   border-radius: 12px;
 }
+.prompt-center-form[hidden] {
+  display: none;
+}
+.prompt-category-delete {
+  overflow-wrap: anywhere;
+}
+.prompt-category-delete:focus {
+  outline: none;
+}
 .prompt-archive-import {
   display: flex;
   flex-wrap: wrap;
