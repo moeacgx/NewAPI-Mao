@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -46,8 +45,10 @@ func TestTicketBatchStatusAtomicVersionsAndNotification(t *testing.T) {
 	assert.Equal(t, TicketStatusOpen, logs[0].FromStatus)
 	assert.Equal(t, TicketStatusArchived, logs[0].ToStatus)
 	var events int64
-	require.NoError(t, DB.Model(&NotificationEvent{}).Where("event_type = ?", NotificationEventTypeTicketStatusChanged).Count(&events).Error)
-	assert.EqualValues(t, 2, events)
+	require.NoError(t, DB.Model(&NotificationEvent{}).Where("event_type <> ?", NotificationEventTypeTicketUserMessage).Count(&events).Error)
+	assert.Zero(t, events, "批量改状态不再发送状态变更通知")
+	require.NoError(t, DB.Model(&NotificationEvent{}).Count(&events).Error)
+	assert.EqualValues(t, 2, events, "只保留两张工单的新建通知")
 	changed, err = ChangeTicketsStatus(99, refs, TicketStatusArchived)
 	assert.ErrorIs(t, err, ErrTicketConflict)
 	assert.Zero(t, changed)
@@ -130,8 +131,9 @@ func TestTicketSoftDeletePreservesMessagesAndBlocksAllAccess(t *testing.T) {
 	assert.Equal(t, 99, audit.ActorId)
 }
 
-func TestTicketBatchRollsBackOnAuditOrNotificationFailure(t *testing.T) {
-	for _, failureTable := range []string{"ticket_action_logs", "notification_deliveries"} {
+// 批量改状态不再发送通知，原子性由操作审计写入保证。
+func TestTicketBatchRollsBackOnAuditFailure(t *testing.T) {
+	for _, failureTable := range []string{"ticket_action_logs"} {
 		t.Run(failureTable, func(t *testing.T) {
 			setupTicketTestDB(t)
 			subscribeTicketEvents(t)
@@ -236,14 +238,11 @@ func TestTicketAutoArchiveCutoffSelectionAndExactlyOnce(t *testing.T) {
 	require.Len(t, logs, 2)
 	assert.Zero(t, logs[0].ActorId)
 	var events []NotificationEvent
-	require.NoError(t, DB.Where("event_type = ?", NotificationEventTypeTicketStatusChanged).Find(&events).Error)
-	found := 0
+	require.NoError(t, DB.Find(&events).Error)
 	for _, event := range events {
-		if strings.Contains(event.Payload, `"actor_role":"system"`) {
-			found++
-		}
+		assert.Equal(t, NotificationEventTypeTicketUserMessage, event.EventType)
+		assert.NotContains(t, event.Payload, `"actor_role":"system"`, "自动归档不再发送状态变更通知")
 	}
-	assert.Equal(t, 2, found)
 	for _, ticket := range []*Ticket{old, boundary} {
 		detail, err := GetTicketDetail(ticket.Id, 10, false, 0)
 		require.NoError(t, err)
@@ -289,7 +288,8 @@ func TestTicketAutoArchiveRechecksReplyAndDisabledConfiguration(t *testing.T) {
 	}
 }
 
-func TestTicketAutoArchiveNotificationFailureRollsBack(t *testing.T) {
+// 自动归档不再发送状态变更通知，通知写入故障不能阻断归档。
+func TestTicketAutoArchiveDoesNotDependOnNotifications(t *testing.T) {
 	setupTicketTestDB(t)
 	subscribeTicketEvents(t)
 	_, err := UpdateTicketAutoArchiveConfig(TicketAutoArchiveConfig{Enabled: true, InactiveDays: 1, Statuses: []string{TicketStatusOpen}})
@@ -304,12 +304,14 @@ func TestTicketAutoArchiveNotificationFailureRollsBack(t *testing.T) {
 	}))
 	t.Cleanup(func() { _ = DB.Callback().Create().Remove("test:archive_notify_fail") })
 	count, err := ArchiveInactiveTickets(context.Background(), now, 100)
-	require.Error(t, err)
-	assert.Zero(t, count)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
 	detail, err := GetTicketDetail(ticket.Id, 10, false, 0)
 	require.NoError(t, err)
-	assert.Equal(t, TicketStatusOpen, detail.Ticket.Status)
-	var logs int64
+	assert.Equal(t, TicketStatusArchived, detail.Ticket.Status)
+	var logs, events int64
 	require.NoError(t, DB.Model(&TicketActionLog{}).Count(&logs).Error)
-	assert.Zero(t, logs)
+	assert.EqualValues(t, 1, logs)
+	require.NoError(t, DB.Model(&NotificationEvent{}).Count(&events).Error)
+	assert.EqualValues(t, 1, events, "只有新建工单的通知")
 }

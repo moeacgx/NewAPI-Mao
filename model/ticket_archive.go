@@ -119,9 +119,6 @@ func ArchiveInactiveTickets(ctx context.Context, now int64, limit int) (int, err
 			if err = tx.Create(&TicketActionLog{TicketId: ticket.Id, Action: "auto_archive", FromStatus: before, ToStatus: ticket.Status, Version: ticket.Version, CreatedAt: ticket.UpdatedAt}).Error; err != nil {
 				return err
 			}
-			if err = enqueueTicketNotificationTx(tx, &ticket, NotificationEventTypeTicketStatusChanged, 0, "system"); err != nil {
-				return err
-			}
 			changed = true
 			return nil
 		})

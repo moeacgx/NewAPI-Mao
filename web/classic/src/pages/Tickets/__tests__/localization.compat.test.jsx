@@ -51,12 +51,10 @@ test('创建弹窗切换语言后更新表单可访问名称和提交按钮', as
   expect(screen.queryByRole('button', { name: 'Submit ticket' })).toBeNull();
 });
 
-test('七语均覆盖四种通知事件、权限和关键服务错误且保留计数变量', () => {
+test('七语均覆盖工单通知事件、权限和关键服务错误且保留计数变量', () => {
   const keys = [
-    'Ticket created',
-    'Ticket user replied',
-    'Ticket administrator replied',
-    'Ticket status changed',
+    'Ticket created or user replied',
+    'Triggered when a user creates a support ticket or adds a reply.',
     'Ticket Management',
     'Read all tickets',
     'Manage tickets',
