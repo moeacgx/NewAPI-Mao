@@ -26,9 +26,17 @@ import { API } from '../../../helpers/api';
 const originalAdapter = API.defaults.adapter;
 const events = [
   {
-    value: 'ticket_created',
-    label: 'Ticket created',
-    default_template: '{{mention}} New ticket #{{ticket_id}}',
+    value: 'channel_disabled',
+    label: 'Channel disabled',
+    default_template: '{{mention}} Channel {{channel_name}} disabled',
+    variables: ['mention', 'channel_name'],
+  },
+  {
+    value: 'ticket_user_message',
+    label: 'Ticket created or user replied',
+    description:
+      'Triggered when a user creates a support ticket or adds a reply.',
+    default_template: '{{mention}} {{action_label}} #{{ticket_id}}: {{title}}',
     variables: [
       'mention',
       'ticket_id',
@@ -40,25 +48,9 @@ const events = [
       'actor_id',
       'actor_role',
       'create_time',
+      'action',
+      'action_label',
     ],
-  },
-  {
-    value: 'ticket_user_replied',
-    label: 'Ticket user replied',
-    default_template: '{{mention}} User replied #{{ticket_id}}',
-    variables: ['ticket_id', 'actor_id'],
-  },
-  {
-    value: 'ticket_admin_replied',
-    label: 'Ticket administrator replied',
-    default_template: '{{mention}} Administrator replied #{{ticket_id}}',
-    variables: ['ticket_id', 'actor_id'],
-  },
-  {
-    value: 'ticket_status_changed',
-    label: 'Ticket status changed',
-    default_template: '{{mention}} Status changed #{{ticket_id}}',
-    variables: ['ticket_id', 'status'],
   },
 ];
 let saved;
@@ -97,11 +89,21 @@ afterEach(() => {
   API.defaults.adapter = originalAdapter;
 });
 
-test('通知中心列出四种工单事件，切换使用对应默认模板且保存原有目标', async () => {
+test('通知中心只提供合并后的工单事件，切换使用其默认模板且保存原有目标', async () => {
   render(<NotificationCenter />);
   await screen.findByText('Support notifications');
   await userEvent.click(screen.getByRole('button', { name: '编辑' }));
-  await screen.findByText('{{ticket_id}}');
+  await screen.findByText('{{channel_name}}');
+  await userEvent.click(screen.getByRole('combobox', { name: '事件类型' }));
+  expect(screen.queryByText('Ticket administrator replied')).toBeNull();
+  expect(screen.queryByText('Ticket status changed')).toBeNull();
+  await userEvent.click(
+    screen.getByRole('option', { name: /Ticket created or user replied$/ }),
+  );
+  // jsdom 不执行 CSS 动画，显式完成下拉框关闭动画。
+  fireEvent.animationEnd(screen.getByRole('listbox'));
+  await screen.findByDisplayValue(events[1].default_template);
+  expect(await screen.findByText('{{action_label}}')).toBeTruthy();
   expect(
     screen.getByText('Ticket actor role (user, admin or system)'),
   ).toBeTruthy();
@@ -110,19 +112,15 @@ test('通知中心列出四种工单事件，切换使用对应默认模板且�
       'Ticket notifications include the title, category, priority, status, requester and actor IDs. Message content is excluded to protect sensitive information.',
     ),
   ).toBeTruthy();
-  await userEvent.click(screen.getByRole('combobox', { name: '事件类型' }));
-  expect(await screen.findByText('Ticket administrator replied')).toBeTruthy();
-  expect(screen.getByText('Ticket status changed')).toBeTruthy();
-  await userEvent.click(
-    screen.getByRole('option', { name: /Ticket user replied$/ }),
-  );
-  // jsdom 不执行 CSS 动画，显式完成下拉框关闭动画。
-  fireEvent.animationEnd(screen.getByRole('listbox'));
-  await screen.findByDisplayValue(events[1].default_template);
+  expect(
+    screen.getByText(
+      'Triggered when a user creates a support ticket or adds a reply.',
+    ),
+  ).toBeTruthy();
   await userEvent.click(screen.getByRole('button', { name: 'confirm' }));
   await waitFor(() =>
     expect(saved).toMatchObject({
-      event_type: 'ticket_user_replied',
+      event_type: 'ticket_user_message',
       bot_id: 1,
       template: events[1].default_template,
       targets: [{ id: 3, chat_id: '-1001', enabled: true }],

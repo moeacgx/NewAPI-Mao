@@ -418,6 +418,9 @@ func migrateDB() error {
 	if err := BackfillGroupBindings(); err != nil {
 		return fmt.Errorf("failed to backfill group bindings: %w", err)
 	}
+	if err := migrateTicketNotificationTasks(); err != nil {
+		return fmt.Errorf("failed to migrate ticket notification tasks: %w", err)
+	}
 	return nil
 }
 
@@ -596,6 +599,9 @@ func migrateDBFast() error {
 	}
 	if err := BackfillGroupBindings(); err != nil {
 		return fmt.Errorf("failed to backfill group bindings: %w", err)
+	}
+	if err := migrateTicketNotificationTasks(); err != nil {
+		return fmt.Errorf("failed to migrate ticket notification tasks: %w", err)
 	}
 	common.SysLog("database migrated")
 	return nil

@@ -80,19 +80,25 @@ func TestTicketControllersRejectInvalidPaginationAndOversizeRequests(t *testing.
 }
 
 func TestTicketNotificationEventsRegisterAndValidateTemplates(t *testing.T) {
-	for _, event := range []string{model.NotificationEventTypeTicketCreated, model.NotificationEventTypeTicketUserReplied, model.NotificationEventTypeTicketAdminReplied, model.NotificationEventTypeTicketStatusChanged} {
+	for _, legacy := range []string{"ticket_created", "ticket_user_replied", "ticket_admin_replied", "ticket_status_changed"} {
+		_, ok := findNotificationEventDefinition(legacy)
+		assert.False(t, ok, "已合并或下线的工单事件不再提供给通知任务选择: %s", legacy)
+	}
+	for _, event := range []string{model.NotificationEventTypeTicketUserMessage} {
 		t.Run(event, func(t *testing.T) {
 			definition, ok := findNotificationEventDefinition(event)
 			require.True(t, ok)
 			assert.True(t, definition.Available)
 			assert.Equal(t, "core", definition.Owner)
 			assert.NotContains(t, definition.Variables, "content")
+			assert.Contains(t, definition.Variables, "action_label")
 			assert.Equal(t, definition.DefaultTemplate, model.NormalizeNotificationTaskTemplate(event, ""))
 			assert.Equal(t, definition.DefaultTemplate, model.NormalizeNotificationTaskTemplate(event, model.NotificationTaskDefaultTemplate))
 			definition.SamplePayload["title"] = "<b>用户输入</b>"
 			rendered, err := service.RenderNotificationTemplate(definition.DefaultTemplate, definition.SamplePayload, nil)
 			require.NoError(t, err)
 			assert.Contains(t, rendered, "&lt;b&gt;用户输入&lt;/b&gt;")
+			assert.Contains(t, rendered, "用户追加回复")
 			_, err = service.RenderNotificationTemplate("{{content}}", definition.SamplePayload, nil)
 			assert.Error(t, err)
 		})
@@ -155,7 +161,14 @@ func TestTicketNotificationTasksCanBeSavedAndRejectBodyVariables(t *testing.T) {
 	setupNotificationControllerTestDB(t)
 	bot := &model.NotificationBot{Name: "工单测试机器人", Token: "fixture-token", Enabled: true}
 	require.NoError(t, model.CreateNotificationBot(bot))
-	for _, event := range []string{model.NotificationEventTypeTicketCreated, model.NotificationEventTypeTicketUserReplied, model.NotificationEventTypeTicketAdminReplied, model.NotificationEventTypeTicketStatusChanged} {
+	for _, legacy := range []string{"ticket_created", "ticket_admin_replied", "ticket_status_changed"} {
+		body := map[string]any{"name": legacy, "event_type": legacy, "bot_id": bot.Id, "enabled": true, "template": "", "targets": []map[string]any{{"chat_id": "123", "enabled": true}}}
+		encoded, err := common.Marshal(body)
+		require.NoError(t, err)
+		rejected := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", string(encoded), 0)
+		assert.Contains(t, rejected.Body.String(), `"success":false`, legacy)
+	}
+	for _, event := range []string{model.NotificationEventTypeTicketUserMessage} {
 		t.Run(event, func(t *testing.T) {
 			body := map[string]any{"name": event, "event_type": event, "bot_id": bot.Id, "enabled": true, "template": "", "targets": []map[string]any{{"chat_id": "123", "enabled": true}}}
 			encoded, err := common.Marshal(body)
