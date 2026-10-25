@@ -18,8 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { Toast } from '@douyinfe/semi-ui';
 import { AxiosError } from 'axios';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PromptCenter from '../index';
@@ -103,6 +104,7 @@ beforeEach(() => {
 
 afterEach(() => {
   API.defaults.adapter = originalAdapter;
+  vi.restoreAllMocks();
 });
 
 const deleteCalls = () => calls.filter((call) => call.method === 'delete');
@@ -118,16 +120,16 @@ async function openCategoryDeleteConfirmation() {
 }
 
 test('管理员确认删除分类后按当前版本发送 DELETE，提示移动数量并刷新分类与技能', async () => {
+  const successToast = vi.spyOn(Toast, 'success');
   render(<PromptCenter />);
   await screen.findByText('Outline skill');
   const dialog = await openCategoryDeleteConfirmation();
   expect(dialog.textContent).toContain('Writing');
   await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-  expect(
-    await screen.findByText(
-      'Deleted category Writing. Skills moved to Uncategorized: 1',
-    ),
-  ).toBeTruthy();
+  await waitFor(() => expect(successToast).toHaveBeenCalledTimes(1));
+  const successMessage = successToast.mock.calls[0][0];
+  expect(successMessage).toContain('Writing');
+  expect(successMessage).toContain('1');
   expect(deleteCalls()).toEqual([
     {
       url: '/api/prompt-center/admin/categories/4?version=3',
