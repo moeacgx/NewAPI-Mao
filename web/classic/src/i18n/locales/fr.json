@@ -6409,6 +6409,8 @@
     "You do not have permission to view ticket management.": "Vous n’avez pas accès à la gestion des tickets.",
     "You have read-only access to this ticket.": "Vous avez un accès en lecture seule à ce ticket.",
     "You have read-only access to ticket automation.": "Vous avez un accès en lecture seule à l’automatisation des tickets.",
-    "Your reply": "Votre réponse"
+    "Your reply": "Votre réponse",
+    "All groups (no restriction)": "Tous les groupes (sans restriction)",
+    "Any enabled group used by the token can install and load this skill.": "Tout groupe activé utilisé par le jeton peut installer et charger cette compétence."
   }
 }

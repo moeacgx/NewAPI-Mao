@@ -5,6 +5,7 @@
 - [工单通知合并](../workflows/2026-10/25_ticket_notification_merge.md)：新工单与用户追加回复合并为 `ticket_user_message`，管理员回复与状态变更不再通知，主节点迁移旧通知任务。
 - [前端测试稳定性修复](../workflows/2026-10/25_frontend_test_stability.md)：上游模型校验测试在加载中点击禁用按钮导致 CI 间歇失败；Classic 使用日志筛选测试未随分组下拉框更新。仅改测试。
 - [Classic 译文显示为问号](../workflows/2026-10/25_classic_locale_question_marks.md)：恢复工单自动化（6 语言）与计费公式（ja、ru）共 43 个键、137 条被非 UTF-8 写入替换成问号的译文，两套模板增加语言包编码检查。
+- [技能白名单不限分组](../workflows/2026-10/26_prompt_skills_all_groups.md)：允许任一启用的实际分组安装和装载技能，同时保留现有白名单授权。
 - [.354 技能更新、删除与大仓库导入发布](../workflows/2026-10/25_skill_updates_354_release.md)：合入 #329、#331、#333，唯一表结构变更为可空 TEXT 来源列，已逐节点更新正式站；[maolaoapi 逐节点部署](../workflows/2026-10/25_maolaoapi_354_deployment.md)。
 - [技能编辑弹窗引用正文折叠与横向溢出](../workflows/2026-10/25_skill_editor_reference_collapse.md)：Default 引用正文默认折叠、新增与校验失败时展开，修复长行撑开弹窗，保存栏固定在弹窗底部。
 - [GitHub 大仓库技能导入超时](../workflows/2026-10/25_github_skill_import_concurrency.md)：原始文件改为 8 路并发、瞬时错误有限重试、NUL 字节转写，导入期限 90 秒；真实 506 文件仓库导入保存通过，已更新 zzapi。

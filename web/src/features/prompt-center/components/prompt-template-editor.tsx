@@ -89,6 +89,7 @@ export function PromptTemplateEditor(props: {
       enabled: props.template?.enabled ?? true,
       sort_order: props.template?.sort_order ?? 0,
       version: props.template?.version ?? 0,
+      all_groups: props.template?.all_groups ?? false,
       group_ids: props.template?.group_ids ?? [],
       kind: props.template?.kind ?? 'prompt',
       load_mode:
@@ -105,6 +106,7 @@ export function PromptTemplateEditor(props: {
     },
   })
   const selectedGroups = form.watch('group_ids')
+  const allGroups = form.watch('all_groups') === true
   const kind = form.watch('kind')
   const progressive = form.watch('load_mode') === 'progressive'
   const categoryId = form.watch('category_id') ?? 0
@@ -114,6 +116,8 @@ export function PromptTemplateEditor(props: {
         {
           ...values,
           content: values.kind === 'bundle' ? '' : values.content,
+          // 不限分组只提交空白名单，未保存前切回时仍保留已勾选的分组草稿。
+          group_ids: values.all_groups ? [] : values.group_ids,
           ...(props.template?.repository_source && {
             repository_source: props.template.repository_source,
           }),
@@ -353,13 +357,40 @@ export function PromptTemplateEditor(props: {
               <legend className='px-1 text-sm font-medium'>
                 {t('Allowed groups')}
               </legend>
+              <label className='flex items-center gap-2 text-sm font-medium'>
+                <input
+                  type='checkbox'
+                  checked={allGroups}
+                  aria-describedby={`${fieldId}-all-groups-hint`}
+                  onChange={(event) => {
+                    form.setValue('all_groups', event.target.checked, {
+                      shouldDirty: true,
+                    })
+                    // 不限分组改变了白名单必填条件，已提示错误时需重新校验。
+                    if (form.formState.errors.group_ids) {
+                      void form.trigger('group_ids')
+                    }
+                  }}
+                />
+                {t('All groups (no restriction)')}
+              </label>
+              <p
+                id={`${fieldId}-all-groups-hint`}
+                className='text-muted-foreground text-xs'
+              >
+                {t(
+                  'Any enabled group used by the token can install and load this skill.'
+                )}
+              </p>
               <p className='text-muted-foreground text-xs'>
                 {t(
                   'Whitelist applies to the actual request group, including automatic selection and retries.'
                 )}
               </p>
-              {groups.isPending && <p role='status'>{t('Loading...')}</p>}
-              {groups.isError && (
+              {!allGroups && groups.isPending && (
+                <p role='status'>{t('Loading...')}</p>
+              )}
+              {!allGroups && groups.isError && (
                 <div role='alert'>
                   <p>{t('Failed to load groups')}</p>
                   <Button
@@ -371,7 +402,7 @@ export function PromptTemplateEditor(props: {
                   </Button>
                 </div>
               )}
-              {groups.isSuccess && (
+              {!allGroups && groups.isSuccess && (
                 <div className='grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2'>
                   {selectedGroups
                     .filter(
@@ -429,7 +460,7 @@ export function PromptTemplateEditor(props: {
                   )}
                 </div>
               )}
-              {form.formState.errors.group_ids && (
+              {!allGroups && form.formState.errors.group_ids && (
                 <p role='alert' className='text-destructive text-xs'>
                   {t('Select at least one allowed group')}
                 </p>
@@ -478,7 +509,7 @@ export function PromptTemplateEditor(props: {
                 type='submit'
                 disabled={
                   mutation.isPending ||
-                  !groups.isSuccess ||
+                  (!allGroups && !groups.isSuccess) ||
                   !categories.isSuccess
                 }
               >

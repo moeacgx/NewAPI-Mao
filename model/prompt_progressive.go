@@ -317,10 +317,10 @@ func GetActiveTokenSkills(tokenID int, groupCode string) ([]TokenProgressiveSkil
 	err = DB.Table("prompt_skill_records s").Select("s.template_id, s.skill_id, s.title, s.description, p.title AS package_title, p.version").
 		Joins("JOIN prompt_templates p ON p.id = s.template_id").
 		Joins("JOIN token_prompt_bindings b ON b.template_id = p.id").
-		Joins("JOIN prompt_template_groups g ON g.template_id = p.id").
 		Joins("JOIN tokens t ON t.id = b.token_id AND t.deleted_at IS NULL").
-		Where("g.group_id IN (?)", DB.Model(&Group{}).Select("id").Where("status = ?", GroupStatusActive)).
-		Where("b.token_id = ? AND b.enabled = ? AND p.enabled = ? AND p.load_mode = ? AND g.group_id = ? AND t.status = ? AND (t.expired_time = -1 OR t.expired_time >= ?)", tokenID, true, true, PromptLoadModeProgressive, group.Id, common.TokenStatusEnabled, common.GetTimestamp()).
+		Where("EXISTS (?)", DB.Model(&Group{}).Select("id").Where("id = ? AND status = ?", group.Id, GroupStatusActive)).
+		Where(promptGroupAuthorization(DB, "p.id", "p.all_groups", group.Id)).
+		Where("b.token_id = ? AND b.enabled = ? AND p.enabled = ? AND p.load_mode = ? AND t.status = ? AND (t.expired_time = -1 OR t.expired_time >= ?)", tokenID, true, true, PromptLoadModeProgressive, common.TokenStatusEnabled, common.GetTimestamp()).
 		Order("b.sort_order, p.id, s.sort_order, s.skill_id").Scan(&result).Error
 	return result, err
 }
@@ -356,7 +356,10 @@ func ReadActiveTokenSkillFile(tokenID int, groupCode string, templateID int, ski
 			return errors.New("技能已下架或版本已更新，请重新发现技能目录")
 		}
 		var authorized int64
-		if err := tx.Table("token_prompt_bindings b").Joins("JOIN prompt_template_groups g ON g.template_id = b.template_id").Where("g.group_id IN (?)", tx.Model(&Group{}).Select("id").Where("status = ?", GroupStatusActive)).Where("b.token_id = ? AND b.template_id = ? AND b.enabled = ? AND g.group_id = ?", tokenID, templateID, true, group.Id).Count(&authorized).Error; err != nil {
+		if err := tx.Table("token_prompt_bindings b").Joins("JOIN prompt_templates p ON p.id = b.template_id").
+			Where("EXISTS (?)", tx.Model(&Group{}).Select("id").Where("id = ? AND status = ?", group.Id, GroupStatusActive)).
+			Where(promptGroupAuthorization(tx, "p.id", "p.all_groups", group.Id)).
+			Where("b.token_id = ? AND b.template_id = ? AND b.enabled = ?", tokenID, templateID, true).Count(&authorized).Error; err != nil {
 			return err
 		}
 		if authorized != 1 {

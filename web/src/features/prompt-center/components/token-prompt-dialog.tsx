@@ -169,74 +169,80 @@ function TokenPromptEditor(props: {
         </div>
       )}
       <div className='space-y-3'>
-        {bindings.map((binding) => (
-          <section
-            key={binding.template.id}
-            className='bg-background border-border/70 space-y-3 rounded-2xl border p-4 shadow-sm'
-            aria-label={binding.template.title}
-          >
-            <div className='flex flex-wrap items-start justify-between gap-2'>
-              <div className='min-w-0 flex-1'>
-                <div className='flex items-center gap-2'>
-                  <Sparkles
-                    className='text-primary size-4 shrink-0'
-                    aria-hidden='true'
-                  />
-                  <h3 className='font-medium [overflow-wrap:anywhere]'>
-                    {binding.template.title}
-                  </h3>
-                </div>
-                {!binding.template.enabled && (
-                  <span className='text-muted-foreground text-xs'>
-                    {t('Unpublished')}
-                  </span>
-                )}
-              </div>
-              <div className='flex shrink-0 gap-1'>
-                <Button
-                  size='icon-sm'
-                  variant='outline'
-                  disabled={mutation.isPending}
-                  aria-label={t('Uninstall {{title}}', {
-                    title: binding.template.title,
-                  })}
-                  onClick={() =>
-                    setBindings((current) =>
-                      current.filter(
-                        (item) => item.template.id !== binding.template.id
-                      )
-                    )
-                  }
-                >
-                  <Trash2 className='size-3.5' aria-hidden='true' />
-                </Button>
-              </div>
-            </div>
-            <SkillSummary template={binding.template} />
-            <div className='border-border/60 flex flex-wrap items-center gap-3 border-t pt-3'>
-              <div className='flex min-w-0 flex-1 flex-wrap gap-1.5'>
-                {binding.template.group_details?.length ? (
-                  binding.template.group_details.map((group) => (
-                    <span
-                      key={group.id}
-                      className='bg-muted/40 text-muted-foreground inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-[11px]'
-                    >
-                      <CheckCircle2
-                        className='text-primary size-3'
-                        aria-hidden='true'
-                      />
-                      <span className='truncate'>{group.name}</span>
+        {bindings.map((binding) => {
+          // 不限分组没有白名单明细，用单个标签代替分组列表。
+          const groups = binding.template.all_groups
+            ? [{ id: 0, name: t('All groups') }]
+            : (binding.template.group_details ?? [])
+          return (
+            <section
+              key={binding.template.id}
+              className='bg-background border-border/70 space-y-3 rounded-2xl border p-4 shadow-sm'
+              aria-label={binding.template.title}
+            >
+              <div className='flex flex-wrap items-start justify-between gap-2'>
+                <div className='min-w-0 flex-1'>
+                  <div className='flex items-center gap-2'>
+                    <Sparkles
+                      className='text-primary size-4 shrink-0'
+                      aria-hidden='true'
+                    />
+                    <h3 className='font-medium [overflow-wrap:anywhere]'>
+                      {binding.template.title}
+                    </h3>
+                  </div>
+                  {!binding.template.enabled && (
+                    <span className='text-muted-foreground text-xs'>
+                      {t('Unpublished')}
                     </span>
-                  ))
-                ) : (
-                  <span className='text-muted-foreground text-xs'>
-                    {t('No available groups')}
-                  </span>
-                )}
+                  )}
+                </div>
+                <div className='flex shrink-0 gap-1'>
+                  <Button
+                    size='icon-sm'
+                    variant='outline'
+                    disabled={mutation.isPending}
+                    aria-label={t('Uninstall {{title}}', {
+                      title: binding.template.title,
+                    })}
+                    onClick={() =>
+                      setBindings((current) =>
+                        current.filter(
+                          (item) => item.template.id !== binding.template.id
+                        )
+                      )
+                    }
+                  >
+                    <Trash2 className='size-3.5' aria-hidden='true' />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </section>
-        ))}
+              <SkillSummary template={binding.template} />
+              <div className='border-border/60 flex flex-wrap items-center gap-3 border-t pt-3'>
+                <div className='flex min-w-0 flex-1 flex-wrap gap-1.5'>
+                  {groups.length > 0 ? (
+                    groups.map((group) => (
+                      <span
+                        key={group.id}
+                        className='bg-muted/40 text-muted-foreground inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-[11px]'
+                      >
+                        <CheckCircle2
+                          className='text-primary size-3'
+                          aria-hidden='true'
+                        />
+                        <span className='truncate'>{group.name}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className='text-muted-foreground text-xs'>
+                      {t('No available groups')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+          )
+        })}
       </div>
       {mutation.isError && (
         <p role='alert' className='text-destructive'>

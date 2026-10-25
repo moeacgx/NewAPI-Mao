@@ -207,3 +207,16 @@ func TestPromptTemplateDeleteAndRepositoryUpdateAPIContracts(t *testing.T) {
 	require.True(t, decodeAPIResponse(t, recorder).Success)
 	assert.NotContains(t, recorder.Body.String(), "仓库技能")
 }
+
+func TestPromptTemplatesAPIExposeAllGroups(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.PromptCategory{}, &model.PromptTemplate{}, &model.PromptTemplateGroup{}, &model.TokenPromptBinding{}))
+	_, err := model.SavePromptTemplate(model.PromptTemplate{Title: "通用提示词", Content: "正文", Enabled: true, AllGroups: true})
+	require.NoError(t, err)
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/prompt-center/", nil, 1)
+	GetPromptTemplates(ctx)
+	require.True(t, decodeAPIResponse(t, recorder).Success)
+	assert.Contains(t, recorder.Body.String(), `"all_groups":true`)
+	assert.Contains(t, recorder.Body.String(), `"group_ids":[]`)
+}

@@ -6613,6 +6613,8 @@
     "You do not have permission to view ticket management.": "You do not have permission to view ticket management.",
     "You have read-only access to this ticket.": "You have read-only access to this ticket.",
     "You have read-only access to ticket automation.": "You have read-only access to ticket automation.",
-    "Your reply": "Your reply"
+    "Your reply": "Your reply",
+    "All groups (no restriction)": "All groups (no restriction)",
+    "Any enabled group used by the token can install and load this skill.": "Any enabled group used by the token can install and load this skill."
   }
 }

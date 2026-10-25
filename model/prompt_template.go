@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const MaxTokenPrompts = 8
@@ -15,20 +16,24 @@ const MaxTokenPromptBytes = 65536
 var ErrPromptVersionConflict = errors.New("提示词已被其他管理员更新，请刷新后重试")
 
 type PromptTemplate struct {
-	ID           int              `json:"id" gorm:"primaryKey"`
-	Title        string           `json:"title" gorm:"size:320"`
-	Description  string           `json:"description" gorm:"type:text"`
-	Content      string           `json:"content" gorm:"type:text"`
-	Kind         string           `json:"kind" gorm:"size:16"`
-	LoadMode     string           `json:"load_mode" gorm:"size:16"`
-	CategoryID   int              `json:"category_id" gorm:"index"`
-	CategoryName string           `json:"category_name" gorm:"-"`
-	SkillsJSON   string           `json:"-" gorm:"type:text"`
-	Skills       []PromptSkill    `json:"skills" gorm:"-"`
-	SkillCount   int              `json:"skill_count" gorm:"-"`
-	Enabled      bool             `json:"enabled"`
-	SortOrder    int              `json:"sort_order"`
-	Version      int              `json:"version"`
+	ID           int           `json:"id" gorm:"primaryKey"`
+	Title        string        `json:"title" gorm:"size:320"`
+	Description  string        `json:"description" gorm:"type:text"`
+	Content      string        `json:"content" gorm:"type:text"`
+	Kind         string        `json:"kind" gorm:"size:16"`
+	LoadMode     string        `json:"load_mode" gorm:"size:16"`
+	CategoryID   int           `json:"category_id" gorm:"index"`
+	CategoryName string        `json:"category_name" gorm:"-"`
+	SkillsJSON   string        `json:"-" gorm:"type:text"`
+	Skills       []PromptSkill `json:"skills" gorm:"-"`
+	SkillCount   int           `json:"skill_count" gorm:"-"`
+	Enabled      bool          `json:"enabled"`
+	SortOrder    int           `json:"sort_order"`
+	Version      int           `json:"version"`
+	// AllGroups 为 true 时任一启用的实际请求分组都可安装和装载，白名单关联被清空。
+	// 迁移新增列对存量行为 NULL，查询只匹配 all_groups = true，NULL 与 false 都按白名单处理；
+	// 不加布尔默认值标签，避免 MySQL/PostgreSQL 每次启动重复 ALTER。
+	AllGroups    bool             `json:"all_groups"`
 	GroupIDs     []int            `json:"group_ids" gorm:"-"`
 	GroupDetails []GroupReference `json:"group_details" gorm:"-"`
 	// 来源只在管理员接口返回；公共目录和令牌安装摘要使用独立的公开结构。
@@ -204,8 +209,11 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 	if input.CategoryID < 0 {
 		return nil, errors.New("技能分类无效")
 	}
-	if (input.Enabled && len(input.GroupIDs) == 0) || len(input.GroupIDs) > 1000 {
-		return nil, errors.New("请选择 1 至 1000 个允许装载的分组")
+	if input.AllGroups {
+		input.GroupIDs = []int{}
+	}
+	if (input.Enabled && !input.AllGroups && len(input.GroupIDs) == 0) || len(input.GroupIDs) > 1000 {
+		return nil, errors.New("请选择不限分组，或 1 至 1000 个允许装载的分组")
 	}
 	if input.SortOrder < -1000000 || input.SortOrder > 1000000 {
 		return nil, errors.New("提示词排序必须在 -1000000 至 1000000 之间")
@@ -307,7 +315,7 @@ func SavePromptTemplate(input PromptTemplate) (*PromptTemplate, error) {
 			if input.LoadMode == PromptLoadModeProgressive {
 				storedContent = ""
 			}
-			updates := map[string]interface{}{"title": input.Title, "description": input.Description, "content": storedContent, "kind": input.Kind, "load_mode": input.LoadMode, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "sort_order": input.SortOrder, "version": input.Version}
+			updates := map[string]interface{}{"title": input.Title, "description": input.Description, "content": storedContent, "kind": input.Kind, "load_mode": input.LoadMode, "category_id": input.CategoryID, "skills_json": input.SkillsJSON, "enabled": input.Enabled, "all_groups": input.AllGroups, "sort_order": input.SortOrder, "version": input.Version}
 			if sourceProvided {
 				updates["repository_source_json"] = input.RepositorySourceJSON
 			} else {
@@ -470,6 +478,12 @@ func ReplaceTokenPromptBindings(userID, tokenID int, inputs []TokenPromptBinding
 		for _, group := range allowed {
 			eligible[group.TemplateID] = true
 		}
+		// 不限分组的模板只要求令牌当前至少有一个可用的启用分组。
+		for _, template := range templates {
+			if template.AllGroups && len(allowedGroupIDs) > 0 {
+				eligible[template.ID] = true
+			}
+		}
 		total := 0
 		for _, input := range inputs {
 			template := byID[input.TemplateID]
@@ -499,6 +513,15 @@ func ReplaceTokenPromptBindings(userID, tokenID int, inputs []TokenPromptBinding
 	})
 }
 
+// promptGroupAuthorization 是模板对当前实际请求分组生效的统一条件：白名单包含该分组，
+// 或模板为不限分组且该分组在数据库中仍为启用状态。全文装载、渐进式目录与正文读取共用，
+// 实时查库，不经缓存；白名单分支保持各调用方原有的分组状态检查。
+func promptGroupAuthorization(tx *gorm.DB, templateIDColumn, allGroupsColumn string, groupID int) clause.Expr {
+	activeGroup := tx.Model(&Group{}).Select("id").Where("id = ? AND status = ?", groupID, GroupStatusActive)
+	whitelisted := tx.Table("prompt_template_groups g").Select("1").Where("g.template_id = "+templateIDColumn+" AND g.group_id = ?", groupID)
+	return gorm.Expr("(("+allGroupsColumn+" = ? AND EXISTS (?)) OR EXISTS (?))", true, activeGroup, whitelisted)
+}
+
 func GetActiveTokenPrompts(tokenID int, groupCode string) ([]TokenPromptContent, error) {
 	result := make([]TokenPromptContent, 0)
 	if tokenID <= 0 || groupCode == "" || groupCode == "auto" {
@@ -514,9 +537,9 @@ func GetActiveTokenPrompts(tokenID int, groupCode string) ([]TokenPromptContent,
 	var templates []PromptTemplate
 	err = DB.Table("prompt_templates").Select("prompt_templates.*").
 		Joins("JOIN token_prompt_bindings b ON b.template_id = prompt_templates.id").
-		Joins("JOIN prompt_template_groups g ON g.template_id = prompt_templates.id").
 		Joins("JOIN tokens t ON t.id = b.token_id AND t.deleted_at IS NULL").
-		Where("b.token_id = ? AND b.enabled = ? AND prompt_templates.enabled = ? AND g.group_id = ? AND (prompt_templates.load_mode IS NULL OR prompt_templates.load_mode <> ?)", tokenID, true, true, group.Id, PromptLoadModeProgressive).
+		Where(promptGroupAuthorization(DB, "prompt_templates.id", "prompt_templates.all_groups", group.Id)).
+		Where("b.token_id = ? AND b.enabled = ? AND prompt_templates.enabled = ? AND (prompt_templates.load_mode IS NULL OR prompt_templates.load_mode <> ?)", tokenID, true, true, PromptLoadModeProgressive).
 		Order("b.sort_order, prompt_templates.id").Find(&templates).Error
 	if err != nil {
 		return nil, err

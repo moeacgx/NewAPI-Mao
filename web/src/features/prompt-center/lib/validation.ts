@@ -53,12 +53,14 @@ export const promptTemplateSchema = z
     enabled: z.boolean(),
     sort_order: z.number().int().min(-1000000).max(1000000),
     version: z.number().int().min(0),
+    all_groups: z.boolean().optional(),
     group_ids: z.array(z.number().int().positive()).max(1000),
   })
-  .refine((value) => !value.enabled || value.group_ids.length > 0, {
-    path: ['group_ids'],
-    message: 'Select at least one allowed group',
-  })
+  .refine(
+    (value) =>
+      !value.enabled || value.all_groups === true || value.group_ids.length > 0,
+    { path: ['group_ids'], message: 'Select at least one allowed group' }
+  )
   .superRefine((value, ctx) => {
     const progressive = value.load_mode === 'progressive'
     if (progressive) {

@@ -7601,6 +7601,8 @@
     "Zhipu V4": "智譜 V4",
     "ZIP files are checked on the server. Only skill text is imported.": "壓縮檔由伺服器驗證，僅匯入技能文字。",
     "ZIP files up to 16 MiB are checked on the server. Import up to 128 skills with text references; scripts are not executed.": "ZIP 最大 16 MiB，由伺服器檢查。最多匯入 128 項技能與其文字參考，不執行腳本。",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "All groups (no restriction)": "不限群組",
+    "Any enabled group used by the token can install and load this skill.": "任何啟用群組的權杖都可安裝和裝載此技能。"
   }
 }

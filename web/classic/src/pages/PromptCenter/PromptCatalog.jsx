@@ -92,20 +92,26 @@ export default function PromptCatalog(props) {
                     {t('Allowed groups')}
                   </span>
                   <div className='prompt-center-group-chips'>
-                    {template.group_details?.length ? (
-                      template.group_details.map((group) => (
+                    {template.all_groups && (
+                      <span className='prompt-center-group-chip'>
+                        {t('All groups (no restriction)')}
+                      </span>
+                    )}
+                    {!template.all_groups &&
+                      template.group_details?.map((group) => (
                         <span
                           className='prompt-center-group-chip'
                           key={group.id}
                         >
                           {group.name}
                         </span>
-                      ))
-                    ) : (
-                      <span className='prompt-center-muted'>
-                        {t('No eligible groups')}
-                      </span>
-                    )}
+                      ))}
+                    {!template.all_groups &&
+                      !template.group_details?.length && (
+                        <span className='prompt-center-muted'>
+                          {t('No eligible groups')}
+                        </span>
+                      )}
                   </div>
                 </div>
                 <div className='prompt-center-card-actions'>

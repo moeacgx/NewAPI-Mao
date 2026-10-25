@@ -95,6 +95,7 @@ describe('提示词管理员编辑', () => {
         category_id: 0,
         skills: [],
         enabled: false,
+        all_groups: false,
         group_ids: [],
       })
     )
@@ -116,6 +117,7 @@ describe('提示词管理员编辑', () => {
         load_mode: 'eager',
         category_id: 0,
         skills: [],
+        all_groups: false,
         title: 'Updated review',
       })
     )

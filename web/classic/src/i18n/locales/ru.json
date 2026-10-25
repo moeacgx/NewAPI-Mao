@@ -6441,6 +6441,8 @@
     "You do not have permission to view ticket management.": "У вас нет доступа к управлению обращениями.",
     "You have read-only access to this ticket.": "Это обращение доступно вам только для чтения.",
     "You have read-only access to ticket automation.": "У вас доступ к автоматизации обращений только для чтения.",
-    "Your reply": "Ваш ответ"
+    "Your reply": "Ваш ответ",
+    "All groups (no restriction)": "Все группы (без ограничений)",
+    "Any enabled group used by the token can install and load this skill.": "Любая включённая группа, которую использует токен, может устанавливать и загружать этот навык."
   }
 }

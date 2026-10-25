@@ -6375,6 +6375,8 @@
     "You do not have permission to view ticket management.": "你沒有檢視工單管理的權限。",
     "You have read-only access to this ticket.": "你對此工單僅有檢視權限。",
     "You have read-only access to ticket automation.": "您對工單自動化僅有唯讀權限。",
-    "Your reply": "回覆內容"
+    "Your reply": "回覆內容",
+    "All groups (no restriction)": "不限群組",
+    "Any enabled group used by the token can install and load this skill.": "任意啟用群組的權杖都可安裝和載入此技能。"
   }
 }

@@ -3984,6 +3984,8 @@
     "Enter a title and nonempty text for every skill": "每个技能都需要标题和非空正文",
     "Add a description explaining when to use every skill before publishing": "发布前请为每个技能补充适用场景说明",
     "Use unique relative file paths without parent directory references": "请使用不重复的相对文件路径，不可引用上级目录",
-    "The total skill text must not exceed 64 MiB": "包内技能文本总量不能超过 64 MiB"
+    "The total skill text must not exceed 64 MiB": "包内技能文本总量不能超过 64 MiB",
+    "All groups (no restriction)": "不限分组",
+    "Any enabled group used by the token can install and load this skill.": "任意启用分组的令牌都可安装和装载此技能。"
   }
 }
