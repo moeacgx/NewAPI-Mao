@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [Default 任务日志请求 404 修复](../workflows/2026-10/24_default_task_log_404.md)：Default 管理员列表路径、后端兼容路由及鉴权边界。
 - [使用日志技能徽标](../workflows/2026-10/25_usage_log_skill_badge.md)：Default 与 Classic 使用日志显示已使用技能、未用技能和技能发现轮次，读取现有日志字段，不改后端。
 - [工单通知合并](../workflows/2026-10/25_ticket_notification_merge.md)：新工单与用户追加回复合并为 `ticket_user_message`，管理员回复与状态变更不再通知，主节点迁移旧通知任务。
 - [前端测试稳定性修复](../workflows/2026-10/25_frontend_test_stability.md)：上游模型校验测试在加载中点击禁用按钮导致 CI 间歇失败；Classic 使用日志筛选测试未随分组下拉框更新。仅改测试。
