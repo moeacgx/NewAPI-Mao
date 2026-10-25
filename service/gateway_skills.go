@@ -53,14 +53,15 @@ type gatewaySkillCatalogueQuery struct {
 
 // GatewaySkillSession 只在一个已选定分组、渠道的读取阶段内有效，不跨重试复用。
 type GatewaySkillSession struct {
-	tokenID   int
-	group     string
-	format    types.RelayFormat
-	modelName string
-	skills    []model.TokenProgressiveSkill
-	pages     []gatewaySkillPage
-	readBytes int
-	resources map[string]map[string]bool
+	tokenID           int
+	group             string
+	format            types.RelayFormat
+	modelName         string
+	skills            []model.TokenProgressiveSkill
+	pages             []gatewaySkillPage
+	readBytes         int
+	discoveryFallback bool
+	resources         map[string]map[string]bool
 	// catalogueQueries 只保存模型成功执行过的查询参数；正式生成前会按当前授权重新查询，
 	// 避免把已经撤销或改版的目录结果带入正式请求。
 	catalogueQueries []gatewaySkillCatalogueQuery
@@ -74,6 +75,11 @@ func (s *GatewaySkillSession) HasReadFiles() bool {
 		}
 	}
 	return false
+}
+
+// MarkDiscoveryFallback 记录连续未识别客户端工具导致的私有发现阶段回退。
+func (s *GatewaySkillSession) MarkDiscoveryFallback() {
+	s.discoveryFallback = true
 }
 
 func NewGatewaySkillSession(c *gin.Context, format types.RelayFormat) (*GatewaySkillSession, error) {
@@ -470,5 +476,9 @@ func (s *GatewaySkillSession) Audit(c *gin.Context, stage string, round int) {
 	for _, query := range s.catalogueQueries {
 		queries = append(queries, map[string]any{"query_bytes": len(query.Query), "offset": query.Offset})
 	}
-	c.Set(gatewaySkillAuditKey, map[string]any{"stage": stage, "round": round, "catalogue_count": len(s.skills), "catalogue_queries": queries, "files": pages})
+	audit := map[string]any{"stage": stage, "round": round, "catalogue_count": len(s.skills), "catalogue_queries": queries, "files": pages}
+	if s.discoveryFallback {
+		audit["discovery_fallback"] = true
+	}
+	c.Set(gatewaySkillAuditKey, audit)
 }

@@ -127,7 +127,7 @@ func (r *GatewaySkillRequest) prependInstruction(request map[string]json.RawMess
 			}
 		}
 		if existing != "" {
-			instruction += "\n\n" + existing
+			instruction = existing + "\n\n" + instruction
 		}
 		encoded, err := common.Marshal(instruction)
 		if err != nil {

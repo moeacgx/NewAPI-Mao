@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 
@@ -25,10 +24,11 @@ type GatewaySkillCall struct {
 }
 
 type GatewaySkillTurn struct {
-	Calls       []GatewaySkillCall
-	ClientCalls []GatewaySkillCall
-	Assistant   json.RawMessage
-	Output      []json.RawMessage
+	Calls                   []GatewaySkillCall
+	ClientCalls             []GatewaySkillCall
+	UnrecognizedClientCalls bool
+	Assistant               json.RawMessage
+	Output                  []json.RawMessage
 }
 
 type GatewaySkillResult struct {
@@ -174,7 +174,7 @@ func NewGatewaySkillRequest(body []byte, format types.RelayFormat, modelName, ca
 	return state, nil
 }
 
-// GatewaySkillClientTools 只认可原请求明确声明的工具，不从历史调用推断执行权限。
+// GatewaySkillClientTools 读取原请求直接声明的工具；客户端适配层可能使用其他封装。
 func GatewaySkillClientTools(body []byte, format types.RelayFormat) map[string]bool {
 	names := make(map[string]bool)
 	for _, tool := range gjson.GetBytes(body, "tools").Array() {
@@ -185,7 +185,7 @@ func GatewaySkillClientTools(body []byte, format types.RelayFormat) map[string]b
 				name = tool.Get("function.name").String()
 			}
 		case types.RelayFormatOpenAIResponses:
-			if tool.Get("type").String() == "function" {
+			if tool.Get("type").String() == "function" || tool.Get("type").String() == "custom" {
 				name = tool.Get("name").String()
 			}
 		case types.RelayFormatClaude:
@@ -208,7 +208,8 @@ func GatewaySkillClientTools(body []byte, format types.RelayFormat) map[string]b
 	return names
 }
 
-// ParseGatewaySkillTurn 保留私有助手内容，将原客户端工具意图与网关读取分开；均不直接回传客户端。
+// ParseGatewaySkillTurn 保留私有助手内容，将网关读取与其余调用分开；私有阶段不执行客户端工具。
+// 未匹配原请求声明的工具只标记为未识别调用，由上层纠偏或结束私有发现。
 func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTools map[string]bool) (*GatewaySkillTurn, error) {
 	turn := &GatewaySkillTurn{}
 	switch format {
@@ -249,16 +250,19 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTool
 		turn.Output = envelope.Output
 		for _, item := range envelope.Output {
 			var output struct {
-				Type      string `json:"type"`
-				Name      string `json:"name"`
-				CallID    string `json:"call_id"`
-				Arguments string `json:"arguments"`
+				Type      string          `json:"type"`
+				Name      string          `json:"name"`
+				CallID    string          `json:"call_id"`
+				Arguments string          `json:"arguments"`
+				Input     json.RawMessage `json:"input"`
 			}
 			if err := common.Unmarshal(item, &output); err != nil {
 				return nil, err
 			}
 			if output.Type == "function_call" {
 				turn.Calls = append(turn.Calls, GatewaySkillCall{ID: output.CallID, Name: output.Name, Arguments: json.RawMessage(output.Arguments)})
+			} else if output.Type == "custom_tool_call" {
+				turn.Calls = append(turn.Calls, GatewaySkillCall{ID: output.CallID, Name: output.Name, Arguments: output.Input})
 			}
 		}
 	case types.RelayFormatClaude:
@@ -321,8 +325,16 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTool
 	internalCalls := make([]GatewaySkillCall, 0, len(turn.Calls))
 	for _, call := range turn.Calls {
 		internal := call.Name == GatewaySkillsListTool || call.Name == GatewaySkillsReadTool || call.Name == GatewaySkillsFilesTool
+		if call.Name == "" {
+			return nil, errors.New("技能读取阶段工具名称为空")
+		}
 		if !internal && !clientTools[call.Name] {
-			return nil, fmt.Errorf("技能读取阶段返回未声明工具 %q", call.Name)
+			if format != types.RelayFormatOpenAIResponses {
+				return nil, errors.New("技能读取阶段返回未声明工具")
+			}
+			// 不同客户端封装可能不会把工具声明原样传到此 API 层。
+			// 未匹配声明的调用仍须隔离，不能在私有阶段执行。
+			turn.UnrecognizedClientCalls = true
 		}
 		if (format != types.RelayFormatGemini && call.ID == "") || (call.ID != "" && seen[call.ID]) {
 			return nil, errors.New("技能读取工具调用标识缺失或重复")
