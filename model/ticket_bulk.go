@@ -93,9 +93,6 @@ func mutateTicketBatch(actorID int, refs []TicketVersionRef, status string, dele
 				if err := updateTicketStateTx(tx, &ticket, status); err != nil {
 					return err
 				}
-				if err := enqueueTicketNotificationTx(tx, &ticket, NotificationEventTypeTicketStatusChanged, actorID, "admin"); err != nil {
-					return err
-				}
 			}
 			if err := tx.Create(&TicketActionLog{TicketId: ticket.Id, ActorId: actorID, Action: action, FromStatus: before, ToStatus: ticket.Status, Version: ticket.Version, CreatedAt: ticket.UpdatedAt}).Error; err != nil {
 				return err

@@ -113,10 +113,7 @@ const EVENT_LABEL_KEYS: Record<string, string> = {
   [FALLBACK_EVENT.value]: FALLBACK_EVENT.label,
   channel_disabled: 'Channel disabled',
   channel_enabled: 'Channel enabled',
-  ticket_created: 'Ticket created',
-  ticket_user_replied: 'Ticket user replied',
-  ticket_admin_replied: 'Ticket administrator replied',
-  ticket_status_changed: 'Ticket status changed',
+  ticket_user_message: 'Ticket created or user replied',
 }
 
 const EVENT_DESCRIPTION_KEYS: Record<string, string> = {
@@ -124,11 +121,8 @@ const EVENT_DESCRIPTION_KEYS: Record<string, string> = {
   channel_disabled: 'Triggered after a channel is automatically disabled.',
   channel_enabled:
     'Triggered after an automatically disabled channel recovers.',
-  ticket_created: 'Triggered when a user creates a support ticket.',
-  ticket_user_replied: 'Triggered when a user replies to a support ticket.',
-  ticket_admin_replied:
-    'Triggered when an administrator replies to a support ticket.',
-  ticket_status_changed: 'Triggered when a support ticket status is changed.',
+  ticket_user_message:
+    'Triggered when a user creates a support ticket or adds a reply.',
 }
 
 const TICKET_VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
@@ -141,6 +135,8 @@ const TICKET_VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
   actor_id: 'User ID that performed the ticket action',
   actor_role: 'Ticket actor role (user, admin or system)',
   create_time: 'Ticket event creation time',
+  action: 'Ticket action code (created or replied)',
+  action_label: 'Ticket action label (new ticket or user reply)',
 }
 
 const VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
@@ -187,6 +183,8 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   status: 'open',
   actor_id: '123',
   actor_role: 'user',
+  action: 'replied',
+  action_label: '用户追加回复',
 }
 
 const DEFAULT_VARIABLE_DESCRIPTION = 'Custom event payload value'

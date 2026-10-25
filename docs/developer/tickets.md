@@ -13,7 +13,7 @@ Default 和 Classic 均提供个人工单中心；管理员仍可提交和查看
 - 标题最多 120 个 Unicode 字符，消息最多 10000 个；分类为 `general/billing/technical/account`，优先级为 `low/normal/high`。
 - 状态为 `open/processing/resolved/closed/archived`。新工单为 open；人工管理员回复进入 processing，用户回复进入 open；closed/archived 禁止追加，必须显式重新打开。创建时的自动确认消息保持 open，不代表人工接单。
 - 用户接口只读取或更新当前会话用户所属工单，管理员个人入口也不例外。管理员接口要求 AdminAuth 和 `tickets:read/write` 权限。
-- 用户可设置 closed 或 open；管理员可设置所有合法状态。重复设置相同状态不产生通知。
+- 用户可设置 closed 或 open；管理员可设置所有合法状态。状态变更不发送通知。
 - 所有用户和管理员变更采用事务、`lockForUpdate` 和服务端版本条件更新；SQLite 不使用不支持的 FOR UPDATE。版本冲突返回 409，客户端刷新后重试，不自动重放写操作。
 - 模型同时注册普通迁移和快速迁移；通过 GORM 保持 SQLite/MySQL/PostgreSQL 兼容，不修改计费和转发。
 - 管理员批量软删除设置 `deleted_at`，列表/详情/回复/状态接口均不可再访问。工单、消息和事务内 `TicketActionLog` 保留，不提供物理清理和回收站恢复入口。
@@ -37,18 +37,18 @@ Default 和 Classic 均提供个人工单中心；管理员仍可提交和查看
 
 配置存储在主库 `Option` 的 `TicketAutoReplyConfig` 键中，默认关闭。用户创建工单时，服务端
 在同一事务内追加一条 `author_role=admin`、`author_id=0` 的系统回复；创建事务回滚时不会留下
-半条自动回复，后续修改配置也不会重新发送历史回复。自动回复不额外产生
-`ticket_admin_replied` 通知，工单创建事件仍按原契约入队一次。
+半条自动回复，后续修改配置也不会重新发送历史回复。自动回复不额外产生通知，
+新建工单只入队一次 `ticket_user_message`（`action=created`）。
 
 ### 批量操作与超时归档
 
 - `PUT /api/ticket-admin/batch/status`：`{tickets:[{id,version}],status}`，返回 `data:{updated_count}`。
 - `POST /api/ticket-admin/batch/delete`：`{tickets:[{id,version}]}`，返回 `data:{deleted_count}`。两者仅管理员且拥有 `tickets:write` 可操作。
-- 每批 1–100 个不同正整数 ID 和正版本；非法/重复输入 400，任一不存在或已删除 404，任一版本陈旧 409。先锁定并检查全部记录，整批提交或回滚；同状态不重复通知，但仍验证版本。前端只勾选当前页，操作前确认，翻页/筛选/切换账号清空选择。
+- 每批 1–100 个不同正整数 ID 和正版本；非法/重复输入 400，任一不存在或已删除 404，任一版本陈旧 409。先锁定并检查全部记录，整批提交或回滚；状态变更不发送通知，但仍验证版本。前端只勾选当前页，操作前确认，翻页/筛选/切换账号清空选择。
 - `GET/PUT /api/ticket-admin/automation/auto-archive`：`{enabled,inactive_days,statuses}`，读取 `tickets:read`、保存 `tickets:write`。默认关闭、30 天、resolved/closed；天数整数 1–3650；状态非空、无重复且只允许 open/processing/resolved/closed。
 - 超时从最近的创建、回复或状态变化（`updated_at`）起算；达到截止时间即符合条件。启用后包括既有工单，管理员可显式选择归档长期未处理工单；新回复与重开会重新计时。
-- `ticket_auto_archive` 复用系统任务主节点调度和数据库租约，每分钟执行、每轮至多 100 条、30 秒执行期限；逐笔事务重读配置并锁定工单、再次核对状态和时间，避免覆盖新回复或处理已删除记录。归档后不重复命中，失败不会留下半笔状态/审计/通知；已完成的其他工单保留成功结果。任务历史保存 `archived_count` 和脱敏错误。
-- 批量改状态、软删除、自动归档在主库事务内保存 `TicketActionLog`（工单、操作者、动作、前后状态、版本和时间）。状态变更/归档复用 `ticket_status_changed`，自动归档操作人 ID=0、角色 system；软删除只留审计，不新增外部通知。
+- `ticket_auto_archive` 复用系统任务主节点调度和数据库租约，每分钟执行、每轮至多 100 条、30 秒执行期限；逐笔事务重读配置并锁定工单、再次核对状态和时间，避免覆盖新回复或处理已删除记录。归档后不重复命中，失败不会留下半笔状态/审计；已完成的其他工单保留成功结果。任务历史保存 `archived_count` 和脱敏错误。
+- 批量改状态、软删除、自动归档在主库事务内保存 `TicketActionLog`（工单、操作者、动作、前后状态、版本和时间）。自动归档操作人 ID=0；批量改状态、软删除和自动归档都只留审计，不发送外部通知。
 
 Ticket 字段为 `id,user_id,title,category,priority,status,version,created_at,updated_at`；TicketMessage 字段为 `id,ticket_id,author_id,author_role,content,created_at`，author_role 为 `user/admin`。列表不返回正文，不接受客户端指定归属和作者。
 
@@ -61,16 +61,21 @@ Ticket 字段为 `id,user_id,title,category,priority,status,version,created_at,u
 两套模板共用侧栏设置键 personal.tickets 与 admin.ticket_management，新用户默认启用。
 已有用户未指定这两个新键时，前端按默认值补齐；明确关闭的设置继续保留。
 
-- `ticket_created`：新建工单。
-- `ticket_user_replied`：用户追问。
-- `ticket_admin_replied`：管理员回复。
-- `ticket_status_changed`：显式状态修改。
+工单只提供一个通知事件 `ticket_user_message`：用户新建工单（`action=created`，
+`action_label=新工单`）或用户追加回复（`action=replied`，`action_label=用户追加回复`）。
+管理员回复、显式状态修改、批量改状态和自动归档都由管理员或系统发起，不发送通知。
 
-变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time`。正文不进入通知负载，避免将可能存在的凭据扩散到外部。
+变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time,action,action_label`，
+`actor_role` 固定为 `user`。正文不进入通知负载，避免将可能存在的凭据扩散到外部。
 
-事件与业务写入同事务，幂等键使用工单 ID 和版本号；关闭后重新打开再关闭仍产生独立事件。无订阅者时工单照常保存；通知表尚未迁移时沿用可选通知语义，跳过且不补发历史通知，其余入队失败回滚工单变更。不自动建立 Bot 或发送测试通知，通知配置保持已有 Root 权限。
+事件与业务写入同事务，幂等键使用工单 ID 和版本号。无订阅者时工单照常保存；通知表尚未迁移时沿用可选通知语义，跳过且不补发历史通知，其余入队失败回滚新建或用户回复。管理员回复和状态变更不再依赖通知写入。不自动建立 Bot 或发送测试通知，通知配置保持已有 Root 权限。
 
-create_time 表示本次事件时间。通知发送给 Root 在任务中配置的目标，不自动发送给工单所有者。管理员个人入口的发言按用户身份和事件处理，只有管理入口产生管理员回复事件。
+create_time 表示本次事件时间。通知发送给 Root 在任务中配置的目标，不自动发送给工单所有者。管理员个人入口的发言按用户身份处理，同样产生 `replied` 事件；管理入口回复不通知。
+
+旧事件 `ticket_created`、`ticket_user_replied` 已合并，`ticket_admin_replied`、`ticket_status_changed` 已下线。
+主节点迁移时把前两类任务改为 `ticket_user_message`（仍为旧默认模板的换成新默认模板，自定义模板保留），
+停用后两类任务但保留记录，供管理员在通知中心删除。同时订阅了新建与追问的部署迁移后会收到重复通知，
+需删除其中一个任务。滚动更新期间旧节点仍产生旧事件，迁移后的任务不再接收，短暂期间可能漏发工单通知。
 
 ## 实施与验证计划
 
@@ -87,7 +92,7 @@ Default 详情使用可收缩的单列网格，并允许连续长标题换行，
 批量删除采用软删除；工单与消息保留在主数据库，账号停用不会改变归属。没有自动物理清理任务。
 通知历史继续使用通知中心既有保留策略。升级时由主节点迁移工单、消息和操作审计三张表及软删除字段。
 回滚到不识别软删除的工单版本会重新暴露删除记录；回滚前须关闭工单入口或保留软删除过滤修复，不能仅替换旧二进制。归档状态也需要旧前端兼容。
-回滚旧程序前应先关闭自动归档并停用工单通知任务，旧版本不识别新增事件；保留新增表以便后续恢复，
+回滚旧程序前应先关闭自动归档并停用工单通知任务，旧版本不识别新增事件及合并后的 `ticket_user_message`；保留新增表以便后续恢复，
 不执行自动删表或删除用户记录。
 
 ### 验证顺序
