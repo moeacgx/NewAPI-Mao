@@ -120,6 +120,17 @@ test('读取分页总数，浮动提醒不抢焦点且允许继续使用后台',
     'Tickets awaiting your response: 23',
   );
   expect(screen.getByLabelText('Pending ticket count').textContent).toBe('23');
+  expect(
+    screen
+      .getByRole('button', { name: 'Refresh' })
+      .querySelector('svg[aria-hidden=\"true\"]'),
+  ).not.toBeNull();
+  const card = screen.getByRole('region', { name: 'Pending tickets' });
+  expect(
+    within(card)
+      .getByRole('link', { name: 'View pending tickets' })
+      .querySelectorAll('svg[aria-hidden=\"true\"]'),
+  ).toHaveLength(2);
   expect(document.activeElement).toBe(input);
   expect(screen.queryByRole('dialog')).toBeNull();
   await userEvent.type(input, 'working');

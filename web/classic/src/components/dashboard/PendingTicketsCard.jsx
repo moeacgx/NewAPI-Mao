@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import React from 'react';
 import { Button, Card } from '@douyinfe/semi-ui';
-import { Ticket } from 'lucide-react';
+import { ArrowRight, ListChecks, RefreshCw, Ticket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -36,7 +36,9 @@ export default function PendingTicketsCard() {
         className='ticket-pending-card'
         title={
           <span className='ticket-pending-card-title'>
-            <Ticket size={16} aria-hidden='true' />
+            <span className='ticket-pending-card-icon' aria-hidden='true'>
+              <Ticket size={16} />
+            </span>
             {t('Pending tickets')}
           </span>
         }
@@ -44,7 +46,12 @@ export default function PendingTicketsCard() {
         {summary.error ? (
           <div className='ticket-pending-card-body'>
             <span role='status'>{t('Failed to load pending tickets')}</span>
-            <Button onClick={summary.refresh}>{t('Retry')}</Button>
+            <Button
+              icon={<RefreshCw size={14} aria-hidden='true' />}
+              onClick={summary.refresh}
+            >
+              {t('Retry')}
+            </Button>
           </div>
         ) : (
           <div className='ticket-pending-card-body'>
@@ -62,9 +69,16 @@ export default function PendingTicketsCard() {
               </p>
             </div>
             <div className='ticket-pending-card-actions'>
-              <Button onClick={summary.refresh}>{t('Refresh')}</Button>
+              <Button
+                icon={<RefreshCw size={14} aria-hidden='true' />}
+                onClick={summary.refresh}
+              >
+                {t('Refresh')}
+              </Button>
               <Link className='ticket-pending-link' to={pendingTicketsPath}>
+                <ListChecks size={14} aria-hidden='true' />
                 {t('View pending tickets')}
+                <ArrowRight size={14} aria-hidden='true' />
               </Link>
             </div>
           </div>

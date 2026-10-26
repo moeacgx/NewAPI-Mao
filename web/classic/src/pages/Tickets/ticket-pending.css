@@ -11,12 +11,23 @@
   align-items: center;
   gap: 12px;
 }
+.ticket-pending-card-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--semi-color-primary-light-default);
+  color: var(--semi-color-primary);
+}
 .ticket-pending-card-body {
   justify-content: space-between;
   flex-wrap: wrap;
 }
 .ticket-pending-card-actions {
   flex-wrap: wrap;
+  gap: 8px;
 }
 .ticket-pending-total {
   color: var(--semi-color-primary);
@@ -32,6 +43,27 @@
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+.ticket-pending-card-actions .ticket-pending-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--semi-color-primary-light-default);
+  border-radius: 8px;
+  background: var(--semi-color-primary-light-default);
+  font-size: 14px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+.ticket-pending-card-actions .ticket-pending-link:hover {
+  border-color: var(--semi-color-primary-light-hover);
+  background: var(--semi-color-primary-light-hover);
 }
 .ticket-pending-link:focus-visible {
   outline: 2px solid var(--semi-color-primary);
