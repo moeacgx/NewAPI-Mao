@@ -6913,6 +6913,12 @@
     "Delete category {{name}}": "Xóa danh mục {{name}}",
     "Delete category?": "Xóa danh mục?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Xóa danh mục “{{name}}”? Các kỹ năng trong đó sẽ chuyển sang Chưa phân loại. Không thể hoàn tác thao tác này.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Đã xóa danh mục “{{name}}”. {{count}} kỹ năng đã được chuyển sang Chưa phân loại"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Đã xóa danh mục “{{name}}”. {{count}} kỹ năng đã được chuyển sang Chưa phân loại",
+    "{{count}} of {{limit}} prompt slots used": "Đã dùng {{count}}/{{limit}} vị trí lời nhắc",
+    "Not saved yet": "Chưa lưu",
+    "Unsaved changes": "Có thay đổi chưa lưu",
+    "No unsaved changes": "Mọi thay đổi đã được lưu",
+    "Discard changes": "Hủy thay đổi",
+    "Reset filters": "Đặt lại bộ lọc"
   }
 }

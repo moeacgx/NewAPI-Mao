@@ -18,10 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Modal } from '@douyinfe/semi-ui';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import TokenPromptManager from '../../../pages/PromptCenter/TokenPromptManager';
+import TokenPromptInstallationModal from '../../../pages/PromptCenter/TokenPromptInstallationModal';
 import '../../../pages/PromptCenter/style.css';
 
 export default function TokenPromptBadge(props) {
@@ -52,29 +51,19 @@ export default function TokenPromptBadge(props) {
         </button>
       )}
       {open && (
-        <Modal
-          visible
-          title={`${props.token.name} · ${t('Installed prompts')}`}
-          footer={null}
-          width={620}
-          style={{ maxWidth: 'calc(100vw - 24px)' }}
-          onCancel={() => setOpen(false)}
-        >
-          <TokenPromptManager
-            token={props.token}
-            onChange={(items) =>
-              setUpdated({
-                count: items.length,
-                enabled: items.filter(
-                  (item) => item.enabled && item.template.enabled,
-                ).length,
-              })
-            }
-          />
-          <a className='prompt-center-muted' href='/console/prompt-center'>
-            {t('Open prompt center')}
-          </a>
-        </Modal>
+        <TokenPromptInstallationModal
+          token={props.token}
+          showCenterLink
+          onClose={() => setOpen(false)}
+          onChange={(items) =>
+            setUpdated({
+              count: items.length,
+              enabled: items.filter(
+                (item) => item.enabled && item.template.enabled,
+              ).length,
+            })
+          }
+        />
       )}
     </>
   );

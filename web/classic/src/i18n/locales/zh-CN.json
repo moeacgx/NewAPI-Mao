@@ -6505,6 +6505,12 @@
     "Delete category {{name}}": "删除分类 {{name}}",
     "Delete category?": "删除分类？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "删除分类「{{name}}」？其中的技能将变为未分类，删除后无法恢复。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已删除分类「{{name}}」，{{count}} 个技能已移至未分类"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已删除分类「{{name}}」，{{count}} 个技能已移至未分类",
+    "{{count}} of {{limit}} prompt slots used": "已使用 {{count}}/{{limit}} 个提示词位置",
+    "Not saved yet": "待保存",
+    "Unsaved changes": "有未保存的修改",
+    "No unsaved changes": "所有修改已保存",
+    "Discard changes": "放弃修改",
+    "Reset filters": "重置筛选"
   }
 }

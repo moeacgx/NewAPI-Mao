@@ -6633,6 +6633,12 @@
     "Delete category {{name}}": "Delete category {{name}}",
     "Delete category?": "Delete category?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Deleted category {{name}}. Skills moved to Uncategorized: {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Deleted category {{name}}. Skills moved to Uncategorized: {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "{{count}} of {{limit}} prompt slots used",
+    "Not saved yet": "Not saved yet",
+    "Unsaved changes": "Unsaved changes",
+    "No unsaved changes": "No unsaved changes",
+    "Discard changes": "Discard changes",
+    "Reset filters": "Reset filters"
   }
 }

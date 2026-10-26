@@ -6429,6 +6429,12 @@
     "Delete category {{name}}": "Supprimer la catégorie {{name}}",
     "Delete category?": "Supprimer la catégorie ?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Supprimer la catégorie « {{name}} » ? Ses compétences passeront dans Sans catégorie. Cette action est irréversible.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Catégorie « {{name}} » supprimée. Compétences déplacées vers Sans catégorie : {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Catégorie « {{name}} » supprimée. Compétences déplacées vers Sans catégorie : {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "{{count}} emplacements de prompts utilisés sur {{limit}}",
+    "Not saved yet": "Non enregistré",
+    "Unsaved changes": "Modifications non enregistrées",
+    "No unsaved changes": "Aucune modification en attente",
+    "Discard changes": "Annuler les modifications",
+    "Reset filters": "Réinitialiser les filtres"
   }
 }
