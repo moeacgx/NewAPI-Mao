@@ -60,13 +60,16 @@ Ticket 字段为 `id,user_id,title,category,priority,status,version,created_at,u
 
 ### 后台待处理提醒
 
-Classic 与 Default 数据看板的待处理工单卡片与后台右上角浮动提醒共用 `status=open` 的管理列表总数。
-先验证 `tickets:read`，再请求 `GET /api/ticket-admin?p=1&page_size=1&status=open`。
+Classic 与 Default 数据看板展示待处理、进行中、已解决、已关闭四项统计，每项点击进入对应状态列表。顶部入口进入完整工单管理列表。
+先验证 `tickets:read`，再请求 `GET /api/ticket-admin/stats`，返回 `{success:true,data:{open:0,processing:0,resolved:0,closed:0,archived:0}}`。
+接口仅管理员可访问，使用一次状态分组聚合；排除软删除工单，空状态返回零。归档独立计数，不计入已关闭。没有数据库迁移。
+后台右上角浮动提醒仅使用同一响应的 `open`，不把进行中数量合并进提醒。
 人工管理员回复后的 `processing` 不属于待处理；自动确认消息保持 `open`。
 数量为零不浮动提示，手动关闭后当前连续后台访问期间不重复提示；无遮罩、不抢焦点。
 点击入口进入 `/console/ticket-management?status=open`。可见页面每 60 秒刷新，工单操作后及返回标签页时刷新，
 失败不继续显示旧数量，权限撤销和账号切换清理状态。Classic 路由为 `/console/ticket-management?status=open`，Default 为 `/ticket-management?status=open`。详见
 [Classic 实现](../workflows/2026-10/26_classic_pending_tickets.md)与[Default 实现](../workflows/2026-10/26_default_pending_tickets.md)。
+状态概览的当前接口、布局与验证见[工作记录](../workflows/2026-10/26_ticket_status_overview.md)；此前工作记录中的列表计数接口为历史实现。
 
 ### 外部通知
 

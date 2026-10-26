@@ -268,3 +268,23 @@ func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string,
 		"action": action, "action_label": ticketNotificationActionLabels[action],
 	})
 }
+
+// CountTicketsByStatus 用一次分组聚合统计未软删除工单，所有已知状态缺失时补 0。
+func CountTicketsByStatus() (map[string]int64, error) {
+	var rows []struct {
+		Status string
+		Total  int64
+	}
+	if err := DB.Model(&Ticket{}).Select("status, COUNT(*) AS total").Group("status").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	counts := map[string]int64{
+		TicketStatusOpen: 0, TicketStatusProcessing: 0, TicketStatusResolved: 0, TicketStatusClosed: 0, TicketStatusArchived: 0,
+	}
+	for _, row := range rows {
+		if ValidTicketStatus(row.Status) {
+			counts[row.Status] = row.Total
+		}
+	}
+	return counts, nil
+}

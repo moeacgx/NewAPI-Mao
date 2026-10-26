@@ -144,3 +144,38 @@ func TestTicketBatchAndAutomationRoutesEnforcePermissionsAndVersions(t *testing.
 	require.Equal(t, 200, response.Code, response.Body.String())
 	assert.Contains(t, response.Body.String(), `"inactive_days":7`)
 }
+
+func TestTicketAdminStatsRouteRequiresAdminReadPermission(t *testing.T) {
+	fixture := setupTokenKeyFixture(t, false, common.RoleAdminUser, 1)
+	common.GlobalApiRateLimitEnable = false
+	wasMaster := common.IsMasterNode
+	common.IsMasterNode = true
+	t.Cleanup(func() { common.IsMasterNode = wasMaster })
+	require.NoError(t, fixture.db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.CasbinRule{}, &model.AuthzRole{}))
+	require.NoError(t, authz.Init(fixture.db))
+	fixture.engine = newManagementRouter(t)
+	_, err := model.CreateTicket(fixture.peer.user.Id, model.TicketCreateInput{Title: "其他用户的工单", Category: "technical", Priority: "normal", Content: "他人问题"})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name, credential string
+		status           int
+	}{
+		{"未登录", "", http.StatusUnauthorized},
+		{"普通用户会话", fixture.peer.session, http.StatusForbidden},
+		{"管理员会话", fixture.owner.session, http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := managementRequest(fixture.engine, http.MethodGet, "/api/ticket-admin/stats", tc.credential, "192.0.2.44", "")
+			require.Equal(t, tc.status, r.Code, r.Body.String())
+			if tc.status == http.StatusOK {
+				assert.Contains(t, r.Header().Get("Cache-Control"), "no-store")
+				assert.JSONEq(t, `{"success":true,"data":{"open":1,"processing":0,"resolved":0,"closed":0,"archived":0}}`, r.Body.String())
+			}
+		})
+	}
+
+	require.NoError(t, authz.SetUserPermissions(fixture.owner.user.Id, authz.PermissionsMap{"tickets": {"read": false, "write": false}}))
+	r := managementRequest(fixture.engine, http.MethodGet, "/api/ticket-admin/stats", fixture.owner.session, "192.0.2.44", "")
+	assert.Equal(t, http.StatusForbidden, r.Code, r.Body.String())
+}

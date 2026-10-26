@@ -28,7 +28,8 @@ import PendingTicketsCard from '../../../components/dashboard/PendingTicketsCard
 import Tickets from '../index';
 
 const originalAdapter = API.defaults.adapter;
-let calls, total, permission, failure, user;
+let calls, total, others, permission, failure, user;
+const statsUrl = '/api/ticket-admin/stats';
 function response(config, data) {
   return {
     data: { success: true, data },
@@ -38,6 +39,17 @@ function response(config, data) {
     config,
   };
 }
+const statusLink = (name) =>
+  within(screen.getByRole('region', { name: 'Ticket overview' })).getByRole(
+    'link',
+    { name: new RegExp('^' + name) },
+  );
+const anyCount = () =>
+  screen
+    .queryByRole('region', { name: 'Ticket overview' })
+    ?.querySelector('strong') ?? null;
+const openCount = () =>
+  statusLink('Pending').querySelector('strong').textContent;
 function Harness({ identity = user, active = true }) {
   return (
     <UserContext.Provider value={[{ user: identity }, () => {}]}>
@@ -68,27 +80,33 @@ beforeEach(() => {
   localStorage.setItem('user', JSON.stringify(user));
   calls = [];
   total = 23;
+  others = { processing: 8, resolved: 15, closed: 42, archived: 3 };
   permission = true;
   failure = false;
   API.defaults.adapter = async (config) => {
     calls.push(config);
     if (config.url === '/api/user/self') {
       return response(config, {
+        id: user.id,
+        role: user.role,
         permissions: {
           admin_permissions: { tickets: { read: permission, write: false } },
         },
       });
     }
-    if (config.url === '/api/ticket-admin') {
+    if (config.url === statsUrl) {
       if (failure) {
         const error = new Error('Service unavailable');
         error.config = config;
         error.response = { status: failure === 'forbidden' ? 403 : 500 };
         throw error;
       }
+      return response(config, { open: total, ...others });
+    }
+    if (config.url === '/api/ticket-admin') {
       return response(config, {
         items: [],
-        total,
+        total: 0,
         page: 1,
         page_size: config.params.page_size,
       });
@@ -109,7 +127,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test('读取分页总数，浮动提醒不抢焦点且允许继续使用后台', async () => {
+test('读取待处理统计，浮动提醒不抢焦点且允许继续使用后台', async () => {
   mount();
   const input = screen.getByLabelText('Background input');
   input.focus();
@@ -119,25 +137,65 @@ test('读取分页总数，浮动提醒不抢焦点且允许继续使用后台',
   expect(within(reminder).getByRole('status').textContent).toBe(
     'Tickets awaiting your response: 23',
   );
-  expect(screen.getByLabelText('Pending ticket count').textContent).toBe('23');
+  expect(openCount()).toBe('23');
   expect(
     screen
       .getByRole('button', { name: 'Refresh' })
       .querySelector('svg[aria-hidden=\"true\"]'),
   ).not.toBeNull();
-  const card = screen.getByRole('region', { name: 'Pending tickets' });
+  const card = screen.getByRole('region', { name: 'Ticket overview' });
   expect(
     within(card)
-      .getByRole('link', { name: 'View pending tickets' })
+      .getByRole('link', { name: 'View tickets' })
       .querySelectorAll('svg[aria-hidden=\"true\"]'),
-  ).toHaveLength(2);
+  ).toHaveLength(1);
+  expect(
+    within(card)
+      .getByRole('link', { name: 'View tickets' })
+      .getAttribute('href'),
+  ).toBe('/console/ticket-management');
   expect(document.activeElement).toBe(input);
   expect(screen.queryByRole('dialog')).toBeNull();
   await userEvent.type(input, 'working');
   expect(input.value).toBe('working');
-  expect(calls.find((call) => call.url === '/api/ticket-admin').params).toEqual(
-    { p: 1, page_size: 1, status: 'open' },
-  );
+  expect(calls.some((call) => call.url === '/api/ticket-admin')).toBe(false);
+  expect(calls.find((call) => call.url === statsUrl).timeout).toBe(10000);
+});
+
+test('四项状态显示不同数量并分别链接到对应筛选，浮窗只用待处理', async () => {
+  mount();
+  const reminder = await screen.findByRole('complementary');
+  expect(reminder.textContent).toContain('Tickets awaiting your response: 23');
+  const expected = [
+    ['Pending', '23', 'open'],
+    ['In progress', '8', 'processing'],
+    ['Resolved', '15', 'resolved'],
+    ['Closed', '42', 'closed'],
+  ];
+  for (const [name, count, status] of expected) {
+    const link = statusLink(name);
+    expect(link.querySelector('strong').textContent).toBe(count);
+    expect(link.querySelector('svg[aria-hidden=\"true\"]')).not.toBeNull();
+    expect(link.getAttribute('href')).toBe(
+      '/console/ticket-management?status=' + status,
+    );
+  }
+  expect(screen.queryByRole('link', { name: /^Open/ })).toBeNull();
+  expect(screen.queryByText(/Archived/)).toBeNull();
+});
+
+test.each([
+  ['缺字段', { open: 1, processing: 1, resolved: 1 }],
+  ['负数', { open: 1, processing: -1, resolved: 1, closed: 1, archived: 0 }],
+  ['小数', { open: 1.5, processing: 1, resolved: 1, closed: 1, archived: 0 }],
+])('统计数据%s时显示错误而不是零', async (_, bad) => {
+  const adapter = API.defaults.adapter;
+  API.defaults.adapter = async (config) =>
+    config.url === statsUrl ? response(config, bad) : adapter(config);
+  mount();
+  await screen.findByText('Failed to load ticket overview');
+  expect(anyCount()).toBeNull();
+  expect(screen.queryByRole('complementary')).toBeNull();
 });
 
 test('关闭浮动提醒后导航及数量更新均不会重复打开', async () => {
@@ -150,19 +208,16 @@ test('关闭浮动提醒后导航及数量更新均不会重复打开', async ()
   await act(async () =>
     window.dispatchEvent(new Event('classic-tickets-changed')),
   );
-  await waitFor(() =>
-    expect(screen.getByLabelText('Pending ticket count').textContent).toBe(
-      '24',
-    ),
-  );
+  await waitFor(() => expect(openCount()).toBe('24'));
   expect(screen.queryByRole('complementary')).toBeNull();
 });
 
 test('无待处理时卡片显示零且不弹提醒，新工单出现后更新提醒', async () => {
   total = 0;
   mount();
-  await screen.findByText('No tickets awaiting your response');
-  expect(screen.getByLabelText('Pending ticket count').textContent).toBe('0');
+  await screen.findByRole('region', { name: 'Ticket overview' });
+  await waitFor(() => expect(openCount()).toBe('0'));
+  expect(openCount()).toBe('0');
   expect(screen.queryByRole('complementary')).toBeNull();
   total = 1;
   await act(async () =>
@@ -181,7 +236,7 @@ test.each([
   mount({ identity, active });
   await act(async () => {});
   expect(calls).toHaveLength(0);
-  expect(screen.queryByRole('region', { name: 'Pending tickets' })).toBeNull();
+  expect(screen.queryByRole('region', { name: 'Ticket overview' })).toBeNull();
   expect(screen.queryByRole('complementary')).toBeNull();
 });
 
@@ -189,15 +244,11 @@ test('无工单读取权限不查询工单，权限撤销后清除原有统计',
   const view = mount();
   await screen.findByRole('complementary');
   permission = false;
-  const before = calls.filter(
-    (call) => call.url === '/api/ticket-admin',
-  ).length;
+  const before = calls.filter((call) => call.url === statsUrl).length;
   await act(async () => window.dispatchEvent(new Event('focus')));
   await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
-  expect(screen.queryByLabelText('Pending ticket count')).toBeNull();
-  expect(calls.filter((call) => call.url === '/api/ticket-admin')).toHaveLength(
-    before,
-  );
+  expect(anyCount()).toBeNull();
+  expect(calls.filter((call) => call.url === statsUrl)).toHaveLength(before);
   view.unmount();
   calls = [];
   mount();
@@ -205,7 +256,7 @@ test('无工单读取权限不查询工单，权限撤销后清除原有统计',
     expect(calls.some((call) => call.url === '/api/user/self')).toBe(true),
   );
   await act(async () => {});
-  expect(calls.some((call) => call.url === '/api/ticket-admin')).toBe(false);
+  expect(calls.some((call) => call.url === statsUrl)).toBe(false);
 });
 
 test('失败清除旧数量并提供重试，403 则隐藏统计', async () => {
@@ -215,34 +266,27 @@ test('失败清除旧数量并提供重试，403 则隐藏统计', async () => {
   await act(async () =>
     window.dispatchEvent(new Event('classic-tickets-changed')),
   );
-  await screen.findByText('Failed to load pending tickets');
-  expect(screen.queryByLabelText('Pending ticket count')).toBeNull();
+  await screen.findByText('Failed to load ticket overview');
+  expect(anyCount()).toBeNull();
   expect(screen.queryByRole('complementary')).toBeNull();
   failure = false;
   total = 5;
   await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() =>
-    expect(screen.getByLabelText('Pending ticket count').textContent).toBe('5'),
-  );
+  await waitFor(() => expect(openCount()).toBe('5'));
   failure = 'forbidden';
   await act(async () =>
     window.dispatchEvent(new Event('classic-tickets-changed')),
   );
-  await waitFor(() =>
-    expect(screen.queryByLabelText('Pending ticket count')).toBeNull(),
-  );
-  expect(screen.queryByRole('region', { name: 'Pending tickets' })).toBeNull();
+  await waitFor(() => expect(anyCount()).toBeNull());
+  expect(screen.queryByRole('region', { name: 'Ticket overview' })).toBeNull();
 });
 
 test('浮窗和卡片都直达待处理筛选，管理页面隐藏浮窗', async () => {
   mount();
   const reminder = await screen.findByRole('complementary');
-  const card = screen.getByRole('region', { name: 'Pending tickets' });
-  expect(
-    within(card)
-      .getByRole('link', { name: 'View pending tickets' })
-      .getAttribute('href'),
-  ).toBe('/console/ticket-management?status=open');
+  expect(statusLink('Pending').getAttribute('href')).toBe(
+    '/console/ticket-management?status=open',
+  );
   await userEvent.click(
     within(reminder).getByRole('link', { name: 'View pending tickets' }),
   );
@@ -275,9 +319,18 @@ test('切换账号后取消旧请求且迟到响应不泄漏旧统计', async ()
   let finish;
   const adapter = API.defaults.adapter;
   API.defaults.adapter = async (config) => {
-    if (config.url === '/api/ticket-admin') {
+    if (config.url === statsUrl) {
       return new Promise((resolve) => {
-        finish = () => resolve(response(config, { total: 999, items: [] }));
+        finish = () =>
+          resolve(
+            response(config, {
+              open: 999,
+              processing: 1,
+              resolved: 1,
+              closed: 1,
+              archived: 0,
+            }),
+          );
       });
     }
     return adapter(config);
@@ -286,25 +339,45 @@ test('切换账号后取消旧请求且迟到响应不泄漏旧统计', async ()
   await waitFor(() => expect(finish).toBeTypeOf('function'));
   API.defaults.adapter = adapter;
   total = 2;
+  user = { id: 3, role: 10 };
   view.rerender(
     <MemoryRouter>
       <Harness identity={{ id: 3, role: 10 }} />
     </MemoryRouter>,
   );
-  await waitFor(() =>
-    expect(screen.getByLabelText('Pending ticket count').textContent).toBe('2'),
-  );
+  await waitFor(() => expect(openCount()).toBe('2'));
   await act(async () => finish());
-  expect(screen.getByLabelText('Pending ticket count').textContent).toBe('2');
+  expect(openCount()).toBe('2');
   view.rerender(
     <MemoryRouter>
       <Harness identity={{ id: 4, role: 1 }} />
     </MemoryRouter>,
   );
-  expect(screen.queryByLabelText('Pending ticket count')).toBeNull();
+  expect(anyCount()).toBeNull();
 });
 
-test.each(['/api/user/self', '/api/ticket-admin'])(
+test.each([
+  { id: 2, role: 10 },
+  { id: 1, role: 1 },
+])(
+  '服务端身份或角色变化后隐藏统计并停止管理接口查询 %j',
+  async (serverUser) => {
+    mount();
+    await screen.findByRole('complementary');
+    const before = calls.filter((call) => call.url === statsUrl).length;
+    user = serverUser;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('region', { name: 'Ticket overview' }),
+      ).toBeNull(),
+    );
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(calls.filter((call) => call.url === statsUrl)).toHaveLength(before);
+  },
+);
+
+test.each(['/api/user/self', statsUrl])(
   '%s 超时后清除旧数量并允许后续刷新恢复',
   async (endpoint) => {
     mount();
@@ -325,17 +398,13 @@ test.each(['/api/user/self', '/api/ticket-admin'])(
     await act(async () =>
       window.dispatchEvent(new Event('classic-tickets-changed')),
     );
-    await screen.findByText('Failed to load pending tickets');
+    await screen.findByText('Failed to load ticket overview');
     expect(timedOut).toBe(true);
-    expect(screen.queryByLabelText('Pending ticket count')).toBeNull();
+    expect(anyCount()).toBeNull();
     API.defaults.adapter = adapter;
     total = 4;
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() =>
-      expect(screen.getByLabelText('Pending ticket count').textContent).toBe(
-        '4',
-      ),
-    );
+    await waitFor(() => expect(openCount()).toBe('4'));
   },
 );
 
@@ -345,7 +414,7 @@ test('可见页面每分钟刷新，隐藏页面暂停，卸载后停止', async
   await act(async () => {});
   total = 7;
   await act(async () => vi.advanceTimersByTimeAsync(60000));
-  expect(screen.getByLabelText('Pending ticket count').textContent).toBe('7');
+  expect(openCount()).toBe('7');
   vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
   const before = calls.length;
   await act(async () => vi.advanceTimersByTimeAsync(60000));

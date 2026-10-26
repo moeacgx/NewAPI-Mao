@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [双模板工单状态概览](../workflows/2026-10/26_ticket_status_overview.md)：待处理、进行中、已解决、已关闭统计与筛选入口，管理员聚合接口及浮窗边界。
 - [待处理工单卡片操作区视觉优化](../workflows/2026-10/26_pending_ticket_card_polish.md)：Default 与 Classic 的刷新、重试和查看待处理操作统一图标与点击层级。
 - [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：两套模板日志类型菜单增加「技能」选项（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。

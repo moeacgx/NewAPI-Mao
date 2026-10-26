@@ -53,11 +53,15 @@ function response<T>(data: T) {
   return { data: { success: true, message: '', data } }
 }
 
-function mockServer(self: unknown, total: number | Error) {
+function statsOf(open: number) {
+  return { open, processing: 11, resolved: 22, closed: 33, archived: 44 }
+}
+
+function mockServer(self: unknown, open: number | Error) {
   vi.mocked(api.get).mockImplementation(async (url) => {
     if (url === '/api/user/self') return response(self)
-    if (total instanceof Error) throw total
-    return response({ total })
+    if (open instanceof Error) throw open
+    return response(statsOf(open))
   })
 }
 
@@ -99,6 +103,47 @@ afterEach(() => {
 })
 
 describe('待处理工单提醒', () => {
+  it('四个状态展示各自数量并链接到对应筛选，顶部入口清除筛选', async () => {
+    mockServer(admin, 3)
+    renderPending()
+    await expectCount('3')
+    const card = within(screen.getByLabelText('Ticket overview'))
+    for (const [label, count, status] of [
+      ['Pending tickets', 3, 'open'],
+      ['In progress', 11, 'processing'],
+      ['Resolved', 22, 'resolved'],
+      ['Closed', 33, 'closed'],
+    ] as const) {
+      const link = card.getByRole('link', { name: new RegExp(label) })
+      expect(link).toHaveTextContent(String(count))
+      expect(link).toHaveAttribute(
+        'href',
+        `/ticket-management?${JSON.stringify({ status })}`
+      )
+    }
+    expect(card.getByRole('link', { name: 'View tickets' })).toHaveAttribute(
+      'href',
+      `/ticket-management?${JSON.stringify({ status: '' })}`
+    )
+  })
+
+  it.each([undefined, -1, 0.5])(
+    '统计字段为 %s 时显示错误而非零',
+    async (value) => {
+      vi.mocked(api.get).mockImplementation(async (url) =>
+        url === '/api/user/self'
+          ? response(admin)
+          : response({ ...statsOf(3), processing: value })
+      )
+      renderPending()
+      expect(
+        await screen.findByText('Failed to load ticket overview')
+      ).toBeInTheDocument()
+      expect(screen.queryByLabelText('Pending ticket count')).toBeNull()
+      expect(screen.queryByRole('complementary')).toBeNull()
+    }
+  )
+
   it('服务端复核管理员后按 open 口径查询，并显示可关闭的浮动提醒', async () => {
     mockServer(admin, 3)
     renderPending()
@@ -110,17 +155,20 @@ describe('待处理工单提醒', () => {
         .querySelector('svg[aria-hidden="true"]')
     ).not.toBeNull()
     expect(
-      within(screen.getByLabelText('Pending tickets'))
-        .getByRole('link', { name: 'View pending tickets' })
+      within(screen.getByLabelText('Ticket overview'))
+        .getByRole('link', { name: 'View tickets' })
         .querySelectorAll('svg[aria-hidden="true"]')
-    ).toHaveLength(2)
+    ).toHaveLength(1)
     expect(api.get).toHaveBeenCalledWith(
-      '/api/ticket-admin',
+      '/api/ticket-admin/stats',
       expect.objectContaining({
-        params: { p: 1, page_size: 1, status: 'open' },
         skipErrorHandler: true,
         skipBusinessError: true,
       })
+    )
+    expect(api.get).not.toHaveBeenCalledWith(
+      '/api/ticket-admin',
+      expect.anything()
     )
     await userEvent.click(screen.getByLabelText('Dismiss ticket reminder'))
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -129,9 +177,7 @@ describe('待处理工单提醒', () => {
   it('数量为 0 时不弹出浮动提醒', async () => {
     mockServer(admin, 0)
     renderPending()
-    expect(
-      await screen.findByText('No tickets awaiting your response')
-    ).toBeInTheDocument()
+    await expectCount('0')
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
@@ -157,7 +203,7 @@ describe('待处理工单提醒', () => {
     mockServer(admin, new Error('boom'))
     renderPending()
     expect(
-      await screen.findByText('Failed to load pending tickets')
+      await screen.findByText('Failed to load ticket overview')
     ).toBeInTheDocument()
     expect(screen.queryByRole('complementary')).toBeNull()
   })
@@ -184,7 +230,7 @@ describe('待处理工单异步状态', () => {
         })
       }
       if (url === '/api/user/self') return response(otherAdmin)
-      return response({ total: 5 })
+      return response(statsOf(5))
     })
     renderPending()
     await waitFor(() => expect(signalA).toBeDefined())
@@ -208,7 +254,7 @@ describe('待处理工单异步状态', () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
       if (failing) throw timeout
       if (url === '/api/user/self') return response(admin)
-      return response({ total: 3 })
+      return response(statsOf(3))
     })
     renderPending()
     await expectCount('3')
@@ -216,7 +262,7 @@ describe('待处理工单异步状态', () => {
     failing = true
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(
-      await screen.findByText('Failed to load pending tickets')
+      await screen.findByText('Failed to load ticket overview')
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Pending ticket count')).toBeNull()
 
