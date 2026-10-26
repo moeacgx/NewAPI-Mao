@@ -53,11 +53,15 @@ function response<T>(data: T) {
   return { data: { success: true, message: '', data } }
 }
 
-function mockServer(self: unknown, total: number | Error) {
+function statsOf(open: number) {
+  return { open, processing: 11, resolved: 22, closed: 33, archived: 44 }
+}
+
+function mockServer(self: unknown, open: number | Error) {
   vi.mocked(api.get).mockImplementation(async (url) => {
     if (url === '/api/user/self') return response(self)
-    if (total instanceof Error) throw total
-    return response({ total })
+    if (open instanceof Error) throw open
+    return response(statsOf(open))
   })
 }
 
@@ -110,17 +114,20 @@ describe('待处理工单提醒', () => {
         .querySelector('svg[aria-hidden="true"]')
     ).not.toBeNull()
     expect(
-      within(screen.getByLabelText('Pending tickets'))
-        .getByRole('link', { name: 'View pending tickets' })
+      within(screen.getByLabelText('Ticket overview'))
+        .getByRole('link', { name: 'View tickets' })
         .querySelectorAll('svg[aria-hidden="true"]')
-    ).toHaveLength(2)
+    ).toHaveLength(1)
     expect(api.get).toHaveBeenCalledWith(
-      '/api/ticket-admin',
+      '/api/ticket-admin/stats',
       expect.objectContaining({
-        params: { p: 1, page_size: 1, status: 'open' },
         skipErrorHandler: true,
         skipBusinessError: true,
       })
+    )
+    expect(api.get).not.toHaveBeenCalledWith(
+      '/api/ticket-admin',
+      expect.anything()
     )
     await userEvent.click(screen.getByLabelText('Dismiss ticket reminder'))
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -129,9 +136,7 @@ describe('待处理工单提醒', () => {
   it('数量为 0 时不弹出浮动提醒', async () => {
     mockServer(admin, 0)
     renderPending()
-    expect(
-      await screen.findByText('No tickets awaiting your response')
-    ).toBeInTheDocument()
+    await expectCount('0')
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
@@ -157,7 +162,7 @@ describe('待处理工单提醒', () => {
     mockServer(admin, new Error('boom'))
     renderPending()
     expect(
-      await screen.findByText('Failed to load pending tickets')
+      await screen.findByText('Failed to load ticket overview')
     ).toBeInTheDocument()
     expect(screen.queryByRole('complementary')).toBeNull()
   })
@@ -184,7 +189,7 @@ describe('待处理工单异步状态', () => {
         })
       }
       if (url === '/api/user/self') return response(otherAdmin)
-      return response({ total: 5 })
+      return response(statsOf(5))
     })
     renderPending()
     await waitFor(() => expect(signalA).toBeDefined())
@@ -208,7 +213,7 @@ describe('待处理工单异步状态', () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
       if (failing) throw timeout
       if (url === '/api/user/self') return response(admin)
-      return response({ total: 3 })
+      return response(statsOf(3))
     })
     renderPending()
     await expectCount('3')
@@ -216,7 +221,7 @@ describe('待处理工单异步状态', () => {
     failing = true
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(
-      await screen.findByText('Failed to load pending tickets')
+      await screen.findByText('Failed to load ticket overview')
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Pending ticket count')).toBeNull()
 
