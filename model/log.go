@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -174,11 +175,12 @@ func createLogWithID(log *Log) (int, error) {
 	return log.Id, nil
 }
 
-// stripTopupLogIP 统一去除充值日志的 IP，兼顾新写入与历史查询，保留金额审计。
+// stripTopupLogIP 仅保留新订单日志明确标记的下单 IP，历史记录继续脱敏。
 func stripTopupLogIP(log *Log) {
 	if log == nil || log.Type != LogTypeTopup {
 		return
 	}
+	originalIP := log.Ip
 	log.Ip = ""
 	if log.Other == "" {
 		return
@@ -198,8 +200,18 @@ func stripTopupLogIP(log *Log) {
 	if err := common.Unmarshal(rawAdminInfo, &adminInfo); err != nil {
 		delete(other, "admin_info")
 	} else {
+		var source, requestIP string
+		// 新标识只能由订单日志入口生成；不能让旧回调地址因恢复显示而重新暴露。
+		if common.Unmarshal(adminInfo["request_ip_source"], &source) == nil && source == "order_request" &&
+			common.Unmarshal(adminInfo["request_ip"], &requestIP) == nil &&
+			requestIP == originalIP && net.ParseIP(requestIP) != nil {
+			log.Ip = requestIP
+		}
 		changed := false
-		for _, key := range []string{"caller_ip", "request_ip", "callback_ip", "server_ip"} {
+		for _, key := range []string{"caller_ip", "request_ip", "request_ip_source", "callback_ip", "server_ip"} {
+			if log.Ip != "" && (key == "request_ip" || key == "request_ip_source") {
+				continue
+			}
 			if _, exists := adminInfo[key]; exists {
 				delete(adminInfo, key)
 				changed = true
@@ -383,6 +395,7 @@ type TopupLogDetails struct {
 	PaymentMethod         string
 	CallbackPaymentMethod string
 	TradeNo               string
+	RequestIP             string
 	BalanceBefore         int64
 	BalanceAfter          int64
 	CreditedQuota         int64
@@ -403,6 +416,20 @@ func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetai
 	if tradeNo := strings.TrimSpace(details.TradeNo); tradeNo != "" {
 		adminInfo["trade_no"] = tradeNo
 	}
+	requestIP := ""
+	if strings.TrimSpace(details.TradeNo) != "" && net.ParseIP(details.RequestIP) != nil {
+		needRecordIP := common.ForceRecordLogIpEnabled
+		if !needRecordIP {
+			if settings, err := GetUserSetting(userId, false); err == nil {
+				needRecordIP = settings.RecordIpLog
+			}
+		}
+		if needRecordIP {
+			requestIP = details.RequestIP
+			adminInfo["request_ip"] = requestIP
+			adminInfo["request_ip_source"] = "order_request"
+		}
+	}
 	if details.HasBalanceSnapshot {
 		adminInfo["balance_before"] = details.BalanceBefore
 		adminInfo["credited_quota"] = details.CreditedQuota
@@ -420,6 +447,7 @@ func RecordTopupLogWithDetails(userId int, content string, details TopupLogDetai
 		CreatedAt: common.GetTimestamp(),
 		Type:      LogTypeTopup,
 		Content:   content,
+		Ip:        requestIP,
 		Other:     common.MapToJsonStr(other),
 	}
 	if err := createLog(log); err != nil {
@@ -450,6 +478,7 @@ func RecordTopupOrderLog(topUp *TopUp, content string, callbackPaymentMethod str
 		PaymentMethod:         topUp.PaymentMethod,
 		CallbackPaymentMethod: callbackPaymentMethod,
 		TradeNo:               topUp.TradeNo,
+		RequestIP:             topUp.RequestIP,
 		BalanceBefore:         topUp.BalanceBefore,
 		BalanceAfter:          topUp.BalanceAfter,
 		CreditedQuota:         topUp.CreditedQuota,

@@ -161,7 +161,9 @@ func TestWaffoPancakeTopUpRecordsBalanceAuditOnce(t *testing.T) {
 	assert.Equal(t, float64(10), audit["balance_after"])
 }
 
-func TestTopUpCompletionOmitsLogIP(t *testing.T) {
+func TestTopUpCompletionRecordsOrderIPWhenEnabled(t *testing.T) {
+	originalForceRecordIP := common.ForceRecordLogIpEnabled
+	t.Cleanup(func() { common.ForceRecordLogIpEnabled = originalForceRecordIP })
 	tests := []struct {
 		name            string
 		tradeNo         string
@@ -244,16 +246,26 @@ func TestTopUpCompletionOmitsLogIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requestIPs := []struct {
-				name string
-				ip   string
+				name    string
+				ip      string
+				enabled bool
+				force   bool
+				wantIP  string
 			}{
-				{name: "missing request ip"},
-				{name: "stored request ip", ip: "203.0.113.42"},
+				{name: "缺失下单IP", enabled: true},
+				{name: "缺失下单IP且强制记录", force: true},
+				{name: "关闭记录", ip: "203.0.113.42"},
+				{name: "用户开启记录", ip: "203.0.113.42", enabled: true, wantIP: "203.0.113.42"},
+				{name: "强制记录", ip: "203.0.113.42", force: true, wantIP: "203.0.113.42"},
 			}
 			for _, requestIP := range requestIPs {
 				t.Run(requestIP.name, func(t *testing.T) {
 					truncateTables(t)
+					common.ForceRecordLogIpEnabled = requestIP.force
 					user := insertUserForPaymentGuardTest(t, tt.userID, 0)
+					require.NoError(t, DB.Model(user).Update("setting", common.MapToJsonStr(map[string]interface{}{
+						"record_ip_log": requestIP.enabled,
+					})).Error)
 					topUp := &TopUp{
 						UserId: user.Id, Amount: 2, Money: 2, CreditedQuota: 10,
 						TradeNo: tt.tradeNo, PaymentMethod: tt.paymentMethod,
@@ -270,10 +282,14 @@ func TestTopUpCompletionOmitsLogIP(t *testing.T) {
 
 					var log Log
 					require.NoError(t, LOG_DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).First(&log).Error)
-					assert.Empty(t, log.Ip)
+					assert.Equal(t, requestIP.wantIP, log.Ip)
 					adminInfo := readTopUpAuditInfo(t, topUp.TradeNo)
 					assert.NotContains(t, adminInfo, "caller_ip")
-					assert.NotContains(t, adminInfo, "request_ip")
+					if requestIP.wantIP == "" {
+						assert.NotContains(t, adminInfo, "request_ip")
+					} else {
+						assert.Equal(t, requestIP.wantIP, adminInfo["request_ip"])
+					}
 					assert.NotContains(t, adminInfo, "server_ip")
 					assert.NotContains(t, adminInfo, "callback_ip")
 				})
