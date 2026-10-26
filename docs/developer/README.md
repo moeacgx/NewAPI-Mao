@@ -1,6 +1,7 @@
 # NewAPI-Mao 开发文档
 
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
+- [Classic 使用日志分组角标](../workflows/2026-10/26_classic_skill_group_badge.md)：技能提示移到分组右上角，悬停查看详情，避免表格横向拥挤。
 
 - [.355 网关 Skills 与提示词中心整合发布](../workflows/2026-10/26_gateway_skills_355_release.md)：整合 PR #328、#336–#342，记录 CI、Release、双架构固定镜像及跨项目评估。
 - [maolaoapi .355 逐节点生产部署](../workflows/2026-10/26_maolaoapi_355_deployment.md)：记录生产备份、可空字段迁移、静态资源预置、三节点滚动更新与公网验收。

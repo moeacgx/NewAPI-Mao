@@ -1,0 +1,39 @@
+.usage-log-skill-group {
+  position: relative;
+  display: inline-block;
+}
+
+.usage-log-skill-badge {
+  position: absolute;
+  top: -6px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--semi-color-bg-0);
+  border-radius: 50%;
+  background: var(--semi-color-tertiary-light-default);
+  color: var(--semi-color-text-2);
+  cursor: help;
+  vertical-align: middle;
+}
+
+.usage-log-skill-badge-used {
+  background: rgba(var(--semi-violet-1), 1);
+  color: rgba(var(--semi-violet-7), 1);
+}
+
+.usage-log-skill-badge:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 2px;
+}
+
+.usage-log-skill-details {
+  max-width: min(320px, calc(100vw - 48px));
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

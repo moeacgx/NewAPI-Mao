@@ -92,7 +92,7 @@ export function getLogSkillUsage(other) {
   return { kind: 'unused', catalogueCount };
 }
 
-/** 技能使用情况的展示文案 { label, lines }，类型列标签提示与展开详情共用。 */
+/** 技能使用情况的展示文案 { label, lines }，分组角标提示与展开详情共用。 */
 export function describeLogSkillUsage(usage, t) {
   if (usage.kind === 'discovery') {
     const lines = [t('私有技能发现轮次，单独计费')];

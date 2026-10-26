@@ -27,12 +27,9 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import {
-  renderGroup,
   renderQuota,
   stringToColor,
   getLogOther,
-  getLogSkillUsage,
-  describeLogSkillUsage,
   isWebSocketLog,
   renderModelTag,
   renderModelPriceSimple,
@@ -42,6 +39,7 @@ import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { ArrowUpRight, CircleAlert, Route, Sparkles } from 'lucide-react';
 import { getLoginLogSummary, LOG_TYPE_LOGIN } from './login-log-presenter';
 import { getManageLogSummary } from './manage-log-presenter';
+import SkillUsageGroup from './SkillUsageGroup';
 
 const colors = [
   'amber',
@@ -764,77 +762,18 @@ export const getLogsColumns = ({
       key: COLUMN_KEYS.GROUP,
       title: t('分组'),
       dataIndex: 'group',
-      render: (text, record, index) => {
-        if (
-          record.type === 0 ||
-          record.type === 2 ||
-          record.type === 5 ||
-          record.type === 6
-        ) {
-          if (record.group_name || record.group) {
-            return <>{renderGroup(record.group_name || record.group)}</>;
-          } else {
-            let other = null;
-            try {
-              other = JSON.parse(record.other);
-            } catch (e) {
-              console.error(
-                `Failed to parse record.other: "${record.other}".`,
-                e,
-              );
-            }
-            if (other === null) {
-              return <></>;
-            }
-            if (record.group_name || other.group !== undefined) {
-              return <>{renderGroup(record.group_name || other.group)}</>;
-            } else {
-              return <></>;
-            }
-          }
-        } else {
-          return <></>;
-        }
+      render: (text, record) => {
+        if (![0, 2, 5, 6].includes(record.type)) return null;
+        const other = getLogOther(record.other);
+        const group = record.group_name || record.group || other?.group;
+        return <SkillUsageGroup group={group} other={other} t={t} />;
       },
     },
     {
       key: COLUMN_KEYS.TYPE,
       title: t('类型'),
       dataIndex: 'type',
-      render: (text, record, index) => {
-        const skillUsage = getLogSkillUsage(getLogOther(record.other));
-        if (!skillUsage) {
-          return <>{renderType(text, t)}</>;
-        }
-        const skillText = describeLogSkillUsage(skillUsage, t);
-        return (
-          <Space wrap>
-            {renderType(text, t)}
-            <Tooltip
-              content={
-                <div
-                  style={{
-                    lineHeight: 1.6,
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  {skillText.lines.map((line) => (
-                    <div key={line}>{line}</div>
-                  ))}
-                </div>
-              }
-            >
-              <Tag
-                color={skillUsage.kind === 'used' ? 'violet' : 'grey'}
-                shape='circle'
-              >
-                {skillText.label}
-              </Tag>
-            </Tooltip>
-          </Space>
-        );
-      },
+      render: (text) => renderType(text, t),
     },
     {
       key: COLUMN_KEYS.MODEL,
