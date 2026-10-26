@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [.359 Skills 私有 Chat SSE 修复发布与部署](../workflows/2026-10/27_release_359.md)：修复范围、发行验证、生产备份、逐节点验收与回滚。
+
 - [网关 Skills Chat 私有流式响应兼容修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：聚合上游意外返回的私有 SSE，保留严格候选校验及逐轮计费。
 
 - [.358 模型守卫正文来源发布](../workflows/2026-10/26_release_358.md)：纳入 #359，发行校验与历史兼容边界。
