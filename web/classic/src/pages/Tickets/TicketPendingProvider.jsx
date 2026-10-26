@@ -33,6 +33,14 @@ import './ticket-pending.css';
 
 const TicketPendingContext = createContext(null);
 export const pendingTicketsPath = '/console/ticket-management?status=open';
+export const ticketStatusPath = (status) =>
+  `/console/ticket-management?status=${status}`;
+const emptyCounts = {
+  open: null,
+  processing: null,
+  resolved: null,
+  closed: null,
+};
 export const usePendingTickets = () => useContext(TicketPendingContext);
 
 function TicketPendingSession({ children }) {
@@ -41,6 +49,7 @@ function TicketPendingSession({ children }) {
   const [summary, setSummary] = useState({
     allowed: false,
     total: null,
+    counts: emptyCounts,
     error: false,
   });
   const [dismissed, setDismissed] = useState(false);
@@ -64,31 +73,44 @@ function TicketPendingSession({ children }) {
       }
       running = true;
       try {
-        // 定期复核权限；只在授权后读取全站工单总数。
+        // 定期复核权限；只在授权后读取全站工单状态统计。
         const user = ticketResponse(await API.get('/api/user/self', config));
         if (!active) return;
         if (user?.permissions?.admin_permissions?.tickets?.read !== true) {
-          setSummary({ allowed: false, total: null, error: false });
+          setSummary({
+            allowed: false,
+            total: null,
+            counts: emptyCounts,
+            error: false,
+          });
           return;
         }
         setSummary((current) => ({ ...current, allowed: true }));
         const data = ticketResponse(
-          await API.get('/api/ticket-admin', {
-            ...config,
-            params: { p: 1, page_size: 1, status: 'open' },
-          }),
+          await API.get('/api/ticket-admin/stats', config),
         );
-        if (!Number.isSafeInteger(data?.total) || data.total < 0) {
-          throw new Error('Invalid ticket total');
+        const counts = {};
+        for (const status of Object.keys(emptyCounts)) {
+          const value = data?.[status];
+          if (!Number.isSafeInteger(value) || value < 0) {
+            throw new Error('Invalid ticket status count');
+          }
+          counts[status] = value;
         }
         if (active)
-          setSummary({ allowed: true, total: data.total, error: false });
+          setSummary({
+            allowed: true,
+            total: counts.open,
+            counts,
+            error: false,
+          });
       } catch (error) {
         if (!active) return;
         const forbidden = [401, 403].includes(error?.response?.status);
         setSummary((current) => ({
           allowed: forbidden ? false : current.allowed,
           total: null,
+          counts: emptyCounts,
           error: true,
         }));
       } finally {

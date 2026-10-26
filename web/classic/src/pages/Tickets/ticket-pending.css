@@ -29,14 +29,55 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.ticket-pending-total {
+.ticket-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ticket-overview-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 64px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 10px;
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.ticket-overview-item:hover {
+  border-color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+.ticket-overview-item:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 2px;
+}
+.ticket-overview-item > svg {
   color: var(--semi-color-primary);
-  font-size: 28px;
+}
+.ticket-overview-label {
+  color: var(--semi-color-text-2);
+}
+.ticket-overview-count {
+  flex-basis: 100%;
+  color: var(--semi-color-text-0);
+  font-size: 24px;
   line-height: 1.2;
 }
-.ticket-pending-description {
-  margin: 8px 0 0;
-  color: var(--semi-color-text-2);
+@media (max-width: 767px) {
+  .ticket-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .ticket-pending-link {
   color: var(--semi-color-primary);
