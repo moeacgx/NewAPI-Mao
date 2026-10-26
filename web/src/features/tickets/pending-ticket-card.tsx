@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { Ticket } from 'lucide-react'
+import { ArrowRight, ListChecks, RefreshCw, Ticket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,9 @@ export function PendingTicketCard() {
     <Card aria-label={t('Pending tickets')}>
       <CardHeader className='border-b'>
         <CardTitle className='flex items-center gap-2'>
-          <Ticket className='size-4' aria-hidden='true' />
+          <span className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
+            <Ticket className='size-4' aria-hidden='true' />
+          </span>
           {t('Pending tickets')}
         </CardTitle>
       </CardHeader>
@@ -42,6 +44,7 @@ export function PendingTicketCard() {
           <>
             <p role='status'>{t('Failed to load pending tickets')}</p>
             <Button variant='outline' onClick={summary.refresh}>
+              <RefreshCw aria-hidden='true' />
               {t('Retry')}
             </Button>
           </>
@@ -60,16 +63,19 @@ export function PendingTicketCard() {
                   : t('New tickets and customer follow-ups')}
               </p>
             </div>
-            <div className='flex flex-wrap items-center gap-3'>
-              <Button variant='outline' onClick={summary.refresh}>
+            <div className='flex flex-wrap items-center gap-2'>
+              <Button variant='outline' size='sm' onClick={summary.refresh}>
+                <RefreshCw aria-hidden='true' />
                 {t('Refresh')}
               </Button>
               <Link
                 to='/ticket-management'
                 search={{ status: 'open' }}
-                className='text-primary text-sm font-medium underline underline-offset-4'
+                className='border-primary/20 bg-primary/8 text-primary hover:bg-primary/14 focus-visible:ring-ring inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[0.8rem] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3'
               >
+                <ListChecks className='size-3.5' aria-hidden='true' />
                 {t('View pending tickets')}
+                <ArrowRight className='size-3.5' aria-hidden='true' />
               </Link>
             </div>
           </>

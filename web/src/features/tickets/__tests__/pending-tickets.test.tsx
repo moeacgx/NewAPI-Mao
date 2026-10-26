@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -104,6 +104,16 @@ describe('待处理工单提醒', () => {
     renderPending()
     expect(await screen.findByRole('complementary')).toHaveTextContent('3')
     expect(screen.getByLabelText('Pending ticket count')).toHaveTextContent('3')
+    expect(
+      screen
+        .getByRole('button', { name: 'Refresh' })
+        .querySelector('svg[aria-hidden="true"]')
+    ).not.toBeNull()
+    expect(
+      within(screen.getByLabelText('Pending tickets'))
+        .getByRole('link', { name: 'View pending tickets' })
+        .querySelectorAll('svg[aria-hidden="true"]')
+    ).toHaveLength(2)
     expect(api.get).toHaveBeenCalledWith(
       '/api/ticket-admin',
       expect.objectContaining({
