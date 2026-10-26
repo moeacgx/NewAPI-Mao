@@ -46,6 +46,16 @@ func TestTopupLogPrivacyPreservesExactAmounts(t *testing.T) {
 			other: `{"admin_info":"203.0.113.42","note":"保留"}`,
 			want:  `{"note":"保留"}`,
 		},
+		{
+			name:  "来源标识与日志IP不一致",
+			other: `{"admin_info":{"request_ip_source":"order_request","request_ip":"192.0.2.1","balance_after":9007199254740993}}`,
+			want:  `{"admin_info":{"balance_after":9007199254740993}}`,
+		},
+		{
+			name:  "无来源标识的历史订单IP",
+			other: `{"admin_info":{"request_ip":"203.0.113.42","trade_no":"old-order"}}`,
+			want:  `{"admin_info":{"trade_no":"old-order"}}`,
+		},
 		{name: "malformed legacy json", other: `{"admin_info":{"request_ip":"203.0.113.42"`, want: ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,4 +153,45 @@ func TestHistoricalTopupLogQueriesOmitIP(t *testing.T) {
 	var persisted Log
 	require.NoError(t, db.First(&persisted, legacy.Id).Error)
 	assert.Equal(t, legacy.Ip, persisted.Ip, "读取脱敏不改写历史数据库")
+}
+
+func TestNewOrderTopupLogQueriesPreserveClientIP(t *testing.T) {
+	db := setupOperationAuditLogTestDB(t)
+	require.NoError(t, db.AutoMigrate(&Group{}))
+	require.NoError(t, db.Model(&User{}).Where("id = ?", 1).Update("setting", `{"record_ip_log":true}`).Error)
+	originalForce, originalRedis := common.ForceRecordLogIpEnabled, common.RedisEnabled
+	originalMax := common.MaxRecentItems
+	common.ForceRecordLogIpEnabled, common.RedisEnabled = false, false
+	common.MaxRecentItems = 20
+	t.Cleanup(func() {
+		common.ForceRecordLogIpEnabled, common.RedisEnabled = originalForce, originalRedis
+		common.MaxRecentItems = originalMax
+	})
+
+	RecordTopupOrderLog(&TopUp{
+		UserId: 1, TradeNo: "new-client-ip-order", RequestIP: "203.0.113.42",
+		PaymentMethod: "alipay", Money: 2,
+	}, "充值成功", PaymentProviderEpay)
+	// 充值日志通常不关联令牌；这里验证共用令牌查询格式化不会误删新 IP。
+	require.NoError(t, db.Model(&Log{}).Where("type = ?", LogTypeTopup).Update("token_id", 123).Error)
+
+	adminLogs, total, err := GetAllLogs(LogTypeTopup, 0, 0, "", "", "", 0, 20, 0, "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+	require.Len(t, adminLogs, 1)
+	assert.Equal(t, "203.0.113.42", adminLogs[0].Ip)
+	assert.Contains(t, adminLogs[0].Other, `"request_ip":"203.0.113.42"`)
+
+	userLogs, total, err := GetUserLogs(1, LogTypeTopup, 0, 0, "", "", 0, 20, "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+	require.Len(t, userLogs, 1)
+	assert.Equal(t, "203.0.113.42", userLogs[0].Ip)
+	assert.NotContains(t, userLogs[0].Other, "admin_info")
+
+	tokenLogs, err := GetLogByTokenId(123)
+	require.NoError(t, err)
+	require.Len(t, tokenLogs, 1)
+	assert.Equal(t, "203.0.113.42", tokenLogs[0].Ip)
+	assert.NotContains(t, tokenLogs[0].Other, "admin_info")
 }
