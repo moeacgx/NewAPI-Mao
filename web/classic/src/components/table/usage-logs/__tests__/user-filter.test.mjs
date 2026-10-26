@@ -177,7 +177,7 @@ for (const isAdminUser of [true, false]) {
     const { api, calls } = createApiMock(errors);
     const harness = await mountHook(api, errors);
     const values = formValues({
-      skill: 'used',
+      logType: 'skill',
       username: '101',
       userSearchType: 'id',
     });
@@ -191,19 +191,33 @@ for (const isAdminUser of [true, false]) {
     assert.ok(calls.some((call) => call.config.params.p === 2));
     for (const call of calls) {
       assert.equal(call.config.params.skill, 'used');
+      assert.equal(call.config.params.type, 0);
       assert.equal(call.config.params.user_id, isAdminUser ? '101' : undefined);
       if (!isAdminUser) assert.ok(call.url.startsWith('/api/log/self/'));
     }
-    values.skill = '';
+    values.logType = '2';
     calls.length = 0;
     await act(async () => {
       await harness.result().refresh();
     });
     assert.equal(calls.length, 2);
     assert.ok(calls.every((call) => call.config.params.skill === undefined));
+    assert.ok(calls.every((call) => call.config.params.type === 2));
     assert.equal(
       calls.find((call) => !call.url.endsWith('/stat')).config.params.p,
       1,
+    );
+    values.logType = '0';
+    calls.length = 0;
+    await act(async () => {
+      await harness.result().refresh();
+    });
+    assert.ok(
+      calls.every(
+        (call) =>
+          call.config.params.skill === undefined &&
+          call.config.params.type === 0,
+      ),
     );
     harness.renderer.unmount();
   });

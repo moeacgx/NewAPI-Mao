@@ -33,7 +33,7 @@
 
 ## 位置
 
-- Default：时间列中日志类型徽标旁（与现有 WebSocket “WS” 徽标同一行），详情对话框增加技能一行。
+- Default：令牌单元格内的分组右上角显示紧凑技能图标，悬停或聚焦查看详情；时间列不再并排显示技能文字，详情对话框保留技能一行。
 - Classic：分组标签右上角显示紧凑技能图标，悬停或键盘聚焦显示详情；类型列仅显示类型，展开详情保留技能一行。调整见[分组角标记录](26_classic_skill_group_badge.md)。
 
 ## 测试计划
@@ -45,7 +45,7 @@
 ## 实现
 
 - Default：`web/src/features/usage-logs/lib/skill-usage.ts` 中 `getLogSkillUsage` 解析、`describeLogSkillUsage`
-  生成徽标与详情共用文案；`components/skill-usage-badge.tsx` 在时间列显示（使用为绿色，发现轮次与未用为灰色，
+  生成徽标与详情共用文案；`components/skill-usage-badge.tsx` 在分组右上角显示（使用为绿色，发现轮次与未用为灰色，
   悬停列出名称，`aria-label` 含完整文本）；详情对话框增加“技能”一行。
 - Classic：`web/classic/src/helpers/log.js` 增加同名两个函数；`UsageLogsColumnDefs.jsx` 在分组列使用 `SkillUsageGroup`，
   右上角技能图标与 `Tooltip`（使用为紫色，其余灰色）；展开详情（`hooks/usage-logs/useUsageLogsData.jsx`）保留“技能”一项。

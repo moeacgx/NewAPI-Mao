@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { StatusBadge } from '@/components/status-badge'
 import {
   Tooltip,
   TooltipContent,
@@ -39,25 +38,21 @@ export function SkillUsageBadge(props: { usage: LogSkillUsage }) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<span className='inline-flex' />}>
-          <StatusBadge
-            label={text.label}
-            icon={Sparkles}
-            variant={isUsed ? 'success' : 'neutral'}
-            size='sm'
-            showDot={false}
-            copyable={false}
-            title={undefined}
-            aria-label={[text.label, ...text.lines].join('. ')}
-            className={cn(
-              'border',
-              isUsed
-                ? 'border-success/30 bg-success/10 text-success'
-                : 'border-border bg-muted/50 text-muted-foreground'
-            )}
-          />
+        <TooltipTrigger
+          render={<button type='button' />}
+          aria-label={[text.label, ...text.lines].join('. ')}
+          onClick={(event) => event.stopPropagation()}
+          className={cn(
+            'absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border border-background p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+            isUsed
+              ? 'bg-success/15 text-success'
+              : 'bg-muted text-muted-foreground'
+          )}
+        >
+          <Sparkles className='size-2.5' aria-hidden='true' />
         </TooltipTrigger>
-        <TooltipContent className='flex-col items-start gap-0.5'>
+        <TooltipContent className='max-w-[min(320px,calc(100vw-48px))] flex-col items-start gap-0.5 wrap-anywhere'>
+          <strong>{text.label}</strong>
           {text.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}

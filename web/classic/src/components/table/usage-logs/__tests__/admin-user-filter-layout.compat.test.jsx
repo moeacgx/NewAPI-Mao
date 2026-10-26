@@ -101,20 +101,19 @@ test('重置恢复用户名模式，普通用户不显示管理员用户筛选',
 });
 
 test.each([true, false])(
-  '技能筛选可选择实际使用并通过重置清空，管理员=%s',
+  '技能是日志类型菜单唯一的选项而非独立筛选框，选择后可重置，管理员=%s',
   async (isAdminUser) => {
-    const getFormApi = renderFilters(isAdminUser, { skill: '' });
+    const getFormApi = renderFilters(isAdminUser, { logType: '0' });
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: '技能' }));
-    const option = await screen.findByRole('option', { name: /Used skills/ });
+    expect(screen.queryAllByRole('combobox', { name: '技能' })).toHaveLength(0);
+    await user.click(screen.getByRole('combobox', { name: '日志类型' }));
+    const option = await screen.findByRole('option', { name: /技能/ });
     const popup = option.closest('.semi-popover-wrapper');
     fireEvent.click(option);
     // JSDOM 不播放 CSS 退场动画；Semi 在动画结束后才提交选择值。
     fireEvent.animationEnd(popup);
-    await waitFor(() => expect(getFormApi().getValues().skill).toBe('used'));
-    await user.click(screen.getByRole('button', { name: '查询' }));
-    expect(getFormApi().getValues().skill).toBe('used');
+    await waitFor(() => expect(getFormApi().getValues().logType).toBe('skill'));
     await user.click(screen.getByRole('button', { name: '重置' }));
-    expect(getFormApi().getValues().skill).toBe('');
+    expect(getFormApi().getValues().logType).toBe('0');
   },
 );

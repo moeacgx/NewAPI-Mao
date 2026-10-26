@@ -57,6 +57,7 @@ export function buildSearchParams(
       return {
         ...baseParams,
         ...identity,
+        ...(commonFilters.skill === 'used' && { skill: 'used' }),
         ...(commonFilters.model && { model: commonFilters.model }),
         ...(commonFilters.token && { token: commonFilters.token }),
         ...(commonFilters.group && { group: commonFilters.group }),
