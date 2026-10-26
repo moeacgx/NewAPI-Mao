@@ -103,6 +103,47 @@ afterEach(() => {
 })
 
 describe('待处理工单提醒', () => {
+  it('四个状态展示各自数量并链接到对应筛选，顶部入口清除筛选', async () => {
+    mockServer(admin, 3)
+    renderPending()
+    await expectCount('3')
+    const card = within(screen.getByLabelText('Ticket overview'))
+    for (const [label, count, status] of [
+      ['Pending tickets', 3, 'open'],
+      ['In progress', 11, 'processing'],
+      ['Resolved', 22, 'resolved'],
+      ['Closed', 33, 'closed'],
+    ] as const) {
+      const link = card.getByRole('link', { name: new RegExp(label) })
+      expect(link).toHaveTextContent(String(count))
+      expect(link).toHaveAttribute(
+        'href',
+        `/ticket-management?${JSON.stringify({ status })}`
+      )
+    }
+    expect(card.getByRole('link', { name: 'View tickets' })).toHaveAttribute(
+      'href',
+      `/ticket-management?${JSON.stringify({ status: '' })}`
+    )
+  })
+
+  it.each([undefined, -1, 0.5])(
+    '统计字段为 %s 时显示错误而非零',
+    async (value) => {
+      vi.mocked(api.get).mockImplementation(async (url) =>
+        url === '/api/user/self'
+          ? response(admin)
+          : response({ ...statsOf(3), processing: value })
+      )
+      renderPending()
+      expect(
+        await screen.findByText('Failed to load ticket overview')
+      ).toBeInTheDocument()
+      expect(screen.queryByLabelText('Pending ticket count')).toBeNull()
+      expect(screen.queryByRole('complementary')).toBeNull()
+    }
+  )
+
   it('服务端复核管理员后按 open 口径查询，并显示可关闭的浮动提醒', async () => {
     mockServer(admin, 3)
     renderPending()

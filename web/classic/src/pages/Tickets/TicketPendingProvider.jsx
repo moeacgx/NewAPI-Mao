@@ -40,10 +40,11 @@ const emptyCounts = {
   processing: null,
   resolved: null,
   closed: null,
+  archived: null,
 };
 export const usePendingTickets = () => useContext(TicketPendingContext);
 
-function TicketPendingSession({ children }) {
+function TicketPendingSession({ userId, children }) {
   const { t } = useTranslation();
   const location = useLocation();
   const [summary, setSummary] = useState({
@@ -76,7 +77,12 @@ function TicketPendingSession({ children }) {
         // 定期复核权限；只在授权后读取全站工单状态统计。
         const user = ticketResponse(await API.get('/api/user/self', config));
         if (!active) return;
-        if (user?.permissions?.admin_permissions?.tickets?.read !== true) {
+        if (
+          user?.id !== userId ||
+          !Number.isFinite(user?.role) ||
+          user.role < 10 ||
+          user?.permissions?.admin_permissions?.tickets?.read !== true
+        ) {
           setSummary({
             allowed: false,
             total: null,
@@ -136,7 +142,7 @@ function TicketPendingSession({ children }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, []);
+  }, [userId]);
 
   const showNotice =
     summary.allowed &&
@@ -187,7 +193,7 @@ export default function TicketPendingProvider({ user, active, children }) {
     );
   }
   return (
-    <TicketPendingSession key={`${user.id}:${user.role}`}>
+    <TicketPendingSession key={`${user.id}:${user.role}`} userId={user.id}>
       {children}
     </TicketPendingSession>
   );

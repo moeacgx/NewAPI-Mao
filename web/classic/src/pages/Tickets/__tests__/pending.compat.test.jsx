@@ -87,6 +87,8 @@ beforeEach(() => {
     calls.push(config);
     if (config.url === '/api/user/self') {
       return response(config, {
+        id: user.id,
+        role: user.role,
         permissions: {
           admin_permissions: { tickets: { read: permission, write: false } },
         },
@@ -125,7 +127,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test('读取分页总数，浮动提醒不抢焦点且允许继续使用后台', async () => {
+test('读取待处理统计，浮动提醒不抢焦点且允许继续使用后台', async () => {
   mount();
   const input = screen.getByLabelText('Background input');
   input.focus();
@@ -337,6 +339,7 @@ test('切换账号后取消旧请求且迟到响应不泄漏旧统计', async ()
   await waitFor(() => expect(finish).toBeTypeOf('function'));
   API.defaults.adapter = adapter;
   total = 2;
+  user = { id: 3, role: 10 };
   view.rerender(
     <MemoryRouter>
       <Harness identity={{ id: 3, role: 10 }} />
@@ -352,6 +355,27 @@ test('切换账号后取消旧请求且迟到响应不泄漏旧统计', async ()
   );
   expect(anyCount()).toBeNull();
 });
+
+test.each([
+  { id: 2, role: 10 },
+  { id: 1, role: 1 },
+])(
+  '服务端身份或角色变化后隐藏统计并停止管理接口查询 %j',
+  async (serverUser) => {
+    mount();
+    await screen.findByRole('complementary');
+    const before = calls.filter((call) => call.url === statsUrl).length;
+    user = serverUser;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('region', { name: 'Ticket overview' }),
+      ).toBeNull(),
+    );
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(calls.filter((call) => call.url === statsUrl)).toHaveLength(before);
+  },
+);
 
 test.each(['/api/user/self', statsUrl])(
   '%s 超时后清除旧数量并允许后续刷新恢复',
