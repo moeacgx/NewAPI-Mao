@@ -9,6 +9,7 @@
     "Failed to load pending tickets": "対応待ちチケットの読み込みに失敗しました",
     "No tickets awaiting your response": "対応待ちのチケットはありません",
     "New tickets and customer follow-ups": "新規チケットとユーザーからの追加返信",
+    "Used skills": "使用済みスキル",
     "技能": "スキル",
     "技能 {{count}}": "スキル {{count}}",
     "始终装载": "常に読み込み",

@@ -11,6 +11,13 @@ import (
 )
 
 func GetAllLogs(c *gin.Context) {
+	skill := c.Query("skill")
+	if skill != "" && skill != "used" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid skill filter"})
+		return
+	}
+	query := model.LogQueryOptions{Skill: skill, Context: c.Request.Context()}
+
 	pageInfo := common.GetPageQuery(c)
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
@@ -28,7 +35,7 @@ func GetAllLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetAllLogsByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
+	logs, total, err := model.GetAllLogsByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId, query)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -49,6 +56,13 @@ func GetAllLogs(c *gin.Context) {
 }
 
 func GetUserLogs(c *gin.Context) {
+	skill := c.Query("skill")
+	if skill != "" && skill != "used" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid skill filter"})
+		return
+	}
+	query := model.LogQueryOptions{Skill: skill, Context: c.Request.Context()}
+
 	pageInfo := common.GetPageQuery(c)
 	userId := c.GetInt("id")
 	logType, _ := strconv.Atoi(c.Query("type"))
@@ -59,7 +73,7 @@ func GetUserLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetUserLogs(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, requestId, upstreamRequestId)
+	logs, total, err := model.GetUserLogs(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, requestId, upstreamRequestId, query)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -111,6 +125,13 @@ func GetLogByKey(c *gin.Context) {
 }
 
 func GetLogsStat(c *gin.Context) {
+	skill := c.Query("skill")
+	if skill != "" && skill != "used" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid skill filter"})
+		return
+	}
+	query := model.LogQueryOptions{Skill: skill, Context: c.Request.Context()}
+
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -125,7 +146,7 @@ func GetLogsStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	stat, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, channel, group)
+	stat, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, username, userId, tokenName, channel, group, query)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -156,6 +177,13 @@ func parseLogUserID(raw string) int {
 }
 
 func GetLogsSelfStat(c *gin.Context) {
+	skill := c.Query("skill")
+	if skill != "" && skill != "used" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid skill filter"})
+		return
+	}
+	query := model.LogQueryOptions{Skill: skill, Context: c.Request.Context()}
+
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -163,7 +191,7 @@ func GetLogsSelfStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, "", c.GetInt("id"), tokenName, channel, group)
+	quotaNum, err := model.SumUsedQuotaByUserID(logType, startTimestamp, endTimestamp, modelName, "", c.GetInt("id"), tokenName, channel, group, query)
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -9,6 +9,7 @@
     "Failed to load pending tickets": "Не удалось загрузить ожидающие тикеты",
     "No tickets awaiting your response": "Нет тикетов, ожидающих вашего ответа",
     "New tickets and customer follow-ups": "Новые тикеты и повторные сообщения клиентов",
+    "Used skills": "Использованные навыки",
     "技能": "Навыки",
     "技能 {{count}}": "Навыки {{count}}",
     "始终装载": "Всегда загружен",

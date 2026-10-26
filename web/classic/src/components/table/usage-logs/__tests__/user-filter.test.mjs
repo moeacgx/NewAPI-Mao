@@ -170,6 +170,45 @@ function formValues(overrides = {}) {
   };
 }
 
+for (const isAdminUser of [true, false]) {
+  test(`技能条件跨分页并同步统计，清除后恢复全部，管理员=${isAdminUser}`, async () => {
+    adminMode = isAdminUser;
+    const errors = [];
+    const { api, calls } = createApiMock(errors);
+    const harness = await mountHook(api, errors);
+    const values = formValues({
+      skill: 'used',
+      username: '101',
+      userSearchType: 'id',
+    });
+    await setForm(harness.result, values);
+    calls.length = 0;
+    await act(async () => {
+      await harness.result().refresh();
+      await harness.result().handlePageChange(2);
+    });
+    assert.ok(calls.some((call) => call.url.endsWith('/stat')));
+    assert.ok(calls.some((call) => call.config.params.p === 2));
+    for (const call of calls) {
+      assert.equal(call.config.params.skill, 'used');
+      assert.equal(call.config.params.user_id, isAdminUser ? '101' : undefined);
+      if (!isAdminUser) assert.ok(call.url.startsWith('/api/log/self/'));
+    }
+    values.skill = '';
+    calls.length = 0;
+    await act(async () => {
+      await harness.result().refresh();
+    });
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every((call) => call.config.params.skill === undefined));
+    assert.equal(
+      calls.find((call) => !call.url.endsWith('/stat')).config.params.p,
+      1,
+    );
+    harness.renderer.unmount();
+  });
+}
+
 test('管理员列表和统计通过 params 保留特殊字符，并切换用户 ID 空值语义', async () => {
   adminMode = true;
   const errors = [];

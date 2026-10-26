@@ -18,7 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
@@ -92,3 +99,22 @@ test('重置恢复用户名模式，普通用户不显示管理员用户筛选',
   expect(screen.queryByPlaceholderText('用户 ID')).toBeNull();
   expect(screen.queryByRole('group', { name: 'User filter' })).toBeNull();
 });
+
+test.each([true, false])(
+  '技能筛选可选择实际使用并通过重置清空，管理员=%s',
+  async (isAdminUser) => {
+    const getFormApi = renderFilters(isAdminUser, { skill: '' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '技能' }));
+    const option = await screen.findByRole('option', { name: /Used skills/ });
+    const popup = option.closest('.semi-popover-wrapper');
+    fireEvent.click(option);
+    // JSDOM 不播放 CSS 退场动画；Semi 在动画结束后才提交选择值。
+    fireEvent.animationEnd(popup);
+    await waitFor(() => expect(getFormApi().getValues().skill).toBe('used'));
+    await user.click(screen.getByRole('button', { name: '查询' }));
+    expect(getFormApi().getValues().skill).toBe('used');
+    await user.click(screen.getByRole('button', { name: '重置' }));
+    expect(getFormApi().getValues().skill).toBe('');
+  },
+);
