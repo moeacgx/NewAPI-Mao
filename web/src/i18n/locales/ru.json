@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "Тикеты, ожидающие ответа",
+    "Pending ticket reminder": "Напоминание об ожидающих тикетах",
+    "Dismiss ticket reminder": "Закрыть напоминание о тикетах",
+    "Tickets awaiting your response: {{total}}": "Ожидают вашего ответа: {{total}}",
+    "View pending tickets": "Просмотреть ожидающие тикеты",
+    "Pending ticket count": "Количество ожидающих тикетов",
+    "Failed to load pending tickets": "Не удалось загрузить ожидающие тикеты",
+    "No tickets awaiting your response": "Нет тикетов, ожидающих вашего ответа",
+    "New tickets and customer follow-ups": "Новые тикеты и повторные сообщения клиентов",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

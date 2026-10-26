@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "Phiếu hỗ trợ chờ xử lý",
+    "Pending ticket reminder": "Nhắc nhở phiếu chờ xử lý",
+    "Dismiss ticket reminder": "Đóng thông báo phiếu hỗ trợ",
+    "Tickets awaiting your response: {{total}}": "Có {{total}} phiếu đang chờ bạn phản hồi",
+    "View pending tickets": "Xem phiếu chờ xử lý",
+    "Pending ticket count": "Số phiếu chờ xử lý",
+    "Failed to load pending tickets": "Không thể tải phiếu chờ xử lý",
+    "No tickets awaiting your response": "Không có phiếu nào đang chờ bạn phản hồi",
+    "New tickets and customer follow-ups": "Phiếu mới và phản hồi bổ sung của khách hàng",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

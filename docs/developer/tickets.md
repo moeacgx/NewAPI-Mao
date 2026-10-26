@@ -58,15 +58,15 @@ Ticket 字段为 `id,user_id,title,category,priority,status,version,created_at,u
 
 ## 通知契约
 
-### Classic 后台待处理提醒
+### 后台待处理提醒
 
-Classic 数据看板的待处理工单卡片与后台右上角浮动提醒共用 `status=open` 的管理列表总数。
+Classic 与 Default 数据看板的待处理工单卡片与后台右上角浮动提醒共用 `status=open` 的管理列表总数。
 先验证 `tickets:read`，再请求 `GET /api/ticket-admin?p=1&page_size=1&status=open`。
 人工管理员回复后的 `processing` 不属于待处理；自动确认消息保持 `open`。
 数量为零不浮动提示，手动关闭后当前连续后台访问期间不重复提示；无遮罩、不抢焦点。
 点击入口进入 `/console/ticket-management?status=open`。可见页面每 60 秒刷新，工单操作后及返回标签页时刷新，
-失败不继续显示旧数量，权限撤销和账号切换清理状态。该增强仅覆盖 Classic，详见
-[实现与验证记录](../workflows/2026-10/26_classic_pending_tickets.md)。
+失败不继续显示旧数量，权限撤销和账号切换清理状态。Classic 路由为 `/console/ticket-management?status=open`，Default 为 `/ticket-management?status=open`。详见
+[Classic 实现](../workflows/2026-10/26_classic_pending_tickets.md)与[Default 实现](../workflows/2026-10/26_default_pending_tickets.md)。
 
 ### 外部通知
 

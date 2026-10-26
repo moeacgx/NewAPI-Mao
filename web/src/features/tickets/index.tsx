@@ -59,7 +59,11 @@ import { TicketBatchActions } from './ticket-batch-actions'
 import { TicketDetailDialog } from './ticket-detail'
 import type { TicketFilters, TicketStatus, TicketVersion } from './types'
 
-export function Tickets(props: { admin?: boolean }) {
+export function Tickets(props: {
+  admin?: boolean
+  status?: TicketStatus | ''
+  onStatusChange?: (status: TicketStatus | '') => void
+}) {
   const { t } = useTranslation()
   const admin = props.admin ?? false
   const user = useAuthStore((state) => state.auth.user)
@@ -76,7 +80,13 @@ export function Tickets(props: { admin?: boolean }) {
   const [filters, setFilters] = useState<TicketFilters>({
     p: 1,
     page_size: 20,
+    status: props.status,
   })
+  const [routeStatus, setRouteStatus] = useState(props.status)
+  if (routeStatus !== props.status) {
+    setRouteStatus(props.status)
+    setFilters((current) => ({ ...current, p: 1, status: props.status }))
+  }
   const [keyword, setKeyword] = useState('')
   const [userId, setUserId] = useState('')
   const [creating, setCreating] = useState(false)
@@ -196,13 +206,15 @@ export function Tickets(props: { admin?: boolean }) {
                   <NativeSelect
                     id='ticket-filter-status'
                     value={filters.status ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const status = event.target.value as TicketStatus | ''
+                      props.onStatusChange?.(status)
                       setFilters((current) => ({
                         ...current,
                         p: 1,
-                        status: event.target.value as TicketStatus | '',
+                        status,
                       }))
-                    }
+                    }}
                   >
                     <NativeSelectOption value=''>
                       {t('All statuses')}
