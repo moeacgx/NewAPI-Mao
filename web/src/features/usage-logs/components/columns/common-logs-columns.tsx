@@ -312,7 +312,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const timestamp = row.getValue('created_at') as number
         const config = getLogTypeConfig(log.type)
         const other = parseLogOther(log.other)
-        const skillUsage = getLogSkillUsage(other)
 
         return (
           <div className='flex min-w-0 flex-col gap-0.5'>
@@ -328,7 +327,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                 className='-ml-1.5 !text-xs [&_span]:!text-xs'
               />
               {isWebSocketLog(other) && <WebSocketBadge />}
-              {skillUsage && <SkillUsageBadge usage={skillUsage} />}
             </div>
           </div>
         )
@@ -562,7 +560,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       if (!isDisplayableLogType(log.type)) return null
 
       const tokenName = log.token_name
-      if (!tokenName) return null
 
       const other = parseLogOther(log.other)
       const displayName = sensitiveVisible ? tokenName : '••••'
@@ -570,6 +567,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       if (!group) group = other?.group || ''
       const groupLabel = log.group_name || group
       const groupRatio = getGroupRatio(other)
+      const skillUsage = getLogSkillUsage(other)
 
       return (
         <div className='flex max-w-[200px] flex-col gap-0.5'>
@@ -592,18 +590,22 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               )}
             </Tooltip>
           </TooltipProvider>
-          {(group || groupRatio != null) && (
-            <span className='block max-w-full truncate text-xs leading-none'>
-              {group ? (
-                <GroupBadge
-                  group={group}
-                  label={sensitiveVisible ? groupLabel : '••••'}
-                  type='text'
-                  size='sm'
-                  className='inline align-baseline text-xs leading-none [&>span]:leading-none'
-                />
-              ) : null}
-              {group && groupRatio != null ? ' ' : null}
+          {(group || groupRatio != null || skillUsage) && (
+            <span className='flex max-w-full items-center gap-1 text-xs leading-none'>
+              <span className='relative m-1 inline-flex min-w-0'>
+                {group ? (
+                  <GroupBadge
+                    group={group}
+                    label={sensitiveVisible ? groupLabel : '••••'}
+                    type='text'
+                    size='sm'
+                    className='inline align-baseline text-xs leading-none [&>span]:leading-none'
+                  />
+                ) : (
+                  <span>—</span>
+                )}
+                {skillUsage && <SkillUsageBadge usage={skillUsage} />}
+              </span>
               {groupRatio != null ? (
                 <span className='text-muted-foreground/60 relative top-px align-baseline tabular-nums'>
                   {formatRatioCompact(groupRatio)}x

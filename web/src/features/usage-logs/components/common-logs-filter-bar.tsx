@@ -53,10 +53,15 @@ import { useLogsViewScope, useUsageLogsContext } from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
-type LogTypeValue = (typeof LOG_TYPE_FILTERS)[number]['value']
-const logTypeValueSet = new Set<string>(
-  LOG_TYPE_FILTERS.map((type) => type.value)
-)
+// 虚拟类型值：仅存在于下拉菜单，提交时转换为 type=0 + skill=used，不会作为数值发往后端。
+const LOG_TYPE_SKILL_VALUE = 'skill' as const
+type LogTypeValue =
+  | (typeof LOG_TYPE_FILTERS)[number]['value']
+  | typeof LOG_TYPE_SKILL_VALUE
+const logTypeValueSet = new Set<string>([
+  ...LOG_TYPE_FILTERS.map((type) => type.value),
+  LOG_TYPE_SKILL_VALUE,
+])
 
 type CommonLogDraft = {
   sourceKey: string
@@ -68,7 +73,8 @@ function isLogTypeValue(value: string): value is LogTypeValue {
   return logTypeValueSet.has(value)
 }
 
-function getLogTypeValue(value: unknown): LogTypeValue {
+function getLogTypeValue(value: unknown, skill?: unknown): LogTypeValue {
+  if (skill === 'used') return LOG_TYPE_SKILL_VALUE
   return Array.isArray(value) &&
     value.length === 1 &&
     typeof value[0] === 'string' &&
@@ -84,6 +90,7 @@ function buildSearchSourceKey(values: {
   model?: unknown
   token?: unknown
   group?: unknown
+  skill?: unknown
   username?: unknown
   userId?: unknown
   requestId?: unknown
@@ -97,6 +104,7 @@ function buildSearchSourceKey(values: {
     values.model,
     values.token,
     values.group,
+    values.skill,
     values.username,
     values.userId,
     values.requestId,
@@ -131,6 +139,7 @@ export function CommonLogsFilterBar<TData>(
       model: searchParams.model,
       token: searchParams.token,
       group: searchParams.group,
+      skill: searchParams.skill,
       username: searchParams.username,
       userId: searchParams.userId,
       requestId: searchParams.requestId,
@@ -156,7 +165,7 @@ export function CommonLogsFilterBar<TData>(
     return {
       sourceKey: buildSearchSourceKey(sourceValues),
       filters,
-      logType: getLogTypeValue(searchParams.type),
+      logType: getLogTypeValue(searchParams.type, searchParams.skill),
     }
   }, [
     searchParams.startTime,
@@ -165,6 +174,7 @@ export function CommonLogsFilterBar<TData>(
     searchParams.model,
     searchParams.token,
     searchParams.group,
+    searchParams.skill,
     searchParams.username,
     searchParams.userId,
     searchParams.requestId,
@@ -201,12 +211,14 @@ export function CommonLogsFilterBar<TData>(
 
   const handleApply = useCallback(() => {
     const filterParams = buildSearchParams(filters, 'common')
+    const isSkillType = logType === LOG_TYPE_SKILL_VALUE
     navigate({
       to: '/usage-logs/$section',
       params: { section: 'common' },
       search: {
         ...filterParams,
-        type: [logType],
+        skill: isSkillType ? 'used' : undefined,
+        type: [isSkillType ? LOG_TYPE_ALL_VALUE : logType],
         page: 1,
       },
     })
@@ -219,6 +231,7 @@ export function CommonLogsFilterBar<TData>(
     const resetFilters: CommonLogFilters = { startTime: start, endTime: end }
     const resetSearch = {
       type: [LOG_TYPE_ALL_VALUE],
+      skill: undefined,
       startTime: start.getTime(),
       endTime: end.getTime(),
     }
@@ -270,11 +283,13 @@ export function CommonLogsFilterBar<TData>(
     ? undefined
     : '[-webkit-text-security:disc]'
   const logTypeItems = useMemo(
-    () =>
-      LOG_TYPE_FILTERS.map((type) => ({
-        value: type.value,
+    () => [
+      ...LOG_TYPE_FILTERS.map((type) => ({
+        value: type.value as LogTypeValue,
         label: t(type.label),
       })),
+      { value: LOG_TYPE_SKILL_VALUE as LogTypeValue, label: t('Skills') },
+    ],
     [t]
   )
   const logTypeLabel =
@@ -361,14 +376,14 @@ export function CommonLogsFilterBar<TData>(
           })
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger aria-label={t('Log Type')}>
           <SelectValue>{logTypeLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
-            {LOG_TYPE_FILTERS.map((type) => (
+            {logTypeItems.map((type) => (
               <SelectItem key={type.value} value={type.value}>
-                {t(type.label)}
+                {type.label}
               </SelectItem>
             ))}
           </SelectGroup>

@@ -113,7 +113,6 @@ export const useLogsData = () => {
     model_name: '',
     channel: '',
     group: '',
-    skill: '',
     request_id: '',
     dateRange: [
       timestamp2string(getTodayStartTimestamp()),
@@ -276,9 +275,13 @@ export const useLogsData = () => {
       end_timestamp,
       channel: formValues.channel || '',
       group: formValues.group || '',
-      skill: formValues.skill || '',
+      // “技能”是类型菜单的虚拟项：提交为 type=0 + skill=used，不把非数值发给后端。
+      skill: formValues.logType === 'skill' ? 'used' : '',
       request_id: formValues.request_id || '',
-      logType: formValues.logType ? parseInt(formValues.logType) : 0,
+      logType:
+        formValues.logType && formValues.logType !== 'skill'
+          ? parseInt(formValues.logType)
+          : 0,
     };
   };
 

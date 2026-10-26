@@ -27,6 +27,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import type { UsageLog } from '../../data/schema'
 import { useCommonLogsColumns } from '../columns/common-logs-columns'
+import { UsageLogsProvider } from '../usage-logs-provider'
 
 vi.mock('@lobehub/icons', () => ({}))
 vi.mock('@/assets/custom/icon-sub2api', () => ({ IconSub2api: () => null }))
@@ -74,7 +75,7 @@ const onDemandBundleOther = {
   },
 }
 
-function TimeCell(props: { other: unknown }) {
+function TokenCell(props: { other: unknown }) {
   const columns = useCommonLogsColumns(false)
   const table = useReactTable({
     data: [{ ...baseLog, other: JSON.stringify(props.other) }],
@@ -84,25 +85,32 @@ function TimeCell(props: { other: unknown }) {
   const cell = table
     .getRowModel()
     .rows[0].getVisibleCells()
-    .find((visibleCell) => visibleCell.column.id === 'created_at')
-  if (!cell) throw new Error('usage logs must render a time column')
-  return <>{flexRender(cell.column.columnDef.cell, cell.getContext())}</>
+    .find((visibleCell) => visibleCell.column.id === 'token_name')
+  if (!cell) throw new Error('usage logs must render a token column')
+  return (
+    <UsageLogsProvider>
+      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+    </UsageLogsProvider>
+  )
 }
 
-describe('usage log time column skill badge', () => {
+describe('usage log group corner skill icon', () => {
   test('shows the distinct on-demand skill count and names both skills', () => {
-    render(<TimeCell other={onDemandBundleOther} />)
+    render(<TokenCell other={onDemandBundleOther} />)
 
-    expect(screen.getByText('Skills 2')).toBeInTheDocument()
     expect(
       screen.getByLabelText('Skills 2. Read on demand: Go Testing, SQL Style')
     ).toBeInTheDocument()
   })
 
   test('lists the skill names in a tooltip on hover', async () => {
-    render(<TimeCell other={onDemandBundleOther} />)
+    render(<TokenCell other={onDemandBundleOther} />)
 
-    await userEvent.setup().hover(screen.getByText('Skills 2'))
+    await userEvent
+      .setup()
+      .hover(
+        screen.getByLabelText('Skills 2. Read on demand: Go Testing, SQL Style')
+      )
 
     expect(
       await screen.findByText('Read on demand: Go Testing, SQL Style')
@@ -111,14 +119,13 @@ describe('usage log time column skill badge', () => {
 
   test('shows an unused badge when the final answer read no skills', () => {
     render(
-      <TimeCell
+      <TokenCell
         other={{
           gateway_skills: { stage: 'generation', round: 1, catalogue_count: 5 },
         }}
       />
     )
 
-    expect(screen.getByText('Skills unused')).toBeInTheDocument()
     expect(
       screen.getByLabelText(
         'Skills unused. Available skills: 5, none read in this request'
@@ -128,7 +135,7 @@ describe('usage log time column skill badge', () => {
 
   test('shows the discovery round for a private skill-discovery log', () => {
     render(
-      <TimeCell
+      <TokenCell
         other={{
           gateway_skills: {
             stage: 'discovery',
@@ -142,7 +149,6 @@ describe('usage log time column skill badge', () => {
       />
     )
 
-    expect(screen.getByText('Skill discovery · round 2')).toBeInTheDocument()
     expect(
       screen.getByLabelText(
         'Skill discovery · round 2. Private skill-discovery round, billed separately. Skills read: Go Testing'
@@ -151,9 +157,8 @@ describe('usage log time column skill badge', () => {
   })
 
   test('shows no skill badge for a log without skill data', () => {
-    render(<TimeCell other={{ ws: true }} />)
+    render(<TokenCell other={{ group: 'default' }} />)
 
-    expect(screen.getByText('WS')).toBeInTheDocument()
-    expect(screen.queryByText(/^Skill/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^Skill/)).not.toBeInTheDocument()
   })
 })

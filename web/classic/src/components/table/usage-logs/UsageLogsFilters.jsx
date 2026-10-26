@@ -147,25 +147,6 @@ const LogsFilters = ({
             size='small'
           />
 
-          <div>
-            <span id='skill-label' className='sr-only'>
-              {t('技能')}
-            </span>
-            <Form.Select
-              field='skill'
-              placeholder={t('技能')}
-              prefix={t('技能')}
-              className='w-full'
-              optionList={[
-                { label: t('全部'), value: '' },
-                { label: t('Used skills'), value: 'used' },
-              ]}
-              showClear
-              pure
-              size='small'
-            />
-          </div>
-
           {isAdminUser && (
             <>
               <Form.Input
@@ -217,6 +198,9 @@ const LogsFilters = ({
         <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3'>
           {/* 日志类型选择器 */}
           <div className='w-full sm:w-auto'>
+            <span id='logType-label' className='sr-only'>
+              {t('日志类型')}
+            </span>
             <Form.Select
               field='logType'
               placeholder={t('日志类型')}
@@ -239,6 +223,7 @@ const LogsFilters = ({
               <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
               <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
               <Form.Select.Option value='7'>{t('登录')}</Form.Select.Option>
+              <Form.Select.Option value='skill'>{t('技能')}</Form.Select.Option>
             </Form.Select>
           </div>
 
