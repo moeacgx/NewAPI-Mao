@@ -1,6 +1,6 @@
 # NewAPI-Mao 开发文档
 
-- [网关 Skills Chat 多候选响应修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：兼容 Chat 技能读取阶段的多候选助手响应，避免误报 502。
+- [网关 Skills Chat 私有流式响应兼容修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：聚合上游意外返回的私有 SSE，保留严格候选校验及逐轮计费。
 
 - [.358 模型守卫正文来源发布](../workflows/2026-10/26_release_358.md)：纳入 #359，发行校验与历史兼容边界。
 - [maolaoapi .358 逐节点更新](../workflows/2026-10/26_maolaoapi_358_deployment.md)：现场确认、备份、固定镜像、静态资源与逐节点验收。

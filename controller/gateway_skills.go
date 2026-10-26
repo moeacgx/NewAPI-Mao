@@ -191,8 +191,13 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 		clientWriter := c.Writer
 		var apiErr *types.NewAPIError
 		func() {
+			streamHeaders := c.GetBool("event_stream_headers_set")
+			c.Set("event_stream_headers_set", false)
 			c.Writer = captured
-			defer func() { c.Writer = clientWriter }()
+			defer func() {
+				c.Writer = clientWriter
+				c.Set("event_stream_headers_set", streamHeaders)
+			}()
 			switch format {
 			case types.RelayFormatClaude:
 				apiErr = relay.ClaudeHelper(c, info)
@@ -204,6 +209,10 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 		}()
 		if apiErr == nil && captured.overflow {
 			apiErr = gatewaySkillError(errors.New("技能读取阶段模型响应超过 8 MiB"))
+		}
+		if apiErr == nil && format == types.RelayFormatOpenAI && info.StreamStatus != nil &&
+			(!info.StreamStatus.IsNormalEnd() || info.StreamStatus.HasErrors()) {
+			apiErr = gatewaySkillError(errors.New("技能读取阶段流式响应未完整结束"))
 		}
 		if apiErr != nil {
 			if info.Billing != nil && !info.Billing.NeedsRefund() {
@@ -224,9 +233,16 @@ func discoverGatewaySkills(c *gin.Context, info *relaycommon.RelayInfo, format t
 			return info, freshErr
 		}
 		info = fresh
-		turn, parseErr := service.ParseGatewaySkillTurn(captured.body.Bytes(), format, clientTools)
-		if parseErr != nil {
-			return info, gatewaySkillError(parseErr)
+		var turn *service.GatewaySkillTurn
+		var turnParseErr error
+		if format == types.RelayFormatOpenAI && strings.HasPrefix(strings.ToLower(captured.Header().Get("Content-Type")), "text/event-stream") {
+			// 上游可能忽略 stream=false；私有 SSE 必须完整聚合后再执行授权读取。
+			turn, turnParseErr = service.ParseGatewaySkillChatStream(captured.body.Bytes(), clientTools)
+		} else {
+			turn, turnParseErr = service.ParseGatewaySkillTurn(captured.body.Bytes(), format, clientTools)
+		}
+		if turnParseErr != nil {
+			return info, gatewaySkillError(turnParseErr)
 		}
 		if len(turn.Calls) == 0 && len(turn.ClientCalls) == 0 {
 			break
