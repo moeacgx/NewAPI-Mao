@@ -111,6 +111,9 @@ type InvoiceRecord struct {
 	UpdateTime         int64              `json:"update_time"`
 	IssuedTime         int64              `json:"issued_time"`
 	Orders             []InvoiceOrderLink `json:"orders,omitempty" gorm:"-"`
+
+	// ClosedOrdersSnapshot 保留释放唯一占用前的合并明细，非空表示已完成释放。
+	ClosedOrdersSnapshot string `json:"-" gorm:"type:text"`
 }
 
 // enqueueInvoicePendingNotificationTx 仅在发票进入待开票状态时写入事务事件。
@@ -764,6 +767,12 @@ func attachInvoiceOrderLinks(records []*InvoiceRecord) error {
 		if record == nil || record.Id <= 0 {
 			continue
 		}
+		if record.Status == InvoiceStatusClosed && record.ClosedOrdersSnapshot != "" {
+			if err := common.UnmarshalJsonStr(record.ClosedOrdersSnapshot, &record.Orders); err != nil {
+				return err
+			}
+			continue
+		}
 		ids = append(ids, record.Id)
 		byId[record.Id] = record
 	}
@@ -865,6 +874,17 @@ func UpdateInvoiceRecord(id int, downloadUrl string, status string, adminRemark 
 		if err := lockForUpdate(tx).Where("id = ?", id).First(&record).Error; err != nil {
 			return err
 		}
+		if record.Status == InvoiceStatusClosed {
+			if status != InvoiceStatusClosed {
+				return errors.New("已关闭的发票申请不能重新开启，请重新选择订单申请")
+			}
+			record.AdminRemark = strings.TrimSpace(adminRemark)
+			record.UpdateTime = common.GetTimestamp()
+			if err := releaseClosedInvoiceSourcesTx(tx, &record); err != nil {
+				return err
+			}
+			return tx.Save(&record).Error
+		}
 		if record.PaymentStatus == InvoicePaymentStatusManualRefundRequired {
 			if status != InvoiceStatusClosed || record.Status != InvoiceStatusClosed {
 				return errors.New("人工退款待处理记录只能保持关闭状态")
@@ -891,7 +911,13 @@ func UpdateInvoiceRecord(id int, downloadUrl string, status string, adminRemark 
 		if err := tx.Save(&record).Error; err != nil {
 			return err
 		}
-		return syncInvoiceSourceStatusTx(tx, &record)
+		if err := syncInvoiceSourceStatusTx(tx, &record); err != nil {
+			return err
+		}
+		if record.Status == InvoiceStatusClosed {
+			return releaseClosedInvoiceSourcesTx(tx, &record)
+		}
+		return nil
 	})
 }
 
@@ -906,7 +932,10 @@ func syncInvoiceSourceStatusTx(tx *gorm.DB, record *InvoiceRecord) error {
 	case InvoiceSourceTopUp:
 		return tx.Model(&TopUp{}).Where("trade_no = ?", record.SourceId).Updates(updates).Error
 	case InvoiceSourceSubscription:
-		return tx.Model(&SubscriptionOrder{}).Where("trade_no = ?", record.SourceId).Updates(updates).Error
+		if err := tx.Model(&SubscriptionOrder{}).Where("user_id = ? AND trade_no = ?", record.UserId, record.SourceId).Updates(updates).Error; err != nil {
+			return err
+		}
+		return tx.Model(&TopUp{}).Where("user_id = ? AND trade_no = ?", record.UserId, record.SourceId).Updates(updates).Error
 	case InvoiceSourceCombined:
 		var links []InvoiceOrderLink
 		if err := tx.Where("invoice_id = ?", record.Id).Find(&links).Error; err != nil {
