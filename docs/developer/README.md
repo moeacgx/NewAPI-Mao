@@ -1,10 +1,10 @@
 # NewAPI-Mao 开发文档
 
-- [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：技能在日志类型下拉菜单中（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
+- [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：两套模板日志类型菜单增加「技能」选项（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
 - [Default 待处理工单看板与浮动提醒](../workflows/2026-10/26_default_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离、轮询与 7 语言文案。
 - [Classic 使用日志分组角标](../workflows/2026-10/26_classic_skill_group_badge.md)：技能提示移到分组右上角，悬停查看详情，避免表格横向拥挤。
-- [使用日志技能筛选](../workflows/2026-10/26_usage_log_skill_filter.md)：Classic 新增已使用技能筛选，列表、跨页总数和统计统一过滤，保留用户隔离；[后端验证记录](../workflows/2026-10/26_usage_log_skill_filter_backend.md)。
+- [使用日志技能筛选](../workflows/2026-10/26_usage_log_skill_filter.md)：后端支持已使用技能筛选（`skill=used`），列表、跨页总数和统计统一过滤，保留用户隔离；[后端验证记录](../workflows/2026-10/26_usage_log_skill_filter_backend.md)。
 - [Classic 当前连接轮询布局稳定性修复](../workflows/2026-10/26_classic_active_connection_stable_layout.md)：去除当前连接、令牌活动栏和详情抽屉正常轮询时反复插入的加载提示，保留异常与过期信息。
 - [Default 当前连接轮询布局稳定性修复](../workflows/2026-10/26_default_active_stable.md)：Default 当前连接面板与详情抽屉在新鲜快照正常轮询时不再插入加载提示行，保留首次加载、延迟、错误与实例范围提示。
 
