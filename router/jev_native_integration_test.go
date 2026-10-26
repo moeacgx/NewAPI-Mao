@@ -118,6 +118,10 @@ func TestJevNativeIntegration(t *testing.T) {
 		require.NoError(t, db.Create(&model.Ability{ChannelId: ch.Id, Group: group.Code, GroupId: group.Id, Model: "jev-1.13.0", Enabled: true, Priority: ch.Priority}).Error)
 	}
 	engine := gin.New()
+	engine.Use(func(c *gin.Context) {
+		c.Set(common.RequestIdKey, c.GetHeader(common.RequestIdKey))
+		c.Next()
+	})
 	engine.GET("/v1/task/plugins/:plugin_key/:task_id", middleware.TokenAuth(), controller.GetOfficialPluginTask)
 	engine.GET("/v1/task/plugins/:plugin_key/:task_id/artifacts", middleware.TokenAuth(), controller.GetOfficialPluginArtifacts)
 	engine.NoRoute(SetPluginRouter(engine), func(c *gin.Context) { c.Status(http.StatusNotFound) })
@@ -129,6 +133,7 @@ func TestJevNativeIntegration(t *testing.T) {
 		if auth != "" {
 			req.Header.Set("Authorization", "Bearer "+auth)
 		}
+		req.Header.Set(common.RequestIdKey, "jev-integration-request")
 		rec := httptest.NewRecorder()
 		engine.ServeHTTP(rec, req)
 		return rec
@@ -138,16 +143,14 @@ func TestJevNativeIntegration(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
 		assert.EqualValues(t, 0, calls.Load())
 	})
-	var successTask model.Task
 	t.Run("三题型同步返回并按实际输入用量结算", func(t *testing.T) {
 		rec := send(http.MethodPost, "/typesafe/v1/systemone", token.Key)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		assert.JSONEq(t, answer, rec.Body.String())
 		assert.EqualValues(t, 1, calls.Load())
-		require.NoError(t, db.First(&successTask).Error)
-		assert.Equal(t, 93201, successTask.ChannelId)
-		assert.EqualValues(t, model.TaskStatusSuccess, successTask.Status)
-		assert.Equal(t, 21, successTask.Quota)
+		var taskCount int64
+		require.NoError(t, db.Model(&model.Task{}).Count(&taskCount).Error)
+		assert.Zero(t, taskCount, "TypeSafe Jev 同步结果不应创建任务记录")
 		var actualUser model.User
 		var actualToken model.Token
 		require.NoError(t, db.First(&actualUser, user.Id).Error)
@@ -160,23 +163,12 @@ func TestJevNativeIntegration(t *testing.T) {
 		assert.Equal(t, 1000, consume.PromptTokens)
 		assert.Zero(t, consume.CompletionTokens, "官方旧插件未上报输出量，不能从响应正文推测")
 		assert.Equal(t, 21, consume.Quota)
-	})
-	t.Run("不保留结果但保留账务及版本归因", func(t *testing.T) {
-		require.NotEmpty(t, successTask.TaskID)
-		assert.True(t, successTask.PrivateData.ResultDiscarded)
-		assert.Empty(t, successTask.PrivateData.PluginData)
-		assert.Empty(t, successTask.PrivateData.PluginState)
-		assert.Empty(t, successTask.PrivateData.Key)
-		assert.Nil(t, successTask.PrivateData.PluginImmediate)
-		require.NotNil(t, successTask.PrivateData.Execution)
-		require.NotNil(t, successTask.PrivateData.Execution.TaskPlugin)
-		assert.Equal(t, plugin.SourceHash, successTask.PrivateData.Execution.TaskPlugin.SourceHash)
-		assert.NotContains(t, string(successTask.Data), "answers")
-		for _, suffix := range []string{"", "/artifacts"} {
-			rec := send(http.MethodGet, "/v1/task/plugins/typesafe/"+successTask.TaskID+suffix, token.Key)
-			assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
-			assert.NotContains(t, rec.Body.String(), "answers")
-		}
+		var provenance map[string]any
+		require.NoError(t, common.UnmarshalJsonStr(consume.Other, &provenance))
+		assert.Equal(t, plugin.SourceHash, provenance["root_info"].(map[string]any)["task_plugin"].(map[string]any)["source_hash"])
+		var consumeCount int64
+		require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("type = ?", model.LogTypeConsume).Count(&consumeCount).Error)
+		assert.EqualValues(t, 1, consumeCount, "跳过任务记录不能跳过消费日志")
 	})
 	t.Run("上游错误退回预扣且不泄露错误正文", func(t *testing.T) {
 		upstreamStatus.Store(http.StatusBadGateway)
@@ -197,22 +189,14 @@ func TestJevNativeIntegration(t *testing.T) {
 		assert.EqualValues(t, 21, actualToken.UsedQuota)
 		var count int64
 		require.NoError(t, db.Model(&model.Task{}).Count(&count).Error)
-		assert.EqualValues(t, 1, count)
+		assert.Zero(t, count)
 	})
-	t.Run("任务落库后结算失败保留预留资金", func(t *testing.T) {
+	t.Run("Jev 无任务记录时结算失败仍保留预扣", func(t *testing.T) {
 		upstreamStatus.Store(http.StatusOK)
-		var persisted atomic.Bool
 		var settlementUpdates atomic.Int32
-		const createdCallback = "test:jev_task_persisted"
 		const failureCallback = "test:jev_settlement_failure"
-		require.NoError(t, db.Callback().Create().After("gorm:create").Register(createdCallback, func(tx *gorm.DB) {
-			if tx.Statement.Table == "tasks" && tx.Error == nil {
-				persisted.Store(true)
-			}
-		}))
-		defer func() { require.NoError(t, db.Callback().Create().Remove(createdCallback)) }()
 		require.NoError(t, db.Callback().Update().Before("gorm:update").Register(failureCallback, func(tx *gorm.DB) {
-			if !persisted.Load() || tx.Statement.Table != "users" {
+			if calls.Load() < 3 || tx.Statement.Table != "users" {
 				return
 			}
 			changes, ok := tx.Statement.Dest.(map[string]any)
@@ -220,7 +204,7 @@ func TestJevNativeIntegration(t *testing.T) {
 				return
 			}
 			if _, changesQuota := changes["quota"]; changesQuota && settlementUpdates.Add(1) == 1 {
-				// 只破坏落库之后的第一次结算；若错误地安排全额退款，第二次更新会成功。
+				// 只破坏上游成功后的第一次结算；若错误地安排全额退款，第二次更新会成功。
 				tx.AddError(errors.New("PRIVATE_SETTLEMENT_FAILURE"))
 			}
 		}))
@@ -228,17 +212,13 @@ func TestJevNativeIntegration(t *testing.T) {
 		rec := send(http.MethodPost, "/typesafe/v1/systemone", token.Key)
 		require.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
 		assert.NotContains(t, rec.Body.String(), "PRIVATE_SETTLEMENT_FAILURE")
-		assert.True(t, persisted.Load())
 		// 等待既有异步工作退出，防止错误退款尚未执行而把测试误判为通过。
 		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 2*time.Second, 10*time.Millisecond)
 		assert.EqualValues(t, 1, settlementUpdates.Load())
 		assert.EqualValues(t, 3, calls.Load())
-		var persistedTask model.Task
-		require.NoError(t, db.Order("id DESC").First(&persistedTask).Error)
-		assert.NotEqual(t, successTask.TaskID, persistedTask.TaskID)
-		assert.EqualValues(t, model.TaskStatusSuccess, persistedTask.Status)
-		assert.True(t, persistedTask.PrivateData.ResultDiscarded)
-		assert.Equal(t, 21, persistedTask.Quota)
+		var taskCount int64
+		require.NoError(t, db.Model(&model.Task{}).Count(&taskCount).Error)
+		assert.Zero(t, taskCount)
 		var actualUser model.User
 		var actualToken model.Token
 		require.NoError(t, db.First(&actualUser, user.Id).Error)
@@ -246,6 +226,23 @@ func TestJevNativeIntegration(t *testing.T) {
 		assert.EqualValues(t, 1000000-21-1376, actualUser.Quota)
 		assert.EqualValues(t, 1000000-21-1376, actualToken.RemainQuota)
 		assert.EqualValues(t, 21+1376, actualToken.UsedQuota)
+		var audit model.Log
+		require.NoError(t, db.Where("type = ? AND content = ?", model.LogTypeError, "插件任务结算失败，账务待核对").First(&audit).Error)
+		assert.Equal(t, user.Id, audit.UserId)
+		assert.Equal(t, token.Id, audit.TokenId)
+		assert.Equal(t, 93201, audit.ChannelId)
+		assert.Equal(t, "jev-integration-request", audit.RequestId)
+		assert.Zero(t, audit.Quota, "待核对日志不能冒充已结算消费")
+		var other map[string]any
+		require.NoError(t, common.UnmarshalJsonStr(audit.Other, &other))
+		admin := other["admin_info"].(map[string]any)
+		assert.Equal(t, true, admin["settlement_pending"])
+		assert.EqualValues(t, 21, admin["expected_actual_quota"])
+		assert.EqualValues(t, 1376, admin["pre_consumed_quota"])
+		assert.Equal(t, plugin.SourceHash, other["root_info"].(map[string]any)["task_plugin"].(map[string]any)["source_hash"])
+		for _, secret := range []string{"PRIVATE_SETTLEMENT_FAILURE", "jev-provider-secret", "answers"} {
+			assert.NotContains(t, audit.Other, secret)
+		}
 	})
 	t.Run("禁用插件与总开关撤销原生入口", func(t *testing.T) {
 		require.NoError(t, model.SetTaskPluginEnabled(plugin.Key, false))

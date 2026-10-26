@@ -104,8 +104,8 @@ buildSubmitRequest → HTTP/业务状态 → parseSubmitResponse
   `shouldRecordPerformanceFailure(ctx, failure)`，不要靠停止写日志来改变成功率。
   仅 `false` 排除样本；验证异常/非法结果/超时回退、固定版本、客户端取消及日志/资金不变。
   错路径未选到渠道时不执行插件且本来不采样，不要为其伪造插件身份或添加供应商专用日志开关。
-- 任务记录是账务及插件版本留痕。`retainResult:false` 仍保留任务账务行，只清理私有结果；Classic 可显示
-  “结果未保留”，不要通过前端分页过滤或删除任务行来隐藏它。
+- 普通任务记录是账务及插件版本留痕。`retainResult:false` 通常仍保留任务账务行，只清理私有结果；
+  TypeSafe Jev 同步免任务记录，仍必须保留消费日志、结算和统计，不能通过前端分页过滤隐藏其他任务行。
 
 ## 验证与交付门禁
 
