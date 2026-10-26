@@ -225,17 +225,11 @@ function ConnectionNotice({
       </div>
     )
   }
-  if (refreshing && hasSnapshot) {
-    if (stale) {
-      return (
-        <p role='status' className='text-muted-foreground text-xs'>
-          {t('Connection data is delayed. Showing the last known status.')}
-        </p>
-      )
-    }
+  // 新鲜快照的正常轮询静默刷新，避免插入提示行导致内容高度跳动。
+  if (refreshing && hasSnapshot && stale) {
     return (
       <p role='status' className='text-muted-foreground text-xs'>
-        {t('Loading connection status…')}
+        {t('Connection data is delayed. Showing the last known status.')}
       </p>
     )
   }

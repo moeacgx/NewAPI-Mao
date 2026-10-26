@@ -238,7 +238,7 @@ describe('管理员连接查询与日志筛选', () => {
     )
   })
 
-  it('下一轮查询变慢时标记刷新中和过期快照，成功后恢复实时状态', async () => {
+  it('正常轮询保持实时标记与连接内容且不插入加载行，过期提示并在成功后恢复', async () => {
     let resolveRefresh: ((value: unknown) => void) | undefined
     vi.mocked(api.get)
       .mockResolvedValueOnce({ data: { success: true, data: snapshot } })
@@ -258,7 +258,10 @@ describe('管理员连接查询与日志筛选', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2), {
       timeout: 4000,
     })
-    expect(screen.getByText('Loading connection status…')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Loading connection status…')
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', {
         name: 'Connection details for long-model-name',
