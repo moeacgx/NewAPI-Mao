@@ -50,14 +50,6 @@ export default function ActiveRequestsNotice(props) {
           </p>
         )}
       {!props.activity.error &&
-        props.activity.refreshing &&
-        props.activity.snapshot &&
-        Date.now() - props.activity.snapshot.receivedAt <= 5000 && (
-          <p className='active-requests-scope' role='status'>
-            {t('Loading connection status…')}
-          </p>
-        )}
-      {!props.activity.error &&
         !props.activity.refreshing &&
         props.activity.snapshot &&
         Date.now() - props.activity.snapshot.receivedAt > 5000 && (

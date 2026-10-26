@@ -72,12 +72,9 @@ function ActiveRequestsPanelContent({ subject }) {
           )}
         </div>
         <div className='active-requests-controls'>
-          {!activity.error &&
-            !activity.loading &&
-            !activity.refreshing &&
-            !snapshotStale && (
-              <span className='active-requests-live'>{t('Live updates')}</span>
-            )}
+          {snapshot && !activity.error && !snapshotStale && (
+            <span className='active-requests-live'>{t('Live updates')}</span>
+          )}
           <Button
             theme='borderless'
             size='small'
