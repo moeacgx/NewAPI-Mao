@@ -34,7 +34,7 @@
 ## 位置
 
 - Default：时间列中日志类型徽标旁（与现有 WebSocket “WS” 徽标同一行），详情对话框增加技能一行。
-- Classic：类型列中类型标签旁，展开详情增加技能一行。
+- Classic：分组标签右上角显示紧凑技能图标，悬停或键盘聚焦显示详情；类型列仅显示类型，展开详情保留技能一行。调整见[分组角标记录](26_classic_skill_group_badge.md)。
 
 ## 测试计划
 
@@ -47,8 +47,8 @@
 - Default：`web/src/features/usage-logs/lib/skill-usage.ts` 中 `getLogSkillUsage` 解析、`describeLogSkillUsage`
   生成徽标与详情共用文案；`components/skill-usage-badge.tsx` 在时间列显示（使用为绿色，发现轮次与未用为灰色，
   悬停列出名称，`aria-label` 含完整文本）；详情对话框增加“技能”一行。
-- Classic：`web/classic/src/helpers/log.js` 增加同名两个函数；`UsageLogsColumnDefs.jsx` 在类型列显示 Semi `Tag`
-  与 `Tooltip`（使用为紫色，其余灰色）；展开详情（`hooks/usage-logs/useUsageLogsData.jsx`）增加“技能”一项。
+- Classic：`web/classic/src/helpers/log.js` 增加同名两个函数；`UsageLogsColumnDefs.jsx` 在分组列使用 `SkillUsageGroup`，
+  右上角技能图标与 `Tooltip`（使用为紫色，其余灰色）；展开详情（`hooks/usage-logs/useUsageLogsData.jsx`）保留“技能”一项。
 - 补充约定：发现轮次缺少有效 `round`、未用缺少有效 `catalogue_count`、文件缺少数字 `template_id` 或
   非空 `skill_id` 时不显示；技能标题为空时显示 `skill_id`，模板标题为空时显示 `#id`；消费与错误日志均按数据显示。
 - 未用文案的英文与法语改为“Available skills: {{count}}”形式，避免单数时出现“1 skills”。
