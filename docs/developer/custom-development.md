@@ -266,6 +266,8 @@
 
 - 2026-09-23 补齐官方原生 JSON submit 路由、同步结果和 `retainResult:false` 的用量表达式计费，原样验证官方 TypeSafe Jev 插件。
 
+- 2026-10-26 TypeSafe Jev 同步成功不写入任务记录，保留结算、消费日志和性能统计，详见[免任务记录工作记录](../workflows/2026-10/26_jev_no_task_history.md)。
+
 - 稳定性：本地模拟上游验证阶段，未部署；尚未开放原生 query/dynamic、源任务 intent 或异步 UsageFacts。Default/Classic 页面未改动。
 
 - 契约与限制见[原生同步链路](../workflows/2026-09/23_task_plugin_native_sync.md)及[用量计费](../workflows/2026-09/23_task_plugin_usage_billing.md)。
