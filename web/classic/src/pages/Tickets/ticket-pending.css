@@ -1,0 +1,66 @@
+.ticket-pending-card {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 16px;
+  background: var(--semi-color-bg-0);
+}
+.ticket-pending-card-title,
+.ticket-pending-card-body,
+.ticket-pending-card-actions,
+.ticket-pending-notice-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ticket-pending-card-body {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.ticket-pending-card-actions {
+  flex-wrap: wrap;
+}
+.ticket-pending-total {
+  color: var(--semi-color-primary);
+  font-size: 28px;
+  line-height: 1.2;
+}
+.ticket-pending-description {
+  margin: 8px 0 0;
+  color: var(--semi-color-text-2);
+}
+.ticket-pending-link {
+  color: var(--semi-color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ticket-pending-link:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 4px;
+}
+.ticket-pending-notice {
+  position: fixed;
+  top: 80px;
+  right: max(20px, env(safe-area-inset-right));
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  padding: 16px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+  background: var(--semi-color-bg-0);
+  color: var(--semi-color-text-0);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 12%);
+  overflow-wrap: anywhere;
+  z-index: 95;
+}
+.ticket-pending-notice-heading strong {
+  flex: 1;
+}
+.ticket-pending-notice p {
+  margin: 12px 0;
+}
+@media (max-width: 767px) {
+  .ticket-pending-notice {
+    right: max(12px, env(safe-area-inset-right));
+  }
+}

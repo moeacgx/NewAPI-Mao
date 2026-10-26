@@ -92,7 +92,17 @@ function TicketList(props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [createVisible, setCreateVisible] = useState(false);
-  const [status, setStatus] = useState('');
+  const requestedStatus = searchParams.get('status') || '';
+  const status = Object.hasOwn(ticketStatuses, requestedStatus)
+    ? requestedStatus
+    : '';
+  const setStatus = (value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set('status', value);
+    else next.delete('status');
+    next.delete('ticket');
+    setSearchParams(next, { replace: true });
+  };
   const [keyword, setKeyword] = useState('');
   const [userId, setUserId] = useState('');
   const [filters, setFilters] = useState({ keyword: '', userId: '' });
@@ -110,6 +120,10 @@ function TicketList(props) {
     else next.delete('ticket');
     setSearchParams(next, { replace: true });
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -250,7 +264,7 @@ function TicketList(props) {
             onPendingChange={setBatchPending}
             onComplete={() => {
               setSelectedIds([]);
-              setRevision((value) => value + 1);
+              window.dispatchEvent(new Event('classic-tickets-changed'));
             }}
           />
         )}
@@ -433,7 +447,9 @@ function TicketList(props) {
           admin={props.admin}
           canWrite={props.canWrite}
           onClose={() => openTicket(null)}
-          onChanged={() => setRevision((value) => value + 1)}
+          onChanged={() =>
+            window.dispatchEvent(new Event('classic-tickets-changed'))
+          }
         />
       )}
     </section>

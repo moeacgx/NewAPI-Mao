@@ -22,6 +22,7 @@ import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './SiderBar';
 import App from '../../App';
 import FooterBar from './Footer';
+import TicketPendingProvider from '../../pages/Tickets/TicketPendingProvider';
 import TicketFloatingButton from '../../pages/Tickets/TicketFloatingButton';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from '../common/ErrorBoundary';
@@ -186,104 +187,106 @@ const PageLayout = () => {
   }, [i18n, userState?.user?.setting]);
 
   return (
-    <Layout
-      className='app-layout'
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: isMobile ? 'visible' : 'hidden',
-      }}
-    >
-      <Header
-        style={{
-          padding: 0,
-          height: 'auto',
-          lineHeight: 'normal',
-          position: 'fixed',
-          width: '100%',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <HeaderBar
-          onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
-          drawerOpen={drawerOpen}
-          collapsed={collapsed}
-          onSidebarToggle={toggleCollapsed}
-        />
-      </Header>
+    <TicketPendingProvider user={userState?.user} active={isConsoleRoute}>
       <Layout
+        className='app-layout'
         style={{
-          overflow: isMobile ? 'visible' : 'auto',
           display: 'flex',
           flexDirection: 'column',
+          overflow: isMobile ? 'visible' : 'hidden',
         }}
       >
-        {showSider && (
-          <Sider
-            className='app-sider'
-            style={{
-              position: 'fixed',
-              left: 0,
-              top: '64px',
-              zIndex: 99,
-              border: 'none',
-              paddingRight: '0',
-              width: 'var(--sidebar-current-width)',
-            }}
-          >
-            <SiderBar
-              key={userState?.user?.id || 'anonymous'}
-              collapsed={collapsed}
-              onSidebarToggle={toggleCollapsed}
-              onNavigate={() => {
-                if (isMobile) {
-                  window.setTimeout(() => setDrawerOpen(false), 0);
-                }
-              }}
-            />
-          </Sider>
-        )}
+        <Header
+          style={{
+            padding: 0,
+            height: 'auto',
+            lineHeight: 'normal',
+            position: 'fixed',
+            width: '100%',
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          <HeaderBar
+            onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
+            drawerOpen={drawerOpen}
+            collapsed={collapsed}
+            onSidebarToggle={toggleCollapsed}
+          />
+        </Header>
         <Layout
           style={{
-            marginLeft: isMobile
-              ? '0'
-              : showSider
-                ? 'var(--sidebar-current-width)'
-                : '0',
-            flex: '1 1 auto',
+            overflow: isMobile ? 'visible' : 'auto',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <Content
-            style={{
-              flex: '1 0 auto',
-              overflowY: isMobile ? 'visible' : 'hidden',
-              WebkitOverflowScrolling: 'touch',
-              padding: shouldInnerPadding ? (isMobile ? '5px' : '24px') : '0',
-              position: 'relative',
-            }}
-          >
-            <ErrorBoundary>
-              <App />
-            </ErrorBoundary>
-          </Content>
-          {!shouldHideFooter && (
-            <Layout.Footer
+          {showSider && (
+            <Sider
+              className='app-sider'
               style={{
-                flex: '0 0 auto',
-                width: '100%',
+                position: 'fixed',
+                left: 0,
+                top: '64px',
+                zIndex: 99,
+                border: 'none',
+                paddingRight: '0',
+                width: 'var(--sidebar-current-width)',
               }}
             >
-              <FooterBar />
-            </Layout.Footer>
+              <SiderBar
+                key={userState?.user?.id || 'anonymous'}
+                collapsed={collapsed}
+                onSidebarToggle={toggleCollapsed}
+                onNavigate={() => {
+                  if (isMobile) {
+                    window.setTimeout(() => setDrawerOpen(false), 0);
+                  }
+                }}
+              />
+            </Sider>
           )}
+          <Layout
+            style={{
+              marginLeft: isMobile
+                ? '0'
+                : showSider
+                  ? 'var(--sidebar-current-width)'
+                  : '0',
+              flex: '1 1 auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Content
+              style={{
+                flex: '1 0 auto',
+                overflowY: isMobile ? 'visible' : 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                padding: shouldInnerPadding ? (isMobile ? '5px' : '24px') : '0',
+                position: 'relative',
+              }}
+            >
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
+            </Content>
+            {!shouldHideFooter && (
+              <Layout.Footer
+                style={{
+                  flex: '0 0 auto',
+                  width: '100%',
+                }}
+              >
+                <FooterBar />
+              </Layout.Footer>
+            )}
+          </Layout>
         </Layout>
+        <ToastContainer />
+        <TicketFloatingButton user={userState?.user} />
       </Layout>
-      <ToastContainer />
-      <TicketFloatingButton user={userState?.user} />
-    </Layout>
+    </TicketPendingProvider>
   );
 };
 
