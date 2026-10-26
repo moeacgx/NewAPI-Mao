@@ -238,7 +238,7 @@ test('刷新失败保留上次连接，标记过期，重试成功后恢复', as
   await waitFor(() => expect(hook.result.current.error).toBe(false));
 });
 
-test('下一轮查询变慢时隐藏实时标记，快照过期后提示并在刷新成功后恢复', async () => {
+test('正常轮询保持实时标记与卡片且不新增加载行，快照过期后提示并在成功后恢复', async () => {
   let resolveRefresh;
   vi.spyOn(API, 'get')
     .mockResolvedValueOnce(response())
@@ -254,13 +254,17 @@ test('下一轮查询变慢时隐藏实时标记，快照过期后提示并在�
   await waitFor(() => expect(API.get).toHaveBeenCalledTimes(2), {
     timeout: 4000,
   });
-  expect(screen.queryByText('Live updates')).toBeNull();
+  expect(screen.getByText('Live updates')).toBeTruthy();
+  expect(screen.queryByText('Loading connection status…')).toBeNull();
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  expect(screen.queryByRole('status')).toBeNull();
 
   const now = Date.now();
   vi.spyOn(Date, 'now').mockReturnValue(now + 6000);
   await screen.findByText(
     'Connection data is delayed. Showing the last known status.',
   );
+  expect(screen.queryByText('Live updates')).toBeNull();
   expect(screen.getByRole('status').textContent).toContain(
     'Connection data is delayed. Showing the last known status.',
   );
@@ -270,6 +274,7 @@ test('下一轮查询变慢时隐藏实时标记，快照过期后提示并在�
   });
   expect(screen.queryByRole('alert')).toBeNull();
   await waitFor(() => expect(screen.getByText('Live updates')).toBeTruthy());
+  expect(screen.queryByText('Loading connection status…')).toBeNull();
 });
 
 test('实例范围明确显示提示且超长模型名保留完整可访问名称', async () => {

@@ -3,6 +3,7 @@
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
 - [Classic 使用日志分组角标](../workflows/2026-10/26_classic_skill_group_badge.md)：技能提示移到分组右上角，悬停查看详情，避免表格横向拥挤。
 - [使用日志技能筛选](../workflows/2026-10/26_usage_log_skill_filter.md)：Classic 新增已使用技能筛选，列表、跨页总数和统计统一过滤，保留用户隔离；[后端验证记录](../workflows/2026-10/26_usage_log_skill_filter_backend.md)。
+- [Classic 当前连接轮询布局稳定性修复](../workflows/2026-10/26_classic_active_connection_stable_layout.md)：去除当前连接、令牌活动栏和详情抽屉正常轮询时反复插入的加载提示，保留异常与过期信息。
 
 - [.355 网关 Skills 与提示词中心整合发布](../workflows/2026-10/26_gateway_skills_355_release.md)：整合 PR #328、#336–#342，记录 CI、Release、双架构固定镜像及跨项目评估。
 - [maolaoapi .355 逐节点生产部署](../workflows/2026-10/26_maolaoapi_355_deployment.md)：记录生产备份、可空字段迁移、静态资源预置、三节点滚动更新与公网验收。

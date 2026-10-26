@@ -33,6 +33,63 @@ import TokensTable from '../../table/tokens/TokensTable';
 import TokenActivityBar from '../TokenActivityBar';
 import ActiveRequestsDrawer from '../ActiveRequestsDrawer';
 
+test('令牌状态栏正常轮询不插入加载行，数量与详情入口保持稳定', () => {
+  const activity = {
+    snapshot: {
+      summary: { total: 3, active_tokens: 2 },
+      scope: 'cluster',
+      receivedAt: Date.now(),
+    },
+    error: false,
+    refreshing: false,
+  };
+  const view = render(<TokenActivityBar activity={activity} />);
+  const bar = screen.getByRole('region', { name: 'Token activity' });
+  const originalText = bar.textContent;
+  view.rerender(
+    <TokenActivityBar activity={{ ...activity, refreshing: true }} />,
+  );
+  expect(bar.textContent).toBe(originalText);
+  expect(screen.queryByText('Loading connection status…')).toBeNull();
+  expect(screen.queryByRole('status')).toBeNull();
+  expect(screen.getByText('2 tokens in use')).toBeTruthy();
+  expect(screen.getByText('3 active requests')).toBeTruthy();
+  view.rerender(<TokenActivityBar activity={activity} />);
+  expect(bar.textContent).toBe(originalText);
+});
+
+test('令牌状态栏延迟和断连仍保留旧数量并显示真实故障及重试', async () => {
+  const refresh = vi.fn();
+  const activity = {
+    snapshot: {
+      summary: { total: 3, active_tokens: 2 },
+      scope: 'instance',
+      receivedAt: Date.now() - 6000,
+    },
+    error: false,
+    refreshing: true,
+    refresh,
+  };
+  const view = render(<TokenActivityBar activity={activity} />);
+  expect(screen.getByRole('status').textContent).toBe(
+    'Connection data is delayed. Showing the last known status.',
+  );
+  expect(
+    screen.getByText('Only connections on the current instance are shown.'),
+  ).toBeTruthy();
+  view.rerender(
+    <TokenActivityBar
+      activity={{ ...activity, refreshing: false, error: true }}
+    />,
+  );
+  expect(screen.getByRole('alert').textContent).toContain(
+    'Connection status is stale. Updates are unavailable.',
+  );
+  expect(screen.getByText('3 active requests')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(refresh).toHaveBeenCalledOnce();
+});
+
 test('相同令牌名称按稳定 ID 显示各自数量，活动令牌数与请求数分开', async () => {
   const activity = {
     snapshot: {
