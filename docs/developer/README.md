@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [网关 Skills Chat 私有流式响应兼容修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：聚合上游意外返回的私有 SSE，保留严格候选校验及逐轮计费。
+
 - [.358 模型守卫正文来源发布](../workflows/2026-10/26_release_358.md)：纳入 #359，发行校验与历史兼容边界。
 - [maolaoapi .358 逐节点更新](../workflows/2026-10/26_maolaoapi_358_deployment.md)：现场确认、备份、固定镜像、静态资源与逐节点验收。
 - [.357 Classic 提示词界面与充值客户端 IP 发布](../workflows/2026-10/26_release_357.md)：发布范围、串行合并、资产和镜像检查、数据兼容与回滚边界。
