@@ -217,11 +217,9 @@ func TestInitChannelMetaRestoresRequestReasoningEffortForRetry(t *testing.T) {
 
 	info.SetReasoningEffort("high")
 	info.UpstreamResponseModelName = "previous-channel-model"
-	info.CodexFasterModelName = "previous-channel-buffer"
 	info.InitChannelMeta(ctx)
 	assert.Equal(t, "max", info.ReasoningEffort)
 	assert.Empty(t, info.UpstreamResponseModelName)
-	assert.Empty(t, info.CodexFasterModelName)
 
 	info.SetReasoningEffort("low")
 	info.InitChannelMeta(ctx)

@@ -3,6 +3,7 @@
 - [.357 Classic 提示词界面与充值客户端 IP 发布](../workflows/2026-10/26_release_357.md)：发布范围、串行合并、资产和镜像检查、数据兼容与回滚边界。
 - [充值日志恢复订单客户端 IP](../workflows/2026-10/26_topup_client_ip.md)：新订单日志使用可信代理链解析的下单地址，遵守用户／强制记录开关，保留历史日志脱敏。
 - [Classic 已安装提示词弹窗与筛选优化](../workflows/2026-10/26_classic_prompt_installation_ui.md)：令牌徽标与提示词中心共用安装弹窗外壳，列表按技能类型区分图标、标注下架与待保存，支持放弃修改；分类筛选和技能类型分段控件可用键盘操作，筛选值不变。仅 Classic。
+- [上游模型检测旧响应头路径清理](../workflows/2026-10/26_model_guard_header_cleanup.md)：正文模型检测继续生效，faster-model 头不再触发关渠，保留历史来源字段。
 - [.356 近期 PR 复核与发布](../workflows/2026-10/26_release_356.md)：双模板控制台、Jev 任务记录和发票关闭释放；发布门禁、快照字段及回滚注意事项。
 - [双模板工单状态概览](../workflows/2026-10/26_ticket_status_overview.md)：待处理、进行中、已解决、已关闭统计与筛选入口，管理员聚合接口及浮窗边界。
 - [发票关闭后释放来源订单](../workflows/2026-10/26_invoice_closed_order_release.md)：关闭终态、历史占用修复、订单明细快照及双模板状态限制。
@@ -190,7 +191,7 @@
 
 - [maolaoapi Codex 响应头校验 .330 发布](../workflows/2026-09/21_maolaoapi_codex_header_330_deployment.md)：固定版本发布、数据库备份和加列迁移、maolaoapi 三应用逐节点更新与验收。
 
-- [主程序模型校验接入 Codex 响应头](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：正文与头部模型分离、现有规则及白名单复用、来源记录和迁移验证，无需更新模块包。
+- [主程序模型校验接入 Codex 响应头（历史实现）](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：头部采集现已停用，历史来源记录保留；当前正文检测契约见[清理记录](../workflows/2026-10/26_model_guard_header_cleanup.md)。
 
 - [模型校验白名单直接填写渠道 ID](../workflows/2026-09/21_model_guard_allowlist_ids.md)：双模板文本输入、校验与勾选同步、模块版本和安装边界。
 
