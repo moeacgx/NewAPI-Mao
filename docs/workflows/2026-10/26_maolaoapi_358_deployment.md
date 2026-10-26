@@ -29,4 +29,28 @@
 
 ## 结果状态
 
-当前为部署准备。实际旧／新镜像、备份目录与校验、逐节点作业、最终健康和公网基础接口结果在部署后补齐。不把健康检查等同于真实支付、登录态界面或付费模型验收。
+部署于 2026-10-27（Asia/Singapore）完成。三应用已逐个从 `.355` 更新到 `.358`；发行 revision 为 `ef27e266f456038706e3f4fbfa9fa5380b557c99`。
+
+### 备份与候选
+
+- 现场身份与计划一致：CloudSSH 63／host 29，Compose 项目 maolaoapi-ovh。旧三应用均 healthy、restart=0，旧镜像 `ghcr.io/moeacgx/newapi-mao@sha256:62fdd34becf5d62ff2444b21bbaa797081be4bc891b78271248cef9d174f5e12`。
+- 备份目录 `/apps/maolaoapi/backups/pre-358-20261026T160806Z`，共 11 个清单文件。数据库 dump 1,527,494,837 字节，SHA-256 为 `83f57349d70231ec90220c72e549a50f443506ca5098dc3b825d259d099df1c8`；数据归档 88,640,019 字节。`pg_restore --list` 和最终全量备份哈希检查通过，私有文件仅保留主机。
+- 候选固定 amd64 镜像 `ghcr.io/moeacgx/newapi-mao@sha256:8ba1baab62c569f64889750d3897d52084e02c9d6bf9f5489ebe3d70c08c4d47`。现场 Docker containerd 的 Image ID 使用 manifest 摘要；已核对 Descriptor、RepoDigests、架构、version、revision，未混用 OCI config digest。
+- 镜像默认配置比较与断网只读 `--version` 通过；新旧 Classic 资源共 176 个、33,408,131 字节，经本机 HTTPS 逐项哈希校验。隔离 SQLite 预览未接入生产数据库，预置完成后已停止。
+
+### 逐节点与临时保护
+
+- 发票入口保护作业 `0c329577-9e12-40a9-ae99-d403ebfa3e42` 成功，旧 nginx worker 自然退出后才更新主节点。
+- 主节点首次更新作业 `216c11c4-b71b-467e-baa7-32cf8d970019` 在验收时因 Binds 列表顺序变化停止；只读确认路径、权限和实际挂载完全一致。仅修正无序列表比较，使用 `--verify-only` 完成验收（`05568997-34f9-4d87-972b-5ea7885200ed`），未重复重建。
+- 第一从节点作业 `d9ef7c92-70a2-4028-b522-1b253148337f`、第二从节点 `67fd8558-9457-4f03-9526-f608c6618b75` 均成功；每个节点通过后才推进下一节点。
+- 三节点均为固定 `.358` 镜像、准确 revision、healthy、restart=0；每节点 13 个匿名保护接口返回 401，静态资源正常，缺失资源为 404/no-store，启动严重错误标记为零。
+- `invoice_records.closed_orders_snapshot` 为可空 TEXT；既有列定义、关键表身份、主题 Classic、有效应用配置及 PostgreSQL/Redis 容器身份和启动时间均未变化。
+- 集群验收及解除保护作业 `8052ace4-92e5-4c0f-9e85-59dcb4ffc631` 成功。nginx 配置字节级恢复到备份，发票入口恢复原鉴权；未执行回滚。
+
+### 最终验收
+
+- 解除保护后再次核验作业 `e0a71e84-a994-4637-ae69-7046f431c273` 成功。最终报告为备份目录中的 `deployment.final.json`。
+- 生产机本地 HTTPS 与外部独立请求均确认 `/api/status` 为 200、`.358`／Classic；发票、工单统计、用户和模型匿名入口为 401。公网 JS/CSS 与缺失资源缓存策略通过。
+- 外部 JS SHA-256：`844d46df402461ec312d3a593056a333f6744593552a949b09272e8cbbcec0cb`；CSS SHA-256：`d7d4163aee0dbfe13d36f2c9428fdf517b94445ccba8f97f9395805f05014d0e`。
+- 初次生产机默认 User-Agent 公网请求曾为 403；随后本机 HTTPS 及带浏览器标识的公网请求通过，未修改 WAF。
+- 本轮没有真实支付、登录态浏览器或收费模型调用验收；上述结果证明发行、滚动更新、数据结构与基础接口正常，不替代完整业务验收。
