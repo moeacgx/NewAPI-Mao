@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "Не удалось загрузить ожидающие тикеты",
     "No tickets awaiting your response": "Нет тикетов, ожидающих вашего ответа",
     "New tickets and customer follow-ups": "Новые тикеты и повторные сообщения клиентов",
+    "Ticket overview": "Обзор тикетов",
+    "View tickets": "Просмотреть тикеты",
+    "Pending": "Ожидают",
+    "Failed to load ticket overview": "Не удалось загрузить обзор тикетов",
     "Used skills": "Использованные навыки",
     "技能": "Навыки",
     "技能 {{count}}": "Навыки {{count}}",
@@ -6457,6 +6461,12 @@
     "Delete category {{name}}": "Удалить категорию «{{name}}»",
     "Delete category?": "Удалить категорию?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Удалить категорию «{{name}}»? Её навыки перейдут в «Без категории». Это действие нельзя отменить.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Категория «{{name}}» удалена. Навыков перемещено в «Без категории»: {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Категория «{{name}}» удалена. Навыков перемещено в «Без категории»: {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "Занято мест для промптов: {{count}} из {{limit}}",
+    "Not saved yet": "Не сохранено",
+    "Unsaved changes": "Есть несохранённые изменения",
+    "No unsaved changes": "Все изменения сохранены",
+    "Discard changes": "Отменить изменения",
+    "Reset filters": "Сбросить фильтры"
   }
 }

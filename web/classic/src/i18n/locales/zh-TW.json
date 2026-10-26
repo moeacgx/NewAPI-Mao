@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "待處理工單載入失敗",
     "No tickets awaiting your response": "暫無待處理工單",
     "New tickets and customer follow-ups": "新工單與使用者追加回覆",
+    "Ticket overview": "工單概覽",
+    "View tickets": "查看工單",
+    "Pending": "待處理",
+    "Failed to load ticket overview": "工單概覽載入失敗",
     "Used skills": "已使用技能",
     "技能": "技能",
     "技能 {{count}}": "技能 {{count}}",
@@ -6391,6 +6395,12 @@
     "Delete category {{name}}": "刪除分類 {{name}}",
     "Delete category?": "刪除分類？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "刪除分類「{{name}}」？其中的技能將變為未分類，刪除後無法復原。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已刪除分類「{{name}}」，{{count}} 個技能已移至未分類"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已刪除分類「{{name}}」，{{count}} 個技能已移至未分類",
+    "{{count}} of {{limit}} prompt slots used": "已使用 {{count}}/{{limit}} 個提示詞位置",
+    "Not saved yet": "待儲存",
+    "Unsaved changes": "有未儲存的修改",
+    "No unsaved changes": "所有修改已儲存",
+    "Discard changes": "放棄修改",
+    "Reset filters": "重設篩選"
   }
 }

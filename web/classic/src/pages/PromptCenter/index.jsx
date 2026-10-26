@@ -17,13 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
-import { Button, Input, Modal } from '@douyinfe/semi-ui';
+import React, { useEffect, useId, useState } from 'react';
+import { Button, Input } from '@douyinfe/semi-ui';
 import {
-  KeyRound,
   BookOpen,
+  ChevronDown,
+  FileText,
+  FolderTree,
+  KeyRound,
+  Layers3,
+  LayoutGrid,
   Plus,
+  RotateCcw,
   Search,
+  Shapes,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -31,7 +38,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { isAdmin } from '../../helpers/utils';
 import { promptError, promptRequest } from './api';
-import TokenPromptManager from './TokenPromptManager';
+import TokenPromptInstallationModal from './TokenPromptInstallationModal';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import PromptCatalog from './PromptCatalog';
 import TokenPicker from './TokenPicker';
@@ -57,6 +64,7 @@ export default function PromptCenter() {
   const [kind, setKind] = useState('all');
   const [categoryManager, setCategoryManager] = useState(false);
   const [store, setStore] = useState(false);
+  const kindFilterName = useId();
   const publishedCount = templates.filter((item) => item.enabled).length;
   const groupCount = templates.some((item) => item.all_groups === true)
     ? t('All groups (no restriction)')
@@ -70,15 +78,24 @@ export default function PromptCenter() {
     category === '0' || categories.some((item) => String(item.id) === category)
       ? category
       : 'all';
-  const filteredTemplates = templates.filter(
+  // 先按分类与搜索收窄，类型分段控件据此显示各类型数量。
+  const categoryTemplates = templates.filter(
     (item) =>
       (activeCategory === 'all' ||
         String(item.category_id || 0) === activeCategory) &&
-      (kind === 'all' || (item.kind || 'prompt') === kind) &&
       `${item.title} ${item.description || ''}`
         .toLocaleLowerCase()
         .includes(search.toLocaleLowerCase()),
   );
+  const filteredTemplates = categoryTemplates.filter(
+    (item) => kind === 'all' || (item.kind || 'prompt') === kind,
+  );
+  const kindOptions = [
+    { value: 'all', label: t('All skill types'), icon: LayoutGrid },
+    { value: 'prompt', label: t('Single skill'), icon: FileText },
+    { value: 'bundle', label: t('Skill bundle'), icon: Layers3 },
+  ];
+  const filtersActive = activeCategory !== 'all' || kind !== 'all';
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -217,34 +234,82 @@ export default function PromptCenter() {
           </header>
           <div className='prompt-center-content-area'>
             <div className='prompt-center-filters'>
-              <label>
-                {t('Filter category')}
-                <select
-                  aria-label={t('Filter category')}
-                  value={activeCategory}
-                  onChange={(event) => setCategory(event.target.value)}
-                >
-                  <option value='all'>{t('All categories')}</option>
-                  <option value='0'>{t('Uncategorized')}</option>
-                  {categories.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+              <label className='prompt-filter-field'>
+                <span className='prompt-filter-label'>
+                  <FolderTree size={14} aria-hidden='true' />
+                  {t('Skill category')}
+                </span>
+                <span className='prompt-filter-select'>
+                  <select
+                    aria-label={t('Filter category')}
+                    value={activeCategory}
+                    onChange={(event) => setCategory(event.target.value)}
+                  >
+                    <option value='all'>{t('All categories')}</option>
+                    <option value='0'>{t('Uncategorized')}</option>
+                    {categories.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={15} aria-hidden='true' />
+                </span>
               </label>
-              <label>
-                {t('Filter skill type')}
-                <select
+              <div className='prompt-filter-field'>
+                <span className='prompt-filter-label' aria-hidden='true'>
+                  <Shapes size={14} />
+                  {t('Skill type')}
+                </span>
+                <div
+                  className='prompt-filter-segments'
+                  role='radiogroup'
                   aria-label={t('Filter skill type')}
-                  value={kind}
-                  onChange={(event) => setKind(event.target.value)}
                 >
-                  <option value='all'>{t('All skill types')}</option>
-                  <option value='prompt'>{t('Single skill')}</option>
-                  <option value='bundle'>{t('Skill bundle')}</option>
-                </select>
-              </label>
+                  {kindOptions.map((option) => {
+                    const Icon = option.icon;
+                    return (
+                      <label
+                        className='prompt-filter-segment'
+                        key={option.value}
+                      >
+                        <input
+                          type='radio'
+                          name={kindFilterName}
+                          value={option.value}
+                          checked={kind === option.value}
+                          onChange={() => setKind(option.value)}
+                        />
+                        <span>
+                          <Icon size={14} aria-hidden='true' />
+                          {option.label}{' '}
+                          <small>
+                            {option.value === 'all'
+                              ? categoryTemplates.length
+                              : categoryTemplates.filter(
+                                  (item) =>
+                                    (item.kind || 'prompt') === option.value,
+                                ).length}
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              {filtersActive && (
+                <Button
+                  className='prompt-filter-reset'
+                  theme='borderless'
+                  icon={<RotateCcw size={14} />}
+                  onClick={() => {
+                    setCategory('all');
+                    setKind('all');
+                  }}
+                >
+                  {t('Reset filters')}
+                </Button>
+              )}
             </div>
             {error && (
               <div role='alert' className='prompt-center-error'>
@@ -298,35 +363,17 @@ export default function PromptCenter() {
           />
         )}
         {installation && (
-          <Modal
-            visible
-            title={
-              <span className='prompt-installation-title'>
-                <KeyRound size={18} aria-hidden='true' />
-                <span title={installation.token.name}>
-                  {installation.token.name}
-                </span>
-              </span>
+          <TokenPromptInstallationModal
+            token={installation.token}
+            templateToInstall={installation.template}
+            onClose={() => setInstallation(null)}
+            onChange={(items) =>
+              setSelectedToken((current) => ({
+                ...current,
+                prompt_count: items.length,
+              }))
             }
-            footer={null}
-            width={760}
-            style={{ maxWidth: 'calc(100vw - 24px)' }}
-            onCancel={() => setInstallation(null)}
-            className='prompt-installation-modal'
-          >
-            <div className='prompt-center-page prompt-installation-content'>
-              <TokenPromptManager
-                token={installation.token}
-                templateToInstall={installation.template}
-                onChange={(items) =>
-                  setSelectedToken((current) => ({
-                    ...current,
-                    prompt_count: items.length,
-                  }))
-                }
-              />
-            </div>
-          </Modal>
+          />
         )}
         {editing && (
           <PromptTemplateEditor

@@ -101,7 +101,7 @@ const InvoiceCenter = ({ adminOnly = false }) => {
       } else {
         Toast.error({ content: res.data?.message || t('加载失败') });
       }
-    } catch (error) {
+    } catch {
       Toast.error({ content: t('加载失败') });
     } finally {
       setLoading(false);
@@ -155,7 +155,7 @@ const InvoiceCenter = ({ adminOnly = false }) => {
       } else {
         Toast.error({ content: res.data?.message || t('更新失败') });
       }
-    } catch (error) {
+    } catch {
       Toast.error({ content: t('更新失败') });
     } finally {
       setSaving(false);
@@ -192,16 +192,14 @@ const InvoiceCenter = ({ adminOnly = false }) => {
               ),
           },
         ]
-      : adminView
-        ? [
-            {
-              title: t('用户ID'),
-              dataIndex: 'user_id',
-              key: 'user_id',
-              width: 90,
-            },
-          ]
-        : []),
+      : [
+          {
+            title: t('用户ID'),
+            dataIndex: 'user_id',
+            key: 'user_id',
+            width: 90,
+          },
+        ]),
     {
       title: t('来源'),
       dataIndex: 'source_type',
@@ -387,7 +385,8 @@ const InvoiceCenter = ({ adminOnly = false }) => {
             label={t('状态')}
             style={{ width: '100%' }}
           >
-            {(editing?.status === 'payment_pending'
+            {(editing?.status === 'payment_pending' ||
+            editing?.status === 'closed'
               ? EDIT_STATUS_OPTIONS.filter((item) => item.value === 'closed')
               : EDIT_STATUS_OPTIONS
             ).map((item) => (

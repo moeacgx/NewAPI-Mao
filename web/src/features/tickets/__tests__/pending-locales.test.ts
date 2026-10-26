@@ -32,6 +32,9 @@ const PENDING_TICKET_KEYS = [
   'Failed to load pending tickets',
   'No tickets awaiting your response',
   'New tickets and customer follow-ups',
+  'Ticket overview',
+  'View tickets',
+  'Failed to load ticket overview',
 ]
 
 const localesDir = path.resolve(

@@ -331,3 +331,23 @@ func TestTicketCreationWithoutNotificationMigrationPreservesOptionalSemantics(t 
 	require.NoError(t, err)
 	require.Len(t, detail.Messages, 1)
 }
+
+func TestCountTicketsByStatusFillsZerosAndExcludesDeleted(t *testing.T) {
+	setupTicketTestDB(t)
+	empty, err := CountTicketsByStatus()
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int64{"open": 0, "processing": 0, "resolved": 0, "closed": 0, "archived": 0}, empty)
+
+	for status, total := range map[string]int{TicketStatusOpen: 2, TicketStatusProcessing: 1, TicketStatusClosed: 3, TicketStatusArchived: 1} {
+		for range total {
+			ticket := createTicketFixture(t, 1)
+			require.NoError(t, DB.Model(&Ticket{}).Where("id = ?", ticket.Id).Update("status", status).Error)
+		}
+	}
+	deleted := createTicketFixture(t, 2)
+	require.NoError(t, DB.Delete(&Ticket{}, deleted.Id).Error)
+
+	counts, err := CountTicketsByStatus()
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int64{"open": 2, "processing": 1, "resolved": 0, "closed": 3, "archived": 1}, counts)
+}

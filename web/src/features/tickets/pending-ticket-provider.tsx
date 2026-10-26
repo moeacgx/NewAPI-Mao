@@ -58,12 +58,14 @@ function PendingTicketSession(props: {
     return () => window.removeEventListener('focus', refresh)
   }, [refetch])
   const summary = query.data
-  const total = summary?.state === 'ready' ? summary.total : null
+  const counts = summary?.state === 'ready' ? summary.counts : null
+  const total = counts?.open ?? null
   const context =
     summary?.state === 'denied'
       ? null
       : {
           total,
+          counts,
           error: summary?.state === 'error',
           refresh: () => {
             void refetch()

@@ -139,9 +139,10 @@ test('分类与类型筛选联合工作，未分类保留旧模板', async () =>
   await screen.findByText('Writing collection');
   await userEvent.selectOptions(screen.getByLabelText('Filter category'), '4');
   expect(screen.queryByText('Legacy prompt')).toBeNull();
-  await userEvent.selectOptions(
-    screen.getByLabelText('Filter skill type'),
-    'prompt',
+  await userEvent.click(
+    within(
+      screen.getByRole('radiogroup', { name: 'Filter skill type' }),
+    ).getByRole('radio', { name: /^Single skill/ }),
   );
   expect(screen.queryByText('Writing collection')).toBeNull();
   await userEvent.selectOptions(screen.getByLabelText('Filter category'), '0');

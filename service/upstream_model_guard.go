@@ -312,6 +312,10 @@ func BindUpstreamModelGuard(info *relaycommon.RelayInfo) func() {
 	observed := make(map[int]*model.UpstreamModelGuardRecord)
 	mismatched := make(map[int]bool)
 	info.OnUpstreamModelEvidence = func(current *relaycommon.RelayInfo, evidence relaycommon.UpstreamModelEvidence) {
+		// 旧头部来源只用于读取历史审计，实时检测仅接受响应正文声明。
+		if evidence.Source != constant.UpstreamModelSourceResponseBody {
+			return
+		}
 		if current == nil || current.ChannelMeta == nil || !IsUpstreamModelGuardModuleEnabled() {
 			return
 		}
@@ -346,10 +350,6 @@ func BindUpstreamModelGuard(info *relaycommon.RelayInfo) func() {
 				}
 			}
 			if matched && mismatched[current.ChannelId] {
-				return
-			}
-			// 允许的缓冲模型不等于正文完整匹配，不能仅凭头部清零连续异常。
-			if matched && evidence.Source == constant.UpstreamModelSourceCodexFasterModel {
 				return
 			}
 			observationKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%d", requestID, current.ChannelId))))

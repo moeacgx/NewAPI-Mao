@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "Failed to load pending tickets",
     "No tickets awaiting your response": "No tickets awaiting your response",
     "New tickets and customer follow-ups": "New tickets and customer follow-ups",
+    "Ticket overview": "Ticket overview",
+    "View tickets": "View tickets",
+    "Pending": "Pending",
+    "Failed to load ticket overview": "Failed to load ticket overview",
     "Used skills": "Used skills",
     "技能": "Skills",
     "技能 {{count}}": "Skills {{count}}",
@@ -6629,6 +6633,12 @@
     "Delete category {{name}}": "Delete category {{name}}",
     "Delete category?": "Delete category?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Deleted category {{name}}. Skills moved to Uncategorized: {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Deleted category {{name}}. Skills moved to Uncategorized: {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "{{count}} of {{limit}} prompt slots used",
+    "Not saved yet": "Not saved yet",
+    "Unsaved changes": "Unsaved changes",
+    "No unsaved changes": "No unsaved changes",
+    "Discard changes": "Discard changes",
+    "Reset filters": "Reset filters"
   }
 }

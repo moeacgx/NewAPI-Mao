@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "Échec du chargement des tickets en attente",
     "No tickets awaiting your response": "Aucun ticket en attente de votre réponse",
     "New tickets and customer follow-ups": "Nouveaux tickets et relances des clients",
+    "Ticket overview": "Aperçu des tickets",
+    "View tickets": "Voir les tickets",
+    "Pending": "En attente",
+    "Failed to load ticket overview": "Échec du chargement de l'aperçu des tickets",
     "Used skills": "Compétences utilisées",
     "技能": "Compétences",
     "技能 {{count}}": "Compétences {{count}}",
@@ -6425,6 +6429,12 @@
     "Delete category {{name}}": "Supprimer la catégorie {{name}}",
     "Delete category?": "Supprimer la catégorie ?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Supprimer la catégorie « {{name}} » ? Ses compétences passeront dans Sans catégorie. Cette action est irréversible.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Catégorie « {{name}} » supprimée. Compétences déplacées vers Sans catégorie : {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Catégorie « {{name}} » supprimée. Compétences déplacées vers Sans catégorie : {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "{{count}} emplacements de prompts utilisés sur {{limit}}",
+    "Not saved yet": "Non enregistré",
+    "Unsaved changes": "Modifications non enregistrées",
+    "No unsaved changes": "Aucune modification en attente",
+    "Discard changes": "Annuler les modifications",
+    "Reset filters": "Réinitialiser les filtres"
   }
 }

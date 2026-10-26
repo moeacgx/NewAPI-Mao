@@ -463,13 +463,13 @@ func cancelInvoiceExternalPaymentTx(tx *gorm.DB, record *InvoiceRecord) error {
 			return err
 		}
 	}
-	if err := tx.Where("invoice_id = ?", record.Id).Delete(&InvoiceOrderLink{}).Error; err != nil {
-		return err
-	}
 	record.PaymentStatus = InvoicePaymentStatusCanceled
 	record.Status = InvoiceStatusClosed
 	record.UpdateTime = common.GetTimestamp()
 	record.Orders = nil
+	if err := releaseClosedInvoiceSourcesTx(tx, record); err != nil {
+		return err
+	}
 	return tx.Save(record).Error
 }
 
