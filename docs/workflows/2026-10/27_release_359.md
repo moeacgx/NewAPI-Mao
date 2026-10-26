@@ -49,4 +49,29 @@ NewAPIForDouDi 与 NewAPIModifyByGang 仅在采用相同私有 Skills 发现链�
 
 ## 结果
 
-发布及生产更新进行中；实际标签、工作流、镜像摘要与逐节点结果完成后补齐。
+- 修复 PR #362、版本 PR #364 均已通过 CI 并合并；.359 标签提交为
+  2b08e92bd8b88611768ba3edb5013166918e0af1。
+- Linux Release 工作流 40367475936、Docker 双架构工作流 40367475975 均成功。
+  两个下载的二进制通过 SHA-256 与 ELF 架构核对：amd64 为
+  3bd6f94438767409765c1972cf6ce06385a7f294d15ec163fcfa9929cfceac33，arm64 为
+  7ea814880c21a878bdd95fc3ee7910851582ba77d607cc3c2e8724a959539df4。
+- 双架构索引为 sha256:34b7514220c9babcfe3ac1284f6c060190077e62b86bcb3531115af305889146；
+  生产固定 amd64 镜像为
+  ghcr.io/moeacgx/newapi-mao@sha256:e7811dc2815f850a958de6c36404c474a7e60db87be58e32b6c74da6a97785de。
+  两架构 version/revision、镜像默认配置和断网只读 --version 检查通过。
+- 静态资源预置作业 61d5dfb1-36a6-4a0f-bef6-f1f076e9c8b5 成功：125 个文件、18,881,412 字节，
+  本机 HTTPS 哈希逐项一致。两项既有 `_base*` 虚拟引用仍为 404，未改写为伪资源。
+  预览使用独立 SQLite、network=none，未接入生产数据库，提取后已停止。
+- 三节点依次更新并验收通过：主节点作业 9cc27817-8985-4e7e-942a-e4374b9e085d，
+  第一从节点 1a3d4f0c-a614-463c-a078-62ca51da5075，第二从节点 55fc412f-10d4-43a7-af90-fe212501d757。
+  均为准确 .359 镜像/revision、healthy、restart=0；有效配置保持，六项匿名保护接口均 401，
+  JS/CSS 与预置哈希一致，缺失资源为 404/no-store，启动严重错误标记为零。
+- 最终集群复核作业 41b09b0b-baf9-4c51-b5dc-1e3f140b40d7 通过：Compose 只改变三个应用镜像，
+  数据库 schema 未变、PostgreSQL/Redis 身份及启动时间保持，全部备份文件重新校验通过。
+  最终报告为 /apps/maolaoapi/releases/359/deployment.final.json，备份目录保留同名副本。
+  未触发回滚，旧固定镜像与 Compose 可供回退。
+- 独立外部 GET /api/status 确认 200、.359／Classic；用户、模型、提示词中心、工单统计的匿名
+  请求均为 401。公网 JS/CSS 返回 200 且 SHA-256 与源站一致，缺失资源为 404/no-store。
+  JS SHA-256 为 844d46df402461ec312d3a593056a333f6744593552a949b09272e8cbbcec0cb，
+  CSS 为 d7d4163aee0dbfe13d36f2c9428fdf517b94445ccba8f97f9395805f05014d0e。
+- 生产滚动更新及基础验收已完成。未调用真实付费模型，不宣称已复演原用户完整会话。
