@@ -16,10 +16,10 @@
 
 ## 验证记录与限制
 
-`features/tickets/__tests__/pending-tickets.test.tsx` 共 11 个测试：权限与 open 查询参数、0 数量不浮窗、普通用户零请求、权限收回、失败隔离、管理页隐藏；以及账号 A 未返回时切 B（A 的 signal 被取消且结果不泄漏）、超时清空旧数并重试恢复（两个请求均 timeout=10000）、`invalidateQueries(['tickets', userId])` 实际刷新、关闭后换页与新数量不重开、可见 60 秒轮询/隐藏暂停/回到可见聚焦立即刷新（fake timers）。`src/features/tickets` 共 61 个测试通过；新增文件 oxfmt、oxlint、tsgo 通过。
+`features/tickets/__tests__/pending-tickets.test.tsx` 共 11 个测试：权限与 open 查询参数、0 数量不浮窗、普通用户零请求、权限收回、失败隔离、管理页隐藏；以及账号 A 未返回时切 B（A 的 signal 被取消且结果不泄漏）、超时清空旧数并重试恢复（两个请求均 timeout=10000）、`invalidateQueries(['tickets', userId])` 实际刷新、关闭后换页与新数量不重开、可见 60 秒轮询/隐藏暂停/回到可见聚焦立即刷新（fake timers）。`src/features/tickets` 其余与新增测试合计 61 个通过，另有 `pending-locales.test.ts` 7 个语言键测试，合计 68 个；新增文件 oxfmt、oxlint、tsgo 通过。
 
 限制：未执行生产构建和真实浏览器验收；`/api/user/self` 与列表请求之间的服务端竞态以单次查询内复核身份为界，不做事务保证。
 
 ## 最终验证结果
 
-Default 整合验证：`tsgo` 与 Default、Classic 两套构建通过，`src/features/tickets` 测试（含 `pending-locales.test.ts` 的 7 种语言键校验）通过，独立审查无阻断。未做真实浏览器登录验收，未部署；Classic 不在本 PR 范围。
+Default 整合验证：`tsgo` 与 Default、Classic 两套构建通过，`src/features/tickets` 测试通过（工单 61 个 + 语言键 7 个 = 68 个），独立审查无阻断。未做真实浏览器登录验收，未部署；Classic 不在本 PR 范围。

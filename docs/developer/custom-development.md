@@ -7,7 +7,7 @@
 
 ## 工单中心
 
-- Classic 数据看板提供 `open` 待处理数量，管理员进入后台时展示可关闭的非阻塞浮动提醒；两处入口均跳转待处理筛选，详见[工作记录](../workflows/2026-10/26_classic_pending_tickets.md)。本次增强不覆盖 Default，验证与部署状态以工作记录为准。
+- Classic 数据看板提供 `open` 待处理数量，管理员进入后台时展示可关闭的非阻塞浮动提醒；两处入口均跳转待处理筛选，详见[工作记录](../workflows/2026-10/26_classic_pending_tickets.md)。Default 提供同口径看板卡片与浮动提醒（稳定性：前端测试与构建通过，未做浏览器验收和部署），详见[Default 工作记录](../workflows/2026-10/26_default_pending_tickets.md)；验证与部署状态以各工作记录为准。
 
 - Default 与 Classic 同时提供工单中心、管理员工单管理和登录控制台创建浮窗，支持分类、优先级、文本追问与回复、分页、关闭和重开。
 - 用户接口始终按当前用户隔离，管理员管理权限为 tickets 的 read/write；管理员个人入口继续使用本人范围。
