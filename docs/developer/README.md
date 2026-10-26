@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [网关 Skills Chat 多候选响应修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：兼容 Chat 技能读取阶段的多候选助手响应，避免误报 502。
+
 - [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：两套模板日志类型菜单增加「技能」选项（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
 - [Default 待处理工单看板与浮动提醒](../workflows/2026-10/26_default_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离、轮询与 7 语言文案。

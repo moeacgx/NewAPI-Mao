@@ -219,10 +219,9 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTool
 				Message json.RawMessage `json:"message"`
 			} `json:"choices"`
 		}
-		if err := common.Unmarshal(response, &envelope); err != nil || len(envelope.Choices) != 1 {
+		if err := common.Unmarshal(response, &envelope); err != nil || len(envelope.Choices) == 0 {
 			return nil, errors.New("技能读取阶段未返回唯一助手消息")
 		}
-		turn.Assistant = envelope.Choices[0].Message
 		var message struct {
 			Role      string `json:"role"`
 			ToolCalls []struct {
@@ -233,8 +232,21 @@ func ParseGatewaySkillTurn(response []byte, format types.RelayFormat, clientTool
 				} `json:"function"`
 			} `json:"tool_calls"`
 		}
-		if err := common.Unmarshal(turn.Assistant, &message); err != nil || message.Role != "assistant" {
-			return nil, errors.New("技能读取阶段助手消息无效")
+		for _, choice := range envelope.Choices {
+			var candidate struct {
+				Role string `json:"role"`
+			}
+			if err := common.Unmarshal(choice.Message, &candidate); err != nil || candidate.Role != "assistant" {
+				continue
+			}
+			turn.Assistant = choice.Message
+			if err := common.Unmarshal(turn.Assistant, &message); err != nil {
+				return nil, errors.New("技能读取阶段助手消息无效")
+			}
+			break
+		}
+		if len(turn.Assistant) == 0 {
+			return nil, errors.New("技能读取阶段未返回助手消息")
 		}
 		for _, call := range message.ToolCalls {
 			turn.Calls = append(turn.Calls, GatewaySkillCall{ID: call.ID, Name: call.Function.Name, Arguments: json.RawMessage(call.Function.Arguments)})

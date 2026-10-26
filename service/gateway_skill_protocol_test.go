@@ -132,6 +132,23 @@ func TestGatewaySkillProtocolsRejectMalformedToolCalls(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestGatewaySkillChatSelectsFirstAssistantFromMultipleChoices(t *testing.T) {
+	response := `{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call_1","function":{"name":"newapi_skills_list","arguments":"{}"}}]}},{"message":{"role":"assistant","tool_calls":[{"id":"call_2","function":{"name":"newapi_skills_read","arguments":"{}"}}]}}]}`
+
+	turn, err := ParseGatewaySkillTurn([]byte(response), types.RelayFormatOpenAI, nil)
+	require.NoError(t, err)
+	require.Len(t, turn.Calls, 1)
+	assert.Equal(t, "call_1", turn.Calls[0].ID)
+	assert.Equal(t, GatewaySkillsListTool, turn.Calls[0].Name)
+}
+
+func TestGatewaySkillChatRejectsChoicesWithoutAssistant(t *testing.T) {
+	response := `{"choices":[{"message":{"role":"user","content":"unexpected"}},{"message":{"role":"system","content":"unexpected"}}]}`
+
+	_, err := ParseGatewaySkillTurn([]byte(response), types.RelayFormatOpenAI, nil)
+	require.Error(t, err)
+}
+
 func TestGatewaySkillResponsesPreserveCallerInstructionPriorityAndCustomCalls(t *testing.T) {
 	original := []byte(`{"model":"test","input":"question","instructions":"Caller agent tools remain available during normal generation.","tools":[{"type":"custom","name":"terminal"}]}`)
 	prepared, err := PrepareGatewaySkillRequest(original,
