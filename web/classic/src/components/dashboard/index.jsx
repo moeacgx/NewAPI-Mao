@@ -24,6 +24,7 @@ import { StatusContext } from '../../context/Status';
 
 import DashboardHeader from './DashboardHeader';
 import StatsCards from './StatsCards';
+import PendingTicketsCard from './PendingTicketsCard';
 import RevenuePanel from './RevenuePanel';
 import ChartsPanel from './ChartsPanel';
 import ApiInfoPanel from './ApiInfoPanel';
@@ -107,6 +108,7 @@ const Dashboard = () => {
   };
 
   const handleRefresh = async () => {
+    window.dispatchEvent(new Event('classic-tickets-changed'));
     const data = await dashboardData.refresh();
     if (data && data.length > 0) {
       dashboardCharts.updateChartData(data);
@@ -182,6 +184,8 @@ const Dashboard = () => {
         CARD_PROPS={CARD_PROPS}
         CHART_CONFIG={CHART_CONFIG}
       />
+
+      <PendingTicketsCard />
 
       {dashboardData.isAdminUser && (
         <div className='mb-4'>

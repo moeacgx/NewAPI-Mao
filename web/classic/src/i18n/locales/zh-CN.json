@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "待处理工单",
+    "Pending ticket reminder": "待处理工单提醒",
+    "Dismiss ticket reminder": "关闭工单提醒",
+    "Tickets awaiting your response: {{total}}": "有 {{total}} 条工单等待您处理",
+    "View pending tickets": "查看待处理",
+    "Pending ticket count": "待处理工单数量",
+    "Failed to load pending tickets": "待处理工单加载失败",
+    "No tickets awaiting your response": "暂无待处理工单",
+    "New tickets and customer follow-ups": "新工单与用户追加回复",
     "技能": "技能",
     "技能 {{count}}": "技能 {{count}}",
     "始终装载": "始终装载",

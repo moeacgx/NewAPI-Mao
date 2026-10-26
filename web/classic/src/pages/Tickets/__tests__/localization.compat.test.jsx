@@ -53,6 +53,15 @@ test('创建弹窗切换语言后更新表单可访问名称和提交按钮', as
 
 test('七语均覆盖工单通知事件、权限和关键服务错误且保留计数变量', () => {
   const keys = [
+    'Pending tickets',
+    'Pending ticket reminder',
+    'Dismiss ticket reminder',
+    'Tickets awaiting your response: {{total}}',
+    'View pending tickets',
+    'Pending ticket count',
+    'Failed to load pending tickets',
+    'No tickets awaiting your response',
+    'New tickets and customer follow-ups',
     'Ticket created or user replied',
     'Triggered when a user creates a support ticket or adds a reply.',
     'Ticket Management',
@@ -96,6 +105,9 @@ test('七语均覆盖工单通知事件、权限和关键服务错误且保留�
       if (locale !== 'en') expect(resource.translation[key]).not.toBe(key);
     }
     expect(resource.translation['{{count}} tickets']).toContain('{{count}}');
+    expect(
+      resource.translation['Tickets awaiting your response: {{total}}'],
+    ).toContain('{{total}}');
     expect(resource.translation['{{count}} selected']).toContain('{{count}}');
     expect(resource.translation['Select ticket #{{id}}']).toContain('{{id}}');
   }

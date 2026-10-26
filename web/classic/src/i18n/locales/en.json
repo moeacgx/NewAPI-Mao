@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "Pending tickets",
+    "Pending ticket reminder": "Pending ticket reminder",
+    "Dismiss ticket reminder": "Dismiss ticket reminder",
+    "Tickets awaiting your response: {{total}}": "Tickets awaiting your response: {{total}}",
+    "View pending tickets": "View pending tickets",
+    "Pending ticket count": "Pending ticket count",
+    "Failed to load pending tickets": "Failed to load pending tickets",
+    "No tickets awaiting your response": "No tickets awaiting your response",
+    "New tickets and customer follow-ups": "New tickets and customer follow-ups",
     "技能": "Skills",
     "技能 {{count}}": "Skills {{count}}",
     "始终装载": "Always loaded",

@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "対応待ちチケット",
+    "Pending ticket reminder": "対応待ちチケットの通知",
+    "Dismiss ticket reminder": "チケット通知を閉じる",
+    "Tickets awaiting your response: {{total}}": "対応待ちのチケットが {{total}} 件あります",
+    "View pending tickets": "対応待ちを確認",
+    "Pending ticket count": "対応待ちチケット数",
+    "Failed to load pending tickets": "対応待ちチケットの読み込みに失敗しました",
+    "No tickets awaiting your response": "対応待ちのチケットはありません",
+    "New tickets and customer follow-ups": "新規チケットとユーザーからの追加返信",
     "技能": "スキル",
     "技能 {{count}}": "スキル {{count}}",
     "始终装载": "常に読み込み",
