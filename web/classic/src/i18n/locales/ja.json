@@ -6371,6 +6371,12 @@
     "Delete category {{name}}": "カテゴリ {{name}} を削除",
     "Delete category?": "カテゴリを削除しますか？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "カテゴリ「{{name}}」を削除しますか？含まれるスキルは未分類になります。この操作は元に戻せません。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "カテゴリ「{{name}}」を削除し、{{count}} 個のスキルを未分類に移動しました"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "カテゴリ「{{name}}」を削除し、{{count}} 個のスキルを未分類に移動しました",
+    "{{count}} of {{limit}} prompt slots used": "プロンプト枠 {{limit}} 件中 {{count}} 件を使用中",
+    "Not saved yet": "未保存",
+    "Unsaved changes": "未保存の変更があります",
+    "No unsaved changes": "変更はすべて保存済みです",
+    "Discard changes": "変更を破棄",
+    "Reset filters": "フィルターをリセット"
   }
 }

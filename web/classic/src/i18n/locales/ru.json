@@ -6461,6 +6461,12 @@
     "Delete category {{name}}": "Удалить категорию «{{name}}»",
     "Delete category?": "Удалить категорию?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Удалить категорию «{{name}}»? Её навыки перейдут в «Без категории». Это действие нельзя отменить.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Категория «{{name}}» удалена. Навыков перемещено в «Без категории»: {{count}}"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Категория «{{name}}» удалена. Навыков перемещено в «Без категории»: {{count}}",
+    "{{count}} of {{limit}} prompt slots used": "Занято мест для промптов: {{count}} из {{limit}}",
+    "Not saved yet": "Не сохранено",
+    "Unsaved changes": "Есть несохранённые изменения",
+    "No unsaved changes": "Все изменения сохранены",
+    "Discard changes": "Отменить изменения",
+    "Reset filters": "Сбросить фильтры"
   }
 }

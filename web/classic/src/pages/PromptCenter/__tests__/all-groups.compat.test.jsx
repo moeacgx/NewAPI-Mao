@@ -247,12 +247,12 @@ test('令牌已安装列表中不限分组技能显示不限分组，限定分�
   });
   const openCard = within(installed)
     .getByRole('heading', { name: 'Open skill' })
-    .closest('article');
+    .closest('li');
   expect(within(openCard).getByText(ALL_GROUPS)).toBeTruthy();
   expect(within(openCard).queryByText('No eligible groups')).toBeNull();
   const restrictedCard = within(installed)
     .getByRole('heading', { name: 'Restricted skill' })
-    .closest('article');
+    .closest('li');
   expect(within(restrictedCard).getByText('Visible group')).toBeTruthy();
   expect(within(restrictedCard).queryByText(ALL_GROUPS)).toBeNull();
   expect(screen.queryByText(/hidden-code/)).toBeNull();

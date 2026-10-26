@@ -19,11 +19,23 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@douyinfe/semi-ui';
-import { Power, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
+import {
+  FileText,
+  Info,
+  Layers3,
+  PackageCheck,
+  Save,
+  ShieldCheck,
+  Trash2,
+  Undo2,
+  Users,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { promptError, promptRequest } from './api';
 import PromptCatalog from './PromptCatalog';
 import SkillSummary from './SkillSummary';
+
+const PROMPT_LIMIT = 8;
 
 export default function TokenPromptManager(props) {
   const { t } = useTranslation();
@@ -57,7 +69,7 @@ export default function TokenPromptManager(props) {
             !current.some((item) => item.template.id === templateToInstall.id);
           savedBindings.current = current;
           setLoadedToken(tokenId);
-          if (addTemplate && current.length >= 8) {
+          if (addTemplate && current.length >= PROMPT_LIMIT) {
             setBindings(current);
             setError(t('A token can have at most 8 prompts'));
             return;
@@ -116,6 +128,11 @@ export default function TokenPromptManager(props) {
     setError('');
   };
 
+  // 本地草稿中尚未保存到令牌的模板，用于提示「待保存」。
+  const savedIds = new Set(
+    savedBindings.current.map((item) => item.template.id),
+  );
+
   return (
     <div className='prompt-center-stack' aria-busy={saving}>
       {error && (
@@ -129,36 +146,182 @@ export default function TokenPromptManager(props) {
         </div>
       )}
       {tokenId && !ready && !error && (
-        <p role='status'>{t('Loading prompts')}</p>
+        <p role='status' className='prompt-center-loading'>
+          {t('Loading prompts')}
+        </p>
       )}
       {ready && (
         <section
-          className='prompt-center-section'
+          className='prompt-center-section prompt-installed'
           aria-label={t('Installed prompts')}
         >
-          <div className='prompt-center-section-heading'>
+          <header className='prompt-installed-header'>
+            <div className='prompt-installed-heading'>
+              <div
+                className='prompt-center-section-icon prompt-center-section-icon-blue'
+                aria-hidden='true'
+              >
+                <PackageCheck size={18} />
+              </div>
+              <div className='prompt-installed-heading-copy'>
+                <h2>{t('Installed prompts')}</h2>
+                <p>
+                  {t(
+                    'Prompts load only when the actual request group is allowed. Installation does not change token permissions.',
+                  )}
+                </p>
+              </div>
+            </div>
             <div
-              className='prompt-center-section-icon prompt-center-section-icon-blue'
-              aria-hidden='true'
+              className='prompt-installed-capacity'
+              role='img'
+              aria-label={t('{{count}} of {{limit}} prompt slots used', {
+                count: bindings.length,
+                limit: PROMPT_LIMIT,
+              })}
             >
-              <Power size={18} />
+              <span className='prompt-installed-slots' aria-hidden='true'>
+                {Array.from({ length: PROMPT_LIMIT }, (_, index) => (
+                  <i key={index} data-filled={index < bindings.length} />
+                ))}
+              </span>
+              <strong aria-hidden='true'>
+                {bindings.length}/{PROMPT_LIMIT}
+              </strong>
             </div>
-            <div>
-              <h2>
-                {t('Installed prompts')}{' '}
-                <span className='prompt-center-count'>{bindings.length}/8</span>
-              </h2>
-              <p>
-                {t(
-                  'Prompts load only when the actual request group is allowed. Installation does not change token permissions.',
-                )}
-              </p>
-              <p>
-                {t(
-                  'Install up to 8 packages. Always-loaded prompts share a 65536-byte enabled limit. On-demand skills add only the files read to model context and may use additional billed model rounds.',
-                )}
-              </p>
+          </header>
+          <p className='prompt-installed-note'>
+            <Info size={14} aria-hidden='true' />
+            <span>
+              {t(
+                'Install up to 8 packages. Always-loaded prompts share a 65536-byte enabled limit. On-demand skills add only the files read to model context and may use additional billed model rounds.',
+              )}
+            </span>
+          </p>
+          {!bindings.length && (
+            <div className='prompt-center-empty-state'>
+              <PackageCheck size={22} aria-hidden='true' />
+              <span>{t('No prompts installed')}</span>
             </div>
+          )}
+          {bindings.length > 0 && (
+            <ul className='prompt-installed-list'>
+              {bindings.map((binding) => {
+                const template = binding.template;
+                return (
+                  <li
+                    className='prompt-installed-item'
+                    data-active={binding.enabled && template.enabled}
+                    key={template.id}
+                  >
+                    <span
+                      className='prompt-installed-item-icon'
+                      aria-hidden='true'
+                    >
+                      {template.kind === 'bundle' ? (
+                        <Layers3 size={18} />
+                      ) : (
+                        <FileText size={18} />
+                      )}
+                    </span>
+                    <div className='prompt-installed-item-body'>
+                      <div className='prompt-installed-item-title'>
+                        <h3 title={template.title}>{template.title}</h3>
+                        {!savedIds.has(template.id) && (
+                          <span className='prompt-installed-flag is-pending'>
+                            {t('Not saved yet')}
+                          </span>
+                        )}
+                        {!template.enabled && (
+                          <span className='prompt-installed-flag'>
+                            {t('Unpublished')}
+                          </span>
+                        )}
+                        {template.enabled && !binding.enabled && (
+                          <span className='prompt-installed-flag'>
+                            {t('Disabled')}
+                          </span>
+                        )}
+                      </div>
+                      <SkillSummary template={template} />
+                      <div className='prompt-installed-groups'>
+                        <span className='prompt-center-meta-label'>
+                          <ShieldCheck size={13} aria-hidden='true' />
+                          {t('Allowed groups')}
+                        </span>
+                        <div className='prompt-center-group-chips'>
+                          {template.all_groups && (
+                            <span className='prompt-center-group-chip is-group'>
+                              <Users size={12} aria-hidden='true' />
+                              {t('All groups (no restriction)')}
+                            </span>
+                          )}
+                          {!template.all_groups &&
+                            template.group_details?.map((group) => (
+                              <span
+                                className='prompt-center-group-chip is-group'
+                                key={group.id}
+                                title={group.name}
+                              >
+                                <Users size={12} aria-hidden='true' />
+                                <span>{group.name}</span>
+                              </span>
+                            ))}
+                          {!template.all_groups &&
+                            !template.group_details?.length && (
+                              <span className='prompt-center-muted'>
+                                {t('No eligible groups')}
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      className='prompt-center-uninstall-button'
+                      type='danger'
+                      theme='borderless'
+                      icon={<Trash2 size={15} />}
+                      disabled={saving}
+                      onClick={() =>
+                        queue(
+                          bindings.filter(
+                            (item) => item.template.id !== template.id,
+                          ),
+                        )
+                      }
+                      aria-label={t('Uninstall {{title}}', {
+                        title: template.title,
+                      })}
+                    >
+                      {t('Uninstall')}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <footer className='prompt-installed-actions' data-dirty={dirty}>
+            <span
+              className='prompt-installed-save-state'
+              role='status'
+              aria-live='polite'
+            >
+              {dirty ? t('Unsaved changes') : t('No unsaved changes')}
+            </span>
+            {dirty && (
+              <Button
+                className='prompt-center-secondary'
+                icon={<Undo2 size={15} />}
+                disabled={saving}
+                onClick={() => {
+                  setBindings(savedBindings.current);
+                  setDirty(false);
+                  setError('');
+                }}
+              >
+                {t('Discard changes')}
+              </Button>
+            )}
             <Button
               className='prompt-center-primary prompt-center-save-button'
               icon={<Save size={15} />}
@@ -168,81 +331,7 @@ export default function TokenPromptManager(props) {
             >
               {t('Save')}
             </Button>
-          </div>
-          <div className='prompt-center-installed-list'>
-            {!bindings.length && (
-              <div className='prompt-center-empty-state' role='status'>
-                <Power size={22} aria-hidden='true' />
-                <span>{t('No prompts installed')}</span>
-              </div>
-            )}
-            {bindings.map((binding) => (
-              <article className='prompt-center-card' key={binding.template.id}>
-                <div className='prompt-center-card-topline'>
-                  <span
-                    className='prompt-center-card-icon prompt-center-card-icon-blue'
-                    aria-hidden='true'
-                  >
-                    <Power size={17} />
-                  </span>
-                </div>
-                <div className='prompt-center-card-copy'>
-                  <h3>{binding.template.title}</h3>
-                </div>
-                <SkillSummary template={binding.template} />
-                <div className='prompt-center-card-meta'>
-                  <span className='prompt-center-meta-label'>
-                    <ShieldCheck size={14} aria-hidden='true' />
-                    {t('Allowed groups')}
-                  </span>
-                  <div className='prompt-center-group-chips'>
-                    {binding.template.all_groups && (
-                      <span className='prompt-center-group-chip'>
-                        <Users size={12} aria-hidden='true' />
-                        {t('All groups (no restriction)')}
-                      </span>
-                    )}
-                    {!binding.template.all_groups &&
-                      binding.template.group_details?.map((group) => (
-                        <span
-                          className='prompt-center-group-chip'
-                          key={group.id}
-                        >
-                          <Users size={12} aria-hidden='true' />
-                          {group.name}
-                        </span>
-                      ))}
-                    {!binding.template.all_groups &&
-                      !binding.template.group_details?.length && (
-                        <span className='prompt-center-muted'>
-                          {t('No eligible groups')}
-                        </span>
-                      )}
-                  </div>
-                </div>
-                <div className='prompt-center-card-actions prompt-center-card-actions-management'>
-                  <Button
-                    className='prompt-center-uninstall-button'
-                    type='danger'
-                    icon={<Trash2 size={15} />}
-                    disabled={saving}
-                    onClick={() =>
-                      queue(
-                        bindings.filter(
-                          (item) => item.template.id !== binding.template.id,
-                        ),
-                      )
-                    }
-                    aria-label={t('Uninstall {{title}}', {
-                      title: binding.template.title,
-                    })}
-                  >
-                    {t('Uninstall')}
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
+          </footer>
         </section>
       )}
       {props.templates && (
