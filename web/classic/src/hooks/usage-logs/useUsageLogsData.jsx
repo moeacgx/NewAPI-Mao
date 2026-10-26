@@ -113,6 +113,7 @@ export const useLogsData = () => {
     model_name: '',
     channel: '',
     group: '',
+    skill: '',
     request_id: '',
     dateRange: [
       timestamp2string(getTodayStartTimestamp()),
@@ -275,6 +276,7 @@ export const useLogsData = () => {
       end_timestamp,
       channel: formValues.channel || '',
       group: formValues.group || '',
+      skill: formValues.skill || '',
       request_id: formValues.request_id || '',
       logType: formValues.logType ? parseInt(formValues.logType) : 0,
     };
@@ -288,6 +290,7 @@ export const useLogsData = () => {
       start_timestamp,
       end_timestamp,
       group,
+      skill,
       logType: formLogType,
     } = values;
     const currentLogType = formLogType !== undefined ? formLogType : logType;
@@ -298,6 +301,7 @@ export const useLogsData = () => {
       start_timestamp: Date.parse(start_timestamp) / 1000,
       end_timestamp: Date.parse(end_timestamp) / 1000,
       group,
+      ...(skill ? { skill } : {}),
     };
     const res = await API.get('/api/log/self/stat', { params });
     return res.data;
@@ -313,6 +317,7 @@ export const useLogsData = () => {
       end_timestamp,
       channel,
       group,
+      skill,
       logType: formLogType,
     } = values;
     const currentLogType = formLogType !== undefined ? formLogType : logType;
@@ -329,6 +334,7 @@ export const useLogsData = () => {
       end_timestamp: Date.parse(end_timestamp) / 1000,
       channel,
       group,
+      ...(skill ? { skill } : {}),
     };
     const res = await API.get('/api/log/stat', { params });
     return res.data;
@@ -954,6 +960,7 @@ export const useLogsData = () => {
       channel,
       group,
       request_id,
+      skill,
       logType: formLogType,
     } = values;
 
@@ -980,6 +987,7 @@ export const useLogsData = () => {
       ...(isAdminUser ? { channel } : {}),
       group,
       request_id,
+      ...(skill ? { skill } : {}),
     };
 
     try {

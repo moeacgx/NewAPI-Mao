@@ -147,6 +147,25 @@ const LogsFilters = ({
             size='small'
           />
 
+          <div>
+            <span id='skill-label' className='sr-only'>
+              {t('技能')}
+            </span>
+            <Form.Select
+              field='skill'
+              placeholder={t('技能')}
+              prefix={t('技能')}
+              className='w-full'
+              optionList={[
+                { label: t('全部'), value: '' },
+                { label: t('Used skills'), value: 'used' },
+              ]}
+              showClear
+              pure
+              size='small'
+            />
+          </div>
+
           {isAdminUser && (
             <>
               <Form.Input

@@ -44,6 +44,10 @@ test('使用日志技能标签文案覆盖八个Classic语言且保留插值', a
         'utf8',
       ),
     );
+    const filterLabel = resource.translation['Used skills'];
+    assert.ok(filterLabel?.trim(), locale + ': Used skills');
+    assert.doesNotMatch(filterLabel, /\?{2,}|�/);
+    if (locale !== 'en') assert.notEqual(filterLabel, 'Used skills');
     for (const key of keys) {
       const value = resource.translation[key];
       assert.ok(value?.trim(), locale + ': ' + key);
