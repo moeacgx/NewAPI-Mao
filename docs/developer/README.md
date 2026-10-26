@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [.356 近期 PR 复核与发布](../workflows/2026-10/26_release_356.md)：双模板控制台、Jev 任务记录和发票关闭释放；发布门禁、快照字段及回滚注意事项。
 - [双模板工单状态概览](../workflows/2026-10/26_ticket_status_overview.md)：待处理、进行中、已解决、已关闭统计与筛选入口，管理员聚合接口及浮窗边界。
 - [发票关闭后释放来源订单](../workflows/2026-10/26_invoice_closed_order_release.md)：关闭终态、历史占用修复、订单明细快照及双模板状态限制。
 - [TypeSafe Jev 不写入任务记录](../workflows/2026-10/26_jev_no_task_history.md)：同步成功不落 `model.Task` 行，保留实际结算、消费日志与统计链路。
