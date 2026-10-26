@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "待處理工單",
+    "Pending ticket reminder": "待處理工單提醒",
+    "Dismiss ticket reminder": "關閉工單提醒",
+    "Tickets awaiting your response: {{total}}": "有 {{total}} 筆工單等待您處理",
+    "View pending tickets": "查看待處理",
+    "Pending ticket count": "待處理工單數量",
+    "Failed to load pending tickets": "待處理工單載入失敗",
+    "No tickets awaiting your response": "暫無待處理工單",
+    "New tickets and customer follow-ups": "新工單與使用者追加回覆",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

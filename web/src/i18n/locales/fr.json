@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Pending tickets": "Tickets en attente",
+    "Pending ticket reminder": "Rappel des tickets en attente",
+    "Dismiss ticket reminder": "Fermer le rappel des tickets",
+    "Tickets awaiting your response: {{total}}": "Tickets en attente de votre réponse : {{total}}",
+    "View pending tickets": "Voir les tickets en attente",
+    "Pending ticket count": "Nombre de tickets en attente",
+    "Failed to load pending tickets": "Échec du chargement des tickets en attente",
+    "No tickets awaiting your response": "Aucun ticket en attente de votre réponse",
+    "New tickets and customer follow-ups": "Nouveaux tickets et relances des clients",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

@@ -49,6 +49,7 @@ import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
+import { PendingTicketCard } from '@/features/tickets/pending-ticket-card'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getUserModels } from '@/lib/api'
 import { MOTION_TRANSITION } from '@/lib/motion'
@@ -751,6 +752,7 @@ export function OverviewDashboard() {
       )}
 
       <SummaryCards />
+      <PendingTicketCard />
 
       {showContentPanels && (
         <CardStaggerContainer

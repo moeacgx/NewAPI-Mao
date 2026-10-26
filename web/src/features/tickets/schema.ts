@@ -18,6 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 
+export const ticketManagementSearchSchema = z.object({
+  status: z
+    .enum(['open', 'processing', 'resolved', 'closed', 'archived', ''])
+    .catch(''),
+})
+
 export const ticketContentSchema = z
   .string()
   .trim()

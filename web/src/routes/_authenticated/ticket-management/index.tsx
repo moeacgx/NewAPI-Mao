@@ -19,11 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Tickets } from '@/features/tickets'
+import { ticketManagementSearchSchema } from '@/features/tickets/schema'
 import { hasPermission } from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/ticket-management/')({
+  validateSearch: ticketManagementSearchSchema,
   beforeLoad: () => {
     const user = useAuthStore.getState().auth.user
     if (
@@ -38,5 +40,15 @@ export const Route = createFileRoute('/_authenticated/ticket-management/')({
 })
 
 function TicketManagement() {
-  return <Tickets admin />
+  const { status } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  return (
+    <Tickets
+      admin
+      status={status}
+      onStatusChange={(nextStatus) => {
+        void navigate({ search: { status: nextStatus }, replace: true })
+      }}
+    />
+  )
 }
