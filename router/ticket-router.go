@@ -19,6 +19,7 @@ func registerTicketRoutes(apiRouter *gin.RouterGroup) {
 	adminAPI := controller.TicketAPI{Admin: true}
 	admin := apiRouter.Group("/ticket-admin", middleware.AdminAuth(), middleware.DisableCache())
 	admin.GET("", middleware.RequirePermission(authz.TicketAdminRead), adminAPI.List)
+	admin.GET("/stats", middleware.RequirePermission(authz.TicketAdminRead), adminAPI.Stats)
 	admin.PUT("/batch/status", middleware.RequirePermission(authz.TicketAdminWrite), middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), adminAPI.BatchStatus)
 	admin.POST("/batch/delete", middleware.RequirePermission(authz.TicketAdminWrite), middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), adminAPI.BatchDelete)
 	admin.GET("/automation/auto-archive", middleware.RequirePermission(authz.TicketAdminRead), adminAPI.AutoArchive)
