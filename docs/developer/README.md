@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [技能商店预设替换为通用编程开发安全助手](../workflows/2026-10/27_skill_store_general_development_safety.md)：移除三项旧商店预设并加入递归强制删除前的明确授权与范围核验技能。
 - [.359 Skills 私有 Chat SSE 修复发布与部署](../workflows/2026-10/27_release_359.md)：修复范围、发行验证、生产备份、逐节点验收与回滚。
 
 - [网关 Skills Chat 私有流式响应兼容修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：聚合上游意外返回的私有 SSE，保留严格候选校验及逐轮计费。

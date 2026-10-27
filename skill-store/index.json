@@ -2,52 +2,16 @@
   "version": 1,
   "items": [
     {
-      "id": "code-review",
-      "title": "代码审查助手",
-      "description": "检查代码缺陷、边界条件与兼容性。",
+      "id": "general-development-safety",
+      "title": "通用编程开发安全助手",
+      "description": "适用于编程开发；准备执行递归强制删除前核验必要性、授权和精确范围。",
       "kind": "prompt",
       "category": "开发编程",
       "version": "1.0.0",
       "files": [
         {
-          "path": "packages/review-kit/code-review/SKILL.md",
-          "sha256": "a200d626b427316010febb38334ee9522f3d73f64b83c59f383c7b6c509b0df3"
-        }
-      ]
-    },
-    {
-      "id": "writing-kit",
-      "title": "专业写作合集",
-      "description": "组合提纲规划与清晰表达，完成有条理的写作。",
-      "kind": "bundle",
-      "category": "写作表达",
-      "version": "1.0.0",
-      "files": [
-        {
-          "path": "packages/writing-kit/outline/SKILL.md",
-          "sha256": "0a603434fc993cb5cb746eb95dcf04be51bd771a822308b9abae78b9eea46ea2"
-        },
-        {
-          "path": "packages/writing-kit/polish/SKILL.md",
-          "sha256": "ef878b27a6a80055487e86bd50b9aec83b53c72e53d6b3109fbd81349e44a43d"
-        }
-      ]
-    },
-    {
-      "id": "research-kit",
-      "title": "研究核验合集",
-      "description": "组合资料整理与结论核验，保留证据边界。",
-      "kind": "bundle",
-      "category": "学习研究",
-      "version": "1.0.0",
-      "files": [
-        {
-          "path": "packages/research-kit/organize/SKILL.md",
-          "sha256": "6290174f0261f1dc3024f102417689e81fc4173bff8cfb27b2a8a5e0c86f335e"
-        },
-        {
-          "path": "packages/research-kit/verify/SKILL.md",
-          "sha256": "6512947fd4b090e64c367db86b2dffadd17b3f1ae8df39795467f70c2a495d07"
+          "path": "packages/development-kit/general-development/SKILL.md",
+          "sha256": "343c1b708911211acea16702c7a1428ab2dd6ad4c7996b400d95e224e44b6a1b"
         }
       ]
     }

@@ -45,6 +45,27 @@ func TestSkillStoreBundledCatalogImportsIndependentDrafts(t *testing.T) {
 	}
 }
 
+func TestSkillStoreBundledCatalogPublishesGeneralDevelopmentSafetySkill(t *testing.T) {
+	items, err := ListSkillStore(context.Background(), false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, "bundled:general-development-safety", items[0].ID)
+	assert.Equal(t, "通用编程开发安全助手", items[0].Title)
+	assert.Equal(t, "prompt", items[0].Kind)
+	assert.Equal(t, "开发编程", items[0].Category)
+	assert.Equal(t, 1, items[0].SkillCount)
+	draft, err := ImportStoreSkill(context.Background(), items[0].ID)
+	require.NoError(t, err)
+	require.Len(t, draft.Skills, 1)
+	assert.Contains(t, draft.Skills[0].Content, "当前任务明确要求执行它")
+	assert.Contains(t, draft.Skills[0].Content, "至少三轮独立核验")
+
+	for _, oldID := range []string{"bundled:code-review", "bundled:writing-kit", "bundled:research-kit"} {
+		_, err := ImportStoreSkill(context.Background(), oldID)
+		require.Error(t, err, "已移除的商店条目不可再导入：%s", oldID)
+	}
+}
+
 func TestSkillStoreOnlineUsesFixedOriginAndChecksFileHash(t *testing.T) {
 	content := "---\nname: 在线技能\n---\n保持原意。"
 	digest := sha256.Sum256([]byte(content))
