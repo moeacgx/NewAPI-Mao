@@ -423,16 +423,24 @@ export function Tickets(props: {
           </Card>
         )}
         {admin && canRead && (
-          <TicketAutoReplySettings
-            key={`reply-${user?.id}`}
-            canWrite={canWrite}
-          />
-        )}
-        {admin && canRead && (
-          <TicketAutoArchiveSettings
-            key={`archive-${user?.id}`}
-            canWrite={canWrite}
-          />
+          <details
+            key={`settings-${user?.id}`}
+            className='text-card-foreground mt-4 min-w-0'
+          >
+            <summary className='focus-visible:ring-ring cursor-pointer rounded-sm font-medium focus-visible:ring-2 focus-visible:outline-none'>
+              {t('Ticket settings')}
+            </summary>
+            <div className='space-y-4 pt-2'>
+              <TicketAutoReplySettings
+                key={`reply-${user?.id}`}
+                canWrite={canWrite}
+              />
+              <TicketAutoArchiveSettings
+                key={`archive-${user?.id}`}
+                canWrite={canWrite}
+              />
+            </div>
+          </details>
         )}
         {!admin && user && (
           <CreateTicketDialog

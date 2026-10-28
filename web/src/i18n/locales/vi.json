@@ -6722,6 +6722,7 @@
     "Ticket request exceeds 64 KiB": "Yêu cầu phiếu hỗ trợ vượt quá 64 KiB",
     "Ticket requester user ID": "ID người dùng tạo phiếu",
     "Ticket service is unavailable": "Dịch vụ hỗ trợ tạm thời không khả dụng",
+    "Ticket settings": "Cài đặt phiếu hỗ trợ",
     "Ticket status": "Trạng thái phiếu hỗ trợ",
     "Ticket status code": "Mã trạng thái phiếu",
     "Ticket status updated.": "Đã cập nhật trạng thái phiếu hỗ trợ.",

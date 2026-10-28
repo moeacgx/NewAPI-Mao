@@ -6722,6 +6722,7 @@
     "Ticket request exceeds 64 KiB": "チケットのリクエストが 64 KiB を超えています",
     "Ticket requester user ID": "チケット依頼者のユーザー ID",
     "Ticket service is unavailable": "チケットサービスを利用できません",
+    "Ticket settings": "チケット設定",
     "Ticket status": "チケットのステータス",
     "Ticket status code": "チケットのステータスコード",
     "Ticket status updated.": "チケットのステータスを更新しました。",

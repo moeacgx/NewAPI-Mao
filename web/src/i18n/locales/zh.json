@@ -6722,6 +6722,7 @@
     "Ticket request exceeds 64 KiB": "工单请求超过 64 KiB",
     "Ticket requester user ID": "工单提交者用户 ID",
     "Ticket service is unavailable": "工单服务暂不可用",
+    "Ticket settings": "工单设置",
     "Ticket status": "工单状态",
     "Ticket status code": "工单状态代码",
     "Ticket status updated.": "工单状态已更新。",

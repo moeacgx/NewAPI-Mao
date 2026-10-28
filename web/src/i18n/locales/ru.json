@@ -6722,6 +6722,7 @@
     "Ticket request exceeds 64 KiB": "Размер запроса превышает 64 KiB",
     "Ticket requester user ID": "ID пользователя-заявителя",
     "Ticket service is unavailable": "Служба обращений недоступна",
+    "Ticket settings": "Настройки обращений",
     "Ticket status": "Статус обращения",
     "Ticket status code": "Код статуса обращения",
     "Ticket status updated.": "Статус обращения обновлён.",

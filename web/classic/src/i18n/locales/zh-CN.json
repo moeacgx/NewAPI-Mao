@@ -6483,6 +6483,7 @@
     "Ticket conversation": "工单会话",
     "Ticket details": "工单详情",
     "Ticket management": "工单管理",
+    "Ticket settings": "工单设置",
     "Ticket Management": "工单管理",
     "Ticket not found": "工单不存在或无权查看",
     "Ticket notifications include the title, category, priority, status, requester and actor IDs. Message content is excluded to protect sensitive information.": "工单通知包含标题、分类、优先级、状态、提交人和操作人 ID。为保护敏感信息，不包含消息正文。",

@@ -6722,6 +6722,7 @@
     "Ticket request exceeds 64 KiB": "La requête dépasse 64 KiB",
     "Ticket requester user ID": "ID utilisateur du demandeur",
     "Ticket service is unavailable": "Le service de tickets est indisponible",
+    "Ticket settings": "Paramètres des tickets",
     "Ticket status": "Statut du ticket",
     "Ticket status code": "Code de statut du ticket",
     "Ticket status updated.": "Statut du ticket mis à jour.",

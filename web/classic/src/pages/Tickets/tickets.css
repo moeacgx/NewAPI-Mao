@@ -19,6 +19,33 @@ body:has(.ticket-page) .classic-pricing-template-header {
 .ticket-automation-panel {
   margin-bottom: 16px;
 }
+.ticket-settings {
+  min-width: 0;
+  margin-top: 16px;
+}
+.ticket-settings > summary {
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ticket-settings > summary:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.ticket-settings-content {
+  padding-top: 16px;
+}
+.ticket-settings .ticket-actions .semi-button {
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  white-space: normal;
+}
+.ticket-settings .ticket-actions .semi-button-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .ticket-automation-header,
 .ticket-automation-switch {
   display: flex;

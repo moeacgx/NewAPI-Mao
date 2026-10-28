@@ -65,6 +65,7 @@ test('七语均覆盖工单通知事件、权限和关键服务错误且保留�
     'Ticket created or user replied',
     'Triggered when a user creates a support ticket or adds a reply.',
     'Ticket Management',
+    'Ticket settings',
     'Read all tickets',
     'Manage tickets',
     'Ticket not found',

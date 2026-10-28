@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [工单列表优先与设置折叠](../workflows/2026-10/28_ticket_management_settings_layout.md)：Default 与 Classic 管理页优先展示工单列表，自动回复与超时归档集中到默认折叠的设置区。
+
 - [.360 分组回退、工单正文与提示词选择发布](../workflows/2026-10/28_release_360.md)：纳入 #366、#367、#368，说明发布产物、通知模板升级及回滚边界；不包含生产部署。
 
 - [工单通知显示用户正文](../workflows/2026-10/28_ticket_notification_content.md)：当次正文快照、长内容摘要、默认模板升级与历史事件兼容，覆盖 Default、Classic。
