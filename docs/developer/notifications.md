@@ -43,15 +43,20 @@
 
 事件提供英文显示键、默认模板、变量白名单和示例负载。变量为
 mention、ticket_id、title、user_id、category、priority、status、actor_id、
-actor_role、create_time、action、action_label，其中 action 为 created 或 replied，
+actor_role、create_time、action、action_label、content，其中 action 为 created 或 replied，
 action_label 为“新工单”或“用户追加回复”，默认模板用它区分两种情况；actor_role 固定为 user，
-create_time 为本次事件发生时间的 Unix 秒数。正文不进入通知负载；title 是用户输入，沿用统一 HTML 转义。
+create_time 为本次事件发生时间的 Unix 秒数。content 是当次用户提交正文的纯文本快照，
+title 与 content 均沿用统一 HTML 转义。默认模板末尾显示 `正文：{{content}}`。
+正文按 HTML 转义后的 2000 字符预算摘要，超长时附截断提示；完整内容保留在工单详情。
+不回查“最后一条消息”，防止自动回复或后续追问替代当次用户正文。
 
 新建或用户回复与通知入队位于同一事务；事件键为 ticket:<id>:version:<version>。
 没有订阅者时正常保存工单；沿用旧业务的可选通知语义，通知表尚未迁移时跳过且不补历史通知，
 其余入队错误回滚本次新建或回复。
 
 通知投递到 Root 配置的接收目标，不等同于自动通知工单所有者或新增站内收件箱。
+用户正文会进入事件、Root 可见的投递历史及外部接收目标；配置者需确认接收范围，
+系统不校验 Telegram 群成员是否为管理员。
 管理员从个人入口追问按用户处理，同样触发该事件；管理入口回复不通知。
 完整权限与接口见[工单中心](tickets.md)。
 
@@ -60,6 +65,11 @@ create_time 为本次事件发生时间的 Unix 秒数。正文不进入通知�
 （仍为旧默认模板的替换为新默认模板），停用后两类任务但保留记录；新建任务时旧事件值返回“暂不支持该通知事件”。
 同时订阅了新建与追问的部署迁移后会收到重复通知，需要删除其中一个任务。
 变更记录见[工单通知合并](../workflows/2026-10/25_ticket_notification_merge.md)。
+
+精确匹配的旧工单默认模板在迁移、读取、保存和投递时升级为包含正文的默认模板，
+自定义模板保持原样，可自行加入 `{{content}}`。历史事件没有正文快照时，投递端仅为该事件
+补充“历史通知未保存正文，请查看工单”，不回查或回写历史负载，其他未知变量仍拒绝。
+本次演进与验证见[正文通知记录](../workflows/2026-10/28_ticket_notification_content.md)。
 
 管理员可以在工单管理中配置用户提交后的单次自动回复。该回复作为工单消息写入，不产生通知；
 新工单仍按 `ticket_user_message` 发送一次。配置默认关闭，内容和启用状态

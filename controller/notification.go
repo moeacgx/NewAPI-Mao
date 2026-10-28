@@ -634,7 +634,12 @@ func validateNotificationTaskRequest(req *notificationTaskRequest) error {
 	if req.Template == "" {
 		req.Template = definition.DefaultTemplate
 	}
-	renderedTemplate, err := service.RenderNotificationTemplate(req.Template, definition.SamplePayload, &invoicePendingTemplateTargetSample)
+	targetSample := invoicePendingTemplateTargetSample
+	if req.EventType == model.NotificationEventTypeTicketUserMessage {
+		// 工单正文占用较多预算，提及名称也按 HTML 转义膨胀后的最坏长度校验。
+		targetSample.MentionName = strings.Repeat("\"", 128)
+	}
+	renderedTemplate, err := service.RenderNotificationTemplate(req.Template, definition.SamplePayload, &targetSample)
 	if err != nil {
 		return fmt.Errorf("消息模板无效: %w", err)
 	}

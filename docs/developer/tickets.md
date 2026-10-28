@@ -80,8 +80,15 @@ Classic 与 Default 数据看板展示待处理、进行中、已解决、已关
 `action_label=新工单`）或用户追加回复（`action=replied`，`action_label=用户追加回复`）。
 管理员回复、显式状态修改、批量改状态和自动归档都由管理员或系统发起，不发送通知。
 
-变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time,action,action_label`，
-`actor_role` 固定为 `user`。正文不进入通知负载，避免将可能存在的凭据扩散到外部。
+变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time,action,action_label,content`，
+`actor_role` 固定为 `user`。`content` 在保存本次用户消息的事务内冻结，不取自动回复或后续消息。
+正文摘要限制为 HTML 转义后 2000 个字符，超长附截断说明；工单正文仍完整保留。
+默认模板增加正文，精确旧默认自动升级，自定义模板保持不变。历史事件缺少正文时显示
+“历史通知未保存正文，请查看工单”，不查询或重写历史内容。
+
+用户正文会随通知发送给 Root 配置的外部接收目标，并进入 Root 可访问的通知历史。
+接收范围由配置者确认，系统不校验 Telegram 群成员身份。详细契约、验证与限制见
+[工单正文通知](../workflows/2026-10/28_ticket_notification_content.md)。
 
 事件与业务写入同事务，幂等键使用工单 ID 和版本号。无订阅者时工单照常保存；通知表尚未迁移时沿用可选通知语义，跳过且不补发历史通知，其余入队失败回滚新建或用户回复。管理员回复和状态变更不再依赖通知写入。不自动建立 Bot 或发送测试通知，通知配置保持已有 Root 权限。
 
