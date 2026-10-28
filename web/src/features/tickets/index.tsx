@@ -425,7 +425,7 @@ export function Tickets(props: {
         {admin && canRead && (
           <details
             key={`settings-${user?.id}`}
-            className='bg-card text-card-foreground mt-4 min-w-0 rounded-xl border p-4'
+            className='text-card-foreground mt-4 min-w-0'
           >
             <summary className='focus-visible:ring-ring cursor-pointer rounded-sm font-medium focus-visible:ring-2 focus-visible:outline-none'>
               {t('Ticket settings')}
