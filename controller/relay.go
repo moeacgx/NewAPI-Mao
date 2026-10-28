@@ -855,27 +855,40 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 		setSelectedSecurityAuditRoute(c, channel, selectedGroup)
 		return channel, nil
 	}
-	channel, selectedGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
-	if err != nil {
-		selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
-		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectedGroupName, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	var lastChannelConcurrencyError *types.NewAPIError
+	for {
+		channel, selectedGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
+		if err != nil {
+			selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
+			return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectedGroupName, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if channel == nil {
+			if lastChannelConcurrencyError != nil {
+				return nil, lastChannelConcurrencyError
+			}
+			selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
+			return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectedGroupName, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if selectedGroup != "" {
+			info.UsingGroup = selectedGroup
+			common.SetContextKey(c, constant.ContextKeyUsingGroup, selectedGroup)
+			common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectedGroup)
+		}
+		info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
+		newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
+		if newAPIError == nil {
+			setSelectedSecurityAuditRoute(c, channel, selectedGroup)
+			return channel, nil
+		}
+		if !errors.Is(newAPIError, model.ErrChannelConcurrencyLimitReached) || retryParam == nil {
+			return nil, newAPIError
+		}
+		lastChannelConcurrencyError = newAPIError
+		// Setup 的原子抢租失败发生在上游调用前，不消耗外层供应商重试次数。释放上一轮租约，排除本渠道后继续当前分组选路。
+		middleware.ReleaseChannelConcurrencyForContext(c)
+		middleware.ReleaseGroupUserConcurrencyForContext(c)
+		retryParam.ExcludeChannelID(channel.Id, false)
 	}
-	if channel == nil {
-		selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
-		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectedGroupName, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
-	}
-	if selectedGroup != "" {
-		info.UsingGroup = selectedGroup
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, selectedGroup)
-		common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectedGroup)
-	}
-	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
-	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
-	if newAPIError != nil {
-		return nil, newAPIError
-	}
-	setSelectedSecurityAuditRoute(c, channel, selectedGroup)
-	return channel, nil
 }
 
 func setSelectedSecurityAuditRoute(c *gin.Context, channel *model.Channel, groupCode string) {

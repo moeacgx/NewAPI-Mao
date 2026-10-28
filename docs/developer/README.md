@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [多分组并发满时继续回退](../workflows/2026-10/28_multigroup_concurrency_fallback.md)：仅在渠道并发不足时继续后续授权分组，保留全组耗尽错误及实际分组上下文。
+
 - [技能商店预设替换为通用编程开发安全助手](../workflows/2026-10/27_skill_store_general_development_safety.md)：移除三项旧商店预设并加入递归强制删除前的明确授权与范围核验技能。
 - [.359 Skills 私有 Chat SSE 修复发布与部署](../workflows/2026-10/27_release_359.md)：修复范围、发行验证、生产备份、逐节点验收与回滚。
 

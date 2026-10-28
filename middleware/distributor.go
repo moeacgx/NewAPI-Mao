@@ -284,7 +284,11 @@ func Distribute() func(c *gin.Context) {
 			releaseChannelConcurrencyForContext(c)
 			releaseGroupUserConcurrencyForContext(c)
 			exclusions := map[int]struct{}{channel.Id: {}}
-			for attempt := 0; attempt < common.RetryTimes; attempt++ {
+			// 渠道预检查与原子抢租之间可能被其他请求抢先占用。
+			// 本地竞争不应消耗供应商重试预算；其他 Setup 错误仍遵循 RetryTimes。
+			channelConcurrencyReselection := errors.Is(newAPIError, model.ErrChannelConcurrencyLimitReached)
+			for attempt := 0; attempt < common.RetryTimes || channelConcurrencyReselection; attempt++ {
+				channelConcurrencyReselection = false
 				channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
 					Ctx: c, ModelName: modelRequest.Model, TokenGroup: usingGroup,
 					RequestPath: c.Request.URL.Path, Retry: common.GetPointer(0),
@@ -300,11 +304,19 @@ func Distribute() func(c *gin.Context) {
 					break
 				}
 				exclusions[channel.Id] = struct{}{}
+				if selectGroup != "" {
+					common.SetContextKey(c, constant.ContextKeyUsingGroup, selectGroup)
+					common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectGroup)
+				}
 				newAPIError = SetupContextForSelectedChannel(c, channel, modelRequest.Model)
 				if newAPIError == nil {
 					break
 				}
 				releaseChannelConcurrencyForContext(c)
+				if errors.Is(newAPIError, model.ErrGroupUserConcurrencyLimitReached) {
+					break
+				}
+				channelConcurrencyReselection = errors.Is(newAPIError, model.ErrChannelConcurrencyLimitReached)
 			}
 		}
 		if newAPIError != nil {
