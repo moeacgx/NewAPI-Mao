@@ -18,56 +18,95 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import React from 'react';
 import { Button, Card } from '@douyinfe/semi-ui';
-import { Ticket } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  RefreshCw,
+  Ticket,
+  XCircle,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
-  pendingTicketsPath,
+  ticketStatusPath,
   usePendingTickets,
 } from '../../pages/Tickets/TicketPendingProvider';
+
+const overviewItems = [
+  { status: 'open', label: 'Pending', Icon: Clock3 },
+  { status: 'processing', label: 'In progress', Icon: Loader2 },
+  { status: 'resolved', label: 'Resolved', Icon: CheckCircle2 },
+  { status: 'closed', label: 'Closed', Icon: XCircle },
+];
 
 export default function PendingTicketsCard() {
   const { t } = useTranslation();
   const summary = usePendingTickets();
   if (!summary?.allowed) return null;
   return (
-    <section className='mb-4' aria-label={t('Pending tickets')}>
+    <section className='mb-4' aria-label={t('Ticket overview')}>
       <Card
         className='ticket-pending-card'
         title={
           <span className='ticket-pending-card-title'>
-            <Ticket size={16} aria-hidden='true' />
-            {t('Pending tickets')}
+            <span className='ticket-pending-card-icon' aria-hidden='true'>
+              <Ticket size={16} />
+            </span>
+            {t('Ticket overview')}
+          </span>
+        }
+        headerExtraContent={
+          <span className='ticket-pending-card-actions'>
+            <Button
+              theme='borderless'
+              icon={<RefreshCw size={14} aria-hidden='true' />}
+              aria-label={t('Refresh')}
+              onClick={summary.refresh}
+            />
+            <Link
+              className='ticket-pending-link'
+              to='/console/ticket-management'
+            >
+              {t('View tickets')}
+              <ArrowRight size={14} aria-hidden='true' />
+            </Link>
           </span>
         }
       >
         {summary.error ? (
           <div className='ticket-pending-card-body'>
-            <span role='status'>{t('Failed to load pending tickets')}</span>
-            <Button onClick={summary.refresh}>{t('Retry')}</Button>
+            <span role='status'>{t('Failed to load ticket overview')}</span>
+            <Button
+              icon={<RefreshCw size={14} aria-hidden='true' />}
+              onClick={summary.refresh}
+            >
+              {t('Retry')}
+            </Button>
           </div>
         ) : (
-          <div className='ticket-pending-card-body'>
-            <div>
-              <strong
-                className='ticket-pending-total'
-                aria-label={t('Pending ticket count')}
-              >
-                {summary.total === null ? '—' : summary.total.toLocaleString()}
-              </strong>
-              <p className='ticket-pending-description'>
-                {summary.total === 0
-                  ? t('No tickets awaiting your response')
-                  : t('New tickets and customer follow-ups')}
-              </p>
-            </div>
-            <div className='ticket-pending-card-actions'>
-              <Button onClick={summary.refresh}>{t('Refresh')}</Button>
-              <Link className='ticket-pending-link' to={pendingTicketsPath}>
-                {t('View pending tickets')}
-              </Link>
-            </div>
-          </div>
+          <ul className='ticket-overview-grid'>
+            {overviewItems.map(({ status, label, Icon }) => {
+              const count = summary.counts?.[status];
+              return (
+                <li key={status}>
+                  <Link
+                    className='ticket-overview-item'
+                    to={ticketStatusPath(status)}
+                  >
+                    <Icon size={18} aria-hidden='true' />
+                    <span className='ticket-overview-label'>{t(label)}</span>
+                    <strong className='ticket-overview-count'>
+                      {count === null || count === undefined
+                        ? '—'
+                        : count.toLocaleString()}
+                    </strong>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </Card>
     </section>

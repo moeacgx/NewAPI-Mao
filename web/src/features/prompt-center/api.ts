@@ -22,12 +22,22 @@ import { api } from '@/lib/api'
 
 import type {
   PromptCategory,
+  PromptGroupTag,
   PromptResponse,
   PromptTemplate,
   PromptTemplateInput,
   SkillStoreEntry,
   TokenPromptBinding,
 } from './types'
+
+export async function getPromptGroupTags(): Promise<PromptGroupTag[]> {
+  const response =
+    await api.get<PromptResponse<PromptGroupTag[]>>('/api/group/tags')
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to load group tags')
+  }
+  return response.data.data ?? []
+}
 
 export async function getSkillStore(
   online = false

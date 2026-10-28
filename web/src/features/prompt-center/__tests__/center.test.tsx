@@ -17,13 +17,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { PromptCenter } from '../index'
+
+vi.mock('@lobehub/icons', () => ({}))
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
@@ -44,7 +52,15 @@ const template = {
 beforeEach(() => {
   vi.mocked(api.get)
     .mockReset()
-    .mockResolvedValue({ data: { success: true, data: [template] } })
+    .mockImplementation(async (url) => ({
+      data: {
+        success: true,
+        data:
+          url === '/api/group/tags' || String(url).includes('categories')
+            ? []
+            : [template],
+      },
+    }))
   vi.mocked(api.put)
     .mockReset()
     .mockResolvedValue({ data: { success: true } })
@@ -125,6 +141,30 @@ describe('提示词中心权限和浏览', () => {
     expect(
       screen.getByRole('textbox', { name: 'Search prompts' })
     ).toBeInTheDocument()
+  })
+
+  it('标题、非交互区和分组数量可展开收起白名单，安装按钮独立操作', async () => {
+    renderCenter()
+    const title = await screen.findByRole('button', {
+      name: 'Review',
+    })
+    const card = title.closest('article') as HTMLElement
+    const allowed = within(card).getByRole('button', { name: /Allowed groups/ })
+    expect(allowed).toHaveTextContent('1')
+    expect(allowed).toHaveAttribute('aria-expanded', 'false')
+    expect(within(card).queryByText('Premium models')).not.toBeInTheDocument()
+    fireEvent.click(title)
+    expect(allowed).toHaveAttribute('aria-expanded', 'true')
+    expect(within(card).getByText('Premium models')).toBeInTheDocument()
+    fireEvent.click(allowed)
+    expect(within(card).queryByText('Premium models')).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByText('Review code'))
+    expect(allowed).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(
+      within(card).getByRole('button', { name: 'Install to token' })
+    )
+    expect(allowed).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
   })
 
   it('完整安装流程只提交模板和令牌 ID，不读取完整密钥', async () => {

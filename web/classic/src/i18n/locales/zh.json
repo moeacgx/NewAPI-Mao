@@ -9,6 +9,12 @@
     "Failed to load pending tickets": "待处理工单加载失败",
     "No tickets awaiting your response": "暂无待处理工单",
     "New tickets and customer follow-ups": "新工单与用户追加回复",
+    "Ticket overview": "工单概览",
+    "View tickets": "查看工单",
+    "Pending": "待处理",
+    "Failed to load ticket overview": "工单概览加载失败",
+    "Resolved": "已解决",
+    "Closed": "已关闭",
     "Used skills": "已使用技能",
     "技能": "技能",
     "技能 {{count}}": "技能 {{count}}",
@@ -4000,6 +4006,13 @@
     "Delete category {{name}}": "删除分类 {{name}}",
     "Delete category?": "删除分类？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "删除分类「{{name}}」？其中的技能将变为未分类，删除后无法恢复。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已删除分类「{{name}}」，{{count}} 个技能已移至未分类"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已删除分类「{{name}}」，{{count}} 个技能已移至未分类",
+    "{{count}} of {{limit}} prompt slots used": "已使用 {{count}}/{{limit}} 个提示词位置",
+    "Not saved yet": "待保存",
+    "Unsaved changes": "有未保存的修改",
+    "No unsaved changes": "所有修改已保存",
+    "Discard changes": "放弃修改",
+    "Reset filters": "重置筛选",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工单通知会将本次用户正文摘要发送到 Root 配置的接收目标。转义后的摘要最多 2000 个字符，超长内容附带截断提示，完整正文请到工单详情查看。"
   }
 }

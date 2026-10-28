@@ -2,6 +2,29 @@
 
 - [工单列表优先与设置折叠](../workflows/2026-10/28_ticket_management_settings_layout.md)：Default 与 Classic 管理页优先展示工单列表，自动回复与超时归档集中到默认折叠的设置区。
 
+- [.360 分组回退、工单正文与提示词选择发布](../workflows/2026-10/28_release_360.md)：纳入 #366、#367、#368，说明发布产物、通知模板升级及回滚边界；不包含生产部署。
+
+- [工单通知显示用户正文](../workflows/2026-10/28_ticket_notification_content.md)：当次正文快照、长内容摘要、默认模板升级与历史事件兼容，覆盖 Default、Classic。
+
+- [多分组并发满时继续回退](../workflows/2026-10/28_multigroup_concurrency_fallback.md)：仅在渠道并发不足时继续后续授权分组，保留全组耗尽错误及实际分组上下文。
+
+- [提示词中心分组白名单标签选择](../workflows/2026-10/27_prompt_center_group_tag_picker.md)：管理员按分组标签筛选并多选白名单分组，技能卡片按需展开支持分组。
+- [技能商店预设替换为通用编程开发安全助手](../workflows/2026-10/27_skill_store_general_development_safety.md)：移除三项旧商店预设并加入递归强制删除前的明确授权与范围核验技能。
+- [.359 Skills 私有 Chat SSE 修复发布与部署](../workflows/2026-10/27_release_359.md)：修复范围、发行验证、生产备份、逐节点验收与回滚。
+
+- [网关 Skills Chat 私有流式响应兼容修复](../workflows/2026-10/27_gateway_skill_multiple_choices.md)：聚合上游意外返回的私有 SSE，保留严格候选校验及逐轮计费。
+
+- [.358 模型守卫正文来源发布](../workflows/2026-10/26_release_358.md)：纳入 #359，发行校验与历史兼容边界。
+- [maolaoapi .358 逐节点更新](../workflows/2026-10/26_maolaoapi_358_deployment.md)：现场确认、备份、固定镜像、静态资源与逐节点验收。
+- [.357 Classic 提示词界面与充值客户端 IP 发布](../workflows/2026-10/26_release_357.md)：发布范围、串行合并、资产和镜像检查、数据兼容与回滚边界。
+- [充值日志恢复订单客户端 IP](../workflows/2026-10/26_topup_client_ip.md)：新订单日志使用可信代理链解析的下单地址，遵守用户／强制记录开关，保留历史日志脱敏。
+- [Classic 已安装提示词弹窗与筛选优化](../workflows/2026-10/26_classic_prompt_installation_ui.md)：令牌徽标与提示词中心共用安装弹窗外壳，列表按技能类型区分图标、标注下架与待保存，支持放弃修改；分类筛选和技能类型分段控件可用键盘操作，筛选值不变。仅 Classic。
+- [上游模型检测旧响应头路径清理](../workflows/2026-10/26_model_guard_header_cleanup.md)：正文模型检测继续生效，faster-model 头不再触发关渠，保留历史来源字段。
+- [.356 近期 PR 复核与发布](../workflows/2026-10/26_release_356.md)：双模板控制台、Jev 任务记录和发票关闭释放；发布门禁、快照字段及回滚注意事项。
+- [双模板工单状态概览](../workflows/2026-10/26_ticket_status_overview.md)：待处理、进行中、已解决、已关闭统计与筛选入口，管理员聚合接口及浮窗边界。
+- [发票关闭后释放来源订单](../workflows/2026-10/26_invoice_closed_order_release.md)：关闭终态、历史占用修复、订单明细快照及双模板状态限制。
+- [TypeSafe Jev 不写入任务记录](../workflows/2026-10/26_jev_no_task_history.md)：同步成功不落 `model.Task` 行，保留实际结算、消费日志与统计链路。
+- [待处理工单卡片操作区视觉优化](../workflows/2026-10/26_pending_ticket_card_polish.md)：Default 与 Classic 的刷新、重试和查看待处理操作统一图标与点击层级。
 - [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：两套模板日志类型菜单增加「技能」选项（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
 - [Default 待处理工单看板与浮动提醒](../workflows/2026-10/26_default_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离、轮询与 7 语言文案。
@@ -184,7 +207,7 @@
 
 - [maolaoapi Codex 响应头校验 .330 发布](../workflows/2026-09/21_maolaoapi_codex_header_330_deployment.md)：固定版本发布、数据库备份和加列迁移、maolaoapi 三应用逐节点更新与验收。
 
-- [主程序模型校验接入 Codex 响应头](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：正文与头部模型分离、现有规则及白名单复用、来源记录和迁移验证，无需更新模块包。
+- [主程序模型校验接入 Codex 响应头（历史实现）](../workflows/2026-09/21_model_guard_codex_header_evidence.md)：头部采集现已停用，历史来源记录保留；当前正文检测契约见[清理记录](../workflows/2026-10/26_model_guard_header_cleanup.md)。
 
 - [模型校验白名单直接填写渠道 ID](../workflows/2026-09/21_model_guard_allowlist_ids.md)：双模板文本输入、校验与勾选同步、模块版本和安装边界。
 

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowUpRight,
+  ChevronDown,
   BookOpen,
   CheckCircle2,
   FolderTree,
@@ -31,7 +32,7 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -397,15 +398,37 @@ function PromptTemplateCard(props: {
   onEdit: () => void
 }) {
   const { t } = useTranslation()
+  const [groupsExpanded, setGroupsExpanded] = useState(false)
+  const groupsId = useId()
   // 不限分组没有白名单明细，用单个标签代替分组列表。
   const groups = props.template.all_groups
     ? [{ id: 0, name: t('All groups') }]
     : (props.template.group_details ?? [])
   return (
-    <article className='group border-border/70 bg-background hover:border-primary/30 flex min-w-0 flex-col rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md'>
+    <article
+      className='group border-border/70 bg-background hover:border-primary/30 flex min-w-0 flex-col rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md'
+      onClick={(event) => {
+        if (
+          (event.target as Element).closest(
+            'button, a, input, select, textarea, details, summary, [role="button"], [role="dialog"]'
+          )
+        ) {
+          return
+        }
+        setGroupsExpanded((expanded) => !expanded)
+      }}
+    >
       <div className='flex items-start justify-between gap-3'>
         <h3 className='min-w-0 truncate text-base font-semibold tracking-tight'>
-          {props.template.title}
+          <button
+            type='button'
+            className='w-full truncate text-start outline-offset-4'
+            aria-expanded={groupsExpanded}
+            aria-controls={groupsExpanded ? groupsId : undefined}
+            onClick={() => setGroupsExpanded((expanded) => !expanded)}
+          >
+            {props.template.title}
+          </button>
         </h3>
         <Badge
           variant={props.template.enabled ? 'secondary' : 'outline'}
@@ -430,27 +453,42 @@ function PromptTemplateCard(props: {
       )}
       <div className='border-border/60 mt-auto flex flex-wrap items-end justify-between gap-4 border-t pt-4'>
         <div className='min-w-0 flex-1 basis-32'>
-          <div className='text-muted-foreground mb-2 flex items-center gap-1.5 text-xs font-medium'>
+          <button
+            type='button'
+            className='text-muted-foreground flex items-center gap-1.5 text-xs font-medium'
+            aria-expanded={groupsExpanded}
+            aria-controls={groupsExpanded ? groupsId : undefined}
+            onClick={() => setGroupsExpanded((expanded) => !expanded)}
+          >
             <ShieldCheck className='text-primary size-3.5' aria-hidden='true' />
             {t('Allowed groups')}
-          </div>
-          <div className='flex min-h-6 flex-wrap gap-1.5'>
-            {groups.length > 0 ? (
-              groups.map((group) => (
-                <Badge
-                  key={group.id}
-                  variant='outline'
-                  className='bg-muted/30 h-auto max-w-full rounded-md px-2 py-1 text-[11px] whitespace-normal'
-                >
-                  {group.name}
-                </Badge>
-              ))
-            ) : (
-              <span className='text-muted-foreground text-xs'>
-                {t('No available groups')}
-              </span>
-            )}
-          </div>
+            <span>
+              · {props.template.all_groups ? t('All groups') : groups.length}
+            </span>
+            <ChevronDown
+              aria-hidden='true'
+              className={`size-3.5 transition-transform ${groupsExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {groupsExpanded && (
+            <div id={groupsId} className='mt-2 flex min-h-6 flex-wrap gap-1.5'>
+              {groups.length > 0 ? (
+                groups.map((group) => (
+                  <Badge
+                    key={group.id}
+                    variant='outline'
+                    className='bg-muted/30 h-auto max-w-full rounded-md px-2 py-1 text-[11px] whitespace-normal'
+                  >
+                    {group.name}
+                  </Badge>
+                ))
+              ) : (
+                <span className='text-muted-foreground text-xs'>
+                  {t('No available groups')}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className='ml-auto flex flex-wrap justify-end gap-2'>
           <Button

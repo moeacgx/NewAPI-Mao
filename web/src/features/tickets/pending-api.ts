@@ -24,10 +24,20 @@ import { ROLE } from '@/lib/roles'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import type { AuthUser } from '@/stores/auth-store'
 
+import type { TicketStatusCounts } from './pending-ticket-context'
+
 type PendingTicketSummary =
-  | { state: 'ready'; total: number }
+  | { state: 'ready'; counts: TicketStatusCounts }
   | { state: 'denied' }
   | { state: 'error' }
+
+const statusKeys = [
+  'open',
+  'processing',
+  'resolved',
+  'closed',
+  'archived',
+] as const
 
 export async function getPendingTicketSummary(
   userId: number,
@@ -57,14 +67,22 @@ export async function getPendingTicketSummary(
     const response = await api.get<{
       success: boolean
       message: string
-      data: { total: number }
-    }>('/api/ticket-admin', {
-      ...config,
-      params: { p: 1, page_size: 1, status: 'open' },
-    })
-    const total = requireServerSuccess(response.data).data.total
-    if (!Number.isSafeInteger(total) || total < 0) return { state: 'error' }
-    return { state: 'ready', total }
+      data: Partial<TicketStatusCounts>
+    }>('/api/ticket-admin/stats', config)
+    const data = requireServerSuccess(response.data).data
+    const counts = {} as TicketStatusCounts
+    for (const key of statusKeys) {
+      const value = data[key]
+      if (
+        typeof value !== 'number' ||
+        !Number.isSafeInteger(value) ||
+        value < 0
+      ) {
+        return { state: 'error' }
+      }
+      counts[key] = value
+    }
+    return { state: 'ready', counts }
   } catch (error) {
     if (
       isAxiosError(error) &&
@@ -72,7 +90,7 @@ export async function getPendingTicketSummary(
     ) {
       return { state: 'denied' }
     }
-    // 可选提醒失败只在卡片内展示，不触发全局查询错误页或阻断后台。
+    // 可选概览失败只在卡片内展示，不触发全局查询错误页或阻断后台。
     return { state: 'error' }
   }
 }

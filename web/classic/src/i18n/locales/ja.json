@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "対応待ちチケットの読み込みに失敗しました",
     "No tickets awaiting your response": "対応待ちのチケットはありません",
     "New tickets and customer follow-ups": "新規チケットとユーザーからの追加返信",
+    "Ticket overview": "チケット概要",
+    "View tickets": "チケットを表示",
+    "Pending": "対応待ち",
+    "Failed to load ticket overview": "チケット概要の読み込みに失敗しました",
     "Used skills": "使用済みスキル",
     "技能": "スキル",
     "技能 {{count}}": "スキル {{count}}",
@@ -3526,7 +3530,7 @@
     "搜索": "",
     "搜索部署名称": "Search deployment name",
     "搜索待处置用户": "",
-    "搜索分组...": "",
+    "搜索分组...": "グループを検索...",
     "搜索风控用户": "",
     "搜索供应商": "プロバイダーで検索",
     "搜索共享 IP": "",
@@ -6368,6 +6372,13 @@
     "Delete category {{name}}": "カテゴリ {{name}} を削除",
     "Delete category?": "カテゴリを削除しますか？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "カテゴリ「{{name}}」を削除しますか？含まれるスキルは未分類になります。この操作は元に戻せません。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "カテゴリ「{{name}}」を削除し、{{count}} 個のスキルを未分類に移動しました"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "カテゴリ「{{name}}」を削除し、{{count}} 個のスキルを未分類に移動しました",
+    "{{count}} of {{limit}} prompt slots used": "プロンプト枠 {{limit}} 件中 {{count}} 件を使用中",
+    "Not saved yet": "未保存",
+    "Unsaved changes": "未保存の変更があります",
+    "No unsaved changes": "変更はすべて保存済みです",
+    "Discard changes": "変更を破棄",
+    "Reset filters": "フィルターをリセット",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "チケット通知は、今回のユーザーメッセージの抜粋を Root が設定した宛先に送信します。エスケープ後の抜粋は最大 2000 文字で、超過分には省略の案内が付きます。全文はチケット詳細で確認できます。"
   }
 }

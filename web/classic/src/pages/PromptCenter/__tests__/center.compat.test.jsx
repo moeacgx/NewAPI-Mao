@@ -78,7 +78,8 @@ beforeEach(() => {
     const body = config.data ? JSON.parse(config.data) : undefined;
     calls.push({ url: config.url, method: config.method, body });
     let data;
-    if (config.url === '/api/prompt-center/categories/') data = [];
+    if (config.url === '/api/group/tags') data = [];
+    else if (config.url === '/api/prompt-center/categories/') data = [];
     else if (config.url === '/api/prompt-center/') data = templates;
     else if (config.url === '/api/prompt-center/admin/')
       data = config.method === 'post' ? { id: 12, ...body } : templates;

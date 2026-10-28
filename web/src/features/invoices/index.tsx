@@ -492,6 +492,7 @@ export function Invoices({ admin = false }: InvoicesProps) {
                         <div className='grid gap-2'>
                           <Label>{t('Status')}</Label>
                           <Select
+                            disabled={record.status === 'closed'}
                             items={[
                               { value: 'pending', label: t('Pending issue') },
                               { value: 'issued', label: t('Issued') },

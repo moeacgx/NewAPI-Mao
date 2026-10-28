@@ -18,8 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createContext, useContext } from 'react'
 
+export type TicketStatusCounts = {
+  open: number
+  processing: number
+  resolved: number
+  closed: number
+  archived: number
+}
+
 export type PendingTickets = {
+  /** 待处理数量，等于 counts.open，供浮动提醒使用。 */
   total: number | null
+  counts: TicketStatusCounts | null
   error: boolean
   refresh: () => void
 }

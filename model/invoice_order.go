@@ -133,6 +133,11 @@ func GetRecentInvoiceOrders(userId int) ([]InvoiceEligibleOrder, error) {
 	if userId <= 0 {
 		return nil, errors.New("无效的用户")
 	}
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		return releaseHistoricalClosedInvoiceSourcesTx(tx, userId)
+	}); err != nil {
+		return nil, err
+	}
 	cutoff := invoiceOrderCutoff()
 
 	var topUps []TopUp
@@ -152,8 +157,9 @@ func GetRecentInvoiceOrders(userId int) ([]InvoiceEligibleOrder, error) {
 	}
 
 	var records []InvoiceRecord
-	if err := DB.Select("source_type", "source_id", "status").
+	if err := DB.Unscoped().Select("source_type", "source_id", "status").
 		Where("user_id = ? AND source_type IN ?", userId, []string{InvoiceSourceTopUp, InvoiceSourceSubscription}).
+		Where("status <> ? OR status IS NULL", InvoiceStatusClosed).
 		Find(&records).Error; err != nil {
 		return nil, err
 	}
@@ -177,7 +183,7 @@ func GetRecentInvoiceOrders(userId int) ([]InvoiceEligibleOrder, error) {
 			invoiceIds = append(invoiceIds, link.InvoiceId)
 		}
 		var linkedRecords []InvoiceRecord
-		if err := DB.Select("id", "status").Where("id IN ?", invoiceIds).Find(&linkedRecords).Error; err != nil {
+		if err := DB.Unscoped().Select("id", "status").Where("id IN ?", invoiceIds).Find(&linkedRecords).Error; err != nil {
 			return nil, err
 		}
 		statuses := make(map[int]string, len(linkedRecords))
@@ -320,6 +326,9 @@ func resolveInvoiceOrdersTx(tx *gorm.DB, userId int, references []InvoiceOrderRe
 	if err != nil {
 		return nil, err
 	}
+	if err := releaseHistoricalClosedInvoiceSourcesTx(tx, userId); err != nil {
+		return nil, err
+	}
 	cutoff := invoiceOrderCutoff()
 	resolved := make([]resolvedInvoiceOrder, 0, len(normalized))
 	for _, reference := range normalized {
@@ -384,6 +393,7 @@ func resolveInvoiceOrdersTx(tx *gorm.DB, userId int, references []InvoiceOrderRe
 		var directCount int64
 		if err := tx.Unscoped().Model(&InvoiceRecord{}).
 			Where("source_type = ? AND source_id = ?", reference.SourceType, reference.SourceId).
+			Where("status <> ? OR status IS NULL", InvoiceStatusClosed).
 			Count(&directCount).Error; err != nil {
 			return nil, err
 		}

@@ -56,6 +56,8 @@ func (p *RetryParam) ExcludeChannelID(channelID int, allowFallback bool) {
 			p.RetryFallbackChannelIDs = make(map[int]struct{})
 		}
 		p.RetryFallbackChannelIDs[channelID] = struct{}{}
+	} else {
+		delete(p.RetryFallbackChannelIDs, channelID)
 	}
 }
 
@@ -182,6 +184,8 @@ func selectFromOrderedGroups(param *RetryParam, groups []string) (*model.Channel
 	if groupStartRetry > globalRetry {
 		groupStartRetry = globalRetry
 	}
+	var concurrencyErr error
+	var concurrencyGroup string
 
 	for i := startGroup; i < len(groups); i++ {
 		if i > startGroup {
@@ -190,7 +194,13 @@ func selectFromOrderedGroups(param *RetryParam, groups []string) (*model.Channel
 		priorityRetry := globalRetry - groupStartRetry
 		channel, err := selectFromGroup(param, groups[i], priorityRetry)
 		if err != nil {
-			return nil, groups[i], err
+			if !errors.Is(err, model.ErrChannelConcurrencyLimitReached) {
+				return nil, groups[i], err
+			}
+			// 并发满只耗尽当前组；后续授权组仍可能有余量。
+			if concurrencyErr == nil {
+				concurrencyErr, concurrencyGroup = err, groups[i]
+			}
 		}
 		if channel == nil {
 			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
@@ -203,6 +213,9 @@ func selectFromOrderedGroups(param *RetryParam, groups []string) (*model.Channel
 		common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
 		common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupRetryIndex, groupStartRetry)
 		return channel, selectGroup, nil
+	}
+	if concurrencyErr != nil {
+		return nil, concurrencyGroup, concurrencyErr
 	}
 	return nil, selectGroup, nil
 }

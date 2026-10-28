@@ -130,6 +130,15 @@ func dispatchNotificationDelivery(ctx context.Context, work model.NotificationDe
 		logNotificationTransitionError(work.Delivery.Id, "mark dead", model.MarkNotificationDeliveryDead(work.Delivery.Id, "invalid notification event payload"))
 		return
 	}
+	if work.Event.EventType == model.NotificationEventTypeTicketUserMessage {
+		if _, exists := payload["content"]; !exists {
+			// 历史事件没有正文快照，不查询后续消息，也不改写历史负载。
+			if payload == nil {
+				payload = make(map[string]any)
+			}
+			payload["content"] = "历史通知未保存正文，请查看工单"
+		}
+	}
 	// 兼容旧版前端将发票默认模板带入渠道事件的任务；自定义未知变量仍由渲染器拒绝。
 	template := model.NormalizeNotificationTaskTemplate(work.Event.EventType, work.Task.Template)
 	content, err := RenderNotificationTemplate(template, payload, &work.Target)

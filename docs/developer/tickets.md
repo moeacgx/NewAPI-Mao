@@ -60,13 +60,16 @@ Ticket 字段为 `id,user_id,title,category,priority,status,version,created_at,u
 
 ### 后台待处理提醒
 
-Classic 与 Default 数据看板的待处理工单卡片与后台右上角浮动提醒共用 `status=open` 的管理列表总数。
-先验证 `tickets:read`，再请求 `GET /api/ticket-admin?p=1&page_size=1&status=open`。
+Classic 与 Default 数据看板展示待处理、进行中、已解决、已关闭四项统计，每项点击进入对应状态列表。顶部入口进入完整工单管理列表。
+先验证 `tickets:read`，再请求 `GET /api/ticket-admin/stats`，返回 `{success:true,data:{open:0,processing:0,resolved:0,closed:0,archived:0}}`。
+接口仅管理员可访问，使用一次状态分组聚合；排除软删除工单，空状态返回零。归档独立计数，不计入已关闭。没有数据库迁移。
+后台右上角浮动提醒仅使用同一响应的 `open`，不把进行中数量合并进提醒。
 人工管理员回复后的 `processing` 不属于待处理；自动确认消息保持 `open`。
 数量为零不浮动提示，手动关闭后当前连续后台访问期间不重复提示；无遮罩、不抢焦点。
 点击入口进入 `/console/ticket-management?status=open`。可见页面每 60 秒刷新，工单操作后及返回标签页时刷新，
 失败不继续显示旧数量，权限撤销和账号切换清理状态。Classic 路由为 `/console/ticket-management?status=open`，Default 为 `/ticket-management?status=open`。详见
 [Classic 实现](../workflows/2026-10/26_classic_pending_tickets.md)与[Default 实现](../workflows/2026-10/26_default_pending_tickets.md)。
+状态概览的当前接口、布局与验证见[工作记录](../workflows/2026-10/26_ticket_status_overview.md)；此前工作记录中的列表计数接口为历史实现。
 
 ### 外部通知
 
@@ -77,8 +80,15 @@ Classic 与 Default 数据看板的待处理工单卡片与后台右上角浮动
 `action_label=新工单`）或用户追加回复（`action=replied`，`action_label=用户追加回复`）。
 管理员回复、显式状态修改、批量改状态和自动归档都由管理员或系统发起，不发送通知。
 
-变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time,action,action_label`，
-`actor_role` 固定为 `user`。正文不进入通知负载，避免将可能存在的凭据扩散到外部。
+变量为 `mention,ticket_id,title,user_id,category,priority,status,actor_id,actor_role,create_time,action,action_label,content`，
+`actor_role` 固定为 `user`。`content` 在保存本次用户消息的事务内冻结，不取自动回复或后续消息。
+正文摘要限制为 HTML 转义后 2000 个字符，超长附截断说明；工单正文仍完整保留。
+默认模板增加正文，精确旧默认自动升级，自定义模板保持不变。历史事件缺少正文时显示
+“历史通知未保存正文，请查看工单”，不查询或重写历史内容。
+
+用户正文会随通知发送给 Root 配置的外部接收目标，并进入 Root 可访问的通知历史。
+接收范围由配置者确认，系统不校验 Telegram 群成员身份。详细契约、验证与限制见
+[工单正文通知](../workflows/2026-10/28_ticket_notification_content.md)。
 
 事件与业务写入同事务，幂等键使用工单 ID 和版本号。无订阅者时工单照常保存；通知表尚未迁移时沿用可选通知语义，跳过且不补发历史通知，其余入队失败回滚新建或用户回复。管理员回复和状态变更不再依赖通知写入。不自动建立 Bot 或发送测试通知，通知配置保持已有 Root 权限。
 

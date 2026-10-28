@@ -243,3 +243,16 @@ func (api TicketAPI) UpdateAutoReply(c *gin.Context) {
 	}
 	common.ApiSuccess(c, updated)
 }
+
+// Stats 只返回各状态数量，不包含工单正文或用户信息；仅管理路由注册。
+func (api TicketAPI) Stats(c *gin.Context) {
+	if !api.authorized(c) {
+		return
+	}
+	counts, err := model.CountTicketsByStatus()
+	if err != nil {
+		writeTicketError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": counts})
+}

@@ -17,12 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useId, useState } from 'react';
 import { Button } from '@douyinfe/semi-ui';
 import {
   ArrowUpRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleSlash2,
   Layers3,
   PencilLine,
@@ -35,6 +36,15 @@ import TemplateDelete from './TemplateDelete';
 
 export default function PromptCatalog(props) {
   const { t } = useTranslation();
+  const prefix = useId();
+  const [expanded, setExpanded] = useState(new Set());
+  const toggle = (id) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   return (
     <section className='prompt-center-section' aria-label={t('Prompt catalog')}>
       <div className='prompt-center-section-heading'>
@@ -59,9 +69,30 @@ export default function PromptCatalog(props) {
             <article
               className='prompt-center-card prompt-center-catalog-card'
               key={template.id}
+              onClick={(event) => {
+                // 卡片正文可展开；安装、编辑、删除及合集明细保留各自操作。
+                if (
+                  event.target.closest(
+                    'button, a, input, select, textarea, summary, details, [role="dialog"]',
+                  )
+                )
+                  return;
+                toggle(template.id);
+              }}
             >
               <div className='prompt-center-card-topline'>
-                <h3 title={template.title}>{template.title}</h3>
+                <h3 title={template.title}>
+                  <button
+                    type='button'
+                    className='prompt-center-card-title'
+                    aria-expanded={expanded.has(template.id)}
+                    aria-controls={`${prefix}-groups-${template.id}`}
+                    onClick={() => toggle(template.id)}
+                  >
+                    <span>{template.title}</span>
+                    <ChevronDown size={16} aria-hidden='true' />
+                  </button>
+                </h3>
                 <span
                   className={`prompt-center-status ${template.enabled ? 'is-published' : 'is-unpublished'}`}
                 >
@@ -85,8 +116,11 @@ export default function PromptCatalog(props) {
                     onUpdated={props.onRepositoryUpdated}
                   />
                 )}
-              <div className='prompt-center-card-footer'>
-                <div className='prompt-center-card-meta'>
+              {expanded.has(template.id) && (
+                <div
+                  className='prompt-center-card-group-details'
+                  id={`${prefix}-groups-${template.id}`}
+                >
                   <span className='prompt-center-meta-label'>
                     <ShieldCheck size={13} aria-hidden='true' />
                     {t('Allowed groups')}
@@ -114,6 +148,8 @@ export default function PromptCatalog(props) {
                       )}
                   </div>
                 </div>
+              )}
+              <div className='prompt-center-card-footer'>
                 <div className='prompt-center-card-actions'>
                   <Button
                     className='prompt-center-install-button'

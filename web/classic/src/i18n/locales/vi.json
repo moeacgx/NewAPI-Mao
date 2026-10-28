@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "Không thể tải phiếu chờ xử lý",
     "No tickets awaiting your response": "Không có phiếu nào đang chờ bạn phản hồi",
     "New tickets and customer follow-ups": "Phiếu mới và phản hồi bổ sung của khách hàng",
+    "Ticket overview": "Tổng quan phiếu hỗ trợ",
+    "View tickets": "Xem phiếu hỗ trợ",
+    "Pending": "Chờ xử lý",
+    "Failed to load ticket overview": "Không thể tải tổng quan phiếu hỗ trợ",
     "Used skills": "Kỹ năng đã sử dụng",
     "技能": "Kỹ năng",
     "技能 {{count}}": "Kỹ năng {{count}}",
@@ -3864,7 +3868,7 @@
     "搜索": "",
     "搜索部署名称": "Search deployment name",
     "搜索待处置用户": "",
-    "搜索分组...": "",
+    "搜索分组...": "Tìm kiếm nhóm...",
     "搜索风控用户": "",
     "搜索供应商": "Tìm kiếm nhà cung cấp",
     "搜索共享 IP": "",
@@ -6910,6 +6914,13 @@
     "Delete category {{name}}": "Xóa danh mục {{name}}",
     "Delete category?": "Xóa danh mục?",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "Xóa danh mục “{{name}}”? Các kỹ năng trong đó sẽ chuyển sang Chưa phân loại. Không thể hoàn tác thao tác này.",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Đã xóa danh mục “{{name}}”. {{count}} kỹ năng đã được chuyển sang Chưa phân loại"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "Đã xóa danh mục “{{name}}”. {{count}} kỹ năng đã được chuyển sang Chưa phân loại",
+    "{{count}} of {{limit}} prompt slots used": "Đã dùng {{count}}/{{limit}} vị trí lời nhắc",
+    "Not saved yet": "Chưa lưu",
+    "Unsaved changes": "Có thay đổi chưa lưu",
+    "No unsaved changes": "Mọi thay đổi đã được lưu",
+    "Discard changes": "Hủy thay đổi",
+    "Reset filters": "Đặt lại bộ lọc",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Thông báo phiếu hỗ trợ gửi trích đoạn tin nhắn hiện tại của người dùng đến người nhận do Root cấu hình. Sau khi thoát ký tự, trích đoạn tối đa 2000 ký tự; tin nhắn dài hơn có ghi chú cắt bớt. Xem toàn bộ nội dung trong chi tiết phiếu."
   }
 }

@@ -64,6 +64,7 @@ beforeEach(() => {
     let data;
     if (config.url === '/api/group/details')
       data = [{ id: 9, name: 'Visible group', code: 'hidden-code' }];
+    else if (config.url === '/api/group/tags') data = [];
     else if (config.url === '/api/prompt-center/categories/') data = [];
     else if (config.url === '/api/prompt-center/') data = catalogTemplates;
     else if (config.url === '/api/token/4/prompts') data = bindings;
@@ -214,7 +215,7 @@ test('缺少 all_groups 的旧技能按限定分组编辑并提交 all_groups=fa
   });
 });
 
-test('技能目录中不限分组卡片显示不限分组，限定分组卡片显示分组名称而非 code', () => {
+test('技能目录展开后显示不限分组或当前分组名称，不显示分组 code', async () => {
   render(
     <PromptCatalog
       templates={[unrestricted, restricted]}
@@ -226,11 +227,19 @@ test('技能目录中不限分组卡片显示不限分组，限定分组卡片�
   const openCard = screen
     .getByRole('heading', { name: 'Open skill' })
     .closest('article');
+  expect(within(openCard).queryByText(ALL_GROUPS)).toBeNull();
+  await userEvent.click(
+    within(openCard).getByRole('button', { name: 'Open skill' }),
+  );
   expect(within(openCard).getByText(ALL_GROUPS)).toBeTruthy();
   expect(within(openCard).queryByText('No eligible groups')).toBeNull();
   const restrictedCard = screen
     .getByRole('heading', { name: 'Restricted skill' })
     .closest('article');
+  expect(within(restrictedCard).queryByText('Visible group')).toBeNull();
+  await userEvent.click(
+    within(restrictedCard).getByRole('button', { name: 'Restricted skill' }),
+  );
   expect(within(restrictedCard).getByText('Visible group')).toBeTruthy();
   expect(within(restrictedCard).queryByText(ALL_GROUPS)).toBeNull();
   expect(screen.queryByText(/hidden-code/)).toBeNull();
@@ -247,12 +256,12 @@ test('令牌已安装列表中不限分组技能显示不限分组，限定分�
   });
   const openCard = within(installed)
     .getByRole('heading', { name: 'Open skill' })
-    .closest('article');
+    .closest('li');
   expect(within(openCard).getByText(ALL_GROUPS)).toBeTruthy();
   expect(within(openCard).queryByText('No eligible groups')).toBeNull();
   const restrictedCard = within(installed)
     .getByRole('heading', { name: 'Restricted skill' })
-    .closest('article');
+    .closest('li');
   expect(within(restrictedCard).getByText('Visible group')).toBeTruthy();
   expect(within(restrictedCard).queryByText(ALL_GROUPS)).toBeNull();
   expect(screen.queryByText(/hidden-code/)).toBeNull();

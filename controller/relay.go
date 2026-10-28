@@ -459,12 +459,12 @@ func RelayTask(c *gin.Context) {
 
 	var result *relay.TaskSubmitResult
 	var taskErr *taskdto.TaskError
-	nativeTaskDurable := false
+	nativeTaskAccepted := false
 	pinnedValue, _ := c.Get(pluginruntime.ContextKeyPinnedRoute)
 	pinned, pinnedRoute := pinnedValue.(pluginruntime.PinnedRoute)
 	synchronousPlugin := pinnedRoute && pinned.Route.RetainResult != nil && !*pinned.Route.RetainResult
 	defer func() {
-		if taskErr != nil && !nativeTaskDurable && relayInfo.Billing != nil {
+		if taskErr != nil && !nativeTaskAccepted && relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
 		}
 		// 模型广场有独立采样链；只计真正调用供应商的同步终态，排除本地错误和取消。
@@ -623,8 +623,8 @@ func RelayTask(c *gin.Context) {
 				respondTaskError(c, taskErr)
 				return
 			}
-			// 与上游 durable 边界一致：任务已落库后，结算故障不能再按提交失败退款。
-			nativeTaskDurable = nativeRoute
+			// 原生结果已受理（Jev 不保存任务行），结算故障不能按提交失败退款。
+			nativeTaskAccepted = nativeRoute
 		}
 		settleErr := service.SettleBilling(c, relayInfo, result.Quota)
 		metricUsage := service.ChannelMetricUsage{}
@@ -637,6 +637,22 @@ func RelayTask(c *gin.Context) {
 		if settleErr != nil {
 			common.SysError("settle task billing error: " + settleErr.Error())
 			if nativeRoute {
+				preConsumed := relayInfo.FinalPreConsumedQuota
+				if relayInfo.Billing != nil {
+					preConsumed = relayInfo.Billing.GetPreConsumedQuota()
+				}
+				// 不冒充成功消费；资金与令牌可能仅部分结算，留下独立核对证据。
+				other := map[string]interface{}{"admin_info": map[string]interface{}{
+					"settlement_pending": true, "expected_actual_quota": result.Quota,
+					"pre_consumed_quota": preConsumed, "billing_source": relayInfo.BillingSource,
+					"subscription_id": relayInfo.SubscriptionId, "upstream_model": relayInfo.UpstreamModelName,
+					"task_id": relayInfo.PublicTaskID, "actual_token_usage": taskUsage,
+				}}
+				service.AppendTaskPluginContextAuditInfo(c, other)
+				model.RecordErrorLog(c, relayInfo.UserId, relayInfo.ChannelId, relayInfo.OriginModelName,
+					c.GetString("token_name"), "插件任务结算失败，账务待核对", relayInfo.TokenId, 0, false, relayInfo.UsingGroup, other)
+				logger.LogError(c, fmt.Sprintf("plugin_billing_settlement_pending user_id=%d token_id=%d channel_id=%d expected_quota=%d pre_consumed_quota=%d",
+					relayInfo.UserId, relayInfo.TokenId, relayInfo.ChannelId, result.Quota, preConsumed))
 				taskErr = service.TaskErrorWrapperLocal(errors.New("插件任务结算失败"), "plugin_billing_settlement_failed", http.StatusInternalServerError)
 				respondTaskError(c, taskErr)
 				return
@@ -839,27 +855,40 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 		setSelectedSecurityAuditRoute(c, channel, selectedGroup)
 		return channel, nil
 	}
-	channel, selectedGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
-	if err != nil {
-		selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
-		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectedGroupName, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	var lastChannelConcurrencyError *types.NewAPIError
+	for {
+		channel, selectedGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
+		if err != nil {
+			selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
+			return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectedGroupName, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if channel == nil {
+			if lastChannelConcurrencyError != nil {
+				return nil, lastChannelConcurrencyError
+			}
+			selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
+			return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectedGroupName, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if selectedGroup != "" {
+			info.UsingGroup = selectedGroup
+			common.SetContextKey(c, constant.ContextKeyUsingGroup, selectedGroup)
+			common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectedGroup)
+		}
+		info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
+		newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
+		if newAPIError == nil {
+			setSelectedSecurityAuditRoute(c, channel, selectedGroup)
+			return channel, nil
+		}
+		if !errors.Is(newAPIError, model.ErrChannelConcurrencyLimitReached) || retryParam == nil {
+			return nil, newAPIError
+		}
+		lastChannelConcurrencyError = newAPIError
+		// Setup 的原子抢租失败发生在上游调用前，不消耗外层供应商重试次数。释放上一轮租约，排除本渠道后继续当前分组选路。
+		middleware.ReleaseChannelConcurrencyForContext(c)
+		middleware.ReleaseGroupUserConcurrencyForContext(c)
+		retryParam.ExcludeChannelID(channel.Id, false)
 	}
-	if channel == nil {
-		selectedGroupName := model.GetGroupDisplayNameForError(selectedGroup)
-		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectedGroupName, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
-	}
-	if selectedGroup != "" {
-		info.UsingGroup = selectedGroup
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, selectedGroup)
-		common.SetContextKey(c, constant.ContextKeySelectedChannelGroup, selectedGroup)
-	}
-	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
-	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
-	if newAPIError != nil {
-		return nil, newAPIError
-	}
-	setSelectedSecurityAuditRoute(c, channel, selectedGroup)
-	return channel, nil
 }
 
 func setSelectedSecurityAuditRoute(c *gin.Context, channel *model.Channel, groupCode string) {

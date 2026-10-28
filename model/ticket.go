@@ -121,7 +121,7 @@ func CreateTicket(userID int, input TicketCreateInput) (*Ticket, error) {
 				return err
 			}
 		}
-		return enqueueTicketUserNotificationTx(tx, ticket, TicketNotificationActionCreated, userID)
+		return enqueueTicketUserNotificationTx(tx, ticket, TicketNotificationActionCreated, userID, input.Content)
 	})
 	return ticket, err
 }
@@ -220,7 +220,7 @@ func ReplyTicket(ticketID, userID int, admin bool, content string) (*TicketMessa
 		if admin {
 			return nil
 		}
-		return enqueueTicketUserNotificationTx(tx, &ticket, TicketNotificationActionReplied, userID)
+		return enqueueTicketUserNotificationTx(tx, &ticket, TicketNotificationActionReplied, userID, message.Content)
 	})
 	return message, err
 }
@@ -260,11 +260,32 @@ func updateTicketStateTx(tx *gorm.DB, ticket *Ticket, status string) error {
 }
 
 // enqueueTicketUserNotificationTx 只在用户新建或追加回复时入队，与业务变更同一事务。
-func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string, actorID int) error {
+func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string, actorID int, content string) error {
 	return EnqueueNotificationEventTx(tx, NotificationEventTypeTicketUserMessage, fmt.Sprintf("ticket:%d:version:%d", ticket.Id, ticket.Version), map[string]any{
 		"ticket_id": ticket.Id, "title": ticket.Title, "user_id": ticket.UserId,
 		"category": ticket.Category, "priority": ticket.Priority, "status": ticket.Status,
 		"actor_id": actorID, "actor_role": "user", "create_time": ticket.UpdatedAt,
 		"action": action, "action_label": ticketNotificationActionLabels[action],
+		"content": ticketNotificationContentSnapshot(content),
 	})
+}
+
+// CountTicketsByStatus 用一次分组聚合统计未软删除工单，所有已知状态缺失时补 0。
+func CountTicketsByStatus() (map[string]int64, error) {
+	var rows []struct {
+		Status string
+		Total  int64
+	}
+	if err := DB.Model(&Ticket{}).Select("status, COUNT(*) AS total").Group("status").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	counts := map[string]int64{
+		TicketStatusOpen: 0, TicketStatusProcessing: 0, TicketStatusResolved: 0, TicketStatusClosed: 0, TicketStatusArchived: 0,
+	}
+	for _, row := range rows {
+		if ValidTicketStatus(row.Status) {
+			counts[row.Status] = row.Total
+		}
+	}
+	return counts, nil
 }

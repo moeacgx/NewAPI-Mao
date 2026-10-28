@@ -266,9 +266,9 @@ func TestGetRecentInvoiceOrdersMarksUsedOrdersAndDeduplicatesSubscriptionMirror(
 	assert.Equal(t, 70.0, byId["TOP-ELIGIBLE"].InvoiceAmount)
 	assert.False(t, byId["TOP-USED"].InvoiceEligible)
 	assert.Equal(t, InvoiceStatusIssued, byId["TOP-USED"].InvoiceStatus)
-	assert.True(t, byId["TOP-RECORDED"].Invoiced)
-	assert.False(t, byId["TOP-RECORDED"].InvoiceEligible)
-	assert.Equal(t, InvoiceStatusClosed, byId["TOP-RECORDED"].InvoiceStatus)
+	assert.False(t, byId["TOP-RECORDED"].Invoiced)
+	assert.True(t, byId["TOP-RECORDED"].InvoiceEligible)
+	assert.Empty(t, byId["TOP-RECORDED"].InvoiceStatus)
 	assert.Equal(t, InvoiceSourceSubscription, byId["SUB-RECENT"].SourceType)
 	assert.Equal(t, 70.0, byId["SUB-RECENT"].InvoiceAmount)
 	_, containsOld := byId["TOP-OLD"]

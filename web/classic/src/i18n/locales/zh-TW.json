@@ -9,6 +9,10 @@
     "Failed to load pending tickets": "待處理工單載入失敗",
     "No tickets awaiting your response": "暫無待處理工單",
     "New tickets and customer follow-ups": "新工單與使用者追加回覆",
+    "Ticket overview": "工單概覽",
+    "View tickets": "查看工單",
+    "Pending": "待處理",
+    "Failed to load ticket overview": "工單概覽載入失敗",
     "Used skills": "已使用技能",
     "技能": "技能",
     "技能 {{count}}": "技能 {{count}}",
@@ -3542,7 +3546,7 @@
     "搜索": "",
     "搜索部署名称": "搜尋部署名稱",
     "搜索待处置用户": "",
-    "搜索分组...": "",
+    "搜索分组...": "搜尋分組...",
     "搜索风控用户": "",
     "搜索供应商": "搜尋供應商",
     "搜索共享 IP": "",
@@ -6392,6 +6396,13 @@
     "Delete category {{name}}": "刪除分類 {{name}}",
     "Delete category?": "刪除分類？",
     "Delete category “{{name}}”? Its skills will become Uncategorized. This action cannot be undone.": "刪除分類「{{name}}」？其中的技能將變為未分類，刪除後無法復原。",
-    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已刪除分類「{{name}}」，{{count}} 個技能已移至未分類"
+    "Deleted category {{name}}. {{count}} skills moved to Uncategorized": "已刪除分類「{{name}}」，{{count}} 個技能已移至未分類",
+    "{{count}} of {{limit}} prompt slots used": "已使用 {{count}}/{{limit}} 個提示詞位置",
+    "Not saved yet": "待儲存",
+    "Unsaved changes": "有未儲存的修改",
+    "No unsaved changes": "所有修改已儲存",
+    "Discard changes": "放棄修改",
+    "Reset filters": "重設篩選",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工單通知會將本次使用者正文摘要傳送至 Root 設定的接收目標。跳脫後的摘要最多 2000 個字元，過長內容會附上截斷提示，完整正文請至工單詳情查看。"
   }
 }

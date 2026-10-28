@@ -119,7 +119,18 @@ func GetOfficialPluginArtifacts(c *gin.Context) {
 }
 
 // persistOfficialPluginTask 在结算和返回公开 ID 前持久化版本与原计费来源。
+// TypeSafe Jev 的同步结果由原生响应直接交付，不写入任务记录。
 func persistOfficialPluginTask(c *gin.Context, info *relaycommon.RelayInfo, result *relay.TaskSubmitResult) error {
+	if pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedRoute); exists {
+		pinned, ok := pinnedValue.(pluginruntime.PinnedRoute)
+		immediate := result.PluginResponse.Immediate
+		if ok && pinned.Plugin != nil && (pinned.Plugin.Meta.Key == "typesafe" || pinned.Plugin.Meta.Key == "cloudflare-jev") &&
+			pinned.Route.RetainResult != nil && !*pinned.Route.RetainResult &&
+			immediate != nil && immediate.Status == model.TaskStatusSuccess {
+			return nil
+		}
+	}
+
 	task := model.InitTask(result.Platform, info)
 	task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 	task.PrivateData.Execution = service.TaskExecutionSnapshotFromContext(c)
@@ -145,7 +156,7 @@ func persistOfficialPluginTask(c *gin.Context, info *relaycommon.RelayInfo, resu
 			task.FinishTime = time.Now().Unix()
 			task.PrivateData.PluginImmediate = nil
 			if pinned.Route.RetainResult != nil && !*pinned.Route.RetainResult {
-				// 沿用上游 retainResult 合同：保留任务账务记录，不保存可取回的响应。
+				// 普通 retainResult:false 任务保留账务记录，不保存可取回的响应。
 				task.PrivateData.ResultDiscarded = true
 				task.PrivateData.PluginData = nil
 				task.PrivateData.PluginState = nil
