@@ -35,6 +35,8 @@ import { CategoryManager } from '../components/category-manager'
 import { PromptCenter } from '../index'
 import type { PromptCategory, PromptTemplate } from '../types'
 
+vi.mock('@lobehub/icons', () => ({}))
+
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))

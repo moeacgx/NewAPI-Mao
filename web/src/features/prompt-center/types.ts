@@ -21,6 +21,14 @@ export interface PromptGroup {
   name: string
 }
 
+export interface PromptGroupTag {
+  id: number
+  name: string
+  description?: string
+  icons: string[]
+  group_ids: number[]
+}
+
 export interface SkillResource {
   path: string
   content: string

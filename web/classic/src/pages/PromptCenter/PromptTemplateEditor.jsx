@@ -26,6 +26,7 @@ import ArchiveImport from './ArchiveImport';
 import RepositoryImport from './RepositoryImport';
 import RepositorySource from './RepositorySource';
 import SkillResourcesEditor from './SkillResourcesEditor';
+import PromptGroupSelector from './PromptGroupSelector';
 import { validatePromptTemplateDraft } from './validation';
 
 export default function PromptTemplateEditor(props) {
@@ -404,44 +405,13 @@ export default function PromptTemplateEditor(props) {
               'Any enabled group used by the token can install and load this skill.',
             )}
           </p>
-          {!draft.all_groups && (
-            <div className='prompt-center-group-options'>
-              {groupsLoaded &&
-                draft.group_ids
-                  .filter((id) => !groups.some((group) => group.id === id))
-                  .map((id) => (
-                    <label key={`deleted-${id}`}>
-                      <input
-                        type='checkbox'
-                        checked
-                        onChange={() =>
-                          update(
-                            'group_ids',
-                            draft.group_ids.filter((value) => value !== id),
-                          )
-                        }
-                      />
-                      {t('Unavailable group')} · {id}
-                    </label>
-                  ))}
-              {groups.map((group) => (
-                <label key={group.id}>
-                  <input
-                    type='checkbox'
-                    checked={draft.group_ids.includes(group.id)}
-                    onChange={(event) =>
-                      update(
-                        'group_ids',
-                        event.target.checked
-                          ? [...draft.group_ids, group.id]
-                          : draft.group_ids.filter((id) => id !== group.id),
-                      )
-                    }
-                  />
-                  {group.name}
-                </label>
-              ))}
-            </div>
+          {!draft.all_groups && groupsLoaded && (
+            <PromptGroupSelector
+              groups={groups}
+              selected={draft.group_ids}
+              disabled={busy}
+              onChange={(ids) => update('group_ids', ids)}
+            />
           )}
         </fieldset>
         <label htmlFor={`${prefix}-order`}>{t('Sort order')}</label>

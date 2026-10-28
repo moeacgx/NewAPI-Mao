@@ -7623,6 +7623,11 @@
     "Zoom": "缩放",
     "包含": "包含",
     "正则表达式": "正则表达式",
-    "精确匹配": "精确匹配"
+    "精确匹配": "精确匹配",
+    "Group tags": "分组标签",
+    "Untagged": "未分类",
+    "Groups: {{count}}": "分组数：{{count}}",
+    "Remove group {{name}}": "移除分组 {{name}}",
+    "Failed to load group tags": "加载分组标签失败"
   }
 }

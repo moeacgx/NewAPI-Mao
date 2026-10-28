@@ -7623,6 +7623,11 @@
     "Zoom": "Zoom",
     "包含": "Chứa",
     "正则表达式": "Biểu thức chính quy",
-    "精确匹配": "Khớp chính xác"
+    "精确匹配": "Khớp chính xác",
+    "Group tags": "Nhãn nhóm",
+    "Untagged": "Chưa phân loại",
+    "Groups: {{count}}": "Số nhóm: {{count}}",
+    "Remove group {{name}}": "Xóa nhóm {{name}}",
+    "Failed to load group tags": "Không tải được nhãn nhóm"
   }
 }

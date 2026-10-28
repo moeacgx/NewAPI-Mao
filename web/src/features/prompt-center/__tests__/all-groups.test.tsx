@@ -35,6 +35,8 @@ import { PromptCenter } from '../index'
 import { promptTemplateSchema } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 
+vi.mock('@lobehub/icons', () => ({}))
+
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }))
@@ -80,6 +82,9 @@ beforeEach(() => {
   vi.mocked(api.get)
     .mockReset()
     .mockImplementation(async (url) => {
+      if (url === '/api/group/tags') {
+        return { data: { success: true, data: [] } }
+      }
       if (url === '/api/group/details') {
         return { data: { success: true, data: [premiumGroup] } }
       }
@@ -217,6 +222,9 @@ describe('不限分组的白名单展示', () => {
 
   it('top group summary counts unique groups for restricted skills', async () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === '/api/group/tags') {
+        return { data: { success: true, data: [] } }
+      }
       if (url === '/api/group/details') {
         return { data: { success: true, data: [premiumGroup] } }
       }
@@ -236,7 +244,7 @@ describe('不限分组的白名单展示', () => {
     expect(stat).toHaveTextContent('1')
     expect(stat).not.toHaveTextContent(allGroupsLabel)
   })
-  it('技能目录卡片对不限分组显示单个标签，白名单技能显示分组名称而非 code', async () => {
+  it('技能目录默认收起白名单，展开显示分组名称而非 code', async () => {
     renderWithQuery(<PromptCenter />)
     const global = (
       await screen.findByRole('heading', { name: 'Global writing' })
@@ -244,10 +252,20 @@ describe('不限分组的白名单展示', () => {
     const review = screen
       .getByRole('heading', { name: 'Review' })
       .closest('article') as HTMLElement
+    expect(
+      within(global).getByRole('button', { name: /Allowed groups.*All groups/ })
+    ).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(
+      within(global).getByRole('button', { name: /Allowed groups/ })
+    )
     expect(within(global).getByText('All groups')).toBeInTheDocument()
     expect(
       within(global).queryByText('No available groups')
     ).not.toBeInTheDocument()
+    expect(within(review).queryByText('Premium models')).not.toBeInTheDocument()
+    fireEvent.click(
+      within(review).getByRole('button', { name: /Allowed groups/ })
+    )
     expect(within(review).getByText('Premium models')).toBeInTheDocument()
     expect(within(review).queryByText('All groups')).not.toBeInTheDocument()
     expect(screen.queryByText('premium-code')).not.toBeInTheDocument()

@@ -27,6 +27,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { SkillRepositoryDetails } from '../components/skill-repository-details'
 import { PromptCenter } from '../index'
 
+vi.mock('@lobehub/icons', () => ({}))
+
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }))
@@ -58,6 +60,9 @@ beforeEach(() => {
   vi.mocked(api.get)
     .mockReset()
     .mockImplementation(async (url) => {
+      if (url === '/api/group/tags') {
+        return { data: { success: true, data: [] } }
+      }
       if (url === '/api/group/details') {
         return {
           data: {

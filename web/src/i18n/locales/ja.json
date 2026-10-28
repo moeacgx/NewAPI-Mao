@@ -7623,6 +7623,11 @@
     "Zoom": "ズーム",
     "包含": "含む",
     "正则表达式": "正規表現",
-    "精确匹配": "完全一致"
+    "精确匹配": "完全一致",
+    "Group tags": "グループタグ",
+    "Untagged": "未分類",
+    "Groups: {{count}}": "グループ数：{{count}}",
+    "Remove group {{name}}": "グループ {{name}} を削除",
+    "Failed to load group tags": "グループタグの読み込みに失敗しました"
   }
 }

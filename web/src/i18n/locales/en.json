@@ -7623,6 +7623,11 @@
     "Zoom": "Zoom",
     "包含": "Contains",
     "正则表达式": "Regular expression",
-    "精确匹配": "Exact match"
+    "精确匹配": "Exact match",
+    "Group tags": "Group tags",
+    "Untagged": "Untagged",
+    "Groups: {{count}}": "Groups: {{count}}",
+    "Remove group {{name}}": "Remove group {{name}}",
+    "Failed to load group tags": "Failed to load group tags"
   }
 }

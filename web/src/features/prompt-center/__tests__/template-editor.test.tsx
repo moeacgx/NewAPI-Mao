@@ -25,6 +25,8 @@ import { api } from '@/lib/api'
 import { PromptTemplateEditor } from '../components/prompt-template-editor'
 import { promptTemplateSchema } from '../lib/validation'
 
+vi.mock('@lobehub/icons', () => ({}))
+
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }))
@@ -42,12 +44,15 @@ const input = {
 beforeEach(() => {
   vi.mocked(api.get)
     .mockReset()
-    .mockResolvedValue({
+    .mockImplementation(async (url) => ({
       data: {
         success: true,
-        data: [{ id: 12, code: 'premium-code', name: 'Premium models' }],
+        data:
+          url === '/api/group/details'
+            ? [{ id: 12, code: 'premium-code', name: 'Premium models' }]
+            : [],
       },
-    })
+    }))
   vi.mocked(api.post)
     .mockReset()
     .mockResolvedValue({ data: { success: true } })
@@ -83,7 +88,7 @@ describe('提示词管理员编辑', () => {
     vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: [] } })
     renderEditor(true)
     fireEvent.click(
-      await screen.findByRole('checkbox', { name: 'Deleted (12)' })
+      await screen.findByRole('button', { name: 'Remove group Deleted (12)' })
     )
     fireEvent.click(screen.getByRole('checkbox', { name: 'Published' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -121,6 +126,75 @@ describe('提示词管理员编辑', () => {
         title: 'Updated review',
       })
     )
+  })
+
+  it('一次编辑可保存多个模型分组，提交稳定 ID', async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => ({
+      data: {
+        success: true,
+        data:
+          url === '/api/group/details'
+            ? [
+                { id: 12, code: 'premium-code', name: 'Premium models' },
+                { id: 21, code: 'review-code', name: 'Review models' },
+              ]
+            : [],
+      },
+    }))
+    renderEditor(true)
+    expect(
+      await screen.findByRole('checkbox', { name: 'Premium models' })
+    ).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Review models' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/prompt-center/admin/7',
+        expect.objectContaining({ group_ids: [12, 21], version: 4 })
+      )
+    )
+  })
+
+  it('标签加载失败时允许全量选组，并可重试恢复标签选择', async () => {
+    let tagsAvailable = false
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === '/api/group/tags') {
+        if (!tagsAvailable) throw new Error('Unavailable')
+        return {
+          data: {
+            success: true,
+            data: [{ id: 1, name: 'GPT', icons: [], group_ids: [12] }],
+          },
+        }
+      }
+      return {
+        data: {
+          success: true,
+          data:
+            url === '/api/group/details'
+              ? [{ id: 12, code: 'premium-code', name: 'Premium models' }]
+              : [],
+        },
+      }
+    })
+    renderEditor(true)
+    expect(
+      await screen.findByText('Failed to load group tags')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: 'Premium models' })
+    ).toBeChecked()
+    tagsAvailable = true
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(
+      await screen.findByRole('button', { name: /GPT/ })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Failed to load group tags')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Remove group Premium models' })
+    ).toBeInTheDocument()
   })
 
   it('未选择白名单分组时阻止创建', async () => {

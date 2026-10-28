@@ -7623,6 +7623,11 @@
     "Zoom": "Zoom",
     "包含": "Contient",
     "正则表达式": "Expression régulière",
-    "精确匹配": "Correspondance exacte"
+    "精确匹配": "Correspondance exacte",
+    "Group tags": "Étiquettes de groupes",
+    "Untagged": "Sans étiquette",
+    "Groups: {{count}}": "Groupes : {{count}}",
+    "Remove group {{name}}": "Retirer le groupe {{name}}",
+    "Failed to load group tags": "Échec du chargement des étiquettes"
   }
 }
