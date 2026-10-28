@@ -1001,7 +1001,7 @@ const NotificationCenter = () => {
             {selectedEvent.value.startsWith('ticket_') && (
               <Text type='tertiary' size='small' className='mt-2 block'>
                 {t(
-                  'Ticket notifications include the title, category, priority, status, requester and actor IDs. Message content is excluded to protect sensitive information.',
+                  'Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.',
                 )}
               </Text>
             )}

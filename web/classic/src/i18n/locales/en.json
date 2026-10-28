@@ -6639,6 +6639,7 @@
     "Unsaved changes": "Unsaved changes",
     "No unsaved changes": "No unsaved changes",
     "Discard changes": "Discard changes",
-    "Reset filters": "Reset filters"
+    "Reset filters": "Reset filters",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details."
   }
 }

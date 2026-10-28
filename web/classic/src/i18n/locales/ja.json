@@ -6377,6 +6377,7 @@
     "Unsaved changes": "未保存の変更があります",
     "No unsaved changes": "変更はすべて保存済みです",
     "Discard changes": "変更を破棄",
-    "Reset filters": "フィルターをリセット"
+    "Reset filters": "フィルターをリセット",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "チケット通知は、今回のユーザーメッセージの抜粋を Root が設定した宛先に送信します。エスケープ後の抜粋は最大 2000 文字で、超過分には省略の案内が付きます。全文はチケット詳細で確認できます。"
   }
 }

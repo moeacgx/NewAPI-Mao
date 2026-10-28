@@ -137,6 +137,12 @@ const TICKET_VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
   create_time: 'Ticket event creation time',
   action: 'Ticket action code (created or replied)',
   action_label: 'Ticket action label (new ticket or user reply)',
+  content: 'Current user message excerpt',
+}
+
+const TICKET_VARIABLE_EXAMPLE_KEYS: Record<string, string> = {
+  title: 'Technical support',
+  content: 'I need help with this request.',
 }
 
 const VARIABLE_DESCRIPTION_KEYS: Record<string, string> = {
@@ -808,6 +814,13 @@ function TaskSheet(props: {
                 }))
               }
             />
+            {selectedEvent.value === 'ticket_user_message' && (
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.'
+                )}
+              </p>
+            )}
             {(selectedEvent.variables ?? []).length > 0 && (
               <div className='grid gap-2'>
                 <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1'>
@@ -865,8 +878,8 @@ function TaskSheet(props: {
                           {t('Example: {{value}}', {
                             value:
                               selectedEvent.value.startsWith('ticket_') &&
-                              variable === 'title'
-                                ? t('Technical support')
+                              TICKET_VARIABLE_EXAMPLE_KEYS[variable]
+                                ? t(TICKET_VARIABLE_EXAMPLE_KEYS[variable])
                                 : (VARIABLE_EXAMPLES[variable] ??
                                   t('A value from the event payload')),
                           })}

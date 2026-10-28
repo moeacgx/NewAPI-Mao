@@ -6511,6 +6511,7 @@
     "Unsaved changes": "有未保存的修改",
     "No unsaved changes": "所有修改已保存",
     "Discard changes": "放弃修改",
-    "Reset filters": "重置筛选"
+    "Reset filters": "重置筛选",
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工单通知会将本次用户正文摘要发送到 Root 配置的接收目标。转义后的摘要最多 2000 个字符，超长内容附带截断提示，完整正文请到工单详情查看。"
   }
 }

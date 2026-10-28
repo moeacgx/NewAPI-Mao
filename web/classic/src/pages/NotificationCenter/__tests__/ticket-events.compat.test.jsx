@@ -24,6 +24,10 @@ import NotificationCenter from '../index';
 import { API } from '../../../helpers/api';
 
 const originalAdapter = API.defaults.adapter;
+const locales = import.meta.glob('../../../i18n/locales/*.json', {
+  eager: true,
+  import: 'default',
+});
 const events = [
   {
     value: 'channel_disabled',
@@ -36,7 +40,8 @@ const events = [
     label: 'Ticket created or user replied',
     description:
       'Triggered when a user creates a support ticket or adds a reply.',
-    default_template: '{{mention}} {{action_label}} #{{ticket_id}}: {{title}}',
+    default_template:
+      '{{mention}} {{action_label}} #{{ticket_id}}: {{title}}\n正文：{{content}}',
     variables: [
       'mention',
       'ticket_id',
@@ -50,10 +55,24 @@ const events = [
       'create_time',
       'action',
       'action_label',
+      'content',
     ],
   },
 ];
 let saved;
+
+test('Classic 全部语言说明当次正文摘要、转义预算和 Root 配置的接收目标', () => {
+  const key =
+    'Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.';
+  expect(
+    Object.keys(locales).some((file) => file.endsWith('/zh-CN.json')),
+  ).toBe(true);
+  for (const [file, resource] of Object.entries(locales)) {
+    expect(resource.translation[key], file).toBeTruthy();
+    if (!file.endsWith('/en.json'))
+      expect(resource.translation[key], file).not.toBe(key);
+  }
+});
 beforeEach(() => {
   saved = null;
   localStorage.setItem('user', JSON.stringify({ id: 1, role: 100 }));
@@ -102,16 +121,19 @@ test('通知中心只提供合并后的工单事件，切换使用其默认模�
   );
   // jsdom 不执行 CSS 动画，显式完成下拉框关闭动画。
   fireEvent.animationEnd(screen.getByRole('listbox'));
-  await screen.findByDisplayValue(events[1].default_template);
+  await screen.findByDisplayValue(events[1].default_template, {
+    normalizer: (value) => value,
+  });
   expect(await screen.findByText('{{action_label}}')).toBeTruthy();
   expect(
     screen.getByText('Ticket actor role (user, admin or system)'),
   ).toBeTruthy();
   expect(
     screen.getByText(
-      'Ticket notifications include the title, category, priority, status, requester and actor IDs. Message content is excluded to protect sensitive information.',
+      'Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.',
     ),
   ).toBeTruthy();
+  expect(screen.getByText('{{content}}')).toBeTruthy();
   expect(
     screen.getByText(
       'Triggered when a user creates a support ticket or adds a reply.',
