@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [工单列表优先与设置折叠](../workflows/2026-10/28_ticket_management_settings_layout.md)：Default 与 Classic 管理页优先展示工单列表，自动回复与超时归档集中到默认折叠的设置区。
+
 - [Default 与 Classic 使用日志技能筛选与角标统一](../workflows/2026-10/26_default_skill_logs.md)：两套模板日志类型菜单增加「技能」选项（不设独立筛选框），Default 角标移到令牌列分组右上角，参数语义与旧链接兼容。
 - [Classic 待处理工单看板与浮动提醒](../workflows/2026-10/26_classic_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离与列表筛选。
 - [Default 待处理工单看板与浮动提醒](../workflows/2026-10/26_default_pending_tickets.md)：管理员待处理数量、非阻塞提醒、权限隔离、轮询与 7 语言文案。

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "360": "360",
+    "1000": "1000",
+    "10000": "10000",
     "Pending tickets": "待处理工单",
     "Pending ticket reminder": "待处理工单提醒",
     "Dismiss ticket reminder": "关闭工单提醒",
@@ -9,9 +12,6 @@
     "Failed to load pending tickets": "待处理工单加载失败",
     "No tickets awaiting your response": "暂无待处理工单",
     "New tickets and customer follow-ups": "新工单与用户追加回复",
-    "360": "360",
-    "1000": "1000",
-    "10000": "10000",
     "_copy": "_复制",
     "，": "，",
     ", and": "，和",
@@ -6715,6 +6715,7 @@
     "Ticket request exceeds 64 KiB": "工单请求超过 64 KiB",
     "Ticket requester user ID": "工单提交者用户 ID",
     "Ticket service is unavailable": "工单服务暂不可用",
+    "Ticket settings": "工单设置",
     "Ticket status": "工单状态",
     "Ticket status code": "工单状态代码",
     "Ticket status updated.": "工单状态已更新。",

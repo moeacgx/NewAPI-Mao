@@ -1,5 +1,8 @@
 {
   "translation": {
+    "360": "360",
+    "1000": "1000",
+    "10000": "10000",
     "Pending tickets": "Phiếu hỗ trợ chờ xử lý",
     "Pending ticket reminder": "Nhắc nhở phiếu chờ xử lý",
     "Dismiss ticket reminder": "Đóng thông báo phiếu hỗ trợ",
@@ -9,9 +12,6 @@
     "Failed to load pending tickets": "Không thể tải phiếu chờ xử lý",
     "No tickets awaiting your response": "Không có phiếu nào đang chờ bạn phản hồi",
     "New tickets and customer follow-ups": "Phiếu mới và phản hồi bổ sung của khách hàng",
-    "360": "360",
-    "1000": "1000",
-    "10000": "10000",
     "_copy": "_bản sao",
     "，": ", ",
     ", and": ", và",
@@ -6715,6 +6715,7 @@
     "Ticket request exceeds 64 KiB": "Yêu cầu phiếu hỗ trợ vượt quá 64 KiB",
     "Ticket requester user ID": "ID người dùng tạo phiếu",
     "Ticket service is unavailable": "Dịch vụ hỗ trợ tạm thời không khả dụng",
+    "Ticket settings": "Cài đặt phiếu hỗ trợ",
     "Ticket status": "Trạng thái phiếu hỗ trợ",
     "Ticket status code": "Mã trạng thái phiếu",
     "Ticket status updated.": "Đã cập nhật trạng thái phiếu hỗ trợ.",

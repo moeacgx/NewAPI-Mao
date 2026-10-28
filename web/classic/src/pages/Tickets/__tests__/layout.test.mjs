@@ -26,3 +26,24 @@ test('工单页滚动时固定导航使用不透明主题底色且面板预留�
     ),
   );
 });
+
+test('工单设置的长译文保存按钮限制宽度并换行，避免窄屏按钮移出视口', () => {
+  const css = postcss.parse(
+    readFileSync(new URL('../tickets.css', import.meta.url), 'utf8'),
+  );
+  const rules = new Map();
+  css.walkRules((rule) => rules.set(rule.selector, rule));
+  const button = rules.get('.ticket-settings .ticket-actions .semi-button');
+  const content = rules.get(
+    '.ticket-settings .ticket-actions .semi-button-content',
+  );
+  const declarations = (rule) =>
+    Object.fromEntries(rule.nodes.map((node) => [node.prop, node.value]));
+
+  assert.ok(button);
+  assert.ok(content);
+  assert.equal(declarations(button)['max-width'], '100%');
+  assert.equal(declarations(button).height, 'auto');
+  assert.equal(declarations(content)['white-space'], 'normal');
+  assert.equal(declarations(content)['overflow-wrap'], 'anywhere');
+});

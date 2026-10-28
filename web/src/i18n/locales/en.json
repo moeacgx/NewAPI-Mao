@@ -1,5 +1,8 @@
 {
   "translation": {
+    "360": "360",
+    "1000": "1000",
+    "10000": "10000",
     "Pending tickets": "Pending tickets",
     "Pending ticket reminder": "Pending ticket reminder",
     "Dismiss ticket reminder": "Dismiss ticket reminder",
@@ -9,9 +12,6 @@
     "Failed to load pending tickets": "Failed to load pending tickets",
     "No tickets awaiting your response": "No tickets awaiting your response",
     "New tickets and customer follow-ups": "New tickets and customer follow-ups",
-    "360": "360",
-    "1000": "1000",
-    "10000": "10000",
     "_copy": "_copy",
     "，": ", ",
     ", and": ", and",
@@ -6715,6 +6715,7 @@
     "Ticket request exceeds 64 KiB": "Ticket request exceeds 64 KiB",
     "Ticket requester user ID": "Ticket requester user ID",
     "Ticket service is unavailable": "Ticket service is unavailable",
+    "Ticket settings": "Ticket settings",
     "Ticket status": "Ticket status",
     "Ticket status code": "Ticket status code",
     "Ticket status updated.": "Ticket status updated.",

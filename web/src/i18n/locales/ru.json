@@ -1,5 +1,8 @@
 {
   "translation": {
+    "360": "360",
+    "1000": "1000",
+    "10000": "10000",
     "Pending tickets": "Тикеты, ожидающие ответа",
     "Pending ticket reminder": "Напоминание об ожидающих тикетах",
     "Dismiss ticket reminder": "Закрыть напоминание о тикетах",
@@ -9,9 +12,6 @@
     "Failed to load pending tickets": "Не удалось загрузить ожидающие тикеты",
     "No tickets awaiting your response": "Нет тикетов, ожидающих вашего ответа",
     "New tickets and customer follow-ups": "Новые тикеты и повторные сообщения клиентов",
-    "360": "360",
-    "1000": "1000",
-    "10000": "10000",
     "_copy": "_копировать",
     "，": ", ",
     ", and": ", и",
@@ -6715,6 +6715,7 @@
     "Ticket request exceeds 64 KiB": "Размер запроса превышает 64 KiB",
     "Ticket requester user ID": "ID пользователя-заявителя",
     "Ticket service is unavailable": "Служба обращений недоступна",
+    "Ticket settings": "Настройки обращений",
     "Ticket status": "Статус обращения",
     "Ticket status code": "Код статуса обращения",
     "Ticket status updated.": "Статус обращения обновлён.",

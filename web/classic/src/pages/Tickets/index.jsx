@@ -73,9 +73,14 @@ function TicketAdmin() {
   const canWrite = permissions?.admin_permissions?.tickets?.write === true;
   return (
     <>
-      <TicketAutomationSettings canWrite={canWrite} />
-      <TicketArchiveSettings canWrite={canWrite} />
       <TicketList admin canWrite={canWrite} />
+      <details className='ticket-settings'>
+        <summary>{t('Ticket settings')}</summary>
+        <div className='ticket-settings-content'>
+          <TicketAutomationSettings canWrite={canWrite} />
+          <TicketArchiveSettings canWrite={canWrite} />
+        </div>
+      </details>
     </>
   );
 }
