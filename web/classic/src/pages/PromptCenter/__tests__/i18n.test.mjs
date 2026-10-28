@@ -14,6 +14,7 @@ const files = [
   'pages/PromptCenter/TokenPicker.jsx',
   'pages/PromptCenter/PromptCatalog.jsx',
   'pages/PromptCenter/PromptTemplateEditor.jsx',
+  'pages/PromptCenter/PromptGroupSelector.jsx',
   'pages/PromptCenter/TokenPromptManager.jsx',
   'pages/PromptCenter/TokenPromptInstallationModal.jsx',
   'pages/PromptCenter/api.js',

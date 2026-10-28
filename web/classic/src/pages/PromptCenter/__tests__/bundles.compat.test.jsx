@@ -85,6 +85,7 @@ beforeEach(() => {
         group_ids: [],
         category_id: 0,
       };
+    else if (config.url === '/api/group/tags') data = [];
     else if (config.url === '/api/prompt-center/categories/') data = categories;
     else if (config.url === '/api/prompt-center/admin/categories/') {
       data = { id: 5, name: body.name, version: 1 };

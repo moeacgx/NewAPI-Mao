@@ -35,6 +35,8 @@ import { PromptCenter } from '../index'
 import { promptTemplateSchema } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 
+vi.mock('@lobehub/icons', () => ({}))
+
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }))
@@ -80,6 +82,9 @@ beforeEach(() => {
           data: [{ id: 3, name: 'Communication', version: 1 }],
         },
       }
+    }
+    if (url === '/api/group/tags') {
+      return { data: { success: true, data: [] } }
     }
     if (url === '/api/group/details') {
       return {
@@ -172,6 +177,9 @@ describe('技能合集浏览和安装摘要', () => {
 describe('技能合集编辑与校验', () => {
   it('可新增、移除和重排技能，版本冲突保留重排后草稿及分类', async () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === '/api/group/tags') {
+        return { data: { success: true, data: [] } }
+      }
       const data =
         url === '/api/prompt-center/categories/'
           ? [{ id: 3, name: 'Communication', version: 1 }]
@@ -218,12 +226,15 @@ describe('技能合集编辑与校验', () => {
   })
 
   it('合集不能保存重名技能，并显示对应字段错误', async () => {
-    vi.mocked(api.get).mockResolvedValue({
+    vi.mocked(api.get).mockImplementation(async (url) => ({
       data: {
         success: true,
-        data: [{ id: 12, name: 'Premium models', code: 'premium-code' }],
+        data:
+          url === '/api/group/tags'
+            ? []
+            : [{ id: 12, name: 'Premium models', code: 'premium-code' }],
       },
-    })
+    }))
     renderQuery(<PromptTemplateEditor template={bundle} onClose={vi.fn()} />)
     await screen.findByRole('checkbox', { name: 'Premium models' })
     const editor = screen.getByRole('region', { name: 'Bundle skills' })

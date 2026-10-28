@@ -35,13 +35,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { getGroupDetails } from '@/features/system-settings/api'
 
-import { getPromptCategories, savePromptTemplate } from '../api'
+import {
+  getPromptCategories,
+  getPromptGroupTags,
+  savePromptTemplate,
+} from '../api'
 import {
   promptTemplateSchema,
   type PromptTemplateForm,
 } from '../lib/validation'
 import type { PromptTemplate } from '../types'
 import { BundleSkillEditor } from './bundle-skill-editor'
+import { PromptGroupSelector } from './prompt-group-selector'
 import { SkillRepositoryDetails } from './skill-repository-details'
 import { SkillResourceEditor } from './skill-resource-editor'
 
@@ -56,6 +61,11 @@ export function PromptTemplateEditor(props: {
   const groups = useQuery({
     queryKey: ['prompt-center-admin-groups'],
     queryFn: getGroupDetails,
+  })
+  const groupTags = useQuery({
+    queryKey: ['prompt-center-admin-group-tags'],
+    queryFn: getPromptGroupTags,
+    retry: false,
   })
   const categories = useQuery({
     queryKey: ['prompt-categories'],
@@ -403,62 +413,33 @@ export function PromptTemplateEditor(props: {
                 </div>
               )}
               {!allGroups && groups.isSuccess && (
-                <div className='grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2'>
-                  {selectedGroups
-                    .filter(
-                      (id) =>
-                        !groups.data.groups.some((group) => group.id === id)
-                    )
-                    .map((id) => (
-                      <label
-                        key={`deleted-${id}`}
-                        className='text-muted-foreground flex items-center gap-2'
+                <>
+                  {groupTags.isError && (
+                    <div role='alert' className='text-muted-foreground text-xs'>
+                      <p>{t('Failed to load group tags')}</p>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        onClick={() => groupTags.refetch()}
                       >
-                        <input
-                          type='checkbox'
-                          checked
-                          onChange={() =>
-                            form.setValue(
-                              'group_ids',
-                              selectedGroups.filter((value) => value !== id),
-                              { shouldDirty: true, shouldValidate: true }
-                            )
-                          }
-                        />
-                        {t('Deleted ({{id}})', { id })}
-                      </label>
-                    ))}
-                  {groups.data.groups
-                    .filter((group) => group.id > 0)
-                    .map((group) => (
-                      <label
-                        key={group.id}
-                        className='flex min-w-0 items-center gap-2'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedGroups.includes(group.id)}
-                          onChange={(event) =>
-                            form.setValue(
-                              'group_ids',
-                              event.target.checked
-                                ? [...selectedGroups, group.id]
-                                : selectedGroups.filter(
-                                    (id) => id !== group.id
-                                  ),
-                              { shouldDirty: true, shouldValidate: true }
-                            )
-                          }
-                        />
-                        <span className='[overflow-wrap:anywhere]'>
-                          {group.name || group.code}
-                        </span>
-                      </label>
-                    ))}
-                  {groups.data.groups.length === 0 && (
-                    <p>{t('No available groups')}</p>
+                        {t('Retry')}
+                      </Button>
+                    </div>
                   )}
-                </div>
+                  <PromptGroupSelector
+                    groups={groups.data.groups}
+                    tags={groupTags.data ?? []}
+                    selectedIds={selectedGroups}
+                    disabled={mutation.isPending}
+                    onChange={(ids) =>
+                      form.setValue('group_ids', ids, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
+                </>
               )}
               {!allGroups && form.formState.errors.group_ids && (
                 <p role='alert' className='text-destructive text-xs'>

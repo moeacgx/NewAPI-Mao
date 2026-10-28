@@ -2908,7 +2908,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For example, 3 means the third returned order": "For example, 3 means the third returned order",
@@ -7623,6 +7623,11 @@
     "Zoom": "Zoom",
     "包含": "Contains",
     "正则表达式": "Regular expression",
-    "精确匹配": "Exact match"
+    "精确匹配": "Exact match",
+    "Group tags": "Group tags",
+    "Untagged": "Untagged",
+    "Groups: {{count}}": "Groups: {{count}}",
+    "Remove group {{name}}": "Remove group {{name}}",
+    "Failed to load group tags": "Failed to load group tags"
   }
 }
