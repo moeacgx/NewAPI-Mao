@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [工单通知显示用户正文](../workflows/2026-10/28_ticket_notification_content.md)：当次正文快照、长内容摘要、默认模板升级与历史事件兼容，覆盖 Default、Classic。
+
 - [多分组并发满时继续回退](../workflows/2026-10/28_multigroup_concurrency_fallback.md)：仅在渠道并发不足时继续后续授权分组，保留全组耗尽错误及实际分组上下文。
 
 - [技能商店预设替换为通用编程开发安全助手](../workflows/2026-10/27_skill_store_general_development_safety.md)：移除三项旧商店预设并加入递归强制删除前的明确授权与范围核验技能。

@@ -90,16 +90,21 @@ func TestTicketNotificationEventsRegisterAndValidateTemplates(t *testing.T) {
 			require.True(t, ok)
 			assert.True(t, definition.Available)
 			assert.Equal(t, "core", definition.Owner)
-			assert.NotContains(t, definition.Variables, "content")
+			assert.Contains(t, definition.Variables, "content")
 			assert.Contains(t, definition.Variables, "action_label")
 			assert.Equal(t, definition.DefaultTemplate, model.NormalizeNotificationTaskTemplate(event, ""))
 			assert.Equal(t, definition.DefaultTemplate, model.NormalizeNotificationTaskTemplate(event, model.NotificationTaskDefaultTemplate))
 			definition.SamplePayload["title"] = "<b>用户输入</b>"
+			definition.SamplePayload["content"] = "请开票 <b>不是标签</b> & 保留换行\n第二行"
 			rendered, err := service.RenderNotificationTemplate(definition.DefaultTemplate, definition.SamplePayload, nil)
 			require.NoError(t, err)
 			assert.Contains(t, rendered, "&lt;b&gt;用户输入&lt;/b&gt;")
 			assert.Contains(t, rendered, "用户追加回复")
-			_, err = service.RenderNotificationTemplate("{{content}}", definition.SamplePayload, nil)
+			assert.Contains(t, rendered, "正文：请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行")
+			body, err := service.RenderNotificationTemplate("{{content}}", definition.SamplePayload, nil)
+			require.NoError(t, err)
+			assert.Equal(t, "请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行", body)
+			_, err = service.RenderNotificationTemplate("{{unknown}}", definition.SamplePayload, nil)
 			assert.Error(t, err)
 		})
 	}
@@ -157,7 +162,7 @@ func TestTicketAutoReplyControllerRequiresAdminAndPersistsConfig(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, personalDenied.Code, personalDenied.Body.String())
 }
 
-func TestTicketNotificationTasksCanBeSavedAndRejectBodyVariables(t *testing.T) {
+func TestTicketNotificationTasksAcceptContentAndRejectUnknownVariables(t *testing.T) {
 	setupNotificationControllerTestDB(t)
 	bot := &model.NotificationBot{Name: "工单测试机器人", Token: "fixture-token", Enabled: true}
 	require.NoError(t, model.CreateNotificationBot(bot))
@@ -181,11 +186,23 @@ func TestTicketNotificationTasksCanBeSavedAndRejectBodyVariables(t *testing.T) {
 			body["template"] = "{{content}}"
 			encoded, err = common.Marshal(body)
 			require.NoError(t, err)
-			rejected := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", string(encoded), 0)
-			assert.Contains(t, rejected.Body.String(), `"success":false`)
+			withContent := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", string(encoded), 0)
+			require.Contains(t, withContent.Body.String(), `"success":true`)
+			for _, template := range []string{
+				"{{unknown}}",
+				strings.Repeat("{{content}}", 5),
+				"{{content}}{{content}}" + strings.Repeat("{{ticket_id}}", 20),
+				strings.Repeat("文", 1800) + "{{mention}}{{content}}",
+			} {
+				body["template"] = template
+				encoded, err = common.Marshal(body)
+				require.NoError(t, err)
+				rejected := invokeNotificationHandler(CreateNotificationTask, common.RoleRootUser, http.MethodPost, "/api/notification/tasks", string(encoded), 0)
+				assert.Contains(t, rejected.Body.String(), `"success":false`, template)
+			}
 			var count int64
 			require.NoError(t, model.DB.Model(&model.NotificationTask{}).Where("event_type = ?", event).Count(&count).Error)
-			assert.EqualValues(t, 1, count)
+			assert.EqualValues(t, 2, count)
 		})
 	}
 }

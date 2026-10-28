@@ -93,7 +93,7 @@ func TestTicketConversationLifecycleAndNotificationMetadata(t *testing.T) {
 	assert.Equal(t, TicketStatusProcessing, detail.Ticket.Status)
 	_, err = ChangeTicketStatus(ticket.Id, 99, true, TicketStatusResolved)
 	require.NoError(t, err)
-	_, err = ReplyTicket(ticket.Id, 10, false, "secret-content-never-notify")
+	_, err = ReplyTicket(ticket.Id, 10, false, "用户追加正文")
 	require.NoError(t, err)
 	detail, err = GetTicketDetail(ticket.Id, 10, false, 0)
 	require.NoError(t, err)
@@ -118,16 +118,16 @@ func TestTicketConversationLifecycleAndNotificationMetadata(t *testing.T) {
 	require.Len(t, events, 2)
 	actions := make([]string, 0, len(events))
 	keys := map[string]bool{}
-	for _, event := range events {
+	wantContents := []string{"请帮忙确认请求状态", "用户追加正文"}
+	for index, event := range events {
 		assert.Equal(t, NotificationEventTypeTicketUserMessage, event.EventType)
 		assert.False(t, keys[event.EventKey])
 		keys[event.EventKey] = true
-		assert.NotContains(t, event.Payload, "secret-content-never-notify")
 		var payload map[string]any
 		require.NoError(t, common.UnmarshalJsonStr(event.Payload, &payload))
 		assert.EqualValues(t, 10, payload["user_id"])
 		assert.Equal(t, "user", payload["actor_role"])
-		assert.NotContains(t, payload, "content")
+		assert.Equal(t, wantContents[index], payload["content"])
 		actions = append(actions, payload["action"].(string)+"/"+payload["action_label"].(string))
 	}
 	assert.Equal(t, []string{"created/新工单", "replied/用户追加回复"}, actions)

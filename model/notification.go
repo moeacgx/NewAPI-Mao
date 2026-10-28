@@ -53,10 +53,17 @@ const (
 // NotificationTaskDefaultTemplate 是发票待开票通知的默认内容。
 const NotificationTaskDefaultTemplate = "{{mention}} 来新的发票订单啦~\n订单：{{invoice_id}}\n金额：{{total_amount}}"
 
-// NormalizeNotificationTaskTemplate 将核心事件的空模板或历史发票默认模板
+// NormalizeNotificationTaskTemplate 将核心事件的空模板、历史发票或工单默认模板
 // 归一化为目标事件默认模板。仅兼容已知默认值，不能绕过事件变量校验。
 func NormalizeNotificationTaskTemplate(eventType, template string) string {
 	template = strings.TrimSpace(template)
+	if strings.TrimSpace(eventType) == NotificationEventTypeTicketUserMessage {
+		for _, legacyTemplate := range legacyTicketUserNotificationTemplates {
+			if template == legacyTemplate {
+				return NotificationTicketUserMessageTemplate
+			}
+		}
+	}
 	if template != "" && template != NotificationTaskDefaultTemplate {
 		return template
 	}
