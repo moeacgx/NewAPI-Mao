@@ -151,3 +151,42 @@ func TestCacheGetRandomSatisfiedChannelSingleGroupConcurrencyDoesNotExpandScope(
 	assert.Nil(t, channel)
 	assert.Equal(t, "vip", group)
 }
+
+func TestCacheGetRandomSatisfiedChannelSingleGroupHardExclusionRevokesRetryFallback(t *testing.T) {
+	for _, cached := range []bool{true, false} {
+		name := "database"
+		if cached {
+			name = "cache"
+		}
+		t.Run(name, func(t *testing.T) {
+			db := setupChannelSelectAutoGroupsTest(t)
+			originalRedis := common.RedisEnabled
+			common.RedisEnabled = false
+			t.Cleanup(func() { common.RedisEnabled = originalRedis })
+			common.MemoryCacheEnabled = cached
+			const channelID = 2421
+			const modelName = "single-group-hard-exclusion-model"
+			createChannelSelectAutoGroupsChannel(t, db, channelID, "vip", modelName, 0)
+			model.InitChannelCache()
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			common.SetContextKey(ctx, constant.ContextKeyTokenGroup, "vip")
+			common.SetContextKey(ctx, constant.ContextKeyTokenGroups, []string{"vip"})
+			param := &RetryParam{Ctx: ctx, TokenGroup: "vip", ModelName: modelName, Retry: common.GetPointer(1)}
+
+			// 普通上游失败允许单组请求在未尝试渠道耗尽后再次选择原渠道。
+			param.ExcludeChannelID(channelID, true)
+			channel, group, err := CacheGetRandomSatisfiedChannel(param)
+			require.NoError(t, err)
+			require.NotNil(t, channel)
+			assert.Equal(t, channelID, channel.Id)
+			assert.Equal(t, "vip", group)
+
+			// 同一渠道随后抢租失败时必须硬排除，不能被旧的兼容回退标记重新放开。
+			param.ExcludeChannelID(channelID, false)
+			channel, group, err = CacheGetRandomSatisfiedChannel(param)
+			require.NoError(t, err)
+			assert.Nil(t, channel, "硬排除后不得再次选择已抢租失败的渠道")
+			assert.Equal(t, "vip", group)
+		})
+	}
+}

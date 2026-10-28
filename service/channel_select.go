@@ -56,6 +56,8 @@ func (p *RetryParam) ExcludeChannelID(channelID int, allowFallback bool) {
 			p.RetryFallbackChannelIDs = make(map[int]struct{})
 		}
 		p.RetryFallbackChannelIDs[channelID] = struct{}{}
+	} else {
+		delete(p.RetryFallbackChannelIDs, channelID)
 	}
 }
 

@@ -39,7 +39,8 @@ go test -mod=readonly ./service ./middleware ./model -run 'Test(CacheGetRandomSa
 2026-10-28 再次检查全部差异，独立只读审查未发现本次修改引入的阻塞问题。
 
 - 上述相关回归重新运行，81 项通过；新增 Redis 竞争回归 2 项通过；补充控制器重试与切组提示词/计费准备契约检查 18 项通过；`go vet ./service ./middleware ./controller ./model`、Go/Markdown 格式与 `git diff --check` 均通过。
-- 受影响的 `service`、`middleware`、`controller`、`model` 四个 Go 包最终全量回归共 3208 项通过。
+- 合并前补查单组重试：已有兼容回退标记的渠道一旦原子抢租失败，硬排除同时撤销其回退标记，避免反复重新放开同一渠道；缓存和 SQLite 两条路径均验证先允许回选、再硬排除的行为。
+- 补充硬排除修复后，受影响的 `service`、`middleware`、`controller`、`model` 四个 Go 包最终全量回归共 3211 项通过。
 - 原有选路策略测试曾因未初始化 `model.DB` 崩溃；本次为其增加隔离 SQLite 分组夹具，相关 `PrepareSelectedRouteRequest` 测试连续运行 3 次通过。
 - 新增 Redis 双客户端测试以真实生产 Lua 路径制造预检查与抢租之间的竞争，`RetryTimes=0` 时初始实现确定性返回 503，修复后初选与 `getChannel` 两项均通过；竞争租约按 token 保留并在测试清理。
 
