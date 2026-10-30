@@ -35,7 +35,7 @@ func TestForceResponsesRoutesConversationRequests(t *testing.T) {
 		helper  func(*gin.Context, *relaycommon.RelayInfo) *types.NewAPIError
 	}{
 		{"chat", "/v1/chat/completions", types.RelayFormatOpenAI, relayconstant.RelayModeChatCompletions,
-			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"temperature":0,"service_tier":"priority"}`, &dto.GeneralOpenAIRequest{}, TextHelper},
+			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"temperature":0,"service_tier":"priority","prompt_cache_key":"workbuddy-session","prompt_cache_retention":"24h","prompt_cache_options":{"enabled":false}}`, &dto.GeneralOpenAIRequest{}, TextHelper},
 		{"claude", "/v1/messages", types.RelayFormatClaude, relayconstant.RelayModeUnknown,
 			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"max_tokens":32}`, &dto.ClaudeRequest{}, ClaudeHelper},
 		{"gemini", "/v1beta/models/client-model:generateContent", types.RelayFormatGemini, relayconstant.RelayModeGemini,
@@ -43,7 +43,7 @@ func TestForceResponsesRoutesConversationRequests(t *testing.T) {
 		{"responses", "/v1/responses", types.RelayFormatOpenAIResponses, relayconstant.RelayModeResponses,
 			`{"model":"client-model","input":"hello"}`, &dto.OpenAIResponsesRequest{}, ResponsesHelper},
 		{"chat stream", "/v1/chat/completions", types.RelayFormatOpenAI, relayconstant.RelayModeChatCompletions,
-			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"stream":true}`, &dto.GeneralOpenAIRequest{}, TextHelper},
+			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"stream":true,"prompt_cache_key":"workbuddy-session","prompt_cache_retention":"24h","prompt_cache_options":{"enabled":false}}`, &dto.GeneralOpenAIRequest{}, TextHelper},
 		{"claude stream", "/v1/messages", types.RelayFormatClaude, relayconstant.RelayModeUnknown,
 			`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"max_tokens":32,"stream":true}`, &dto.ClaudeRequest{}, ClaudeHelper},
 		{"gemini stream", "/v1beta/models/client-model:streamGenerateContent?alt=sse", types.RelayFormatGemini, relayconstant.RelayModeGemini,
@@ -91,6 +91,11 @@ func TestForceResponsesRoutesConversationRequests(t *testing.T) {
 				assert.NotContains(t, outbound, "messages")
 				assert.NotContains(t, outbound, "contents")
 				assert.NotContains(t, outbound, "service_tier")
+				if strings.HasPrefix(tt.name, "chat") {
+					assert.Equal(t, "workbuddy-session", outbound["prompt_cache_key"])
+					assert.Equal(t, "24h", outbound["prompt_cache_retention"])
+					assert.Equal(t, map[string]any{"enabled": false}, outbound["prompt_cache_options"])
+				}
 				if tt.name == "chat" {
 					assert.Equal(t, float64(0), outbound["temperature"])
 				}

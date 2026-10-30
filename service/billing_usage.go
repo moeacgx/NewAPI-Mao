@@ -98,6 +98,20 @@ func usageFromBillingUsage(usage *dto.Usage) (*dto.Usage, bool) {
 
 func usageFromOpenAIBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
 	usage := *billingUsage.OpenAIUsage
+	// 结算结果与原始快照独立，避免后续归一化或调用方修改污染计费依据。
+	if usage.InputTokensDetails != nil {
+		details := *usage.InputTokensDetails
+		usage.InputTokensDetails = &details
+		// Prompt 侧显式零及旧构造非零值优先，只有缺失时才补 Responses 缓存读取量。
+		if !usage.PromptTokensDetails.HasCachedTokens && usage.PromptTokensDetails.CachedTokens == 0 {
+			usage.PromptTokensDetails.CachedTokens = details.CachedTokens
+			usage.PromptTokensDetails.HasCachedTokens = details.HasCachedTokens
+		}
+	}
+	if usage.OutputTokensDetails != nil {
+		details := *usage.OutputTokensDetails
+		usage.OutputTokensDetails = &details
+	}
 	if usage.PromptTokens == 0 && usage.InputTokens > 0 {
 		usage.PromptTokens = usage.InputTokens
 	}

@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [WorkBuddy 强制 Responses 缓存结算与参数修复](../workflows/2026-10/30_workbuddy_responses_cache_billing.md)：原生缓存快照进入实际结算，双向协议转换保留缓存策略参数。
+
 - [.361 工单设置布局发布](../workflows/2026-10/30_release_361.md)：纳入 #370，记录双模板设置折叠、旧工作区备份与发布门禁；不包含生产部署。
 
 - [工单列表优先与设置折叠](../workflows/2026-10/28_ticket_management_settings_layout.md)：Default 与 Classic 管理页优先展示工单列表，自动回复与超时归档集中到默认折叠的设置区。
