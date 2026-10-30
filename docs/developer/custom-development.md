@@ -223,6 +223,8 @@
 - 配置：`setting.force_responses` 默认关闭，要求渠道敏感写权限，Default 与 Classic 均提供入口。
 - 能力：支持 OpenAI、Azure、xAI、Codex、Sub2API、NewAPI 渠道，将 Chat/Claude/Gemini 对话转为 Responses，客户端返回协议不变。
 - 边界：开启后优先于透传与 Responses 转 Chat；其他业务端点不改路由，无数据库迁移。
+- 缓存契约：Chat ↔ Responses 保留 `prompt_cache_options`、`prompt_cache_retention`、`prompt_cache_key`；Responses 原生快照中的缓存读取详情在结算时补入缺失的 Prompt 缓存字段，已有值和显式零优先。
+- 本地回归：[WorkBuddy 缓存结算与参数修复](../workflows/2026-10/30_workbuddy_responses_cache_billing.md)，覆盖流/非流转换、快照隔离、倍率折扣与表达式 `cr`；上游缓存策略是否实际生效仍需供应商验收。
 - 稳定性：复用既有协议转换和结算链路；供应商实际兼容性与线上部署需单独验证。
 
 ## 管理员管理请求豁免与令牌取密钥限流隔离
