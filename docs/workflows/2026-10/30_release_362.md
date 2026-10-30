@@ -23,7 +23,15 @@
 
 ## 验证结果
 
-版本 PR、标签及发布作业尚待完成。功能实现、本地验证与共享契约边界见 [WorkBuddy 缓存结算与参数修复](30_workbuddy_responses_cache_billing.md)；PR #372 的整合 CI 和发布产物以本记录后续更新为准。
+PR #372 合并提交 `49906fa7f5d5b60483a4f8a49a86570d47d55645`，目标为 `custom-main`。修复 CI 对准确提交 `8d434686abfa5f275a65db760ce27200386325f3` 的后端 vet/build/test、relaykit 独立检查、Default 类型检查及前端测试通过；PR 质量检查通过。功能审查未发现阻断项。
+
+版本 PR #373 合并提交 `ff76e6cdceff4f06491554e5cc8eb1729e4e57d5`。附注标签 `v1.0.0-rc.10.1.10.362` 指向此提交。Linux Release 工作流 `41044000708` 与 Docker 多架构工作流 `41044000804` 均成功，准确 SHA 为上述版本提交。
+
+- GitHub Release：[`v1.0.0-rc.10.1.10.362`](https://github.com/moeacgx/NewAPI-Mao/releases/tag/v1.0.0-rc.10.1.10.362)，已上传 amd64、arm64 Linux 二进制和 `checksums-linux.txt`。下载后两二进制 SHA-256 与校验文件完全一致：amd64 `09ea5e19825450f96dd1ca82ca59430943e5deb10508e3d9f8b86b3adf3cb307`，arm64 `4f516b9284e769295b67e15913fd7607be55ab2c11a6881347ea156de158b99b`。
+- GHCR 版本与 `latest` manifest 均已发布，SHA-256 `bfb4ed9e3da167e0b1f86499b28418858d46c3ce9a05654c191b08e66ca7c264`，包含 linux/amd64 与 linux/arm64。
+- 本轮没有用本机运行镜像内二进制，也没有生产部署、真实 WorkBuddy/GPT 账务路径或供应商缓存命中验收。发布产物验证不等于生产业务验收。
+
+功能实现、本地复现、回归范围与共享契约见 [WorkBuddy 缓存结算与参数修复](30_workbuddy_responses_cache_billing.md)。
 
 ## 共享契约与分享评估
 
