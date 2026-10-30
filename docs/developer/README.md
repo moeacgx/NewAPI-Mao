@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [.362 WorkBuddy Responses 缓存结算修复发布](../workflows/2026-10/30_release_362.md)：纳入 #372，发布 GitHub Release 与 GHCR 双架构镜像；不包含生产部署。
+
 - [WorkBuddy 强制 Responses 缓存结算与参数修复](../workflows/2026-10/30_workbuddy_responses_cache_billing.md)：原生缓存快照进入实际结算，双向协议转换保留缓存策略参数。
 
 - [.361 工单设置布局发布](../workflows/2026-10/30_release_361.md)：纳入 #370，记录双模板设置折叠、旧工作区备份与发布门禁；不包含生产部署。
