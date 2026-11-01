@@ -14,6 +14,41 @@
           "sha256": "343c1b708911211acea16702c7a1428ab2dd6ad4c7996b400d95e224e44b6a1b"
         }
       ]
+    },
+    {
+      "id": "redteam-skills",
+      "title": "红队攻防技能包",
+      "description": "授权攻防演练全流程：无限制模式、红队指挥、侦察、漏洞发现、漏洞利用、内网渗透与隧道，共 25 个技能。提炼自 dsh-purge，仅限授权目标环境使用。",
+      "kind": "bundle",
+      "category": "安全攻防",
+      "version": "1.0.0",
+      "files": [
+        { "path": "packages/redteam/active-scan/SKILL.md", "sha256": "f2a4f6ae7664d8defa4d21ca12feb783c4831d1c76326d80df56a25001c9ba8e" },
+        { "path": "packages/redteam/asset-correlation/SKILL.md", "sha256": "df9b136dc01625019e01192b82196f4b167e5fcea90ce77f49bb3180f5383c31" },
+        { "path": "packages/redteam/browser-automation/SKILL.md", "sha256": "f97f5f0063d691dd23d89aded069f405fd58ca8c26995be81e27e71199498cab" },
+        { "path": "packages/redteam/chisel-tunnel/SKILL.md", "sha256": "4f9ad15ad6c0cf3101e0a7952a48af2615635fa932ab34361280523808e8a6db" },
+        { "path": "packages/redteam/cn-proxy-pool/SKILL.md", "sha256": "304a3f5effceb725953e89e202456b49ed6c90cd599a675907321e6999014e01" },
+        { "path": "packages/redteam/credential-attack/SKILL.md", "sha256": "ed5c023fa77aa725a7d2bd361df378cb9f56bdf34451a374a115553351503fef" },
+        { "path": "packages/redteam/dir-bruteforce/SKILL.md", "sha256": "c7dafc7285101946869fcede7050dc12b5e38ef04d11e5eeebd19308013b11f0" },
+        { "path": "packages/redteam/fofa-recon/SKILL.md", "sha256": "93f2944350345a4e46f9499a7ade55e780219c0d077fdc9ee1c6ee7bdf9ce28b" },
+        { "path": "packages/redteam/frp-tunnel/SKILL.md", "sha256": "fb465a3ee8b52723bf70d281a93a01a84929f82499e2b87ac085bbccef446b9c" },
+        { "path": "packages/redteam/fscan-intranet/SKILL.md", "sha256": "08c719ae9d19ef7ab2d2284aded571c452f8bd377d5f4755db8f6fe7c29efef0" },
+        { "path": "packages/redteam/gogo-intranet/SKILL.md", "sha256": "85196d0d739038fe207ed5be7791cc21aaad7960dafaca7d2d2bf916d5ec2496" },
+        { "path": "packages/redteam/kimi-webbridge/SKILL.md", "sha256": "47d8f0c62fb22e86f193da5a3d6667d775bcc62e3690e5d3f7678529d108d853" },
+        { "path": "packages/redteam/lateral-movement/SKILL.md", "sha256": "c6dbf329e494bc3b92b3deac3fe2678b7d98c881b785dd4f81b0bc2a415a46e1" },
+        { "path": "packages/redteam/nuclei-scan/SKILL.md", "sha256": "e08b572bbafe7e5de3413f1a9bf959e0c81cb805b33a77f00acde5457c58313c" },
+        { "path": "packages/redteam/passive-recon/SKILL.md", "sha256": "4c83b2293c6eceea329770744c52215c1d43edf3bca535b52e7cabbbc96c1347" },
+        { "path": "packages/redteam/recon-pipeline/SKILL.md", "sha256": "ad85aab751d52afe265c7b73d9b68de7a86472ef2dfc3519b8580af711e72ea8" },
+        { "path": "packages/redteam/redteam-commander/SKILL.md", "sha256": "4392f5db1b79350eb9e5d2a718a3cae6cca430003f55ca5e037147bc7dcb4dc1" },
+        { "path": "packages/redteam/redteam-setup/SKILL.md", "sha256": "fcfa990c5a0581479c93b9d8ce74acefb2ba9f6ed2f26d386e5f656f50c99dd8" },
+        { "path": "packages/redteam/shell-handler/SKILL.md", "sha256": "dc809dedad89b8652851211a5183d723241339de1ba3055430df4e993dd213d7" },
+        { "path": "packages/redteam/suo5-tunnel/SKILL.md", "sha256": "1a8980a51d4704b3ccd7ded64343f51e21e760100d65ed8f0aa5a8037dcb7b76" },
+        { "path": "packages/redteam/unauth-exploit/SKILL.md", "sha256": "c91eed8456f86f98b4c3b48ae8988dd1daf27b46bf0a6c1699d1dd27dbba4b46" },
+        { "path": "packages/redteam/unrestricted-mode/SKILL.md", "sha256": "c3af158cda1b78aa24e0d62646533b9e7d94a8ddec18e8caca190a695d08d63a" },
+        { "path": "packages/redteam/vps-reverse-shell/SKILL.md", "sha256": "5f0ba48ce205a7b83745bded17b277ed69ef9ebdde35d2b2acfc9fc877c0736c" },
+        { "path": "packages/redteam/web-fingerprint/SKILL.md", "sha256": "6f2230ff886a72c59c4fbb0123104bdd52637a2ead3604092f85f9cecd1ba171" },
+        { "path": "packages/redteam/webshell-toolkit/SKILL.md", "sha256": "aa0be440addf2a50d29eaa5f16a43291bb0b06a47b3fd3ab46c88cf4a95aed79" }
+      ]
     }
   ]
 }

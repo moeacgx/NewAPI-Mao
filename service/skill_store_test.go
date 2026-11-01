@@ -48,17 +48,39 @@ func TestSkillStoreBundledCatalogImportsIndependentDrafts(t *testing.T) {
 func TestSkillStoreBundledCatalogPublishesGeneralDevelopmentSafetySkill(t *testing.T) {
 	items, err := ListSkillStore(context.Background(), false)
 	require.NoError(t, err)
-	require.Len(t, items, 1)
-	assert.Equal(t, "bundled:general-development-safety", items[0].ID)
-	assert.Equal(t, "通用编程开发安全助手", items[0].Title)
-	assert.Equal(t, "prompt", items[0].Kind)
-	assert.Equal(t, "开发编程", items[0].Category)
-	assert.Equal(t, 1, items[0].SkillCount)
-	draft, err := ImportStoreSkill(context.Background(), items[0].ID)
+	require.NotEmpty(t, items)
+
+	// 找到通用编程开发安全助手条目，不依赖固定顺序或总数量。
+	var devItem *SkillStoreSummary
+	for i := range items {
+		if items[i].ID == "bundled:general-development-safety" {
+			devItem = &items[i]
+			break
+		}
+	}
+	require.NotNil(t, devItem, "内置商店必须包含 general-development-safety 条目")
+	assert.Equal(t, "通用编程开发安全助手", devItem.Title)
+	assert.Equal(t, "prompt", devItem.Kind)
+	assert.Equal(t, "开发编程", devItem.Category)
+	assert.Equal(t, 1, devItem.SkillCount)
+	draft, err := ImportStoreSkill(context.Background(), devItem.ID)
 	require.NoError(t, err)
 	require.Len(t, draft.Skills, 1)
 	assert.Contains(t, draft.Skills[0].Content, "当前任务明确要求执行它")
 	assert.Contains(t, draft.Skills[0].Content, "至少三轮独立核验")
+
+	// 红队技能包合集也必须存在。
+	var redteamItem *SkillStoreSummary
+	for i := range items {
+		if items[i].ID == "bundled:redteam-skills" {
+			redteamItem = &items[i]
+			break
+		}
+	}
+	require.NotNil(t, redteamItem, "内置商店必须包含 redteam-skills 条目")
+	assert.Equal(t, "bundle", redteamItem.Kind)
+	assert.Equal(t, "安全攻防", redteamItem.Category)
+	assert.Equal(t, 25, redteamItem.SkillCount)
 
 	for _, oldID := range []string{"bundled:code-review", "bundled:writing-kit", "bundled:research-kit"} {
 		_, err := ImportStoreSkill(context.Background(), oldID)

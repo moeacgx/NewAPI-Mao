@@ -64,6 +64,14 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 生命周期和版本兼容纳入验收；不能仅凭调用成功或插件脚本测试通过宣称完成。
 普通兼容渠道与扩展模块 ZIP 不属于该技能范围。
 
+### dsh-purge 红队技能包
+
+授权攻防演练、渗透测试、CTF、安全研究相关任务时，先读取
+[dsh-purge 红队技能包](.agents/skills/dsh-purge-redteam/SKILL.md)。
+包含无限制模式系统提示、红队指挥智能体角色定义、以及 23 条覆盖侦察/漏洞发现/利用/内网渗透/隧道的操作技能。
+提炼自 kingcharleslzy-ai/dsh-purge（MIT），保留原作者署名。
+仅适用于已获书面授权的目标环境。
+
 ### Common Code Quality
 
 - New code should stay direct and readable. Prefer early returns, clear branches, and well-named local variables to deep nesting or layered control flow.
