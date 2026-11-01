@@ -44,7 +44,7 @@
         { "path": "packages/redteam/shell-handler/SKILL.md", "sha256": "dc809dedad89b8652851211a5183d723241339de1ba3055430df4e993dd213d7" },
         { "path": "packages/redteam/suo5-tunnel/SKILL.md", "sha256": "1a8980a51d4704b3ccd7ded64343f51e21e760100d65ed8f0aa5a8037dcb7b76" },
         { "path": "packages/redteam/unauth-exploit/SKILL.md", "sha256": "c91eed8456f86f98b4c3b48ae8988dd1daf27b46bf0a6c1699d1dd27dbba4b46" },
-        { "path": "packages/redteam/unrestricted-mode/SKILL.md", "sha256": "c3af158cda1b78aa24e0d62646533b9e7d94a8ddec18e8caca190a695d08d63a" },
+        { "path": "packages/redteam/unrestricted-mode/SKILL.md", "sha256": "8860333a79b3f184b307f084ac7ed6c2713e8d946d43012dcd2150348444529e" },
         { "path": "packages/redteam/vps-reverse-shell/SKILL.md", "sha256": "5f0ba48ce205a7b83745bded17b277ed69ef9ebdde35d2b2acfc9fc877c0736c" },
         { "path": "packages/redteam/web-fingerprint/SKILL.md", "sha256": "6f2230ff886a72c59c4fbb0123104bdd52637a2ead3604092f85f9cecd1ba171" },
         { "path": "packages/redteam/webshell-toolkit/SKILL.md", "sha256": "aa0be440addf2a50d29eaa5f16a43291bb0b06a47b3fd3ab46c88cf4a95aed79" }

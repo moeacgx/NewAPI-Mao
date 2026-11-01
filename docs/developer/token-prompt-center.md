@@ -141,11 +141,38 @@ ZIP 与仓库导入附带失败文件相对路径；失败不返回部分草稿�
 诊断修复与验证见[技能导入正文错误定位](../workflows/2026-10/23_skill_import_diagnostics.md)。
 
 商店原件位于 [skill-store](../../skill-store/README.md)，编译内嵌可离线使用。
-内置目录当前仅提供“通用编程开发安全助手”，用于一般编程开发，并在准备执行递归强制删除前
-要求明确授权和三轮目标核验；被移出 `index.json` 的旧预设不再出现在内置商店或可导入条目中。
+内置目录目前包含以下技能包；被移出 `index.json` 的旧预设不再出现在内置商店或可导入条目中：
+
+| ID | 标题 | 类型 | 分类 | 技能数 | 说明 |
+|----|------|------|------|--------|------|
+| `general-development-safety` | 通用编程开发安全助手 | 单技能 | 开发编程 | 1 | 编程开发通用安全守则：递归强制删除前核验必要性、授权和精确范围 |
+| `redteam-skills` | 红队攻防技能包 | 合集 | 安全攻防 | 25 | 授权攻防演练全流程：无限制模式、红队指挥、侦察/漏洞发现/利用/内网渗透/隧道，提炼自 dsh-purge（MIT） |
+
 显式在线刷新仅读取本项目 `custom-main/skill-store/`，不跟随重定向，主文件和引用资料均逐文件
 校验清单 SHA256。
 该目录发布到目标分支后在线内容才可用；本地实现不包含仓库推送和商店发布。
+
+### 向内置商店添加技能包
+
+内置技能通过 Go embed 编译进二进制，添加步骤：
+
+1. 在 `skill-store/packages/<category>/<skill-name>/` 下放置 `SKILL.md`（frontmatter 需有 `name` 和 `description`）。合集在同一 category 下放多个子目录，每个目录一个 `SKILL.md`。
+2. 计算每个文件的 SHA256（小写十六进制）：
+   ```powershell
+   (Get-FileHash “skill-store/packages/.../SKILL.md” -Algorithm SHA256).Hash.ToLower()
+   ```
+   或 Linux/macOS：
+   ```sh
+   sha256sum skill-store/packages/.../SKILL.md
+   ```
+3. 在 `skill-store/index.json` 的 `items` 数组里新增条目：
+   - `id`：全小写字母数字和连字符，最长 80 字符，全局唯一
+   - `kind`：`”prompt”`（单技能）或 `”bundle”`（合集，需 2–128 个 SKILL.md）
+   - `files`：所有需要读取的文件路径与 SHA256，路径必须以 `packages/` 开头
+4. 运行 `go build ./skill-store/...` 确认 embed 编译通过。
+5. 运行 `go test ./service/ -run TestSkillStoreBundled` 验证目录解析和导入逻辑。如果测试断言了固定条目数量，更新为按 ID 查找的方式（参见 `service/skill_store_test.go`）。
+
+技能文件格式限制：UTF-8 文本，单文件最大 8 MiB，包内文本总量最大 64 MiB，最多 4096 个文件。`index.json` 最多 64 个条目，目录本身最大 128 KiB。
 仓库链接导入则使用固定 GitHub API 与原始文件主机，固定提交读取公开技能文件，
 不接受私有仓库凭据、任意下载地址或自定义 Git 主机。细节、边界和测试见
 [合集与导入记录](../workflows/2026-10/22_skill_bundles_categories.md)。
