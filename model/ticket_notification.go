@@ -11,7 +11,8 @@ import (
 // 管理员回复、状态变更（含批量改状态和自动归档）由管理员自己发起，不再外发通知。
 const (
 	NotificationEventTypeTicketUserMessage = "ticket_user_message"
-	NotificationTicketUserMessageTemplate  = legacyNotificationTicketUserMessageTemplate + "\n正文：{{content}}"
+	NotificationTicketUserMessageTemplate  = "{{mention}} 🎫 <b>{{action_label}} #{{ticket_id}}：{{title}}</b>\n👤 {{user_id}}\n🏷 {{category}} · {{priority}}\n<blockquote>{{content}}</blockquote>"
+	NotificationTicketRepliedPrefix        = "✅ 已回复\n"
 
 	// TicketNotificationContentMaxEscapedRunes 为正文快照预留统一 HTML 转义后的字符预算。
 	TicketNotificationContentMaxEscapedRunes = 2000
@@ -31,6 +32,7 @@ var (
 		"",
 		NotificationTaskDefaultTemplate,
 		legacyNotificationTicketUserMessageTemplate,
+		legacyNotificationTicketUserMessageTemplate + "\n正文：{{content}}",
 		"{{mention}} 新工单 #{{ticket_id}}：{{title}}\n用户：{{user_id}}\n分类：{{category}} 优先级：{{priority}}",
 		"{{mention}} 工单 #{{ticket_id}} 收到用户追问：{{title}}\n用户：{{user_id}}",
 	}

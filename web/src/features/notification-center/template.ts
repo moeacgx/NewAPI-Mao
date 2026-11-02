@@ -19,6 +19,18 @@ For commercial licensing, please contact support@quantumnous.com
 
 import type { NotificationEventType } from './types'
 
+/** 编辑与预览只接受 Telegram 支持且不会执行脚本的链接协议。 */
+export function isTelegramLink(value: string): boolean {
+  if (!/^(https?:\/\/|tg:\/\/|mailto:)/i.test(value)) return false
+  try {
+    return ['http:', 'https:', 'tg:', 'mailto:'].includes(
+      new URL(value).protocol
+    )
+  } catch {
+    return false
+  }
+}
+
 /** 当模板仍是当前事件默认值时，切换事件应使用目标事件默认模板。 */
 export function shouldReplaceNotificationTemplate(
   currentTemplate: string,

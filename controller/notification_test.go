@@ -58,6 +58,7 @@ func TestNotificationControllersFailClosedWithoutRootRole(t *testing.T) {
 		ListNotificationEventTypes, ListNotificationBots, CreateNotificationBot, UpdateNotificationBot,
 		DisableNotificationBot, TestNotificationBot, ListNotificationTasks, CreateNotificationTask,
 		UpdateNotificationTask, DisableNotificationTask, ListNotificationDeliveries,
+		PreviewNotificationTemplate,
 	}
 	for index, handler := range handlers {
 		recorder := invokeNotificationHandler(handler, common.RoleAdminUser, http.MethodPost, "/api/notification/blocked", `{}`, 0)

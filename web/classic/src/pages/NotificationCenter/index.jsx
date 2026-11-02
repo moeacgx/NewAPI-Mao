@@ -52,6 +52,7 @@ import {
   applyInsufficientBalanceDedupPreset,
   normalizeNotificationFilterConfig,
 } from './filter-config';
+import TelegramTemplateEditor from './TelegramTemplateEditor';
 
 const { Text, Title } = Typography;
 
@@ -985,19 +986,18 @@ const NotificationCenter = () => {
           ))}
           <div>
             <Text strong>{t('消息模板')}</Text>
-            <TextArea
-              className='mt-2 font-mono'
-              autosize={{ minRows: 6, maxRows: 12 }}
-              value={taskForm.template}
-              onChange={(template) =>
-                setTaskForm((current) => ({ ...current, template }))
-              }
-            />
-            <Space wrap className='mt-2'>
-              {(selectedEvent.variables || []).map((variable) => (
-                <Tag key={variable}>{`{{${variable}}}`}</Tag>
-              ))}
-            </Space>
+            {taskModalVisible && (
+              <TelegramTemplateEditor
+                key={editingTask?.id || 'new'}
+                value={taskForm.template || ''}
+                event={selectedEvent}
+                eventType={taskForm.event_type}
+                target={taskForm.targets[0]}
+                onChange={(template) =>
+                  setTaskForm((current) => ({ ...current, template }))
+                }
+              />
+            )}
             {selectedEvent.value.startsWith('ticket_') && (
               <Text type='tertiary' size='small' className='mt-2 block'>
                 {t(

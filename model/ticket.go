@@ -121,7 +121,7 @@ func CreateTicket(userID int, input TicketCreateInput) (*Ticket, error) {
 				return err
 			}
 		}
-		return enqueueTicketUserNotificationTx(tx, ticket, TicketNotificationActionCreated, userID, input.Content)
+		return enqueueTicketUserNotificationTx(tx, ticket, TicketNotificationActionCreated, userID, message.Id, input.Content)
 	})
 	return ticket, err
 }
@@ -220,7 +220,7 @@ func ReplyTicket(ticketID, userID int, admin bool, content string) (*TicketMessa
 		if admin {
 			return nil
 		}
-		return enqueueTicketUserNotificationTx(tx, &ticket, TicketNotificationActionReplied, userID, message.Content)
+		return enqueueTicketUserNotificationTx(tx, &ticket, TicketNotificationActionReplied, userID, message.Id, message.Content)
 	})
 	return message, err
 }
@@ -260,13 +260,14 @@ func updateTicketStateTx(tx *gorm.DB, ticket *Ticket, status string) error {
 }
 
 // enqueueTicketUserNotificationTx 只在用户新建或追加回复时入队，与业务变更同一事务。
-func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string, actorID int, content string) error {
+func enqueueTicketUserNotificationTx(tx *gorm.DB, ticket *Ticket, action string, actorID, messageID int, content string) error {
 	return EnqueueNotificationEventTx(tx, NotificationEventTypeTicketUserMessage, fmt.Sprintf("ticket:%d:version:%d", ticket.Id, ticket.Version), map[string]any{
 		"ticket_id": ticket.Id, "title": ticket.Title, "user_id": ticket.UserId,
 		"category": ticket.Category, "priority": ticket.Priority, "status": ticket.Status,
 		"actor_id": actorID, "actor_role": "user", "create_time": ticket.UpdatedAt,
 		"action": action, "action_label": ticketNotificationActionLabels[action],
-		"content": ticketNotificationContentSnapshot(content),
+		"content":         ticketNotificationContentSnapshot(content),
+		"user_message_id": messageID,
 	})
 }
 

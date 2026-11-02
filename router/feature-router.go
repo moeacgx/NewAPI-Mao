@@ -84,6 +84,7 @@ func registerNotificationRoutes(apiRouter *gin.RouterGroup) {
 		notificationRoute.GET("/bots", controller.ListNotificationBots)
 		notificationRoute.GET("/tasks", controller.ListNotificationTasks)
 		notificationRoute.GET("/deliveries", controller.ListNotificationDeliveries)
+		notificationRoute.POST("/preview", mutationBodyLimit, controller.PreviewNotificationTemplate)
 
 		notificationRoute.POST("/bots", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.CreateNotificationBot)
 		notificationRoute.PUT("/bots/:id", middleware.AdminRateLimitBypass(middleware.CriticalRateLimit()), mutationBodyLimit, controller.UpdateNotificationBot)

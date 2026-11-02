@@ -79,12 +79,13 @@ func TestTicketNotificationContentPreservesUnicodeWithinEscapedBudget(t *testing
 
 func TestTicketNotificationDefaultTemplateUpgradePreservesCustomTemplates(t *testing.T) {
 	const oldDefault = "{{mention}} {{action_label}} #{{ticket_id}}：{{title}}\n用户：{{user_id}}\n分类：{{category}} 优先级：{{priority}}"
-	const newDefault = oldDefault + "\n正文：{{content}}"
+	const newDefault = "{{mention}} 🎫 <b>{{action_label}} #{{ticket_id}}：{{title}}</b>\n👤 {{user_id}}\n🏷 {{category}} · {{priority}}\n<blockquote>{{content}}</blockquote>"
 	for _, tc := range []struct {
 		name, template, want string
 	}{
 		{name: "空模板", want: newDefault},
 		{name: "旧默认模板", template: oldDefault, want: newDefault},
+		{name: "旧正文默认模板", template: oldDefault + "\n正文：{{content}}", want: newDefault},
 		{name: "新默认模板", template: newDefault, want: newDefault},
 		{name: "自定义模板", template: "自定义：{{title}}", want: "自定义：{{title}}"},
 	} {

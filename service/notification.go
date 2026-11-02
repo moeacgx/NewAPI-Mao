@@ -47,7 +47,11 @@ func (NotificationDispatcherSystemTaskHandler) Type() string {
 
 func (NotificationDispatcherSystemTaskHandler) Enabled() bool {
 	hasWork, err := model.HasNotificationDeliveryWork(time.Now().Unix(), int64(notificationDeliveryLease/time.Second))
-	return err != nil || hasWork
+	if err != nil || hasWork {
+		return true
+	}
+	hasEdits, err := model.HasTicketNotificationEditWork(time.Now().Unix())
+	return err != nil || hasEdits
 }
 
 func (NotificationDispatcherSystemTaskHandler) Interval() time.Duration {
@@ -91,7 +95,7 @@ func RunNotificationDispatcherPass(ctx context.Context) (NotificationDispatchRes
 		dispatchNotificationDelivery(ctx, work)
 		result.Processed++
 	}
-	return result, claimErr
+	return result, errors.Join(claimErr, dispatchTicketNotificationEdits(ctx))
 }
 
 // RunNotificationDispatcherOnce is retained for diagnostics and tests only.
@@ -156,7 +160,12 @@ func dispatchNotificationDelivery(ctx context.Context, work model.NotificationDe
 		return
 	}
 	work.Delivery.AttemptCount = attemptCount
-	if err := sendTelegramMessageContext(ctx, token, work.Target.ChatId, content); err != nil {
+	if work.Event.EventType == model.NotificationEventTypeTicketUserMessage && utf8.RuneCountInString(content)+utf8.RuneCountInString(model.NotificationTicketRepliedPrefix) > 4096 {
+		logNotificationTransitionError(work.Delivery.Id, "mark dead", model.MarkNotificationDeliveryDead(work.Delivery.Id, "ticket notification exceeds reserved reply marker budget"))
+		return
+	}
+	sent, err := telegramMessageContext(ctx, token, work.Target.ChatId, content, 0)
+	if err != nil {
 		if retryErr, ok := err.(*telegramDeliveryError); ok && retryErr.retryable && work.Delivery.AttemptCount < notificationMaxAttempts {
 			delay := notificationRetryDelay(work.Delivery.AttemptCount)
 			if retryErr.retryAfter > 0 {
@@ -167,6 +176,30 @@ func dispatchNotificationDelivery(ctx context.Context, work model.NotificationDe
 		}
 		logNotificationTransitionError(work.Delivery.Id, "mark dead", model.MarkNotificationDeliveryDead(work.Delivery.Id, err.Error()))
 		return
+	}
+	if work.Event.EventType == model.NotificationEventTypeTicketUserMessage && sent.MessageID > 0 {
+		var source struct {
+			TicketID      int `json:"ticket_id"`
+			UserMessageID int `json:"user_message_id"`
+		}
+		if err := common.UnmarshalJsonStr(work.Event.Payload, &source); err == nil && source.TicketID > 0 && source.UserMessageID > 0 {
+			chatID := work.Target.ChatId
+			if sent.Chat.ID != 0 {
+				chatID = strconv.FormatInt(sent.Chat.ID, 10)
+			}
+			receipt := model.TicketNotificationMessage{
+				DeliveryId: work.Delivery.Id, TicketId: source.TicketID, UserMessageId: source.UserMessageID,
+				BotId: work.Bot.Id, ChatId: chatID, MessageId: sent.MessageID, Content: content,
+				Status: model.NotificationDeliveryPending, CreatedAt: time.Now().Unix(),
+			}
+			if err := model.CompleteTicketNotificationDelivery(&receipt); err != nil {
+				logger.LogWarn(ctx, fmt.Sprintf("ticket notification delivery %d message reference save failed", work.Delivery.Id))
+				logNotificationTransitionError(work.Delivery.Id, "mark dead", model.MarkNotificationDeliveryDead(work.Delivery.Id, "notification sent but ticket message reference could not be saved"))
+			} else {
+				logNotificationTransitionError(work.Delivery.Id, "prune history", model.PruneNotificationHistoryForTask(work.Task.Id))
+			}
+			return
+		}
 	}
 	if err := model.MarkNotificationDeliverySuccess(work.Delivery.Id, time.Now().Unix()); err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("notification delivery %d success state update failed: %v", work.Delivery.Id, err))
@@ -211,36 +244,58 @@ func (e *telegramDeliveryError) Unwrap() error { return e.err }
 
 type telegramMessageRequest struct {
 	ChatID                string `json:"chat_id"`
+	MessageID             int    `json:"message_id,omitempty"`
 	Text                  string `json:"text"`
 	ParseMode             string `json:"parse_mode"`
 	DisableWebPagePreview bool   `json:"disable_web_page_preview"`
 }
 
+type telegramMessageResult struct {
+	MessageID int `json:"message_id"`
+	Chat      struct {
+		ID int64 `json:"id"`
+	} `json:"chat"`
+}
+
 type telegramMessageResponse struct {
-	OK          bool   `json:"ok"`
-	ErrorCode   int    `json:"error_code"`
-	Description string `json:"description"`
+	OK          bool                  `json:"ok"`
+	ErrorCode   int                   `json:"error_code"`
+	Description string                `json:"description"`
+	Result      telegramMessageResult `json:"result"`
 	Parameters  struct {
 		RetryAfter int `json:"retry_after"`
 	} `json:"parameters"`
 }
 
 func sendTelegramMessageContext(parent context.Context, token, chatID, content string) error {
+	_, err := telegramMessageContext(parent, token, chatID, content, 0)
+	return err
+}
+
+// telegramMessageContext 共用发送与编辑的 SSRF 防护、期限和脱敏响应处理。
+func telegramMessageContext(parent context.Context, token, chatID, content string, messageID int) (telegramMessageResult, error) {
 	token = strings.TrimSpace(token)
 	chatID = strings.TrimSpace(chatID)
 	if token == "" || chatID == "" {
-		return &telegramDeliveryError{err: errors.New("telegram token and chat id are required")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram token and chat id are required")}
 	}
 	if utf8.RuneCountInString(content) > 4096 {
-		return &telegramDeliveryError{err: errors.New("telegram message exceeds 4096 characters")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram message exceeds 4096 characters")}
 	}
-	payload, err := common.Marshal(telegramMessageRequest{ChatID: chatID, Text: content, ParseMode: "HTML", DisableWebPagePreview: true})
+	if err := ValidateTelegramHTML(content); err != nil {
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("invalid Telegram HTML message")}
+	}
+	payload, err := common.Marshal(telegramMessageRequest{ChatID: chatID, MessageID: messageID, Text: content, ParseMode: "HTML", DisableWebPagePreview: true})
 	if err != nil {
-		return &telegramDeliveryError{err: errors.New("marshal telegram message failed")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("marshal telegram message failed")}
 	}
-	endpoint := strings.TrimRight(notificationTelegramAPIBase, "/") + "/bot" + url.PathEscape(token) + "/sendMessage"
+	method := "sendMessage"
+	if messageID > 0 {
+		method = "editMessageText"
+	}
+	endpoint := strings.TrimRight(notificationTelegramAPIBase, "/") + "/bot" + url.PathEscape(token) + "/" + method
 	if err := ValidateSSRFProtectedFetchURL(endpoint); err != nil {
-		return &telegramDeliveryError{err: errors.New("telegram endpoint rejected by SSRF policy")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram endpoint rejected by SSRF policy")}
 	}
 	if parent == nil {
 		parent = context.Background()
@@ -249,45 +304,48 @@ func sendTelegramMessageContext(parent context.Context, token, chatID, content s
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
-		return &telegramDeliveryError{err: errors.New("create telegram request failed")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("create telegram request failed")}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "NewAPI-Notification/1.0")
 	client := GetSSRFProtectedHTTPClient()
 	if client == nil {
-		return &telegramDeliveryError{err: errors.New("notification HTTP client is unavailable")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("notification HTTP client is unavailable")}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return &telegramDeliveryError{err: errors.New("telegram request failed")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram request failed"), retryable: messageID > 0}
 	}
 	defer resp.Body.Close()
 	limited := &io.LimitedReader{R: resp.Body, N: notificationTelegramResponseMax + 1}
 	responseBody, err := io.ReadAll(limited)
 	if err != nil {
-		return &telegramDeliveryError{err: errors.New("read telegram response failed")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("read telegram response failed"), retryable: messageID > 0}
 	}
 	if len(responseBody) > notificationTelegramResponseMax {
-		return &telegramDeliveryError{err: errors.New("telegram response exceeds size limit")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram response exceeds size limit")}
 	}
 	var result telegramMessageResponse
 	decodeErr := common.Unmarshal(responseBody, &result)
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return &telegramDeliveryError{err: errors.New("telegram rate limited"), retryable: true, retryAfter: result.Parameters.RetryAfter}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram rate limited"), retryable: true, retryAfter: result.Parameters.RetryAfter}
+	}
+	if messageID > 0 && resp.StatusCode == http.StatusBadRequest && result.ErrorCode == http.StatusBadRequest && strings.HasPrefix(result.Description, "Bad Request: message is not modified") {
+		return telegramMessageResult{MessageID: messageID}, nil
 	}
 	if decodeErr != nil {
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			return &telegramDeliveryError{err: fmt.Errorf("telegram returned HTTP %d", resp.StatusCode)}
+			return telegramMessageResult{}, &telegramDeliveryError{err: fmt.Errorf("telegram returned HTTP %d", resp.StatusCode)}
 		}
-		return &telegramDeliveryError{err: errors.New("telegram returned an invalid response")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram returned an invalid response"), retryable: messageID > 0}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 || !result.OK {
 		if result.ErrorCode == http.StatusTooManyRequests {
-			return &telegramDeliveryError{err: errors.New("telegram rate limited"), retryable: true, retryAfter: result.Parameters.RetryAfter}
+			return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram rate limited"), retryable: true, retryAfter: result.Parameters.RetryAfter}
 		}
-		return &telegramDeliveryError{err: errors.New("telegram rejected message")}
+		return telegramMessageResult{}, &telegramDeliveryError{err: errors.New("telegram rejected message"), retryable: messageID > 0 && resp.StatusCode >= 500}
 	}
-	return nil
+	return result.Result, nil
 }
 
 func sendTelegramMessage(token, chatID, content string) error {
@@ -317,6 +375,9 @@ func TestTelegramNotification(token, chatID, mentionUserID, mentionName, templat
 func RenderNotificationTemplate(template string, payload map[string]any, target *model.NotificationTarget) (string, error) {
 	if strings.TrimSpace(template) == "" {
 		template = model.NotificationTaskDefaultTemplate
+	}
+	if err := ValidateTelegramHTML(template); err != nil {
+		return "", err
 	}
 	values := make(map[string]string, len(payload)+1)
 	for key, value := range payload {
@@ -351,6 +412,9 @@ func RenderNotificationTemplate(template string, payload map[string]any, target 
 	})
 	if renderErr != nil {
 		return "", renderErr
+	}
+	if err := ValidateTelegramHTML(result); err != nil {
+		return "", err
 	}
 	return result, nil
 }

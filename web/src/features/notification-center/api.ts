@@ -21,7 +21,23 @@ import type {
   NotificationEventType,
   NotificationTask,
   NotificationTaskInput,
+  NotificationPreview,
+  NotificationPreviewInput,
 } from './types'
+
+export async function previewNotificationTemplate(
+  input: NotificationPreviewInput,
+  signal?: AbortSignal
+): Promise<NotificationPreview> {
+  const response = await api.post<NotificationApiResponse<NotificationPreview>>(
+    '/api/notification/preview',
+    input,
+    { signal, skipBusinessError: true, skipErrorHandler: true }
+  )
+  const data = requireSuccessfulResponse(response.data).data
+  if (!data || typeof data.html !== 'string') throw new Error('Preview failed')
+  return data
+}
 
 function requireSuccessfulResponse<T>(response: NotificationApiResponse<T>) {
   if (response.success === false) {
