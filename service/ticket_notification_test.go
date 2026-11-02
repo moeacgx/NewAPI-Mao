@@ -34,9 +34,9 @@ func TestDispatchTicketNotificationSendsEscapedUserContentWithinLimit(t *testing
 		name, content, want string
 		truncated           bool
 	}{
-		{"普通正文", "请开票 <b>不是标签</b> & 保留换行\n第二行", "正文：请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行", false},
-		{"超长中文和表情", strings.Repeat("开票😀", 3000), "正文：开票😀", true},
-		{"转义膨胀", strings.Repeat("\"<&'😀", 2000), "正文：&#34;&lt;&amp;&#39;😀", true},
+		{"普通正文", "请开票 <b>不是标签</b> & 保留换行\n第二行", "<blockquote>请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行</blockquote>", false},
+		{"超长中文和表情", strings.Repeat("开票😀", 3000), "<blockquote>开票😀", true},
+		{"转义膨胀", strings.Repeat("\"<&'😀", 2000), "<blockquote>&#34;&lt;&amp;&#39;😀", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setupNotificationServiceTestDB(t)
@@ -76,8 +76,8 @@ func TestDispatchTicketNotificationSendsEscapedUserContentWithinLimit(t *testing
 				assert.True(t, utf8.ValidString(request.Text))
 				assert.NotContains(t, request.Text, "<b>不是标签</b>")
 				if tc.truncated {
-					assert.True(t, strings.HasSuffix(request.Text, "\n[内容较长，已截断；完整内容请查看工单]"))
-					_, body, found := strings.Cut(html.UnescapeString(request.Text), "正文：")
+					assert.True(t, strings.HasSuffix(request.Text, "\n[内容较长，已截断；完整内容请查看工单]</blockquote>"))
+					_, body, found := strings.Cut(html.UnescapeString(request.Text), "<blockquote>")
 					require.True(t, found, "默认模板应包含正文")
 					assert.True(t, strings.HasPrefix(tc.content, strings.Split(body, "\n[内容较长")[0]))
 				}

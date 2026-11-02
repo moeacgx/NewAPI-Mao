@@ -93,3 +93,14 @@ export interface NotificationApiResponse<T = unknown> {
   message?: string
   data?: T
 }
+
+export interface NotificationPreviewInput {
+  event_type: string
+  template: string
+  target: Pick<NotificationTarget, 'mention_user_id' | 'mention_name'>
+}
+
+export interface NotificationPreview {
+  html: string
+  text_length: number
+}

@@ -1,6 +1,6 @@
 # 通知中心与模块事件
 
-通知中心只负责发送。业务模块产生事件，通知中心根据任务、Bot、接收目标和模板完成投递。模块不能读取 Bot Token，也不能覆盖接收人和模板；一个 Bot 可以被多个任务复用。
+通知中心负责投递和工单原通知的已回复编辑。业务模块产生事件，通知中心根据任务、Bot、接收目标和模板完成投递。模块不能读取 Bot Token，也不能覆盖接收人和模板；一个 Bot 可以被多个任务复用。
 
 上游模型校验仅从响应正文产生新的异常观察，沿用
 `extension.upstream-model-guard.channel_disabled` 事件、通知任务及模板。
@@ -46,7 +46,8 @@ mention、ticket_id、title、user_id、category、priority、status、actor_id�
 actor_role、create_time、action、action_label、content，其中 action 为 created 或 replied，
 action_label 为“新工单”或“用户追加回复”，默认模板用它区分两种情况；actor_role 固定为 user，
 create_time 为本次事件发生时间的 Unix 秒数。content 是当次用户提交正文的纯文本快照，
-title 与 content 均沿用统一 HTML 转义。默认模板末尾显示 `正文：{{content}}`。
+title 与 content 均沿用统一 HTML 转义。默认模板使用 🎫、👤、🏷 区分工单、用户与分类，
+标题加粗，正文置于 `<blockquote>{{content}}</blockquote>` 引用中。
 正文按 HTML 转义后的 2000 字符预算摘要，超长时附截断提示；完整内容保留在工单详情。
 不回查“最后一条消息”，防止自动回复或后续追问替代当次用户正文。
 
@@ -57,7 +58,7 @@ title 与 content 均沿用统一 HTML 转义。默认模板末尾显示 `正文
 通知投递到 Root 配置的接收目标，不等同于自动通知工单所有者或新增站内收件箱。
 用户正文会进入事件、Root 可见的投递历史及外部接收目标；配置者需确认接收范围，
 系统不校验 Telegram 群成员是否为管理员。
-管理员从个人入口追问按用户处理，同样触发该事件；管理入口回复不通知。
+管理员从个人入口追问按用户处理，同样触发该事件；管理入口回复不新发通知，而是异步编辑原通知。
 完整权限与接口见[工单中心](tickets.md)。
 
 旧事件 `ticket_created`、`ticket_user_replied` 已合并为 `ticket_user_message`，
@@ -66,7 +67,7 @@ title 与 content 均沿用统一 HTML 转义。默认模板末尾显示 `正文
 同时订阅了新建与追问的部署迁移后会收到重复通知，需要删除其中一个任务。
 变更记录见[工单通知合并](../workflows/2026-10/25_ticket_notification_merge.md)。
 
-精确匹配的旧工单默认模板在迁移、读取、保存和投递时升级为包含正文的默认模板，
+精确匹配的旧工单默认模板（含已有 `正文：{{content}}` 版本）在迁移、读取、保存和投递时升级为 emoji 与引用格式的默认模板，
 自定义模板保持原样，可自行加入 `{{content}}`。历史事件没有正文快照时，投递端仅为该事件
 补充“历史通知未保存正文，请查看工单”，不回查或回写历史负载，其他未知变量仍拒绝。
 本次演进与验证见[正文通知记录](../workflows/2026-10/28_ticket_notification_content.md)。
@@ -74,6 +75,62 @@ title 与 content 均沿用统一 HTML 转义。默认模板末尾显示 `正文
 管理员可以在工单管理中配置用户提交后的单次自动回复。该回复作为工单消息写入，不产生通知；
 新工单仍按 `ticket_user_message` 发送一次。配置默认关闭，内容和启用状态
 通过 `/api/ticket-admin/automation/auto-reply` 保存。
+
+### 人工回复后的原通知编辑
+
+管理入口的人工回复提交成功后，通知调度按 `TicketMessage.Id` 顺序识别此前用户消息，
+用 `editMessageText` 将对应 Telegram 原消息更新为 `✅ 已回复`、换行及发送时的完整原文。
+只认 `author_role=admin AND author_id>0`，自动确认、用户发言或单独修改状态不触发。
+用户再次追问产生新的未标记通知，旧通知的勾选保留。
+
+内部事件负载增加 `user_message_id`，不作为可用模板变量。成功发送后在独立表
+`ticket_notification_messages` 保存用户消息、原 Bot、实际数字 Chat ID（响应缺失时回退发送地址）、
+Telegram 消息 ID 和 HTML 原文；关联与原投递成功状态同事务提交，不受最近五条通知历史清理影响。
+后续模板或目标配置变化不重写旧原文；通知晚于人工回复才发出或发送期间发生回复，均能识别并编辑。
+
+编辑成功（含相同内容的“message is not modified”响应）立即删除跟踪记录和原文，群内标记保留。
+编辑失败不回滚人工回复；429、网络和服务器错误最多尝试八次，退避或遵循 `retry_after`（最多一小时），
+永久失败保留脱敏原因。Bot 停用/删除后释放关联，已软删除工单不再编辑；其余关联从原通知发送成功起最多保留三天。
+未回复、重试中和永久失败的关联到期都会清理，清理不删除 Telegram 群消息或工单正文；超过三天后回复不再自动编辑旧通知。
+规则停用（含现有 `DELETE /api/notification/tasks/:id`）或物理删除时，在同一事务内立即清理对应跟踪关联。
+关联独立保存 `task_id`，即使投递历史已裁剪也能按规则清理；发送中的回包与规则停用共用序列锁，
+仅在规则仍启用且该事件晚于当前启用基线时保存关联，避免停用后又重建残留。HTTP 请求期间不持有该锁。
+沿用通知系统任务十秒周期、跨实例租约和取消信号，每轮至多编辑 50 条、清理超期关联 50 条。
+
+升级前已发消息没有 Telegram 消息 ID，无法补标。Telegram 和数据库不能组成事务：
+发送成功后若回执落库失败或进程中断，保留原投递失败/未知结果，不自动重发以避免重复；
+该窗口内的消息可能无法自动打标。新工单模板预留已回复前缀预算，历史超长自定义模板需缩短。
+
+### Telegram 格式编辑与样例预览
+
+Default 与 Classic 均提供 HTML 源码编辑、选区格式工具栏、变量插入、常用 emoji 和显式工单预设。
+支持加粗、斜体、下划线、删除线、普通/可折叠引用、剧透、行内代码、代码块和链接。
+模板中的普通文字和 emoji 均可修改或删除，没有独立固定拼接的标签前缀；
+`action_label` 是事件值，不想显示可删除该变量或换成自定文字。工单预设仅显式点击应用。
+
+`POST /api/notification/preview` 需要 Root，最多 64 KiB 请求体：
+
+```json
+{
+  "event_type": "ticket_user_message",
+  "template": "🎫 <b>#{{ticket_id}} {{title}}</b>\n👤 {{user_id}}\n<blockquote>{{content}}</blockquote>",
+  "target": { "mention_user_id": "123", "mention_name": "客服" }
+}
+```
+
+成功返回 `{success:true,data:{html,text_length}}`；`text_length` 含 HTML 标签和转义实体，
+按现有 Unicode 字符数 4096 保守预算计算。预览用服务端样例及首个目标提及，不读真实工单、不投递消息。
+客户端约 300 毫秒防抖，输入变化或失败时隐藏旧结果并丢弃陈旧响应；白名单解析为 React 元素，
+不注入任意 HTML。字体、宽度和折叠交互仅模拟，最终以 Telegram 客户端为准。
+
+预览、保存和投递共用 HTML 校验：支持 `b/strong/i/em/u/ins/s/strike/del`、
+`span class="tg-spoiler"`、`tg-spoiler`、`a href`、`code`、`pre`、`blockquote`（可选 `expandable`）。
+链接协议限 HTTP、HTTPS、TG、MAILTO；拒绝其他标签、事件属性、自闭合、错位/未闭合、
+嵌套引用/链接和代码内其他格式，允许 `pre > code class="language-..."`；嵌套最多 32 层。
+变量只能放文本，不能放属性、URL 或标签名。普通 `<>&` 必须转义，命名实体仅支持
+`lt/gt/amp/quot`，合法数字实体可用；换行用实际换行，不能用 `<br>`。
+历史不合法自定义 HTML 模板会校验失败，需按上述子集调整。实现与验证见
+[本轮记录](../workflows/2026-11/02_ticket_notification_replied.md)。
 
 ### 通用模板规则
 

@@ -643,7 +643,11 @@ func validateNotificationTaskRequest(req *notificationTaskRequest) error {
 	if err != nil {
 		return fmt.Errorf("消息模板无效: %w", err)
 	}
-	if utf8.RuneCountInString(renderedTemplate) > 4096 {
+	limit := 4096
+	if req.EventType == model.NotificationEventTypeTicketUserMessage {
+		limit -= utf8.RuneCountInString(model.NotificationTicketRepliedPrefix)
+	}
+	if utf8.RuneCountInString(renderedTemplate) > limit {
 		return errors.New("消息模板渲染后不能超过 Telegram 的 4096 字符限制")
 	}
 	if len(req.Targets) == 0 {

@@ -37,3 +37,38 @@ test('所有语言包含工单正文摘要说明、示例和投递边界提示',
     }
   }
 })
+
+test('所有语言提供 Telegram 格式工具及实时预览的完整译文', () => {
+  const keys = [
+    'Bold',
+    'Italic',
+    'Underline',
+    'Strikethrough',
+    'Quote',
+    'Expandable quote',
+    'Inline code',
+    'Code block',
+    'Spoiler',
+    'Insert link',
+    'Common emoji',
+    'Insert emoji {{emoji}}',
+    'Link URL',
+    'Use ticket emoji preset',
+    'Telegram formatting',
+    'Customize all text, emoji and prefixes. Formatting buttons insert Telegram HTML.',
+    'Live Telegram preview',
+    'Sample preview only. Uses the first recipient mention and does not send a message.',
+    'Updating preview…',
+    'Preview failed',
+    '{{count}} characters',
+    'Reveal spoiler',
+  ]
+  for (const [locale, resource] of Object.entries(localeResources)) {
+    for (const key of keys) {
+      expect(resource.translation[key], `${locale}: ${key}`).toBeTruthy()
+      if (!locale.endsWith('/en.json')) {
+        expect(resource.translation[key], `${locale}: ${key}`).not.toBe(key)
+      }
+    }
+  }
+})

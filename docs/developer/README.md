@@ -1,5 +1,9 @@
 # NewAPI-Mao 开发文档
 
+- [工单群通知自动标记已回复](../workflows/2026-11/02_ticket_notification_replied.md)：人工回复后编辑原 Telegram 通知，独立消息关联及异步重试。
+- [Default Telegram 模板编辑器](../workflows/2026-11/02_notification_default_editor.md)：格式工具栏、样例实时预览与七语支持。
+- [Classic Telegram 模板编辑器](../workflows/2026-11/02_notification_classic_editor.md)：选区/变量/表情插入、格式预览与窄屏布局。
+
 - [.362 WorkBuddy Responses 缓存结算修复发布](../workflows/2026-10/30_release_362.md)：纳入 #372，发布 GitHub Release 与 GHCR 双架构镜像；不包含生产部署。
 
 - [WorkBuddy 强制 Responses 缓存结算与参数修复](../workflows/2026-10/30_workbuddy_responses_cache_billing.md)：原生缓存快照进入实际结算，双向协议转换保留缓存策略参数。

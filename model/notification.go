@@ -617,13 +617,16 @@ func CancelNotificationTaskDeliveriesTx(tx *gorm.DB, taskID int, reason string) 
 	if tx == nil || taskID <= 0 {
 		return errors.New("invalid notification task cancellation")
 	}
-	return tx.Model(&NotificationDelivery{}).
+	if err := tx.Model(&NotificationDelivery{}).
 		Where("task_id = ? AND status IN ?", taskID, []string{NotificationDeliveryPending, NotificationDeliveryRetrying, NotificationDeliveryClaimed}).
 		Updates(map[string]interface{}{
 			"status":     NotificationDeliveryCanceled,
 			"last_error": truncateNotificationError(reason),
 			"updated_at": nowUnix(),
-		}).Error
+		}).Error; err != nil {
+		return err
+	}
+	return ClearTicketNotificationTaskMessagesTx(tx, taskID)
 }
 
 func UpdateNotificationTask(task *NotificationTask) error {
@@ -690,6 +693,9 @@ func DeleteNotificationTask(id int) error {
 		}
 		if active > 0 {
 			return errors.New("notification task still has active deliveries")
+		}
+		if err := ClearTicketNotificationTaskMessagesTx(tx, id); err != nil {
+			return err
 		}
 		if err := tx.Where("task_id = ?", id).Delete(&NotificationDelivery{}).Error; err != nil {
 			return err

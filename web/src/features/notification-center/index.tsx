@@ -80,6 +80,7 @@ import {
   CHANNEL_DISABLED_EVENT,
   normalizeTaskFilterConfig,
 } from './filter-config'
+import { TelegramTemplateEditor } from './telegram-template-editor'
 import { shouldReplaceNotificationTemplate } from './template'
 import type {
   NotificationBot,
@@ -576,7 +577,7 @@ function TaskSheet(props: {
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent className='flex w-full flex-col sm:max-w-2xl'>
+      <SheetContent className='flex w-full flex-col sm:max-w-4xl'>
         <SheetHeader>
           <SheetTitle>
             {props.task
@@ -799,18 +800,15 @@ function TaskSheet(props: {
               setForm((current) => ({ ...current, targets }))
             }
           />
-          <div className='grid gap-2'>
-            <Label htmlFor='notification-template'>
-              {t('Message template')}
-            </Label>
-            <Textarea
-              id='notification-template'
-              className='min-h-40 font-mono'
+          <div className='grid min-w-0 gap-2'>
+            <TelegramTemplateEditor
               value={form.template}
-              onChange={(event) =>
+              eventType={form.event_type}
+              target={form.targets[0]}
+              onChange={(template) =>
                 setForm((current) => ({
                   ...current,
-                  template: event.target.value,
+                  template,
                 }))
               }
             />
@@ -847,6 +845,7 @@ function TaskSheet(props: {
                         className='font-mono text-xs'
                         title={insertLabel}
                         aria-label={insertLabel}
+                        onMouseDown={(event) => event.preventDefault()}
                         onClick={() => insertTemplateVariable(variable)}
                       >
                         {token}

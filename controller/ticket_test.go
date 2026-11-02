@@ -100,7 +100,7 @@ func TestTicketNotificationEventsRegisterAndValidateTemplates(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, rendered, "&lt;b&gt;用户输入&lt;/b&gt;")
 			assert.Contains(t, rendered, "用户追加回复")
-			assert.Contains(t, rendered, "正文：请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行")
+			assert.Contains(t, rendered, "<blockquote>请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行</blockquote>")
 			body, err := service.RenderNotificationTemplate("{{content}}", definition.SamplePayload, nil)
 			require.NoError(t, err)
 			assert.Equal(t, "请开票 &lt;b&gt;不是标签&lt;/b&gt; &amp; 保留换行\n第二行", body)
