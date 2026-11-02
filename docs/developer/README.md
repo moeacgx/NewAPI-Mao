@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [.364 工单通知与格式编辑发布](../workflows/2026-11/02_release_364.md)：纳入 #375，发布 Linux 二进制与 GHCR 双架构镜像；三天跟踪清理及升级边界，不包含生产部署。
+
 - [工单群通知自动标记已回复](../workflows/2026-11/02_ticket_notification_replied.md)：人工回复后编辑原 Telegram 通知，独立消息关联及异步重试。
 - [Default Telegram 模板编辑器](../workflows/2026-11/02_notification_default_editor.md)：格式工具栏、样例实时预览与七语支持。
 - [Classic Telegram 模板编辑器](../workflows/2026-11/02_notification_classic_editor.md)：选区/变量/表情插入、格式预览与窄屏布局。
