@@ -239,3 +239,10 @@ Detailed lifecycle and message semantics are maintained by the coordination-main
 每项功能实现并验证后，分别评估 `NewAPIForDouDi`、`NewAPIModifyByGang` 是否值得分享，交付时逐项向用户说明建议及理由。考虑功能价值、接口兼容性、依赖和适用范围；不得仅因同属 new-api 二开就建议照搬。
 
 提醒不等于提交授权。未经用户对具体提交的明确授权，不自动向兄弟仓库创建 Issue、PR 或发送其他消息；获授权后先查重并附脱敏验证证据。纯身份改名无需作为新功能推荐采纳。
+
+## Cursor Cloud specific instructions
+
+- Go 1.25.1 matches `go.mod` and is already on the default image. Frontend tooling is Bun 1.4.1, the version pinned in `.github/workflows/ci.yml`. Login shells skip `~/.bashrc`, so install Bun and symlink it to `/usr/local/bin/bun`.
+- `go build` and `go run` embed `web/dist` and `web/classic/dist`. Both trees are gitignored. Before compiling, create a non-empty `index.html` in each directory when a real frontend build is absent. The Default UI is the Rsbuild dev server on port 5173. It proxies `/api`, `/mj`, and `/pg` to the API on port 3000. Classic is a separate Vite app under `web/classic` and is not started on boot.
+- Local boot uses SQLite. The database file is `one-api.db` in the repository root and is gitignored. PostgreSQL and Redis stay optional through `docker-compose.dev.yml` and `make dev-api`. Set `SESSION_COOKIE_SECURE=false` so the HTTP dev proxy can refresh sessions.
+- Useful checks: `go build ./...`, `cd relaykit && GOWORK=off go build ./...`, and from `web/` the commands `bun run typecheck` and `bun run test`. Install Classic dependencies with `bun install --frozen-lockfile` in `web/classic`.
