@@ -24,3 +24,4 @@
 - 启动后 `GET /api/status` 与 `http://127.0.0.1:5173/` 返回 200。再次执行启动脚本时服务已在监听，脚本直接返回。
 - 浏览器完成初始化向导：数据库检测为 SQLite，创建根用户后出现 “System initialized successfully”，随后进入 `/dashboard/overview`。`POST /api/user/login` 对已创建用户返回成功会话，角色为根用户。
 - 根模块 `go build ./...` 成功。`relaykit` 在 `GOWORK=off` 下构建和测试通过。`go test ./common/` 通过。Default 前端 `bun run typecheck` 通过，Vitest 175 个文件、1105 项测试通过。
+- 草稿构建 `bld-20261104-d95aa275-387a-45e7-bb39-900d399b1b91` 的 install 退出码为 0。两台从该草稿构建启动的机器都有 Go 1.25.1 与 Bun 1.4.1，但 `/tmp/cursor/start-user/` 不存在，说明未保存的环境配置不会在开机时执行 `start`。本机执行同一启动脚本时，`:3000` 与 `:5173` 返回 200。
