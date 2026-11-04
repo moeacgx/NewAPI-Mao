@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Cloud Agent 本地开发环境](../workflows/2026-11/05_cloud_agent_environment.md)：Linux 工具链、双模板嵌入占位、SQLite 与 Default 启动命令，以及平台自动启动边界。
+
 - [.364 工单通知与格式编辑发布](../workflows/2026-11/02_release_364.md)：纳入 #375，发布 Linux 二进制与 GHCR 双架构镜像；三天跟踪清理及升级边界，不包含生产部署。
 
 - [工单群通知自动标记已回复](../workflows/2026-11/02_ticket_notification_replied.md)：人工回复后编辑原 Telegram 通知，独立消息关联及异步重试。

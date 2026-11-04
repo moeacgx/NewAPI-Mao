@@ -240,9 +240,9 @@ Detailed lifecycle and message semantics are maintained by the coordination-main
 
 提醒不等于提交授权。未经用户对具体提交的明确授权，不自动向兄弟仓库创建 Issue、PR 或发送其他消息；获授权后先查重并附脱敏验证证据。纯身份改名无需作为新功能推荐采纳。
 
-## Cursor Cloud specific instructions
+## Cursor Cloud 开发环境
 
-- Go 1.25.1 matches `go.mod` and is already on the default image. Frontend tooling is Bun 1.4.1, the version pinned in `.github/workflows/ci.yml`. Login shells skip `~/.bashrc`, so install Bun and symlink it to `/usr/local/bin/bun`.
-- `go build` and `go run` embed `web/dist` and `web/classic/dist`. Both trees are gitignored. Before compiling, create a non-empty `index.html` in each directory when a real frontend build is absent. The Default UI is the Rsbuild dev server on port 5173. It proxies `/api`, `/mj`, and `/pg` to the API on port 3000. Classic is a separate Vite app under `web/classic` and is not started on boot.
-- Local boot uses SQLite. The database file is `one-api.db` in the repository root and is gitignored. PostgreSQL and Redis stay optional through `docker-compose.dev.yml` and `make dev-api`. Set `SESSION_COOKIE_SECURE=false` so the HTTP dev proxy can refresh sessions. On a Cloud Agent machine the checkout is `/agent/repos/newapi-mao`; enter that directory when it exists before `go run` or `bun run dev`.
-- Useful checks: `go build ./...`, `cd relaykit && GOWORK=off go build ./...`, and from `web/` the commands `bun run typecheck` and `bun run test`. Install Classic dependencies with `bun install --frozen-lockfile` in `web/classic`.
+- 工具链以 `go.mod` 的 Go 1.25.1 和 `.github/workflows/ci.yml` 的 Bun 1.4.1 为准，先检查实际版本。登录 shell 不一定加载 `~/.bashrc`，应显式将 Bun 安装目录加入当前进程的 `PATH`，无需修改系统目录。
+- `go build` 和 `go run` 会嵌入被 gitignore 的 `web/dist` 与 `web/classic/dist`。没有真实构建产物时，先为两个目录创建非空 `index.html`，保留已有页面。Default 使用 `:5173` 的 Rsbuild，将 `/api`、`/mj`、`/pg` 代理到 `:3000` 的 API；Classic 是独立 Vite 应用，默认不启动。
+- 本地 SQLite 启动需明确清空 `SQL_DSN`、`LOG_SQL_DSN`、`REDIS_CONN_STRING` 和 `SESSION_COOKIE_TRUSTED_URL`，设置 `SQLITE_PATH=one-api.db`、`SESSION_COOKIE_SECURE=false`。使用进程级空值覆盖 `.env`，避免意外连接其他数据库或因 Cookie 配置冲突启动失败。PostgreSQL 与 Redis 可通过 `docker-compose.dev.yml` 和 `make dev-api` 单独启用。
+- 本次 Cloud Agent 检出路径为 `/agent/repos/newapi-mao`，其他机器以实际仓库根目录为准。环境平台的 `install`、`start` 配置未随仓库提交，不应假定自动执行；可复制命令、验证步骤和平台限制见 [Cloud Agent 本地开发环境](docs/workflows/2026-11/05_cloud_agent_environment.md)。
