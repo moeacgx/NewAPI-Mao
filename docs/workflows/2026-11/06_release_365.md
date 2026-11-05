@@ -32,4 +32,26 @@
 
 ## 发布与部署结果
 
-执行结果按实际工作流和节点验收补充，本计划不代表已经发布或部署成功。
+功能 PR #386 和版本 PR #387 已合并。附注标签 `v1.0.0-rc.10.1.10.365` 精确指向 `8e64ed02e65cfe3cac927e6b5346cffd91a7ebcc`，没有移动旧标签。版本 PR CI `42065006094`、合并提交 CI `42065990164` 均成功；后者的缓存写入权限告警不影响构建、测试结果。
+
+Linux Release 工作流 `42066104119` 和 Docker 双架构工作流 `42066104106` 均成功。实际下载两份二进制，本地 SHA256 与 `checksums-linux.txt`、GitHub 资产摘要一致：
+
+- amd64：`27f3480e9ce0910a8c6c9d15ff3b124dce3ce766858374af8d73363b4bbb6f3a`。
+- arm64：`fb414d28ae8e475c5c9e1aae0d61d531a2b0c761029395d956a9af59a30c2f30`。
+
+两份二进制的 Go 构建元数据均记录 `.365` 和准确标签 revision，GOOS 为 Linux、架构正确；未执行 Linux 二进制。arm64 的 `vcs.modified=true` 与工作流先在仓库生成未忽略的 amd64 产物再构建 arm64 的顺序相符，不能把该标记写成 false。
+
+GHCR 多架构清单包含 linux/amd64、linux/arm64，部署节点拉取后的 RepoDigest 为 `sha256:cb8ad7d66d8e6bbffcdcf72fd453e1e782a6828b4c5832d4e275afb895c84ee1`；本机 amd64 镜像 ID 为 `sha256:fc7a0b44ba86433092b47404059f60f2d79253ba462e99e732156a68dd4c6749`，OCI version/revision 与发布标签一致。
+
+zzapi 已按主节点、slave-1、slave-2 顺序更新，三个节点均为上述同一镜像和 `.365`，healthy、重启计数零。逐节点比较环境、端口和挂载一致；PostgreSQL、Redis 的容器 ID 和启动时间均未变化。备份目录 `/home/docker/zzapi/backups/release-365-20261106` 权限为私有，包含约 23 MB 的 PostgreSQL dump、约 16 MB 的数据归档、配置与容器快照，已核验 TOC、归档可读性及 SHA256，不代表数据库恢复演练。
+
+- 主节点验收作业：`fb24ebda-ce87-42a5-b7d0-82e316c3624c`。
+- slave-1 验收作业：`dd08aaee-0cb9-453e-bbff-9c617bff3898`。
+- slave-2 更新与验收作业：`91403acd-049a-464b-81f0-2ddc9b412174`。
+- 最终公网及数据服务复核作业：`e6b46e30-bfdb-4c16-a4dc-e6edc43a81bb`。
+
+首次主节点脚本的 24 秒健康等待短于容器检查周期，之后只读复核确认迁移和启动成功；slave-1 的初次挂载比较因 Docker 返回顺序变化失败，改为按路径排序比较后通过，实际路径未变。两次均先核查现场，未重复更新已成功节点。
+
+公网状态返回 `.365`、Classic 主题；8 个入口 JS/CSS 与主节点逐一哈希一致，主脚本包含 `MaxTokenAutoGroups`。三个节点的配置、分组、令牌管理接口未登录均为 401，启动日志未见 panic 或迁移失败；`ticket_notification_messages` 已存在。没有修改业务配置上限，缺省仍按代码使用 5。详细脱敏报告位于备份目录 `deployment.verified.json`。
+
+未更新 maolaoapi，未向 zzapi 新增测试用户、分组或令牌，未调用真实模型供应商；未执行浏览器视觉验收。功能写入和鉴权恢复由本地隔离 HTTP 冒烟验证，线上仅作部署健康、权限和资源检查。
