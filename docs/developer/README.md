@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [.365 令牌分组上限发布与 zzapi 更新](../workflows/2026-11/06_release_365.md)：双模板设置、真实 HTTP 冒烟、发布产物及 zzapi 逐节点部署验证。
+
 - [令牌分组数量上限](../workflows/2026-11/05_token_group_limit.md)：后台可改 `MaxTokenAutoGroups`，创建和编辑拦截超限分组，历史超限令牌返回明确错误。
 
 - [Cloud Agent 本地开发环境](../workflows/2026-11/05_cloud_agent_environment.md)：Linux 工具链、双模板嵌入占位、SQLite 与 Default 启动命令，以及平台自动启动边界。
