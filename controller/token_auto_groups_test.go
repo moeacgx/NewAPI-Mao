@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -213,6 +214,126 @@ func TestAddTokenRejectsInvalidAutoGroups(t *testing.T) {
 			assert.Zero(t, count)
 		})
 	}
+}
+
+func TestAddAndUpdateTokenRejectExplicitGroupsOverLimit(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	configureTokenAutoGroupsTest(t, "2", `[]`)
+	user := setupTokenAutoGroupsControllerTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Group{}))
+	for _, group := range []model.Group{
+		{Code: "default", Name: "标准显示名", Status: model.GroupStatusActive, Ratio: 1},
+		{Code: "vip", Name: "高级显示名", Status: model.GroupStatusActive, Ratio: 1},
+		{Code: "svip", Name: "旗舰显示名", Status: model.GroupStatusActive, Ratio: 1},
+	} {
+		require.NoError(t, model.DB.Create(&group).Error)
+	}
+
+	overCSV := map[string]any{
+		"name":            "too-many-groups",
+		"expired_time":    -1,
+		"remain_quota":    0,
+		"unlimited_quota": true,
+		"group":           "default,vip,svip",
+		"group_mode":      model.TokenGroupModeExplicit,
+	}
+	ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPost, "/api/token/", overCSV, user.Id)
+	ctx.Request.Header.Set("Accept-Language", "zh-CN")
+	AddToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	assert.False(t, response.Success)
+	assert.Equal(t, "令牌最多可选 2 个分组", response.Message)
+	assert.NotContains(t, response.Message, "无效的令牌")
+	var count int64
+	require.NoError(t, model.DB.Model(&model.Token{}).Count(&count).Error)
+	assert.Zero(t, count)
+
+	var stored []model.Group
+	require.NoError(t, model.DB.Order("id asc").Find(&stored).Error)
+	require.Len(t, stored, 3)
+	overIDs := map[string]any{
+		"name":            "too-many-ids",
+		"expired_time":    -1,
+		"remain_quota":    0,
+		"unlimited_quota": true,
+		"group":           "default",
+		"group_ids":       []int{stored[0].Id, stored[1].Id, stored[2].Id},
+		"group_mode":      model.TokenGroupModeExplicit,
+	}
+	idCtx, idRecorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPost, "/api/token/", overIDs, user.Id)
+	idCtx.Request.Header.Set("Accept-Language", "en")
+	AddToken(idCtx)
+	idResponse := decodeAPIResponse(t, idRecorder)
+	assert.False(t, idResponse.Success)
+	assert.Equal(t, "A token can select at most 2 groups", idResponse.Message)
+	assert.NotContains(t, idResponse.Message, "Invalid token")
+
+	allowed := map[string]any{
+		"name":            "at-limit",
+		"expired_time":    -1,
+		"remain_quota":    0,
+		"unlimited_quota": true,
+		"group":           "vip,default",
+		"group_mode":      model.TokenGroupModeExplicit,
+	}
+	okCtx, okRecorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPost, "/api/token/", allowed, user.Id)
+	AddToken(okCtx)
+	okResponse := decodeAPIResponse(t, okRecorder)
+	require.True(t, okResponse.Success, okResponse.Message)
+	var created model.Token
+	require.NoError(t, model.DB.Where("name = ?", "at-limit").First(&created).Error)
+	assert.Equal(t, "vip,default", created.Group)
+
+	updateRequest := map[string]any{
+		"id":              created.Id,
+		"name":            "at-limit",
+		"status":          common.TokenStatusEnabled,
+		"expired_time":    -1,
+		"remain_quota":    0,
+		"unlimited_quota": true,
+		"group":           "default,vip,svip",
+		"group_mode":      model.TokenGroupModeExplicit,
+	}
+	updateCtx, updateRecorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPut, "/api/token/", updateRequest, user.Id)
+	updateCtx.Request.Header.Set("Accept-Language", "zh-CN")
+	UpdateToken(updateCtx)
+	updateResponse := decodeAPIResponse(t, updateRecorder)
+	assert.False(t, updateResponse.Success)
+	assert.Equal(t, "令牌最多可选 2 个分组", updateResponse.Message)
+	var unchanged model.Token
+	require.NoError(t, model.DB.First(&unchanged, created.Id).Error)
+	assert.Equal(t, "vip,default", unchanged.Group)
+}
+
+func TestUpdateTokenStatusOnlyKeepsHistoricalOverLimitGroups(t *testing.T) {
+	configureTokenAutoGroupsTest(t, "1", `[]`)
+	user := setupTokenAutoGroupsControllerTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Group{}, &model.TokenGroupBinding{}))
+	for _, group := range []model.Group{
+		{Code: "default", Name: "标准显示名", Status: model.GroupStatusActive, Ratio: 1},
+		{Code: "vip", Name: "高级显示名", Status: model.GroupStatusActive, Ratio: 1},
+	} {
+		require.NoError(t, model.DB.Create(&group).Error)
+	}
+	token := seedToken(t, model.DB, user.Id, "historical", "historical-key")
+	token.Group = "default,vip"
+	token.GroupMode = model.TokenGroupModeExplicit
+	require.NoError(t, model.DB.Save(token).Error)
+
+	request := map[string]any{
+		"id":     token.Id,
+		"name":   token.Name,
+		"status": common.TokenStatusDisabled,
+	}
+	ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPut, "/api/token/?status_only=true", request, user.Id)
+	UpdateToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	require.True(t, response.Success, response.Message)
+
+	var updated model.Token
+	require.NoError(t, model.DB.First(&updated, token.Id).Error)
+	assert.Equal(t, common.TokenStatusDisabled, updated.Status)
+	assert.Equal(t, "default,vip", updated.Group)
 }
 
 func TestGetTokenAutoGroupsReturnsFullFilteredGlobalOrderAndLimit(t *testing.T) {

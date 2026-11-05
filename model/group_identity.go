@@ -1437,6 +1437,7 @@ var groupProjectionOptionKeys = []string{
 var groupConfigEditableOptionKeys = []string{
 	"AutoGroupConfig",
 	"DefaultUseAutoGroup",
+	"MaxTokenAutoGroups",
 	groupGroupRatioOptionKey,
 	layeredGroupGroupRatioOptionKey,
 	"TopupGroupRatio",

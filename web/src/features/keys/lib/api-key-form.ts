@@ -111,6 +111,17 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
         })
       }
 
+      const isAutoOnly = data.groups.length === 1 && data.groups[0] === 'auto'
+      if (!isAutoOnly && data.groups.length > autoGroupLimit) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['groups'],
+          message: t('A token can select at most {{max}} groups', {
+            max: autoGroupLimit,
+          }),
+        })
+      }
+
       if (data.unlimited_quota) {
         return
       }

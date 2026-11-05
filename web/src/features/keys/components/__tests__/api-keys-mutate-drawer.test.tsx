@@ -48,7 +48,10 @@ const originalGet = apiClient.get
 const originalPost = apiClient.post
 let renderedDrawer: RenderedDrawer | null = null
 
-function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
+function installApiFixtures(
+  createdPayloads: Array<Record<string, unknown>>,
+  maxCount = 3
+) {
   apiClient.get = async (url) => {
     switch (url) {
       case '/api/status':
@@ -80,7 +83,7 @@ function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
         return {
           data: {
             success: true,
-            data: { groups: ['vip', 'default'], max_count: 3 },
+            data: { groups: ['vip', 'default'], max_count: maxCount },
           },
         }
       default:
@@ -95,7 +98,7 @@ function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
   }
 }
 
-async function renderCreateDrawer(): Promise<void> {
+async function renderCreateDrawer(maxCount = 3): Promise<void> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -136,7 +139,7 @@ async function renderCreateDrawer(): Promise<void> {
     ['token-auto-groups'],
     {
       success: true,
-      data: { groups: ['vip', 'default'], max_count: 3 },
+      data: { groups: ['vip', 'default'], max_count: maxCount },
     },
     { updatedAt: freshAt }
   )
@@ -371,5 +374,37 @@ describe('API keys mutate drawer Auto group integration', () => {
     fireEvent.click(findButton('Save changes', true))
     await waitFor(() => expect(createdPayloads).toHaveLength(1))
     expect(createdPayloads[0]?.auto_groups).toEqual(['vip'])
+  })
+
+  test('disables another explicit group once the token reaches the configured limit', async () => {
+    const createdPayloads: Array<Record<string, unknown>> = []
+    installApiFixtures(createdPayloads, 1)
+    await renderCreateDrawer(1)
+
+    const groupTrigger = getControlByLabel('Group')
+    selectComboboxOption(groupTrigger, 'Standard access')
+    expect(document.body.textContent?.includes('1 / 1 groups selected')).toBe(
+      true
+    )
+
+    fireEvent.click(groupTrigger)
+    const blocked = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="command-item"]'),
+    ].find((candidate) => candidate.textContent?.includes('Priority access'))
+    expect(blocked?.getAttribute('data-disabled')).toBe('true')
+    if (!blocked) throw new Error('Expected the extra group option')
+    fireEvent.click(blocked)
+    expect(groupTrigger.textContent?.includes('Priority')).toBe(false)
+    expect(
+      document.body.textContent?.includes(
+        'A token can select at most {{max}} groups'
+      )
+    ).toBe(false)
+
+    changeInput(getControlByLabel('Name'), 'limited')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(createdPayloads).toHaveLength(1))
+    expect(createdPayloads[0]?.group).toBe('default')
+    expect(createdPayloads[0]?.group_ids).toEqual([11])
   })
 })

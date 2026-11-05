@@ -30,6 +30,7 @@ import {
   Col,
   Collapsible,
   Form,
+  InputNumber,
   Radio,
   RadioGroup,
   Row,
@@ -79,6 +80,7 @@ const OPTION_KEYS = [
   'group_ratio_setting.group_special_usable_group',
   'AutoGroups',
   'DefaultUseAutoGroup',
+  'MaxTokenAutoGroups',
 ];
 
 const LEGACY_OPTION_KEYS = [
@@ -86,7 +88,11 @@ const LEGACY_OPTION_KEYS = [
   'GroupGroupRatio',
   'group_ratio_setting.group_special_usable_group',
   'DefaultUseAutoGroup',
+  'MaxTokenAutoGroups',
 ];
+
+const MAX_TOKEN_GROUPS_HELP =
+  'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.';
 
 export default function GroupRatioSettings(props) {
   const { t } = useTranslation();
@@ -105,6 +111,7 @@ export default function GroupRatioSettings(props) {
     'group_ratio_setting.group_special_usable_group': '',
     AutoGroups: '',
     DefaultUseAutoGroup: false,
+    MaxTokenAutoGroups: 5,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -279,12 +286,18 @@ export default function GroupRatioSettings(props) {
       return showWarning(t('你似乎并没有修改什么'));
     }
 
+    const maxTokenAutoGroups = Number(inputs.MaxTokenAutoGroups);
+    if (!Number.isInteger(maxTokenAutoGroups) || maxTokenAutoGroups < 1) {
+      return showError(t('Enter a positive integer'));
+    }
+
     const optionUpdates = Object.fromEntries(
       updateArray.map((item) => {
+        const raw = inputs[item.key];
         const value =
-          typeof inputs[item.key] === 'boolean'
-            ? String(inputs[item.key])
-            : inputs[item.key];
+          typeof raw === 'boolean' || typeof raw === 'number'
+            ? String(raw)
+            : raw;
         return [item.key, value];
       }),
     );
@@ -348,9 +361,17 @@ export default function GroupRatioSettings(props) {
   useEffect(() => {
     const currentInputs = {};
     for (let key in props.options) {
-      if (OPTION_KEYS.includes(key)) {
-        currentInputs[key] = props.options[key];
+      if (!OPTION_KEYS.includes(key)) continue;
+      if (key === 'MaxTokenAutoGroups') {
+        const parsed = Number.parseInt(String(props.options[key]), 10);
+        currentInputs[key] =
+          Number.isInteger(parsed) && parsed > 0 ? parsed : 5;
+        continue;
       }
+      currentInputs[key] = props.options[key];
+    }
+    if (currentInputs.MaxTokenAutoGroups === undefined) {
+      currentInputs.MaxTokenAutoGroups = 5;
     }
     if (groupsLoadedRef.current) {
       Object.assign(
@@ -484,6 +505,28 @@ export default function GroupRatioSettings(props) {
             '令牌分组设为 auto 时，按以下顺序依次尝试选择可用分组，排在前面的优先级更高',
           )}
         </Text>
+        <Row gutter={16}>
+          <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+            <Form.Slot label={t('Maximum groups per token')}>
+              <InputNumber
+                min={1}
+                step={1}
+                precision={0}
+                value={inputs.MaxTokenAutoGroups}
+                style={{ width: 180 }}
+                onChange={(value) =>
+                  setInputs((prev) => ({
+                    ...prev,
+                    MaxTokenAutoGroups: value,
+                  }))
+                }
+              />
+              <Text type='tertiary' size='small' style={{ marginTop: 4 }}>
+                {t(MAX_TOKEN_GROUPS_HELP)}
+              </Text>
+            </Form.Slot>
+          </Col>
+        </Row>
         <Row gutter={16}>
           <Col xs={24} sm={12} md={8} lg={8} xl={8}>
             <Form.Slot label={t('默认使用auto分组')}>
@@ -690,6 +733,29 @@ export default function GroupRatioSettings(props) {
               ]}
               onChange={(value) =>
                 setInputs((prev) => ({ ...prev, AutoGroups: value }))
+              }
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={16}>
+            <Form.InputNumber
+              field='MaxTokenAutoGroups'
+              label={t('Maximum groups per token')}
+              min={1}
+              step={1}
+              precision={0}
+              style={{ width: 180 }}
+              extraText={t(MAX_TOKEN_GROUPS_HELP)}
+              rules={[
+                {
+                  validator: (rule, value) =>
+                    Number.isInteger(Number(value)) && Number(value) >= 1,
+                  message: t('Enter a positive integer'),
+                },
+              ]}
+              onChange={(value) =>
+                setInputs((prev) => ({ ...prev, MaxTokenAutoGroups: value }))
               }
             />
           </Col>

@@ -424,7 +424,7 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               name='MaxTokenAutoGroups'
               render={({ field, fieldState }) => (
                 <FormItem data-invalid={fieldState.invalid}>
-                  <FormLabel>{t('Maximum custom groups per token')}</FormLabel>
+                  <FormLabel>{t('Maximum groups per token')}</FormLabel>
                   <FormControl>
                     <Input
                       {...safeNumberFieldProps(field)}
@@ -436,7 +436,7 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Limits only token-specific Auto snapshots. Global Auto inheritance remains unlimited.'
+                      'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -546,7 +546,7 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               name='MaxTokenAutoGroups'
               render={({ field, fieldState }) => (
                 <FormItem data-invalid={fieldState.invalid}>
-                  <FormLabel>{t('Maximum custom groups per token')}</FormLabel>
+                  <FormLabel>{t('Maximum groups per token')}</FormLabel>
                   <FormControl>
                     <Input
                       {...safeNumberFieldProps(field)}
@@ -558,7 +558,7 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Limits only token-specific Auto snapshots. Global Auto inheritance remains unlimited.'
+                      'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.'
                     )}
                   </FormDescription>
                   <FormMessage />

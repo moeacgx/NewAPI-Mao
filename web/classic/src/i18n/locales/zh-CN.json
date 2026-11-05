@@ -6538,6 +6538,11 @@
     "No unsaved changes": "所有修改已保存",
     "Discard changes": "放弃修改",
     "Reset filters": "重置筛选",
-    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工单通知会将本次用户正文摘要发送到 Root 配置的接收目标。转义后的摘要最多 2000 个字符，超长内容附带截断提示，完整正文请到工单详情查看。"
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工单通知会将本次用户正文摘要发送到 Root 配置的接收目标。转义后的摘要最多 2000 个字符，超长内容附带截断提示，完整正文请到工单详情查看。",
+    "Maximum groups per token": "令牌最大分组数",
+    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "默认值为 5。这是单个令牌最多可以选中的分组数量，适用于显式分组列表和自定义 Auto 快照。继承全局 Auto 顺序的令牌不受此限制。已经超出上限的令牌会继续保存，但在减少所选分组或提高该值之前，API 调用会返回超限错误。",
+    "A token can select at most {{max}} groups": "令牌最多可选 {{max}} 个分组",
+    "{{count}} / {{max}} groups selected": "已选择 {{count}} / {{max}} 个分组",
+    "Enter a positive integer": "请输入正整数"
   }
 }

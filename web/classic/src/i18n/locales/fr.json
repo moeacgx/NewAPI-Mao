@@ -6462,6 +6462,11 @@
     "No unsaved changes": "Aucune modification en attente",
     "Discard changes": "Annuler les modifications",
     "Reset filters": "Réinitialiser les filtres",
-    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Les notifications de ticket envoient un extrait du message actuel de l’utilisateur aux destinataires configurés par Root. Après échappement, cet extrait est limité à 2000 caractères ; les messages plus longs portent une indication de troncature. Le message complet reste consultable dans les détails du ticket."
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Les notifications de ticket envoient un extrait du message actuel de l’utilisateur aux destinataires configurés par Root. Après échappement, cet extrait est limité à 2000 caractères ; les messages plus longs portent une indication de troncature. Le message complet reste consultable dans les détails du ticket.",
+    "Maximum groups per token": "Nombre maximal de groupes par jeton",
+    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "La valeur par défaut est 5. C’est le nombre maximal de groupes qu’un jeton peut sélectionner. Elle s’applique aux listes explicites et aux instantanés Auto personnalisés. Les jetons qui héritent de l’ordre Auto global ne sont pas limités. Un jeton déjà au-dessus de la limite reste enregistré, mais les appels API renvoient une erreur de dépassement tant que la sélection n’est pas réduite ou que cette valeur n’est pas augmentée.",
+    "A token can select at most {{max}} groups": "Un jeton peut sélectionner au plus {{max}} groupes",
+    "{{count}} / {{max}} groups selected": "{{count}} / {{max}} groupes sélectionnés",
+    "Enter a positive integer": "Saisissez un entier positif"
   }
 }

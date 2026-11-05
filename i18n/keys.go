@@ -56,6 +56,7 @@ const (
 	MsgTokenStatusUnavailable    = "token.status_unavailable"
 	MsgTokenDbError              = "token.db_error"
 	MsgTokenAutoGroupsTooMany    = "token.auto_groups_too_many"
+	MsgTokenGroupsTooMany        = "token.groups_too_many"
 	MsgTokenAutoGroupsDuplicate  = "token.auto_groups_duplicate"
 	MsgTokenAutoGroupsInvalid    = "token.auto_groups_invalid"
 )

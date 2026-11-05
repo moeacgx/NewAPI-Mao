@@ -152,6 +152,54 @@ func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) boo
 	return true
 }
 
+// rejectTokenGroupsOverLimit blocks create and edit when an explicit group
+// selection would be stored beyond MaxTokenAutoGroups. Auto inheritance and
+// status-only updates are not selections. A parse failure is left to the
+// existing group resolver so this check only reports a counted over-limit.
+func rejectTokenGroupsOverLimit(c *gin.Context, token *model.Token) bool {
+	if token == nil {
+		return false
+	}
+	mode := strings.ToLower(strings.TrimSpace(token.GroupMode))
+	group := strings.TrimSpace(token.Group)
+	if mode == model.TokenGroupModeInherit || mode == model.TokenGroupModeAuto {
+		return false
+	}
+	if mode == "" && len(token.GroupIds) == 0 && (group == "" || strings.EqualFold(group, model.TokenGroupModeAuto)) {
+		return false
+	}
+	if strings.EqualFold(group, model.TokenGroupModeAuto) && len(token.GroupIds) == 0 {
+		return false
+	}
+
+	count := 0
+	if len(token.GroupIds) > 0 {
+		seen := make(map[int]struct{}, len(token.GroupIds))
+		for _, id := range token.GroupIds {
+			if id <= 0 {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			count++
+		}
+	} else if group != "" {
+		parsed, err := service.ParseTokenGroupList(group)
+		if err != nil {
+			return false
+		}
+		count = len(parsed)
+	}
+	maxCount := setting.GetMaxTokenAutoGroups()
+	if count > maxCount {
+		common.ApiErrorI18n(c, i18n.MsgTokenGroupsTooMany, map[string]any{"Max": maxCount})
+		return true
+	}
+	return false
+}
+
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
@@ -379,6 +427,9 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
+	if rejectTokenGroupsOverLimit(c, &token) {
+		return
+	}
 	if token.Group == "auto" {
 		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
 			return
@@ -488,6 +539,9 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
+		if rejectTokenGroupsOverLimit(c, &token) {
+			return
+		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime

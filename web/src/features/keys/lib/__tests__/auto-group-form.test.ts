@@ -244,6 +244,21 @@ describe('API key Auto group form mapping', () => {
     })
   })
 
+  test('rejects explicit group selections over the configured limit', () => {
+    const result = getApiKeyFormSchema(t, 1).safeParse({
+      ...getApiKeyFormDefaultValues(false),
+      name: 'too many groups',
+      groups: ['default', 'vip'],
+    })
+
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues[0]?.path).toEqual(['groups'])
+    expect(result.error.issues[0]?.message).toBe(
+      'A token can select at most 1 groups'
+    )
+  })
+
   test('rejects snapshots over the configured limit', () => {
     const result = getApiKeyFormSchema(t, 1).safeParse({
       ...getApiKeyFormDefaultValues(true),
