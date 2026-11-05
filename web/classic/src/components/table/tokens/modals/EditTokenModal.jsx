@@ -88,6 +88,8 @@ export const GroupMultiPicker = ({
   groupChannelIds,
   onGroupChannelChange,
   canSetGroupChannels = false,
+  maxCount = 5,
+  onLimitReached,
   t,
 }) => {
   const [popVisible, setPopVisible] = useState(false);
@@ -107,10 +109,13 @@ export const GroupMultiPicker = ({
     }
   }, [hasGroupTags]);
 
+  const groupLimit = Number.isInteger(maxCount) && maxCount > 0 ? maxCount : 5;
   const isAutoSelected = selectedGroups.includes('auto');
   const isExclusiveSelected = groups.some(
     (group) => group.exclusive === true && selectedGroups.includes(group.value),
   );
+  const atGroupLimit = !isAutoSelected && selectedGroups.length >= groupLimit;
+  const overGroupLimit = !isAutoSelected && selectedGroups.length > groupLimit;
 
   const availableGroups = filterGroupsByTag(
     groups,
@@ -130,6 +135,12 @@ export const GroupMultiPicker = ({
 
   const handleAdd = (value) => {
     if (!selectedGroups.includes(value)) {
+      const option = groups.find((group) => group.value === value);
+      const replacesSelection = value === 'auto' || option?.exclusive === true;
+      if (!replacesSelection && selectedGroups.length >= groupLimit) {
+        onLimitReached?.();
+        return;
+      }
       onChange([...selectedGroups, value]);
     }
     setSearchText('');
@@ -247,33 +258,39 @@ export const GroupMultiPicker = ({
         {availableGroups.length === 0 ? (
           <Empty description={t('没有可选分组')} style={{ padding: 16 }} />
         ) : (
-          availableGroups.map((g) => (
-            <button
-              type='button'
-              key={g.value}
-              className='token-group-picker-option'
-              onClick={() => handleAdd(g.value)}
-            >
-              <span className='token-group-picker-option-text'>
-                <Text strong size='small'>
-                  {g.label || g.value}
-                </Text>
-                {g.description && (
-                  <Text type='tertiary' size='small'>
-                    {g.description}
+          availableGroups.map((g) => {
+            const optionBlocked =
+              atGroupLimit && g.value !== 'auto' && g.exclusive !== true;
+            return (
+              <button
+                type='button'
+                key={g.value}
+                className='token-group-picker-option'
+                disabled={optionBlocked}
+                aria-disabled={optionBlocked}
+                onClick={() => handleAdd(g.value)}
+              >
+                <span className='token-group-picker-option-text'>
+                  <Text strong size='small'>
+                    {g.label || g.value}
                   </Text>
-                )}
-              </span>
-              <span className='token-group-picker-option-badges'>
-                {renderRatioBadge(g.ratio)}
-                {(g.exclusive || g.value === 'auto') && (
-                  <Tag size='small' color='purple' shape='circle'>
-                    {t('独立')}
-                  </Tag>
-                )}
-              </span>
-            </button>
-          ))
+                  {g.description && (
+                    <Text type='tertiary' size='small'>
+                      {g.description}
+                    </Text>
+                  )}
+                </span>
+                <span className='token-group-picker-option-badges'>
+                  {renderRatioBadge(g.ratio)}
+                  {(g.exclusive || g.value === 'auto') && (
+                    <Tag size='small' color='purple' shape='circle'>
+                      {t('独立')}
+                    </Tag>
+                  )}
+                </span>
+              </button>
+            );
+          })
         )}
       </div>
     </div>
@@ -491,6 +508,20 @@ export const GroupMultiPicker = ({
       )}
 
       {/* Hint */}
+      {!isAutoSelected && (
+        <div style={{ marginTop: 6 }}>
+          <Text type={overGroupLimit ? 'danger' : 'tertiary'} size='small'>
+            {overGroupLimit
+              ? t('A token can select at most {{max}} groups', {
+                  max: groupLimit,
+                })
+              : t('{{count}} / {{max}} groups selected', {
+                  count: selectedGroups.length,
+                  max: groupLimit,
+                })}
+          </Text>
+        </div>
+      )}
       {selectedGroups.length > 1 && !isAutoSelected && !isExclusiveSelected && (
         <div style={{ marginTop: 6 }}>
           <Text type='tertiary' size='small'>
@@ -525,6 +556,7 @@ const EditTokenModal = (props) => {
   const [selectedGroups, setSelectedGroups] = useState(() =>
     defaultUseAutoGroup ? ['auto'] : [],
   );
+  const [maxTokenGroups, setMaxTokenGroups] = useState(5);
   const [groupRatioLimits, setGroupRatioLimits] = useState({});
   const [groupChannelIds, setGroupChannelIds] = useState({});
   const [groupSelectionError, setGroupSelectionError] = useState('');
@@ -761,6 +793,16 @@ const EditTokenModal = (props) => {
 
   useEffect(() => {
     if (props.visiable) {
+      API.get('/api/token/auto-groups')
+        .then((res) => {
+          const max = Number(res?.data?.data?.max_count);
+          if (res?.data?.success && Number.isInteger(max) && max > 0) {
+            setMaxTokenGroups(max);
+          }
+        })
+        .catch(() => {
+          // 配置加载失败时保留当前上限，由服务端继续执行最终校验。
+        });
       if (isEdit) {
         loadToken();
       } else {
@@ -801,6 +843,18 @@ const EditTokenModal = (props) => {
       )
     ) {
       setGroupSelectionError(t('Channel ID must be a positive integer.'));
+      return;
+    }
+    const explicitGroupCount =
+      selectedGroups.length === 1 && selectedGroups[0] === 'auto'
+        ? 0
+        : selectedGroups.length;
+    if (explicitGroupCount > maxTokenGroups) {
+      setGroupSelectionError(
+        t('A token can select at most {{max}} groups', {
+          max: maxTokenGroups,
+        }),
+      );
       return;
     }
     const exclusiveGroups = selectedGroups.filter(
@@ -1035,6 +1089,14 @@ const EditTokenModal = (props) => {
                         groupTags={groupTags}
                         groups={groups}
                         selectedGroups={selectedGroups}
+                        maxCount={maxTokenGroups}
+                        onLimitReached={() =>
+                          setGroupSelectionError(
+                            t('A token can select at most {{max}} groups', {
+                              max: maxTokenGroups,
+                            }),
+                          )
+                        }
                         onChange={onSelectedGroupsChange}
                         groupRatioLimits={groupRatioLimits}
                         groupChannelIds={groupChannelIds}

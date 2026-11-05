@@ -270,6 +270,24 @@ export function ApiKeysMutateDrawer({
     isUpdate && currentRow ? `update:${currentRow.id}` : 'create'
   const isFormInitialized = initializedTarget === formTarget
   const selectedGroups = form.watch('groups')
+  const isAutoGroupSelection =
+    selectedGroups.length === 1 && selectedGroups[0] === 'auto'
+  const groupSelectionOverLimit =
+    !isAutoGroupSelection && selectedGroups.length > maxAutoGroups
+  const disabledGroupValues = useMemo(() => {
+    if (isAutoGroupSelection || selectedGroups.length < maxAutoGroups) {
+      return []
+    }
+    const selected = new Set(selectedGroups)
+    return groups
+      .filter(
+        (group) =>
+          !selected.has(group.value) &&
+          group.value !== 'auto' &&
+          group.exclusive !== true
+      )
+      .map((group) => group.value)
+  }, [groups, isAutoGroupSelection, maxAutoGroups, selectedGroups])
 
   // Preserve historical group references while dropping only selections that
   // the backend can no longer identify.
@@ -434,6 +452,7 @@ export function ApiKeysMutateDrawer({
                       <ApiKeyGroupCombobox
                         options={groups}
                         selectedValues={field.value}
+                        disabledValues={disabledGroupValues}
                         onValueChange={(selectedValue) => {
                           let next: string[]
                           if (!field.value.includes(selectedValue)) {
@@ -450,6 +469,29 @@ export function ApiKeysMutateDrawer({
                             next,
                             groups
                           )
+                          const replacesSelection =
+                            normalized.length === 1 &&
+                            (normalized[0] === 'auto' ||
+                              groups.some(
+                                (group) =>
+                                  group.value === normalized[0] &&
+                                  group.exclusive === true
+                              ))
+                          if (
+                            !replacesSelection &&
+                            normalized.length > maxAutoGroups &&
+                            normalized.length > field.value.length
+                          ) {
+                            form.setError('groups', {
+                              type: 'manual',
+                              message: t(
+                                'A token can select at most {{max}} groups',
+                                { max: maxAutoGroups }
+                              ),
+                            })
+                            return
+                          }
+                          form.clearErrors('groups')
                           field.onChange(normalized)
                           const retainedIds = new Set(
                             groups
@@ -476,6 +518,24 @@ export function ApiKeysMutateDrawer({
                         placeholder={t('Select a group')}
                       />
                     </FormControl>
+                    {!isAutoGroupSelection && (
+                      <FormDescription
+                        className={
+                          groupSelectionOverLimit
+                            ? 'text-destructive'
+                            : undefined
+                        }
+                      >
+                        {groupSelectionOverLimit
+                          ? t('A token can select at most {{max}} groups', {
+                              max: maxAutoGroups,
+                            })
+                          : t('{{count}} / {{max}} groups selected', {
+                              count: selectedGroups.length,
+                              max: maxAutoGroups,
+                            })}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

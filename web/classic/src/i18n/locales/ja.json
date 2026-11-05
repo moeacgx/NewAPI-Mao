@@ -6404,6 +6404,11 @@
     "No unsaved changes": "変更はすべて保存済みです",
     "Discard changes": "変更を破棄",
     "Reset filters": "フィルターをリセット",
-    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "チケット通知は、今回のユーザーメッセージの抜粋を Root が設定した宛先に送信します。エスケープ後の抜粋は最大 2000 文字で、超過分には省略の案内が付きます。全文はチケット詳細で確認できます。"
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "チケット通知は、今回のユーザーメッセージの抜粋を Root が設定した宛先に送信します。エスケープ後の抜粋は最大 2000 文字で、超過分には省略の案内が付きます。全文はチケット詳細で確認できます。",
+    "Maximum groups per token": "トークンごとの最大グループ数",
+    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "既定値は 5 です。1 つのトークンが選択できるグループ数の上限で、明示的なグループ一覧とカスタム Auto スナップショットに適用されます。グローバル Auto の順序を継承するトークンは制限されません。上限を超えて保存済みのトークンはそのまま残りますが、選択を減らすかこの値を上げるまで、API 呼び出しは上限超過エラーを返します。",
+    "A token can select at most {{max}} groups": "トークンは最大 {{max}} 個のグループまで選択できます",
+    "{{count}} / {{max}} groups selected": "{{count}} / {{max}} グループを選択中",
+    "Enter a positive integer": "正の整数を入力してください"
   }
 }

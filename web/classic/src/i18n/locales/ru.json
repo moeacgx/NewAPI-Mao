@@ -6494,6 +6494,11 @@
     "No unsaved changes": "Все изменения сохранены",
     "Discard changes": "Отменить изменения",
     "Reset filters": "Сбросить фильтры",
-    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Уведомления по обращению отправляют фрагмент текущего сообщения пользователя получателям, настроенным Root. После экранирования фрагмент ограничен 2000 символами; для более длинных сообщений добавляется отметка о сокращении. Полный текст доступен в подробностях обращения."
+    "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Уведомления по обращению отправляют фрагмент текущего сообщения пользователя получателям, настроенным Root. После экранирования фрагмент ограничен 2000 символами; для более длинных сообщений добавляется отметка о сокращении. Полный текст доступен в подробностях обращения.",
+    "Maximum groups per token": "Максимум групп на токен",
+    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "По умолчанию 5. Это максимальное число групп, которые может выбрать один токен. Ограничение действует для явных списков групп и пользовательских снимков Auto. Токены, наследующие глобальный порядок Auto, не ограничиваются. Токены, уже превысившие лимит, сохраняются, но вызовы API возвращают ошибку превышения, пока выбор не сократят или не повысят это значение.",
+    "A token can select at most {{max}} groups": "Токен может выбрать не более {{max}} групп",
+    "{{count}} / {{max}} groups selected": "Выбрано {{count}} / {{max}} групп",
+    "Enter a positive integer": "Введите положительное целое число"
   }
 }

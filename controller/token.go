@@ -152,6 +152,35 @@ func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) boo
 	return true
 }
 
+// rejectTokenGroupsOverLimit 按模型实际保存的稳定分组检查数量，保留旧标识、
+// 重复项和空项的既有归一化语义，避免校验与持久化使用不同解析规则。
+func rejectTokenGroupsOverLimit(c *gin.Context, token *model.Token) bool {
+	var err error
+	if token.Id > 0 {
+		err = model.PrepareTokenGroupBindingsForUpdate(model.DB, token)
+	} else {
+		err = model.PrepareTokenGroupBindings(model.DB, token)
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return true
+	}
+	if token.GroupMode != model.TokenGroupModeExplicit {
+		return false
+	}
+	groups, err := service.ParseTokenGroupList(token.Group)
+	if err != nil {
+		common.ApiError(c, err)
+		return true
+	}
+	maxCount := setting.GetMaxTokenAutoGroups()
+	if len(groups) > maxCount {
+		common.ApiErrorI18n(c, i18n.MsgTokenGroupsTooMany, map[string]any{"Max": maxCount})
+		return true
+	}
+	return false
+}
+
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
@@ -416,6 +445,9 @@ func AddToken(c *gin.Context) {
 	if !setTokenGroupChannels(c, &cleanToken, token.GroupChannelIds) {
 		return
 	}
+	if rejectTokenGroupsOverLimit(c, &cleanToken) {
+		return
+	}
 	err = cleanToken.Insert()
 	if err != nil {
 		common.ApiError(c, err)
@@ -513,6 +545,9 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+	}
+	if statusOnly == "" && rejectTokenGroupsOverLimit(c, cleanToken) {
+		return
 	}
 	err = cleanToken.Update()
 	if err != nil {

@@ -49,6 +49,7 @@ export type ApiKeyGroupOption = {
   label: string
   desc?: string
   ratio?: number | string
+  exclusive?: boolean
 }
 
 type ApiKeyGroupComboboxProps = {
@@ -58,6 +59,7 @@ type ApiKeyGroupComboboxProps = {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  disabledValues?: readonly string[]
 }
 
 export function ApiKeyGroupCombobox({
@@ -67,6 +69,7 @@ export function ApiKeyGroupCombobox({
   onValueChange,
   placeholder,
   disabled,
+  disabledValues,
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -88,6 +91,11 @@ export function ApiKeyGroupCombobox({
   const selectedOption =
     selectedOptions.length === 1 ? selectedOptions[0] : undefined
   const isAutoSelected = selectedValueSet.has('auto')
+
+  const disabledValueSet = useMemo(
+    () => new Set(disabledValues ?? []),
+    [disabledValues]
+  )
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
@@ -178,13 +186,18 @@ export function ApiKeyGroupCombobox({
             <CommandGroup>
               {filteredOptions.map((option) => {
                 const isAutoOption = option.value === 'auto'
+                const isOptionDisabled = disabledValueSet.has(option.value)
 
                 return (
                   <CommandItem
                     key={option.value}
                     value={option.value}
+                    disabled={isOptionDisabled}
                     data-auto-group-effect={isAutoOption ? 'option' : undefined}
-                    onSelect={() => handleSelect(option.value)}
+                    onSelect={() => {
+                      if (isOptionDisabled) return
+                      handleSelect(option.value)
+                    }}
                     className={cn(
                       'data-[selected=true]:bg-muted items-start gap-3 rounded-lg px-3 py-3 transition-colors',
                       isAutoOption &&

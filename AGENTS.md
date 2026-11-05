@@ -168,7 +168,7 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 - Frontend UI text must support i18n with `i18next`/`react-i18next`. Use flat JSON locale files in `web/src/i18n/locales/{lang}.json`, with English source strings as keys.
 - In React components, use `useTranslation()` and call `t('English key')` for user-facing text.
 - `web/src`（Default）与 `web/classic`（Classic）是两套独立前端模板。开始前端改动前，必须根据实际路由、构建入口、页面来源或用户截图确认问题属于哪个模板；不能假定修改其中一套会影响另一套。
-- 按用户明确需求确定范围：针对单一模板时，只检查、修改和验证对应模板；仅当用户明确要求两套模板一致，或已核实同一问题存在于两套模板且需求范围包含两者时，才分别处理两套模板。交付说明必须写明覆盖的模板、差异边界和验证依据；未修改的模板须说明其不在范围内或不受影响的依据。
+- 所有功能新增、调整和修复必须同步覆盖 Default 与 Classic：分别核对页面入口、配置读写、权限、交互校验、国际化及验证结果，不能只完成其中一套模板。纯后端变更也必须评估两套模板的共享契约与展示影响；不涉及前端时记录依据，无需制造无意义的页面改动。交付说明必须列出两套模板的覆盖情况和验证依据。
 - 后台页面的独立业务模块必须遵循统一的容器习惯：模块应有明确可见的边框、背景层和一致圆角，标题/说明/操作区与内容区应有稳定的层级和分隔；表格、表单、报表、状态区、错误区和空状态不得裸露在页面背景上。优先复用项目已有的 Card、Panel、Table、Drawer、Dropdown 等组件及主题变量，避免无意义的多层卡片嵌套；页面外壳可以按全局布局要求平铺，但每个业务模块仍必须保留可辨识的边界。新增或改造后台页面默认遵守本规则，无需在单个功能需求中重复声明。
 - Follow `web/AGENTS.md` for detailed frontend conventions, including TypeScript, component structure, styling, accessibility, testing, and build checks.
 

@@ -49,6 +49,7 @@ token.exhausted: "该令牌额度已用尽 TokenStatusExhausted[sk-{{.Prefix}}**
 token.status_unavailable: "该令牌状态不可用"
 token.db_error: "无效的令牌，数据库查询出错，请联系管理员"
 token.auto_groups_too_many: "每个令牌最多可选择 {{.Max}} 个 Auto 分组"
+token.groups_too_many: "令牌最多可选 {{.Max}} 个分组"
 token.auto_groups_duplicate: "Auto 分组 {{.Group}} 重复"
 token.auto_groups_invalid: "Auto 分组 {{.Group}} 不可用或无权访问"
 
