@@ -152,48 +152,29 @@ func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) boo
 	return true
 }
 
-// rejectTokenGroupsOverLimit blocks create and edit when an explicit group
-// selection would be stored beyond MaxTokenAutoGroups. Auto inheritance and
-// status-only updates are not selections. A parse failure is left to the
-// existing group resolver so this check only reports a counted over-limit.
+// rejectTokenGroupsOverLimit 按模型实际保存的稳定分组检查数量，保留旧标识、
+// 重复项和空项的既有归一化语义，避免校验与持久化使用不同解析规则。
 func rejectTokenGroupsOverLimit(c *gin.Context, token *model.Token) bool {
-	if token == nil {
+	var err error
+	if token.Id > 0 {
+		err = model.PrepareTokenGroupBindingsForUpdate(model.DB, token)
+	} else {
+		err = model.PrepareTokenGroupBindings(model.DB, token)
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return true
+	}
+	if token.GroupMode != model.TokenGroupModeExplicit {
 		return false
 	}
-	mode := strings.ToLower(strings.TrimSpace(token.GroupMode))
-	group := strings.TrimSpace(token.Group)
-	if mode == model.TokenGroupModeInherit || mode == model.TokenGroupModeAuto {
-		return false
-	}
-	if mode == "" && len(token.GroupIds) == 0 && (group == "" || strings.EqualFold(group, model.TokenGroupModeAuto)) {
-		return false
-	}
-	if strings.EqualFold(group, model.TokenGroupModeAuto) && len(token.GroupIds) == 0 {
-		return false
-	}
-
-	count := 0
-	if len(token.GroupIds) > 0 {
-		seen := make(map[int]struct{}, len(token.GroupIds))
-		for _, id := range token.GroupIds {
-			if id <= 0 {
-				continue
-			}
-			if _, ok := seen[id]; ok {
-				continue
-			}
-			seen[id] = struct{}{}
-			count++
-		}
-	} else if group != "" {
-		parsed, err := service.ParseTokenGroupList(group)
-		if err != nil {
-			return false
-		}
-		count = len(parsed)
+	groups, err := service.ParseTokenGroupList(token.Group)
+	if err != nil {
+		common.ApiError(c, err)
+		return true
 	}
 	maxCount := setting.GetMaxTokenAutoGroups()
-	if count > maxCount {
+	if len(groups) > maxCount {
 		common.ApiErrorI18n(c, i18n.MsgTokenGroupsTooMany, map[string]any{"Max": maxCount})
 		return true
 	}
@@ -427,9 +408,6 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
-	if rejectTokenGroupsOverLimit(c, &token) {
-		return
-	}
 	if token.Group == "auto" {
 		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
 			return
@@ -465,6 +443,9 @@ func AddToken(c *gin.Context) {
 		AutoGroups:         token.AutoGroups,
 	}
 	if !setTokenGroupChannels(c, &cleanToken, token.GroupChannelIds) {
+		return
+	}
+	if rejectTokenGroupsOverLimit(c, &cleanToken) {
 		return
 	}
 	err = cleanToken.Insert()
@@ -539,9 +520,6 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
-		if rejectTokenGroupsOverLimit(c, &token) {
-			return
-		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -567,6 +545,9 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+	}
+	if statusOnly == "" && rejectTokenGroupsOverLimit(c, cleanToken) {
+		return
 	}
 	err = cleanToken.Update()
 	if err != nil {

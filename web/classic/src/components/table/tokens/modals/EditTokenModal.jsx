@@ -801,7 +801,7 @@ const EditTokenModal = (props) => {
           }
         })
         .catch(() => {
-          // Keep the current limit when the setting cannot be loaded.
+          // 配置加载失败时保留当前上限，由服务端继续执行最终校验。
         });
       if (isEdit) {
         loadToken();

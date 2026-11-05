@@ -336,6 +336,70 @@ func TestUpdateTokenStatusOnlyKeepsHistoricalOverLimitGroups(t *testing.T) {
 	assert.Equal(t, "default,vip", updated.Group)
 }
 
+func TestTokenGroupLimitUsesResolvedGroupIdentity(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	configureTokenAutoGroupsTest(t, "2", `[]`)
+	user := setupTokenAutoGroupsControllerTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.TokenGroupBinding{}))
+	for _, code := range []string{"default", "vip", "svip"} {
+		group := model.Group{Code: code, Name: "显示名称-" + code, Status: model.GroupStatusActive, Ratio: 1}
+		require.NoError(t, model.DB.Create(&group).Error)
+		if code == "vip" {
+			require.NoError(t, model.DB.Create(&model.GroupAlias{Alias: "legacy-vip", GroupId: group.Id}).Error)
+		}
+	}
+
+	for _, test := range []struct {
+		name    string
+		groups  string
+		allowed bool
+	}{
+		{name: "trailing-empty-over-limit", groups: "default,vip,svip,"},
+		{name: "duplicate-over-limit", groups: "default,vip,svip,default"},
+		{name: "alias-same-identity", groups: "default,vip,legacy-vip", allowed: true},
+		{name: "duplicate-at-limit", groups: "default,vip,default,", allowed: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := map[string]any{
+				"name": test.name, "expired_time": -1, "unlimited_quota": true,
+				"group": test.groups, "group_mode": model.TokenGroupModeExplicit,
+			}
+			ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPost, "/api/token/", request, user.Id)
+			ctx.Request.Header.Set("Accept-Language", "zh-CN")
+			AddToken(ctx)
+			response := decodeAPIResponse(t, recorder)
+			require.Equal(t, test.allowed, response.Success, response.Message)
+			var count int64
+			require.NoError(t, model.DB.Model(&model.Token{}).Where("name = ?", test.name).Count(&count).Error)
+			if test.allowed {
+				assert.EqualValues(t, 1, count)
+			} else {
+				assert.Zero(t, count)
+				assert.Equal(t, "令牌最多可选 2 个分组", response.Message)
+			}
+
+			token := &model.Token{UserId: user.Id, Name: "edit-" + test.name, Key: "key-" + test.name,
+				Group: "default", GroupMode: model.TokenGroupModeExplicit, UnlimitedQuota: true, ExpiredTime: -1}
+			require.NoError(t, token.Insert())
+			request["id"] = token.Id
+			request["name"] = token.Name
+			updateCtx, updateRecorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPut, "/api/token/", request, user.Id)
+			updateCtx.Request.Header.Set("Accept-Language", "zh-CN")
+			UpdateToken(updateCtx)
+			updateResponse := decodeAPIResponse(t, updateRecorder)
+			require.Equal(t, test.allowed, updateResponse.Success, updateResponse.Message)
+			var saved model.Token
+			require.NoError(t, model.DB.First(&saved, token.Id).Error)
+			if test.allowed {
+				assert.Equal(t, "default,vip", saved.Group)
+			} else {
+				assert.Equal(t, "令牌最多可选 2 个分组", updateResponse.Message)
+				assert.Equal(t, "default", saved.Group)
+			}
+		})
+	}
+}
+
 func TestGetTokenAutoGroupsReturnsFullFilteredGlobalOrderAndLimit(t *testing.T) {
 	configureTokenAutoGroupsTest(t, "1", `["vip","missing","default"]`)
 	user := setupTokenAutoGroupsControllerTest(t)

@@ -509,6 +509,7 @@ export default function GroupRatioSettings(props) {
           <Col xs={24} sm={12} md={8} lg={8} xl={8}>
             <Form.Slot label={t('Maximum groups per token')}>
               <InputNumber
+                aria-label={t('Maximum groups per token')}
                 min={1}
                 step={1}
                 precision={0}
