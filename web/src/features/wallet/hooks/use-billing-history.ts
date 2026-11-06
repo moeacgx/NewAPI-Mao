@@ -30,7 +30,7 @@ import {
   retryTopupPayment,
   isApiSuccess,
 } from '../api'
-import { openPaymentResponse } from '../lib'
+import { getPaymentRequestErrorMessage, openPaymentResponse } from '../lib'
 import type { TopupRecord } from '../types'
 
 // ============================================================================
@@ -143,8 +143,12 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         toast.success(i18next.t('Redirecting to payment page...'))
         await fetchBillingHistory()
         return true
-      } catch {
-        toast.error(i18next.t('Payment request failed'))
+      } catch (error) {
+        toast.error(
+          getPaymentRequestErrorMessage(error, (key, values) =>
+            i18next.t(key, values)
+          )
+        )
         return false
       } finally {
         setRetryingTradeNo(null)

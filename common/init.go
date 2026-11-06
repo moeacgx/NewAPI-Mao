@@ -133,6 +133,7 @@ func InitEnv() {
 	CriticalRateLimitNum = GetEnvOrDefault("CRITICAL_RATE_LIMIT", 20)
 	CriticalRateLimitDuration = int64(GetEnvOrDefault("CRITICAL_RATE_LIMIT_DURATION", 20*60))
 	initTokenKeyReadRateLimitConfig()
+	initTokenQueryRateLimitConfig()
 
 	SearchRateLimitEnable = GetEnvOrDefaultBool("SEARCH_RATE_LIMIT_ENABLE", true)
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
@@ -153,6 +154,21 @@ func initTokenKeyReadRateLimitConfig() {
 	if TokenKeyReadRateLimitDuration <= 0 || TokenKeyReadRateLimitDuration > maxDuration {
 		SysError(fmt.Sprintf("TOKEN_KEY_READ_RATE_LIMIT_DURATION must be between 1 and %d seconds, using default 60", maxDuration))
 		TokenKeyReadRateLimitDuration = 60
+	}
+}
+
+func initTokenQueryRateLimitConfig() {
+	TokenQueryRateLimitEnable = GetEnvOrDefaultBool("TOKEN_QUERY_RATE_LIMIT_ENABLE", true)
+	TokenQueryRateLimitNum = GetEnvOrDefault("TOKEN_QUERY_RATE_LIMIT", 20)
+	if TokenQueryRateLimitNum <= 0 {
+		SysError("TOKEN_QUERY_RATE_LIMIT must be positive, using default 20")
+		TokenQueryRateLimitNum = 20
+	}
+	TokenQueryRateLimitDuration = int64(GetEnvOrDefault("TOKEN_QUERY_RATE_LIMIT_DURATION", 20*60))
+	maxDuration := int64(RateLimitKeyExpirationDuration / time.Second)
+	if TokenQueryRateLimitDuration <= 0 || TokenQueryRateLimitDuration > maxDuration {
+		SysError(fmt.Sprintf("TOKEN_QUERY_RATE_LIMIT_DURATION must be between 1 and %d seconds, using default 1200", maxDuration))
+		TokenQueryRateLimitDuration = 20 * 60
 	}
 }
 

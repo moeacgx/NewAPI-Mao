@@ -4813,6 +4813,8 @@
     "Payment Methods": "Payment Methods",
     "Payment page opened": "Payment page opened",
     "Payment request failed": "Payment request failed",
+    "Payment requests are too frequent. Please try again in {{seconds}} seconds.": "Payment requests are too frequent. Please try again in {{seconds}} seconds.",
+    "Payment requests are too frequent. Please try again later.": "Payment requests are too frequent. Please try again later.",
     "Payment return URL": "Payment return URL",
     "Payment return URL is empty. Create the product without a SuccessURL redirect?": "Payment return URL is empty. Create the product without a SuccessURL redirect?",
     "Payment type key": "Payment type key",

@@ -36,7 +36,10 @@ import RechargeCard from './RechargeCard';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
 import { createEmptyInvoiceRequest } from '../invoice/InvoiceRequestForm';
-import { getTopupErrorMessage } from './topupError';
+import {
+  getPaymentRequestErrorMessage,
+  getTopupErrorMessage,
+} from './topupError';
 import { Gift } from 'lucide-react';
 
 // Reject non-navigable schemes (e.g. javascript:, data:) and relative URLs.
@@ -463,12 +466,16 @@ const TopUp = () => {
       let res;
       if (payWay === 'stripe') {
         // Stripe 支付请求
-        res = await API.post('/api/user/stripe/pay', {
-          amount: parseInt(topUpCount),
-          payment_method: 'stripe',
-          ...buildPromoPayload(),
-          ...buildInvoicePayload(),
-        });
+        res = await API.post(
+          '/api/user/stripe/pay',
+          {
+            amount: parseInt(topUpCount),
+            payment_method: 'stripe',
+            ...buildPromoPayload(),
+            ...buildInvoicePayload(),
+          },
+          { skipErrorHandler: true },
+        );
       } else if (payWay === 'bepusdt') {
         // Bepusdt 使用已选链
         const tradeType =
@@ -479,27 +486,39 @@ const TopUp = () => {
           setConfirmLoading(false);
           return;
         }
-        res = await API.post('/api/user/bepusdt/pay', {
-          amount: parseInt(topUpCount),
-          trade_type: tradeType,
-          ...buildPromoPayload(),
-          ...buildInvoicePayload(),
-        });
+        res = await API.post(
+          '/api/user/bepusdt/pay',
+          {
+            amount: parseInt(topUpCount),
+            trade_type: tradeType,
+            ...buildPromoPayload(),
+            ...buildInvoicePayload(),
+          },
+          { skipErrorHandler: true },
+        );
       } else if (payWay === 'okpay') {
         // OKPay 支付请求
-        res = await API.post('/api/user/okpay/pay', {
-          amount: parseInt(topUpCount),
-          ...buildPromoPayload(),
-          ...buildInvoicePayload(),
-        });
+        res = await API.post(
+          '/api/user/okpay/pay',
+          {
+            amount: parseInt(topUpCount),
+            ...buildPromoPayload(),
+            ...buildInvoicePayload(),
+          },
+          { skipErrorHandler: true },
+        );
       } else {
         // 普通支付请求
-        res = await API.post('/api/user/pay', {
-          amount: parseInt(topUpCount),
-          payment_method: payWay,
-          ...buildPromoPayload(),
-          ...buildInvoicePayload(),
-        });
+        res = await API.post(
+          '/api/user/pay',
+          {
+            amount: parseInt(topUpCount),
+            payment_method: payWay,
+            ...buildPromoPayload(),
+            ...buildInvoicePayload(),
+          },
+          { skipErrorHandler: true },
+        );
       }
 
       if (res !== undefined) {
@@ -548,7 +567,7 @@ const TopUp = () => {
         showError(res);
       }
     } catch (err) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(err, t));
     } finally {
       setOpen(false);
       setConfirmLoading(false);
@@ -576,10 +595,14 @@ const TopUp = () => {
     }
     setConfirmLoading(true);
     try {
-      const res = await API.post('/api/user/creem/pay', {
-        product_id: selectedCreemProduct.productId,
-        payment_method: 'creem',
-      });
+      const res = await API.post(
+        '/api/user/creem/pay',
+        {
+          product_id: selectedCreemProduct.productId,
+          payment_method: 'creem',
+        },
+        { skipErrorHandler: true },
+      );
       if (res !== undefined) {
         const { message, data } = res.data;
         if (message === 'success') {
@@ -591,7 +614,7 @@ const TopUp = () => {
         showError(res);
       }
     } catch (err) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(err, t));
     } finally {
       setCreemOpen(false);
       setConfirmLoading(false);
@@ -613,7 +636,9 @@ const TopUp = () => {
       if (payMethodIndex != null) {
         requestBody.pay_method_index = payMethodIndex;
       }
-      const res = await API.post('/api/user/waffo/pay', requestBody);
+      const res = await API.post('/api/user/waffo/pay', requestBody, {
+        skipErrorHandler: true,
+      });
       if (res !== undefined) {
         const { message, data } = res.data;
         if (message === 'success' && (res.data.completed || data?.completed)) {
@@ -627,7 +652,7 @@ const TopUp = () => {
         showError(res);
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaymentLoading(false);
     }
@@ -661,11 +686,15 @@ const TopUp = () => {
 
     setPaymentLoading(true);
     try {
-      const res = await API.post('/api/user/waffo-pancake/pay', {
-        amount: parseInt(topUpCount),
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(),
-      });
+      const res = await API.post(
+        '/api/user/waffo-pancake/pay',
+        {
+          amount: parseInt(topUpCount),
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(),
+        },
+        { skipErrorHandler: true },
+      );
       if (res !== undefined) {
         const { message, data } = res.data;
         if (message === 'success') {
@@ -690,7 +719,7 @@ const TopUp = () => {
         showError(res);
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaymentLoading(false);
     }

@@ -4813,6 +4813,8 @@
     "Payment Methods": "決済方法",
     "Payment page opened": "決済ページが開きました",
     "Payment request failed": "支払いリクエストが失敗しました",
+    "Payment requests are too frequent. Please try again in {{seconds}} seconds.": "支払いリクエストが頻繁すぎます。{{seconds}} 秒後に再試行してください。",
+    "Payment requests are too frequent. Please try again later.": "支払いリクエストが頻繁すぎます。しばらくしてから再試行してください。",
     "Payment return URL": "決済完了後のリダイレクトURL",
     "Payment return URL is empty. Create the product without a SuccessURL redirect?": "支払い戻り URL が空です。SuccessURL リダイレクトなしで商品を作成しますか？",
     "Payment type key": "支払いタイプキー",
