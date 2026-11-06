@@ -267,6 +267,11 @@ var (
 	TokenKeyReadRateLimitNum            = 60
 	TokenKeyReadRateLimitDuration int64 = 60
 
+	// 只读令牌查询独立计数，避免余额或日志轮询阻塞充值等关键操作。
+	TokenQueryRateLimitEnable         = true
+	TokenQueryRateLimitNum            = 20
+	TokenQueryRateLimitDuration int64 = 20 * 60
+
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60
 

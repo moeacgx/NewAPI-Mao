@@ -20,7 +20,11 @@ import {
   requestBepusdtPayment,
   requestOkpayPayment,
 } from '../api'
-import { getTopupErrorMessage, openPaymentResponse } from '../lib'
+import {
+  getPaymentRequestErrorMessage,
+  getTopupErrorMessage,
+  openPaymentResponse,
+} from '../lib'
 
 export function useNativePayment() {
   const [processing, setProcessing] = useState(false)
@@ -42,10 +46,8 @@ export function useNativePayment() {
         })
         if (!isApiSuccess(response)) {
           toast.error(
-            getTopupErrorMessage(
-              response.message,
-              response.data,
-              (key) => i18next.t(key)
+            getTopupErrorMessage(response.message, response.data, (key) =>
+              i18next.t(key)
             )
           )
           return false
@@ -59,8 +61,12 @@ export function useNativePayment() {
           return true
         }
         return false
-      } catch {
-        toast.error(i18next.t('Payment request failed'))
+      } catch (error) {
+        toast.error(
+          getPaymentRequestErrorMessage(error, (key, options) =>
+            i18next.t(key, options)
+          )
+        )
         return false
       } finally {
         setProcessing(false)
@@ -84,10 +90,8 @@ export function useNativePayment() {
         })
         if (!isApiSuccess(response)) {
           toast.error(
-            getTopupErrorMessage(
-              response.message,
-              response.data,
-              (key) => i18next.t(key)
+            getTopupErrorMessage(response.message, response.data, (key) =>
+              i18next.t(key)
             )
           )
           return false
@@ -101,8 +105,12 @@ export function useNativePayment() {
           return true
         }
         return false
-      } catch {
-        toast.error(i18next.t('Payment request failed'))
+      } catch (error) {
+        toast.error(
+          getPaymentRequestErrorMessage(error, (key, options) =>
+            i18next.t(key, options)
+          )
+        )
         return false
       } finally {
         setProcessing(false)

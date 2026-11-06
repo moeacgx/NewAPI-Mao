@@ -39,7 +39,10 @@ import {
   formatSubscriptionResetPeriod,
 } from '../../helpers/subscriptionFormat';
 import { createEmptyInvoiceRequest } from '../invoice/InvoiceRequestForm';
-import { getTopupErrorMessage } from './topupError';
+import {
+  getPaymentRequestErrorMessage,
+  getTopupErrorMessage,
+} from './topupError';
 
 const { Text } = Typography;
 
@@ -386,11 +389,15 @@ const SubscriptionPlansCard = ({
     }
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/stripe/pay', {
-        plan_id: selectedPlan.plan.id,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/stripe/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.message === 'success') {
         if (res.data.completed || res.data.data?.completed) {
           await handleCompletedPurchase();
@@ -410,7 +417,7 @@ const SubscriptionPlansCard = ({
         );
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
@@ -428,11 +435,15 @@ const SubscriptionPlansCard = ({
     }
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/creem/pay', {
-        plan_id: selectedPlan.plan.id,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/creem/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.message === 'success') {
         window.open(res.data.data?.checkout_url, '_blank');
         showSuccess(t('已打开支付页面'));
@@ -448,7 +459,7 @@ const SubscriptionPlansCard = ({
         );
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
@@ -462,12 +473,16 @@ const SubscriptionPlansCard = ({
     }
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/epay/pay', {
-        plan_id: selectedPlan.plan.id,
-        payment_method: selectedEpayMethod,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/epay/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          payment_method: selectedEpayMethod,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.message === 'success') {
         if (res.data.completed || res.data.data?.completed) {
           await handleCompletedPurchase();
@@ -487,7 +502,7 @@ const SubscriptionPlansCard = ({
         );
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
@@ -504,12 +519,16 @@ const SubscriptionPlansCard = ({
     setSelectedPaymentKind('bepusdt');
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/bepusdt/pay', {
-        plan_id: selectedPlan.plan.id,
-        trade_type: tradeType,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/bepusdt/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          trade_type: tradeType,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.message === 'success') {
         if (res.data.completed || res.data.data?.completed) {
           await handleCompletedPurchase();
@@ -533,7 +552,7 @@ const SubscriptionPlansCard = ({
         );
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
@@ -544,11 +563,15 @@ const SubscriptionPlansCard = ({
     setSelectedPaymentKind('okpay');
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/okpay/pay', {
-        plan_id: selectedPlan.plan.id,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/okpay/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.message === 'success') {
         if (res.data.completed || res.data.data?.completed) {
           await handleCompletedPurchase();
@@ -565,7 +588,7 @@ const SubscriptionPlansCard = ({
         getTopupErrorMessage(res.data?.message, res.data?.data, t, '支付失败'),
       );
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
@@ -581,11 +604,15 @@ const SubscriptionPlansCard = ({
     setSelectedPaymentKind('balance');
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/balance/pay', {
-        plan_id: selectedPlan.plan.id,
-        ...buildPromoPayload(),
-        ...buildInvoicePayload(invoiceRequest),
-      });
+      const res = await API.post(
+        '/api/subscription/balance/pay',
+        {
+          plan_id: selectedPlan.plan.id,
+          ...buildPromoPayload(),
+          ...buildInvoicePayload(invoiceRequest),
+        },
+        { skipErrorHandler: true },
+      );
       if (res.data?.success) {
         await handleCompletedPurchase();
         return;
@@ -594,7 +621,7 @@ const SubscriptionPlansCard = ({
         getTopupErrorMessage(res.data?.message, res.data?.data, t, '支付失败'),
       );
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(getPaymentRequestErrorMessage(e, t));
     } finally {
       setPaying(false);
     }
