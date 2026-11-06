@@ -8,8 +8,61 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCORSPaymentRateLimitExposesRetryAfterOnlyToTrustedOrigin(t *testing.T) {
+	previousTrustedOrigins := common.SessionCookieTrustedURLs
+	common.SessionCookieTrustedURLs = []string{"https://console.example.test"}
+	t.Cleanup(func() { common.SessionCookieTrustedURLs = previousTrustedOrigins })
+	gin.SetMode(gin.TestMode)
+
+	for _, testCase := range []struct {
+		name    string
+		origin  string
+		allowed bool
+	}{
+		{name: "可信跨域支付", origin: "https://console.example.test", allowed: true},
+		{name: "未授权跨域支付", origin: "https://untrusted.example.test"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(APIPathCORS())
+			handlerCalled := false
+			router.POST("/api/user/topup", func(c *gin.Context) {
+				handlerCalled = true
+				c.Header("Retry-After", "37")
+				c.Status(http.StatusTooManyRequests)
+			})
+			request := httptest.NewRequest(http.MethodPost, "https://api.example.test/api/user/topup", nil)
+			request.Header.Set("Origin", testCase.origin)
+			request.Header.Set("Cookie", "session=test-session")
+			recorder := httptest.NewRecorder()
+
+			router.ServeHTTP(recorder, request)
+
+			assert.Equal(t, testCase.allowed, handlerCalled)
+			if !testCase.allowed {
+				assert.Equal(t, http.StatusForbidden, recorder.Code)
+				assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+				assert.Empty(t, recorder.Header().Get("Retry-After"))
+				return
+			}
+			assert.Equal(t, http.StatusTooManyRequests, recorder.Code)
+			assert.Equal(t, testCase.origin, recorder.Header().Get("Access-Control-Allow-Origin"))
+			assert.Equal(t, "true", recorder.Header().Get("Access-Control-Allow-Credentials"))
+			assert.Equal(t, "37", recorder.Header().Get("Retry-After"))
+			// 浏览器只允许脚本读取 CORS 明确暴露的非安全列表响应头。
+			exposedHeaders := strings.Split(strings.ToLower(recorder.Header().Get("Access-Control-Expose-Headers")), ",")
+			for index := range exposedHeaders {
+				exposedHeaders[index] = strings.TrimSpace(exposedHeaders[index])
+			}
+			assert.Contains(t, exposedHeaders, "retry-after")
+			assert.Contains(t, exposedHeaders, "x-new-api-gateway-skills")
+		})
+	}
+}
 
 func TestCORSActualRequestsAllowOnlyStrictCredentialOrigins(t *testing.T) {
 	previousTrustedOrigins := common.SessionCookieTrustedURLs
