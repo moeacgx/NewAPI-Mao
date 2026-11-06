@@ -4813,6 +4813,8 @@
     "Payment Methods": "Способы оплаты",
     "Payment page opened": "Страница оплаты открыта",
     "Payment request failed": "Запрос на оплату не удался",
+    "Payment requests are too frequent. Please try again in {{seconds}} seconds.": "Слишком частые запросы на оплату. Повторите попытку через {{seconds}} сек.",
+    "Payment requests are too frequent. Please try again later.": "Слишком частые запросы на оплату. Повторите попытку позже.",
     "Payment return URL": "URL возврата после оплаты",
     "Payment return URL is empty. Create the product without a SuccessURL redirect?": "URL возврата платежа пуст. Создать продукт без перенаправления SuccessURL?",
     "Payment type key": "Ключ типа оплаты",

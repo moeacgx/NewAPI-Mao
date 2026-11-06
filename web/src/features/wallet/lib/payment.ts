@@ -57,6 +57,38 @@ export function getTopupErrorMessage(
   return rawMessage
 }
 
+export function getPaymentRequestErrorMessage(
+  error: unknown,
+  translate: (key: string, options?: Record<string, number>) => string
+): string {
+  const response =
+    typeof error === 'object' && error !== null && 'response' in error
+      ? (
+          error as {
+            response?: {
+              status?: number
+              headers?: {
+                [key: string]: unknown
+                get?: (name: string) => unknown
+              }
+            }
+          }
+        ).response
+      : undefined
+  if (response?.status !== 429) return translate('Payment request failed')
+
+  const retryAfter = Number(
+    response.headers?.['retry-after'] ?? response.headers?.get?.('Retry-After')
+  )
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return translate(
+      'Payment requests are too frequent. Please try again in {{seconds}} seconds.',
+      { seconds: Math.ceil(retryAfter) }
+    )
+  }
+  return translate('Payment requests are too frequent. Please try again later.')
+}
+
 /**
  * Choose the EPay form target while preserving Safari compatibility.
  */

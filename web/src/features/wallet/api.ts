@@ -120,6 +120,7 @@ export async function requestPayment(
 ): Promise<PaymentResponse> {
   const res = await api.post('/api/user/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return {
     ...res.data,
@@ -135,6 +136,7 @@ export async function requestStripePayment(
 ): Promise<StripePaymentResponse> {
   const res = await api.post('/api/user/stripe/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -147,6 +149,7 @@ export async function requestCreemPayment(
 ): Promise<CreemPaymentResponse> {
   const res = await api.post('/api/user/creem/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -159,6 +162,7 @@ export async function requestWaffoPayment(
 ): Promise<WaffoPaymentResponse> {
   const res = await api.post('/api/user/waffo/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -183,6 +187,7 @@ export async function requestWaffoPancakePayment(
 ): Promise<WaffoPancakePaymentResponse> {
   const res = await api.post('/api/user/waffo-pancake/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -201,6 +206,7 @@ export async function requestBepusdtPayment(
 ): Promise<BepusdtPaymentResponse> {
   const res = await api.post('/api/user/bepusdt/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -219,6 +225,7 @@ export async function requestOkpayPayment(
 ): Promise<OkpayPaymentResponse> {
   const res = await api.post('/api/user/okpay/pay', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -294,6 +301,7 @@ export async function retryTopupPayment(
 ): Promise<RetryTopupPaymentResponse> {
   const res = await api.post('/api/user/topup/retry', request, {
     skipBusinessError: true,
+    skipErrorHandler: true,
   } as Record<string, unknown>)
   return {
     ...res.data,

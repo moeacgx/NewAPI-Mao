@@ -1,5 +1,9 @@
 # NewAPI-Mao 开发文档
 
+- [.367 充值限流隔离发布](../workflows/2026-11/06_release_367.md)：真实路由回归、双模板支付错误提示、PR 合并和发布资产验证。
+- [Classic 支付限流提示](../workflows/2026-11/06_classic_payment_rate_limit.md)：充值、订阅及历史订单重新支付统一处理 429 和等待时间。
+- [令牌查询与充值限流隔离](../workflows/2026-11/06_token_query_payment_rate_limit.md)：只读令牌余额/日志查询按用户独立限流，避免耗尽充值等关键操作的 IP 限额；同步记录双模板支付 429 提示修复。
+
 - [.366 令牌分组默认不限制发布](../workflows/2026-11/06_release_366.md)：默认值、双模板验收、发布产物与 zzapi 更新边界。
 
 - [令牌分组默认不限制](../workflows/2026-11/06_unlimited_token_groups.md)：`MaxTokenAutoGroups=0` 表示不限制，双模板同步支持，保留已有正整数上限。

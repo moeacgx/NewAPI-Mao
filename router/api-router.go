@@ -411,10 +411,9 @@ func SetApiRouter(router *gin.Engine) {
 		}
 
 		usageRoute := apiRouter.Group("/usage")
-		usageRoute.Use(middleware.CriticalRateLimit())
 		{
 			tokenUsageRoute := usageRoute.Group("/token")
-			tokenUsageRoute.Use(middleware.TokenAuthReadOnly())
+			tokenUsageRoute.Use(middleware.TokenAuthReadOnly(), middleware.TokenQueryRateLimit("usage"))
 			{
 				tokenUsageRoute.GET("/", controller.GetTokenUsage)
 			}
@@ -508,10 +507,7 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/flow/self", middleware.UserAuth(), controller.GetUserFlowQuotaDates)
 		dataRoute.GET("/revenue", middleware.AdminAuth(), controller.GetRevenueStats)
 
-		logRoute.Use(middleware.CriticalRateLimit())
-		{
-			logRoute.GET("/token", middleware.TokenAuthReadOnly(), controller.GetLogByKey)
-		}
+		logRoute.GET("/token", middleware.TokenAuthReadOnly(), middleware.TokenQueryRateLimit("log"), controller.GetLogByKey)
 		groupRoute := apiRouter.Group("/group")
 		groupRoute.Use(middleware.AdminAuth())
 		{

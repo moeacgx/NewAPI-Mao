@@ -4813,6 +4813,8 @@
     "Payment Methods": "Modes de paiement",
     "Payment page opened": "Page de paiement ouverte",
     "Payment request failed": "Requête de paiement échouée",
+    "Payment requests are too frequent. Please try again in {{seconds}} seconds.": "Les demandes de paiement sont trop fréquentes. Réessayez dans {{seconds}} secondes.",
+    "Payment requests are too frequent. Please try again later.": "Les demandes de paiement sont trop fréquentes. Réessayez plus tard.",
     "Payment return URL": "URL de retour de paiement",
     "Payment return URL is empty. Create the product without a SuccessURL redirect?": "L’URL de retour de paiement est vide. Créer le produit sans redirection SuccessURL ?",
     "Payment type key": "Clé de type de paiement",
