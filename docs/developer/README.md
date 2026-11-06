@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [maolaoapi .366 逐节点更新](../workflows/2026-11/06_maolaoapi_366_deployment.md)：生产备份、共享资源预置、串行更新与验收。
+
 - [.366 令牌分组默认不限制发布](../workflows/2026-11/06_release_366.md)：默认值、双模板验收、发布产物与 zzapi 更新边界。
 
 - [令牌分组默认不限制](../workflows/2026-11/06_unlimited_token_groups.md)：`MaxTokenAutoGroups=0` 表示不限制，双模板同步支持，保留已有正整数上限。
