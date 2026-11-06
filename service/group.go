@@ -69,11 +69,15 @@ func GetUserAutoGroup(userGroup string) []string {
 	return autoGroups
 }
 
-// FilterUserTokenAutoGroups applies current permissions before the current
-// per-token limit. It intentionally does not fall back to the global Auto list.
+// FilterUserTokenAutoGroups 先按当前权限筛选，再应用正数上限；0 表示不限数量。
+// 自定义快照不会回退到全局 Auto 列表。
 func FilterUserTokenAutoGroups(userGroup string, groups []string) []string {
 	maxCount := setting.GetMaxTokenAutoGroups()
-	filtered := make([]string, 0, min(len(groups), maxCount))
+	capacity := len(groups)
+	if maxCount > 0 {
+		capacity = min(capacity, maxCount)
+	}
+	filtered := make([]string, 0, capacity)
 	seen := make(map[string]struct{})
 	for _, group := range groups {
 		if !IsUserSelectableGroup(userGroup, group) {
@@ -84,7 +88,7 @@ func FilterUserTokenAutoGroups(userGroup string, groups []string) []string {
 		}
 		seen[group] = struct{}{}
 		filtered = append(filtered, group)
-		if len(filtered) == maxCount {
+		if maxCount > 0 && len(filtered) == maxCount {
 			break
 		}
 	}

@@ -88,7 +88,7 @@ export const GroupMultiPicker = ({
   groupChannelIds,
   onGroupChannelChange,
   canSetGroupChannels = false,
-  maxCount = 5,
+  maxCount = 0,
   onLimitReached,
   t,
 }) => {
@@ -109,13 +109,24 @@ export const GroupMultiPicker = ({
     }
   }, [hasGroupTags]);
 
-  const groupLimit = Number.isInteger(maxCount) && maxCount > 0 ? maxCount : 5;
+  const groupLimit = Number.isInteger(maxCount) && maxCount > 0 ? maxCount : 0;
   const isAutoSelected = selectedGroups.includes('auto');
   const isExclusiveSelected = groups.some(
     (group) => group.exclusive === true && selectedGroups.includes(group.value),
   );
-  const atGroupLimit = !isAutoSelected && selectedGroups.length >= groupLimit;
-  const overGroupLimit = !isAutoSelected && selectedGroups.length > groupLimit;
+  const atGroupLimit =
+    groupLimit > 0 && !isAutoSelected && selectedGroups.length >= groupLimit;
+  const overGroupLimit =
+    groupLimit > 0 && !isAutoSelected && selectedGroups.length > groupLimit;
+  const selectionCountText =
+    groupLimit > 0
+      ? t('{{count}} / {{max}} groups selected', {
+          count: selectedGroups.length,
+          max: groupLimit,
+        })
+      : t('{{count}} groups selected (unlimited)', {
+          count: selectedGroups.length,
+        });
 
   const availableGroups = filterGroupsByTag(
     groups,
@@ -137,7 +148,11 @@ export const GroupMultiPicker = ({
     if (!selectedGroups.includes(value)) {
       const option = groups.find((group) => group.value === value);
       const replacesSelection = value === 'auto' || option?.exclusive === true;
-      if (!replacesSelection && selectedGroups.length >= groupLimit) {
+      if (
+        !replacesSelection &&
+        groupLimit > 0 &&
+        selectedGroups.length >= groupLimit
+      ) {
         onLimitReached?.();
         return;
       }
@@ -515,10 +530,7 @@ export const GroupMultiPicker = ({
               ? t('A token can select at most {{max}} groups', {
                   max: groupLimit,
                 })
-              : t('{{count}} / {{max}} groups selected', {
-                  count: selectedGroups.length,
-                  max: groupLimit,
-                })}
+              : selectionCountText}
           </Text>
         </div>
       )}
@@ -556,7 +568,7 @@ const EditTokenModal = (props) => {
   const [selectedGroups, setSelectedGroups] = useState(() =>
     defaultUseAutoGroup ? ['auto'] : [],
   );
-  const [maxTokenGroups, setMaxTokenGroups] = useState(5);
+  const [maxTokenGroups, setMaxTokenGroups] = useState(0);
   const [groupRatioLimits, setGroupRatioLimits] = useState({});
   const [groupChannelIds, setGroupChannelIds] = useState({});
   const [groupSelectionError, setGroupSelectionError] = useState('');
@@ -796,7 +808,7 @@ const EditTokenModal = (props) => {
       API.get('/api/token/auto-groups')
         .then((res) => {
           const max = Number(res?.data?.data?.max_count);
-          if (res?.data?.success && Number.isInteger(max) && max > 0) {
+          if (res?.data?.success && Number.isInteger(max) && max >= 0) {
             setMaxTokenGroups(max);
           }
         })
@@ -849,7 +861,7 @@ const EditTokenModal = (props) => {
       selectedGroups.length === 1 && selectedGroups[0] === 'auto'
         ? 0
         : selectedGroups.length;
-    if (explicitGroupCount > maxTokenGroups) {
+    if (maxTokenGroups > 0 && explicitGroupCount > maxTokenGroups) {
       setGroupSelectionError(
         t('A token can select at most {{max}} groups', {
           max: maxTokenGroups,

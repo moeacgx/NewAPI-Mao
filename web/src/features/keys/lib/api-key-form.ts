@@ -37,9 +37,9 @@ import {
 // Form Schema
 // ============================================================================
 
-export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
+export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
   const autoGroupLimit =
-    Number.isInteger(maxAutoGroups) && maxAutoGroups > 0 ? maxAutoGroups : 5
+    Number.isInteger(maxAutoGroups) && maxAutoGroups > 0 ? maxAutoGroups : 0
 
   return z
     .object({
@@ -84,7 +84,7 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
           })
         }
 
-        if (data.auto_groups.length > autoGroupLimit) {
+        if (autoGroupLimit > 0 && data.auto_groups.length > autoGroupLimit) {
           ctx.addIssue({
             code: 'custom',
             path: ['auto_groups'],
@@ -112,7 +112,11 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
       }
 
       const isAutoOnly = data.groups.length === 1 && data.groups[0] === 'auto'
-      if (!isAutoOnly && data.groups.length > autoGroupLimit) {
+      if (
+        !isAutoOnly &&
+        autoGroupLimit > 0 &&
+        data.groups.length > autoGroupLimit
+      ) {
         ctx.addIssue({
           code: 'custom',
           path: ['groups'],
@@ -225,13 +229,17 @@ export function transformFormDataToPayload(
 export function transformApiKeyToFormDefaults(
   apiKey: ApiKey,
   availableAutoGroups: string[] = [],
-  maxAutoGroups = 5
+  maxAutoGroups = 0
 ): ApiKeyFormValues {
   const availableSet = new Set(availableAutoGroups)
   const storedAutoGroups = apiKey.auto_groups ?? []
-  const autoGroups = storedAutoGroups
-    .filter((group) => availableSet.has(group))
-    .slice(0, Math.max(0, maxAutoGroups))
+  const filteredAutoGroups = storedAutoGroups.filter((group) =>
+    availableSet.has(group)
+  )
+  const autoGroups =
+    maxAutoGroups > 0
+      ? filteredAutoGroups.slice(0, maxAutoGroups)
+      : filteredAutoGroups
   const autoGroupsMode = storedAutoGroups.length > 0 ? 'custom' : 'inherit'
 
   return {

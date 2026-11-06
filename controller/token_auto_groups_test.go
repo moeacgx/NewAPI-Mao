@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -195,6 +196,9 @@ func TestAddTokenRejectsInvalidAutoGroups(t *testing.T) {
 		{name: "duplicate", maxCount: "5", groups: []string{"default", "default"}},
 		{name: "auto pseudo group", maxCount: "5", groups: []string{"auto"}},
 		{name: "unavailable", maxCount: "5", groups: []string{"missing"}},
+		{name: "unlimited duplicate", maxCount: "0", groups: []string{"default", "default"}},
+		{name: "unlimited auto pseudo group", maxCount: "0", groups: []string{"auto"}},
+		{name: "unlimited unavailable", maxCount: "0", groups: []string{"missing"}},
 	}
 
 	for _, test := range tests {
@@ -401,19 +405,102 @@ func TestTokenGroupLimitUsesResolvedGroupIdentity(t *testing.T) {
 }
 
 func TestGetTokenAutoGroupsReturnsFullFilteredGlobalOrderAndLimit(t *testing.T) {
-	configureTokenAutoGroupsTest(t, "1", `["vip","missing","default"]`)
-	user := setupTokenAutoGroupsControllerTest(t)
+	for _, test := range []struct {
+		name       string
+		configured int
+		expected   int
+	}{
+		{name: "default unlimited", configured: setting.DefaultMaxTokenAutoGroups, expected: 0},
+		{name: "explicit positive limit", configured: 1, expected: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			configureTokenAutoGroupsTest(t, stringInt(test.configured), `["vip","missing","default"]`)
+			user := setupTokenAutoGroupsControllerTest(t)
 
-	ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodGet, "/api/token/auto-groups", nil, user.Id)
-	GetTokenAutoGroups(ctx)
+			ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodGet, "/api/token/auto-groups", nil, user.Id)
+			GetTokenAutoGroups(ctx)
 
-	response := decodeAPIResponse(t, recorder)
-	require.True(t, response.Success, response.Message)
-	var data struct {
-		Groups   []string `json:"groups"`
-		MaxCount int      `json:"max_count"`
+			response := decodeAPIResponse(t, recorder)
+			require.True(t, response.Success, response.Message)
+			var data struct {
+				Groups   []string `json:"groups"`
+				MaxCount int      `json:"max_count"`
+			}
+			require.NoError(t, common.Unmarshal(response.Data, &data))
+			assert.Equal(t, []string{"vip", "default"}, data.Groups)
+			assert.Equal(t, test.expected, data.MaxCount)
+		})
 	}
-	require.NoError(t, common.Unmarshal(response.Data, &data))
-	assert.Equal(t, []string{"vip", "default"}, data.Groups)
-	assert.Equal(t, 1, data.MaxCount)
+}
+
+func TestAddAndUpdateTokenUnlimitedPreservesMoreThanFiveGroups(t *testing.T) {
+	for _, mode := range []string{"codes", "ids", "auto"} {
+		t.Run(mode, func(t *testing.T) {
+			configureTokenAutoGroupsTest(t, "0", `[]`)
+			require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"标准显示名","vip":"高级显示名","svip":"旗舰显示名","team":"团队显示名","pro":"专业显示名","enterprise":"企业显示名"}`))
+			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1,"team":1,"pro":1,"enterprise":1}`))
+			user := setupTokenAutoGroupsControllerTest(t)
+			require.NoError(t, model.DB.AutoMigrate(&model.Group{}, &model.TokenGroupBinding{}))
+			codes := []string{"default", "vip", "svip", "team", "pro", "enterprise"}
+			ids := make([]int, 0, len(codes))
+			for _, code := range codes {
+				group := model.Group{Code: code, Name: "显示名称-" + code, Status: model.GroupStatusActive, Ratio: 1}
+				require.NoError(t, model.DB.Create(&group).Error)
+				ids = append(ids, group.Id)
+			}
+			request := map[string]any{
+				"name": "unlimited-" + mode, "expired_time": -1, "unlimited_quota": true,
+				"group": strings.Join(codes, ","), "group_mode": model.TokenGroupModeExplicit,
+			}
+			if mode == "ids" {
+				request["group"] = "default"
+				request["group_ids"] = ids
+			}
+			if mode == "auto" {
+				request["group"] = "auto"
+				request["group_mode"] = model.TokenGroupModeAuto
+				request["auto_groups"] = codes
+				request["cross_group_retry"] = true
+			}
+			ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPost, "/api/token/", request, user.Id)
+			AddToken(ctx)
+			response := decodeAPIResponse(t, recorder)
+			require.True(t, response.Success, response.Message)
+			var created model.Token
+			require.NoError(t, model.DB.Where("name = ?", request["name"]).First(&created).Error)
+			if mode == "auto" {
+				groups, err := created.GetAutoGroups()
+				require.NoError(t, err)
+				assert.Equal(t, codes, groups)
+			} else {
+				assert.Equal(t, strings.Join(codes, ","), created.Group)
+			}
+
+			reversedCodes := []string{"enterprise", "pro", "team", "svip", "vip", "default"}
+			request["id"] = created.Id
+			request["status"] = common.TokenStatusEnabled
+			request["group"] = strings.Join(reversedCodes, ",")
+			if mode == "ids" {
+				request["group"] = "default"
+				request["group_ids"] = []int{ids[5], ids[4], ids[3], ids[2], ids[1], ids[0]}
+			}
+			if mode == "auto" {
+				request["group"] = "auto"
+				request["auto_groups"] = reversedCodes
+			}
+			updateCtx, updateRecorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPut, "/api/token/", request, user.Id)
+			UpdateToken(updateCtx)
+			updateResponse := decodeAPIResponse(t, updateRecorder)
+			require.True(t, updateResponse.Success, updateResponse.Message)
+			var updated model.Token
+			require.NoError(t, model.DB.First(&updated, created.Id).Error)
+			if mode == "auto" {
+				groups, err := updated.GetAutoGroups()
+				require.NoError(t, err)
+				assert.Equal(t, reversedCodes, groups)
+			} else {
+				assert.Equal(t, strings.Join(reversedCodes, ","), updated.Group)
+			}
+		})
+	}
 }

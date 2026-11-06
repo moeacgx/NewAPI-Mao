@@ -48,6 +48,13 @@ const originalGet = apiClient.get
 const originalPost = apiClient.post
 let renderedDrawer: RenderedDrawer | null = null
 
+const extraGroups = {
+  team: { id: 33, name: '团队模型', desc: 'Team access', ratio: 1 },
+  edu: { id: 44, name: '教育模型', desc: 'Education access', ratio: 1 },
+  pro: { id: 55, name: '专业模型', desc: 'Professional access', ratio: 1 },
+  ultra: { id: 66, name: '旗舰模型', desc: 'Ultimate access', ratio: 1 },
+}
+
 function installApiFixtures(
   createdPayloads: Array<Record<string, unknown>>,
   maxCount = 3
@@ -64,6 +71,7 @@ function installApiFixtures(
             success: true,
             data: {
               auto: { desc: 'Automatic routing', ratio: 'auto' },
+              ...extraGroups,
               default: {
                 id: 11,
                 name: 'Standard models',
@@ -119,6 +127,7 @@ async function renderCreateDrawer(maxCount = 3): Promise<void> {
       success: true,
       data: {
         auto: { desc: 'Automatic routing', ratio: 'auto' },
+        ...extraGroups,
         default: {
           id: 11,
           name: 'Standard models',
@@ -229,6 +238,62 @@ afterEach(() => {
 })
 
 describe('API keys mutate drawer Auto group integration', () => {
+  test('接口返回零上限时六个显式分组可完整提交稳定身份', async () => {
+    const payloads: Array<Record<string, unknown>> = []
+    installApiFixtures(payloads, 0)
+    await renderCreateDrawer(0)
+    for (const description of [
+      'Standard access',
+      'Priority access',
+      'Team access',
+      'Education access',
+      'Professional access',
+      'Ultimate access',
+    ]) {
+      selectComboboxOption(getControlByLabel('Group'), description)
+    }
+    expect(screen.getByText('6 groups selected (unlimited)')).toBeVisible()
+    expect(getControlByLabel('Group')).toHaveTextContent('旗舰模型')
+    changeInput(getControlByLabel('Name'), 'unlimited-explicit')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]?.group_ids).toEqual([11, 22, 33, 44, 55, 66])
+    expect(payloads[0]?.group).toBe('default,vip,team,edu,pro,ultra')
+  })
+
+  test('接口返回零上限时六组 Auto 快照不会被截断', async () => {
+    const payloads: Array<Record<string, unknown>> = []
+    installApiFixtures(payloads, 0)
+    await renderCreateDrawer(0)
+    for (const description of [
+      'Priority access',
+      'Standard access',
+      'Team access',
+      'Education access',
+      'Professional access',
+      'Ultimate access',
+    ]) {
+      const add = getControlByLabel(
+        'Auto group order'
+      ).querySelector<HTMLButtonElement>('button[role="combobox"]')
+      if (!add) throw new Error('Expected Auto group order combobox')
+      selectComboboxOption(add, description)
+    }
+    expect(screen.getByText('6 groups selected (unlimited)')).toBeVisible()
+    changeInput(getControlByLabel('Name'), 'unlimited-auto')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]?.auto_groups).toEqual([
+      'vip',
+      'default',
+      'team',
+      'edu',
+      'pro',
+      'ultra',
+    ])
+    expect(payloads[0]?.group).toBe('auto')
+  })
+
   test('管理员分别指定已选分组的渠道并提交稳定分组 ID', async () => {
     useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 10 })
     const payloads: Array<Record<string, unknown>> = []

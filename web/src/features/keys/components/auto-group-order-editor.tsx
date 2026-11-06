@@ -157,9 +157,18 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
 export function AutoGroupOrderEditor(props: AutoGroupOrderEditorProps) {
   const { t } = useTranslation()
   const maxCount =
-    Number.isInteger(props.maxCount) && props.maxCount > 0 ? props.maxCount : 5
+    Number.isInteger(props.maxCount) && props.maxCount > 0 ? props.maxCount : 0
   const isInheriting = props.mode === 'inherit'
-  const atLimit = props.value.length >= maxCount
+  const atLimit = maxCount > 0 && props.value.length >= maxCount
+  const selectionDescription =
+    maxCount > 0
+      ? t('{{count}} / {{max}} groups selected', {
+          count: props.value.length,
+          max: maxCount,
+        })
+      : t('{{count}} groups selected (unlimited)', {
+          count: props.value.length,
+        })
   const candidates = useMemo(
     () =>
       props.options.filter(
@@ -210,10 +219,7 @@ export function AutoGroupOrderEditor(props: AutoGroupOrderEditorProps) {
             ? t('Using the complete global Auto order ({{count}} groups)', {
                 count: props.globalOptions.length,
               })
-            : t('{{count}} / {{max}} groups selected', {
-                count: props.value.length,
-                max: maxCount,
-              })}
+            : selectionDescription}
         </p>
         <Button
           type='button'

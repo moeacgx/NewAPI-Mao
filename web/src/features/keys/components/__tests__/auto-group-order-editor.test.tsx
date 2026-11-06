@@ -64,7 +64,7 @@ const globalOptions = [
   { value: 'team', label: 'Team', desc: 'Shared access', ratio: 2 },
 ]
 
-function Harness(props: { initialGroups?: string[] }) {
+function Harness(props: { initialGroups?: string[]; maxCount?: number }) {
   const [groups, setGroups] = useState(
     props.initialGroups ?? ['default', 'vip']
   )
@@ -79,9 +79,12 @@ function Harness(props: { initialGroups?: string[] }) {
           { value: 'default', label: 'default', ratio: 1 },
           { value: 'vip', label: 'vip', ratio: 2 },
           { value: 'team', label: 'team', ratio: 3 },
+          { value: 'edu', label: '教育', ratio: 1 },
+          { value: 'pro', label: '专业', ratio: 1 },
+          { value: 'ultra', label: '旗舰', ratio: 1 },
         ]}
         globalOptions={globalOptions}
-        maxCount={2}
+        maxCount={props.maxCount ?? 2}
         onChange={(value) => {
           setGroups(value.groups)
           setMode(value.mode)
@@ -154,6 +157,24 @@ function getCommandItem(label: string): HTMLElement {
 }
 
 describe('Auto group order editor', () => {
+  test('上限为零时可加入第六组并显示不限制', () => {
+    const { container } = render(
+      <Harness
+        maxCount={0}
+        initialGroups={['default', 'vip', 'team', 'edu', 'pro']}
+      />
+    )
+    const addButton = within(container).getByRole('combobox')
+    expect(addButton).toBeEnabled()
+    fireEvent.click(addButton)
+    fireEvent.click(getCommandItem('旗舰'))
+    expect(within(container).getByTestId('order')).toHaveTextContent(
+      'default,vip,team,edu,pro,ultra'
+    )
+    expect(container).toHaveTextContent('6 groups selected (unlimited)')
+    expect(container).not.toHaveTextContent('6 / 0')
+  })
+
   test('enforces the limit and exposes accessible reorder controls', () => {
     const { container } = render(<Harness />)
 

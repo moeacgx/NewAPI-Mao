@@ -428,15 +428,22 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormControl>
                     <Input
                       {...safeNumberFieldProps(field)}
+                      onChange={(event) =>
+                        field.onChange(
+                          event.target.value === ''
+                            ? ''
+                            : event.target.valueAsNumber
+                        )
+                      }
                       type='number'
-                      min={1}
+                      min={0}
                       step={1}
                       aria-invalid={fieldState.invalid}
                     />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.'
+                      'Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -550,15 +557,22 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormControl>
                     <Input
                       {...safeNumberFieldProps(field)}
+                      onChange={(event) =>
+                        field.onChange(
+                          event.target.value === ''
+                            ? ''
+                            : event.target.valueAsNumber
+                        )
+                      }
                       type='number'
-                      min={1}
+                      min={0}
                       step={1}
                       aria-invalid={fieldState.invalid}
                     />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.'
+                      'Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.'
                     )}
                   </FormDescription>
                   <FormMessage />
