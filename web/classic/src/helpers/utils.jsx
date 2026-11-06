@@ -125,21 +125,27 @@ if (isMobileScreen) {
   // showNoticeOptions.transition = 'flip';
 }
 
+// 认证失效处理独立于错误提示，静默请求也必须恢复到可重新登录的状态。
+export function handleAuthenticationError(error) {
+  if (error?.name !== 'AxiosError') return false;
+  const status = error.response?.status;
+  if (
+    status !== 401 &&
+    !(status === 409 && error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
+  ) {
+    return false;
+  }
+  localStorage.removeItem('user');
+  window.location.href = '/login?expired=true';
+  return true;
+}
+
 export function showError(error) {
   console.error(error);
+  if (handleAuthenticationError(error)) return;
   if (error.message) {
     if (error.name === 'AxiosError') {
       const status = error.response?.status;
-      if (
-        status === 401 ||
-        (status === 409 &&
-          error.response?.data?.code === 'AUTH_SESSION_MISMATCH')
-      ) {
-        // 明确失效或会话身份不匹配时重新登录，临时故障保留用户状态。
-        localStorage.removeItem('user');
-        window.location.href = '/login?expired=true';
-        return;
-      }
       switch (status) {
         case 429:
           Toast.error('错误：请求次数过多，请稍后再试！');

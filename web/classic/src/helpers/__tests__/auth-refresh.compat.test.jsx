@@ -190,4 +190,80 @@ describe('Classic 会话刷新错误处理', () => {
     expect(JSON.parse(localStorage.getItem('user'))).toEqual(storedUser);
     expect(location.href).toBe('/console/channel');
   });
+
+  describe.each([
+    '/api/user/pay',
+    '/api/subscription/epay/pay',
+    '/api/user/topup/retry',
+  ])('静默支付请求 %s', (url) => {
+    it.each([
+      [401, undefined],
+      [409, 'AUTH_SESSION_MISMATCH'],
+    ])('刷新返回 %s %s 时仍清理失效会话', async (status, code) => {
+      refreshStatus = status;
+      refreshCode = code;
+      const error = await API.post(url, {}, { skipErrorHandler: true }).catch(
+        (error) => error,
+      );
+      expect(error).toBe(refreshError);
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(location.href).toBe('/login?expired=true');
+      expect(errorToast).not.toHaveBeenCalled();
+      expect(requests.map((request) => request.url)).toEqual([
+        url,
+        '/api/user/auth/refresh',
+      ]);
+    });
+  });
+
+  it.each([
+    [429, undefined],
+    [503, undefined],
+    [0, undefined],
+    [409, 'AUTH_REFRESH_RACE'],
+    [409, 'OTHER_CONFLICT'],
+  ])('静默支付刷新返回临时错误 %s %s 时保留登录态', async (status, code) => {
+    refreshStatus = status;
+    refreshCode = code;
+    const error = await API.post(
+      '/api/user/pay',
+      {},
+      { skipErrorHandler: true },
+    ).catch((error) => error);
+    expect(error).toBe(refreshError);
+    expect(JSON.parse(localStorage.getItem('user'))).toEqual(storedUser);
+    expect(location.href).toBe('/console/channel');
+    expect(errorToast).not.toHaveBeenCalled();
+  });
+
+  it('静默支付直接遇到会话不匹配时重新登录且不尝试刷新', async () => {
+    businessStatus = 409;
+    refreshCode = 'AUTH_SESSION_MISMATCH';
+    await expect(
+      API.post('/api/user/pay', {}, { skipErrorHandler: true }),
+    ).rejects.toMatchObject({ response: { status: 409 } });
+    expect(requests).toHaveLength(1);
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(location.href).toBe('/login?expired=true');
+    expect(errorToast).not.toHaveBeenCalled();
+  });
+
+  it('静默支付刷新成功时携带原付款参数和新令牌重放一次', async () => {
+    refreshStatus = 200;
+    const payment = { amount: 10, payment_method: 'alipay' };
+    await expect(
+      API.post('/api/user/pay', payment, { skipErrorHandler: true }),
+    ).resolves.toMatchObject({ status: 200 });
+    expect(requests.map((request) => request.url)).toEqual([
+      '/api/user/pay',
+      '/api/user/auth/refresh',
+      '/api/user/pay',
+    ]);
+    expect(JSON.parse(requests[2].data)).toEqual(payment);
+    expect(requests[2].headers.get('Authorization')).toBe(
+      'Bearer renewed-access',
+    );
+    expect(location.href).toBe('/console/channel');
+    expect(errorToast).not.toHaveBeenCalled();
+  });
 });

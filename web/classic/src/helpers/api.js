@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import {
   getUserIdFromLocalStorage,
+  handleAuthenticationError,
   showError,
   formatMessageForAPI,
   isValidMessage,
@@ -173,7 +174,11 @@ function attachApiInterceptors(instance) {
           error = refreshError;
         }
       }
-      // 如果请求配置中显式要求跳过全局错误处理，则不弹出默认错误提示
+      // 提示抑制不能跳过登录态清理；临时刷新故障不会进入认证失效分支。
+      if (handleAuthenticationError(error)) {
+        return Promise.reject(error);
+      }
+      // 如果请求配置中显式要求跳过全局错误提示，则不弹出默认提示。
       if (config?.skipErrorHandler) {
         return Promise.reject(error);
       }
