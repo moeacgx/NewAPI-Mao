@@ -6430,9 +6430,10 @@
     "Reset filters": "重設篩選",
     "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工單通知會將本次使用者正文摘要傳送至 Root 設定的接收目標。跳脫後的摘要最多 2000 個字元，過長內容會附上截斷提示，完整正文請至工單詳情查看。",
     "Maximum groups per token": "令牌最大分組數",
-    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "預設值為 5。這是單一令牌最多可以選取的分組數量，適用於明確分組清單和自訂 Auto 快照。繼承全域 Auto 順序的令牌不受此限制。已經超出上限的令牌會繼續保存，但在減少所選分組或提高該值之前，API 呼叫會回傳超限錯誤。",
     "A token can select at most {{max}} groups": "令牌最多可選 {{max}} 個分組",
     "{{count}} / {{max}} groups selected": "已選擇 {{count}} / {{max}} 個分組",
-    "Enter a positive integer": "請輸入正整數"
+    "Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.": "預設值為 0（不限制）。正整數限制明確分組清單和自訂 Auto 快照的分組數量，繼承全域 Auto 順序的令牌不受限制。",
+    "Enter a non-negative integer (0 for unlimited)": "請輸入非負整數（0 表示不限制）",
+    "{{count}} groups selected (unlimited)": "已選擇 {{count}} 個分組（不限制）"
   }
 }

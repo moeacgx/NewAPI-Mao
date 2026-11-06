@@ -6948,9 +6948,10 @@
     "Reset filters": "Đặt lại bộ lọc",
     "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "Thông báo phiếu hỗ trợ gửi trích đoạn tin nhắn hiện tại của người dùng đến người nhận do Root cấu hình. Sau khi thoát ký tự, trích đoạn tối đa 2000 ký tự; tin nhắn dài hơn có ghi chú cắt bớt. Xem toàn bộ nội dung trong chi tiết phiếu.",
     "Maximum groups per token": "Số nhóm tối đa mỗi token",
-    "Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.": "Mặc định là 5. Đây là số nhóm tối đa một token có thể chọn. Giới hạn áp dụng cho danh sách nhóm tường minh và ảnh Auto tùy chỉnh. Token kế thừa thứ tự Auto toàn cục không bị giới hạn. Token đã vượt giới hạn vẫn được lưu, nhưng lệnh gọi API trả lỗi vượt giới hạn cho đến khi giảm lựa chọn hoặc tăng giá trị này.",
     "A token can select at most {{max}} groups": "Mỗi token chọn tối đa {{max}} nhóm",
     "{{count}} / {{max}} groups selected": "Đã chọn {{count}} / {{max}} nhóm",
-    "Enter a positive integer": "Nhập một số nguyên dương"
+    "Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.": "Mặc định là 0 (không giới hạn). Giá trị dương giới hạn danh sách nhóm chỉ định và bản chụp Auto tùy chỉnh. Token kế thừa thứ tự Auto toàn cục không bị giới hạn.",
+    "Enter a non-negative integer (0 for unlimited)": "Nhập số nguyên không âm (0 là không giới hạn)",
+    "{{count}} groups selected (unlimited)": "Đã chọn {{count}} nhóm (không giới hạn)"
   }
 }

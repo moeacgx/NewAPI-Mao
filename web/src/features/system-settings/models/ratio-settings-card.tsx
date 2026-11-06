@@ -227,7 +227,11 @@ const groupSchema = z.object({
       })
     }
   }),
-  MaxTokenAutoGroups: z.coerce.number().int().min(1),
+  MaxTokenAutoGroups: z.preprocess((value) => {
+    if (typeof value === 'number') return value
+    if (typeof value === 'string' && value.trim() !== '') return Number(value)
+      return Number.NaN
+  }, z.number().int().min(0)),
   DefaultUseAutoGroup: z.boolean(),
   GroupSpecialUsableGroup: z.string().superRefine((value, ctx) => {
     const result = validateJsonString(value)

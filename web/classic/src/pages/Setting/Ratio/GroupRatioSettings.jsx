@@ -92,7 +92,7 @@ const LEGACY_OPTION_KEYS = [
 ];
 
 const MAX_TOKEN_GROUPS_HELP =
-  'Default is 5. This is the maximum number of groups one token can select. It applies to explicit group lists and custom Auto snapshots. Tokens that inherit the global Auto order are not limited. Tokens already above the limit stay saved, but API calls return an over-limit error until the selection is reduced or this value is raised.';
+  'Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.';
 
 export default function GroupRatioSettings(props) {
   const { t } = useTranslation();
@@ -111,7 +111,7 @@ export default function GroupRatioSettings(props) {
     'group_ratio_setting.group_special_usable_group': '',
     AutoGroups: '',
     DefaultUseAutoGroup: false,
-    MaxTokenAutoGroups: 5,
+    MaxTokenAutoGroups: 0,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -287,8 +287,12 @@ export default function GroupRatioSettings(props) {
     }
 
     const maxTokenAutoGroups = Number(inputs.MaxTokenAutoGroups);
-    if (!Number.isInteger(maxTokenAutoGroups) || maxTokenAutoGroups < 1) {
-      return showError(t('Enter a positive integer'));
+    if (
+      String(inputs.MaxTokenAutoGroups ?? '').trim() === '' ||
+      !Number.isInteger(maxTokenAutoGroups) ||
+      maxTokenAutoGroups < 0
+    ) {
+      return showError(t('Enter a non-negative integer (0 for unlimited)'));
     }
 
     const optionUpdates = Object.fromEntries(
@@ -363,15 +367,15 @@ export default function GroupRatioSettings(props) {
     for (let key in props.options) {
       if (!OPTION_KEYS.includes(key)) continue;
       if (key === 'MaxTokenAutoGroups') {
-        const parsed = Number.parseInt(String(props.options[key]), 10);
+        const parsed = Number(props.options[key]);
         currentInputs[key] =
-          Number.isInteger(parsed) && parsed > 0 ? parsed : 5;
+          Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
         continue;
       }
       currentInputs[key] = props.options[key];
     }
     if (currentInputs.MaxTokenAutoGroups === undefined) {
-      currentInputs.MaxTokenAutoGroups = 5;
+      currentInputs.MaxTokenAutoGroups = 0;
     }
     if (groupsLoadedRef.current) {
       Object.assign(
@@ -510,9 +514,7 @@ export default function GroupRatioSettings(props) {
             <Form.Slot label={t('Maximum groups per token')}>
               <InputNumber
                 aria-label={t('Maximum groups per token')}
-                min={1}
                 step={1}
-                precision={0}
                 value={inputs.MaxTokenAutoGroups}
                 style={{ width: 180 }}
                 onChange={(value) =>
@@ -743,16 +745,16 @@ export default function GroupRatioSettings(props) {
             <Form.InputNumber
               field='MaxTokenAutoGroups'
               label={t('Maximum groups per token')}
-              min={1}
               step={1}
-              precision={0}
               style={{ width: 180 }}
               extraText={t(MAX_TOKEN_GROUPS_HELP)}
               rules={[
                 {
                   validator: (rule, value) =>
-                    Number.isInteger(Number(value)) && Number(value) >= 1,
-                  message: t('Enter a positive integer'),
+                    String(value ?? '').trim() !== '' &&
+                    Number.isInteger(Number(value)) &&
+                    Number(value) >= 0,
+                  message: t('Enter a non-negative integer (0 for unlimited)'),
                 },
               ]}
               onChange={(value) =>

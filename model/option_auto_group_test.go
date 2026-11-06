@@ -11,12 +11,13 @@ import (
 )
 
 func TestValidateOptionValueRejectsInvalidMaxTokenAutoGroups(t *testing.T) {
-	for _, value := range []string{"", "0", "-1", "1.5", "invalid"} {
+	for _, value := range []string{"", "-1", "1.5", "invalid", "18446744073709551616"} {
 		t.Run(value, func(t *testing.T) {
 			assert.Error(t, validateOptionValue("MaxTokenAutoGroups", value))
 		})
 	}
 	require.NoError(t, validateOptionValue("MaxTokenAutoGroups", "999999"))
+	require.NoError(t, validateOptionValue("MaxTokenAutoGroups", "0"))
 }
 
 func TestMaxTokenAutoGroupsOptionReadWrite(t *testing.T) {
@@ -52,11 +53,20 @@ func TestMaxTokenAutoGroupsOptionReadWrite(t *testing.T) {
 	require.NoError(t, DB.Where(commonKeyCol+" = ?", "MaxTokenAutoGroups").First(&stored).Error)
 	assert.Equal(t, "8", stored.Value)
 
-	require.Error(t, UpdateOption("MaxTokenAutoGroups", "0"))
-	assert.Equal(t, 8, setting.GetMaxTokenAutoGroups())
+	require.NoError(t, UpdateOption("MaxTokenAutoGroups", "0"))
+	assert.Zero(t, setting.GetMaxTokenAutoGroups())
+	common.OptionMapRWMutex.RLock()
+	assert.Equal(t, "0", common.OptionMap["MaxTokenAutoGroups"])
+	common.OptionMapRWMutex.RUnlock()
 	require.NoError(t, DB.Where(commonKeyCol+" = ?", "MaxTokenAutoGroups").First(&stored).Error)
-	assert.Equal(t, "8", stored.Value)
+	assert.Equal(t, "0", stored.Value)
+
+	require.Error(t, UpdateOption("MaxTokenAutoGroups", "-1"))
+	assert.Zero(t, setting.GetMaxTokenAutoGroups())
+	require.NoError(t, DB.Where(commonKeyCol+" = ?", "MaxTokenAutoGroups").First(&stored).Error)
+	assert.Equal(t, "0", stored.Value)
 
 	require.NoError(t, validateGroupConfigOptionUpdates(map[string]string{"MaxTokenAutoGroups": "6"}))
+	require.NoError(t, validateGroupConfigOptionUpdates(map[string]string{"MaxTokenAutoGroups": "0"}))
 	require.Error(t, validateGroupConfigOptionUpdates(map[string]string{"MaxTokenAutoGroups": "-1"}))
 }

@@ -10,7 +10,8 @@ import (
 	"sync"
 )
 
-const DefaultMaxTokenAutoGroups = 5
+// DefaultMaxTokenAutoGroups 为 0 时不限制令牌分组数量。
+const DefaultMaxTokenAutoGroups = 0
 const DefaultAutoGroupDescription = "自动选择最佳可用分组，失败时按配置顺序切换"
 
 type AutoGroupConfig struct {
@@ -98,8 +99,8 @@ func GetMaxTokenAutoGroups() int {
 
 func ValidateMaxTokenAutoGroups(value string) error {
 	maxCount, err := strconv.Atoi(value)
-	if err != nil || maxCount <= 0 {
-		return fmt.Errorf("MaxTokenAutoGroups must be a positive integer")
+	if err != nil || maxCount < 0 {
+		return fmt.Errorf("MaxTokenAutoGroups must be a non-negative integer (0 means unlimited)")
 	}
 	return nil
 }

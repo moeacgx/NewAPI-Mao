@@ -85,7 +85,7 @@ afterEach(() => {
   actionsContainer?.remove()
 })
 
-async function renderGroupSettings() {
+async function renderGroupSettings(maxCount = 5) {
   vi.spyOn(api, 'get').mockResolvedValue({
     data: { success: true, data: [group] },
   })
@@ -100,7 +100,13 @@ async function renderGroupSettings() {
   render(
     <QueryClientProvider client={queryClient}>
       <SettingsPageProvider actionsContainer={actionsContainer}>
-        <RatioSettingsCard {...settings} />
+        <RatioSettingsCard
+          {...settings}
+          groupDefaults={{
+            ...settings.groupDefaults,
+            MaxTokenAutoGroups: maxCount,
+          }}
+        />
       </SettingsPageProvider>
     </QueryClientProvider>
   )
@@ -113,6 +119,18 @@ async function renderGroupSettings() {
 }
 
 describe('Default 令牌分组上限设置', () => {
+  test('配置回读 0 时展示不限制并保留零值', async () => {
+    await renderGroupSettings(0)
+    expect(
+      screen.getByRole('spinbutton', { name: 'Maximum groups per token' })
+    ).toHaveValue(0)
+    expect(
+      screen.getByText(
+        'Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.'
+      )
+    ).toBeVisible()
+  })
+
   test.each(['可视化', 'JSON'])(
     '%s 模式修改上限后通过分组接口保存配置',
     async (mode) => {
@@ -145,7 +163,32 @@ describe('Default 令牌分组上限设置', () => {
     }
   )
 
-  test.each(['0', '-1', '1.5'])(
+  test.each(['可视化', 'JSON'])(
+    '%s 模式允许保存 0 表示不限制',
+    async (mode) => {
+      const saveRequest = await renderGroupSettings()
+      if (mode === 'JSON') {
+        fireEvent.click(screen.getByRole('button', { name: 'Switch to JSON' }))
+      }
+      const input = screen.getByRole('spinbutton', {
+        name: 'Maximum groups per token',
+      })
+      fireEvent.change(input, { target: { value: '0' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save group ratios' }))
+      await waitFor(() =>
+        expect(saveRequest).toHaveBeenCalledWith(
+          '/api/group/details',
+          expect.objectContaining({
+            option_updates: { MaxTokenAutoGroups: '0' },
+          })
+        )
+      )
+      expect(input).toHaveValue(0)
+      expect(input).toHaveAttribute('min', '0')
+    }
+  )
+
+  test.each(['', '-1', '1.5'])(
     '上限输入 %s 时阻止保存并标明字段错误',
     async (value) => {
       const saveRequest = await renderGroupSettings()

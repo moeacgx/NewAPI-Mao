@@ -122,7 +122,7 @@ func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) boo
 	}
 
 	maxCount := setting.GetMaxTokenAutoGroups()
-	if len(groups) > maxCount {
+	if maxCount > 0 && len(groups) > maxCount {
 		common.ApiErrorI18n(c, i18n.MsgTokenAutoGroupsTooMany, map[string]any{"Max": maxCount})
 		return false
 	}
@@ -174,7 +174,7 @@ func rejectTokenGroupsOverLimit(c *gin.Context, token *model.Token) bool {
 		return true
 	}
 	maxCount := setting.GetMaxTokenAutoGroups()
-	if len(groups) > maxCount {
+	if maxCount > 0 && len(groups) > maxCount {
 		common.ApiErrorI18n(c, i18n.MsgTokenGroupsTooMany, map[string]any{"Max": maxCount})
 		return true
 	}

@@ -199,7 +199,7 @@ export function ApiKeysMutateDrawer({
     Number.isInteger(autoGroupsData?.data?.max_count) &&
     Number(autoGroupsData?.data?.max_count) > 0
       ? Number(autoGroupsData?.data?.max_count)
-      : 5
+      : 0
   const schema = useMemo(
     () => getApiKeyFormSchema(t, maxAutoGroups),
     [t, maxAutoGroups]
@@ -273,9 +273,24 @@ export function ApiKeysMutateDrawer({
   const isAutoGroupSelection =
     selectedGroups.length === 1 && selectedGroups[0] === 'auto'
   const groupSelectionOverLimit =
-    !isAutoGroupSelection && selectedGroups.length > maxAutoGroups
+    !isAutoGroupSelection &&
+    maxAutoGroups > 0 &&
+    selectedGroups.length > maxAutoGroups
+  const groupSelectionDescription =
+    maxAutoGroups > 0
+      ? t('{{count}} / {{max}} groups selected', {
+          count: selectedGroups.length,
+          max: maxAutoGroups,
+        })
+      : t('{{count}} groups selected (unlimited)', {
+          count: selectedGroups.length,
+        })
   const disabledGroupValues = useMemo(() => {
-    if (isAutoGroupSelection || selectedGroups.length < maxAutoGroups) {
+    if (
+      maxAutoGroups === 0 ||
+      isAutoGroupSelection ||
+      selectedGroups.length < maxAutoGroups
+    ) {
       return []
     }
     const selected = new Set(selectedGroups)
@@ -479,6 +494,7 @@ export function ApiKeysMutateDrawer({
                               ))
                           if (
                             !replacesSelection &&
+                            maxAutoGroups > 0 &&
                             normalized.length > maxAutoGroups &&
                             normalized.length > field.value.length
                           ) {
@@ -530,10 +546,7 @@ export function ApiKeysMutateDrawer({
                           ? t('A token can select at most {{max}} groups', {
                               max: maxAutoGroups,
                             })
-                          : t('{{count}} / {{max}} groups selected', {
-                              count: selectedGroups.length,
-                              max: maxAutoGroups,
-                            })}
+                          : groupSelectionDescription}
                       </FormDescription>
                     )}
                     <FormMessage />
@@ -626,7 +639,9 @@ export function ApiKeysMutateDrawer({
                             })
                             form.setValue(
                               'auto_groups',
-                              value.groups.slice(0, maxAutoGroups),
+                              maxAutoGroups > 0
+                                ? value.groups.slice(0, maxAutoGroups)
+                                : value.groups,
                               {
                                 shouldDirty: true,
                                 shouldValidate: true,

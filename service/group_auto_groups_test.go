@@ -70,3 +70,16 @@ func TestGetRequestAutoGroupsDoesNotFallBackAfterPermissionChange(t *testing.T) 
 
 	assert.Empty(t, groups)
 }
+
+func TestGetRequestAutoGroupsUnlimitedPreservesAllAuthorizedGroupsInOrder(t *testing.T) {
+	configureRequestAutoGroupsTest(t)
+	require.NoError(t, setting.UpdateMaxTokenAutoGroups("0"))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"标准显示名","vip":"高级显示名","svip":"旗舰显示名","team":"团队显示名","pro":"专业显示名","enterprise":"企业显示名"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1,"team":1,"pro":1,"enterprise":1}`))
+	ctx := newRequestAutoGroupsContext()
+	common.SetContextKey(ctx, constant.ContextKeyTokenAutoGroups, []string{"revoked", "enterprise", "vip", "default", "vip", "team", "svip", "pro", "auto"})
+
+	assert.Equal(t, []string{"enterprise", "vip", "default", "team", "svip", "pro"}, GetRequestAutoGroups(ctx, "default"))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"标准显示名"}`))
+	assert.Equal(t, []string{"default"}, GetRequestAutoGroups(ctx, "default"))
+}

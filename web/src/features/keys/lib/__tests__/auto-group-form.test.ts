@@ -63,6 +63,36 @@ const baseApiKey: ApiKey = {
 }
 
 describe('API key Auto group form mapping', () => {
+  test.each([undefined, 0])(
+    '上限为 %s 时显式分组与自定义 Auto 均可超过五组',
+    (limit) => {
+      const groups = ['default', 'vip', 'team', 'edu', 'pro', 'ultra']
+      const schema = getApiKeyFormSchema(t, limit)
+      expect(
+        schema.safeParse({
+          ...getApiKeyFormDefaultValues(false),
+          name: 'unlimited-explicit',
+          groups,
+        }).success
+      ).toBe(true)
+      expect(
+        schema.safeParse({
+          ...getApiKeyFormDefaultValues(true),
+          name: 'unlimited-auto',
+          auto_groups_mode: 'custom',
+          auto_groups: groups,
+        }).success
+      ).toBe(true)
+      const defaults = transformApiKeyToFormDefaults(
+        { ...baseApiKey, auto_groups: ['revoked', ...groups] },
+        groups,
+        limit
+      )
+      expect(defaults.auto_groups).toEqual(groups)
+      expect(transformFormDataToPayload(defaults).auto_groups).toEqual(groups)
+    }
+  )
+
   test('编辑回读逐组限定，移除组时只提交仍选中组的限制', () => {
     const defaults = transformApiKeyToFormDefaults({
       ...baseApiKey,

@@ -490,7 +490,7 @@ func TokenAuth() func(c *gin.Context) {
 					return
 				}
 				maxTokenGroups := setting.GetMaxTokenAutoGroups()
-				if len(parsed) > maxTokenGroups {
+				if maxTokenGroups > 0 && len(parsed) > maxTokenGroups {
 					abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgTokenGroupsTooMany, map[string]any{
 						"Max": maxTokenGroups,
 					}))
