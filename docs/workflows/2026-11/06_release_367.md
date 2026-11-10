@@ -20,6 +20,8 @@ Classic 界面范围见[支付限流提示](06_classic_payment_rate_limit.md)。
   和其他错误仍正常提示；所有语言包保持占位符。
 - 执行后端相关包测试、vet/build、Default 类型/静态检查/测试/构建、Classic
   静态检查/测试/构建以及 Markdown 格式、链接和差异检查。远端 CI 为合并门禁。
+- 本地后端相关包 719 项测试通过；Default 13 项、Classic 4 项行为测试通过，
+  两套生产构建均通过。Classic 保留既有 Browserslist、eval 和大分块构建警告。
 
 ## 发布与回滚
 
@@ -41,6 +43,9 @@ NewAPIForDouDi：若保留同一 CT 查询路由，值得分享这一故障修�
 NewAPIModifyByGang：若客户端余额查询与支付仍共桶，同样值得分享；需适配其前端模板和
 错误拦截器，不要求新增未有的支付方式。本轮不创建跨项目 Issue 或 PR。
 
-## 发布结果
+## 发布证据入口
 
-PR、CI、合并提交与发布资产的最终证据在发布完成后补充；尚未部署生产。
+缺陷跟踪为 [#392](https://github.com/moeacgx/NewAPI-Mao/issues/392)，关联 PR 提供
+完整 CI 与合并提交。最终资产、校验和与镜像摘要记入
+[本版本 Release](https://github.com/moeacgx/NewAPI-Mao/releases/tag/v1.0.0-rc.10.1.10.367)。
+本文件记录发布方案与本地验证，不代表生产实例已升级。

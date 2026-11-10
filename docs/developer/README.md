@@ -1,8 +1,9 @@
 # NewAPI-Mao 开发文档
 
-- [.367 充值限流隔离发布](../workflows/2026-11/06_release_367.md)：真实路由回归、双模板支付错误提示、PR 合并和发布资产验证。
-- [Classic 支付限流提示](../workflows/2026-11/06_classic_payment_rate_limit.md)：充值、订阅及历史订单重新支付统一处理 429 和等待时间；静默请求保留会话失效恢复，跨域响应暴露等待头。
+- [.368 支付会话恢复与跨域等待提示发布](../workflows/2026-11/06_release_368.md)：静默支付认证处理、可信跨域响应头和双模板回归。
 
+- [.367 充值限流隔离发布](../workflows/2026-11/06_release_367.md)：真实路由回归、双模板支付错误提示、PR 合并和发布资产验证。
+- [Classic 支付限流提示](../workflows/2026-11/06_classic_payment_rate_limit.md)：充值、订阅及历史订单重新支付统一处理 429 和等待时间。
 - [令牌查询与充值限流隔离](../workflows/2026-11/06_token_query_payment_rate_limit.md)：只读令牌余额/日志查询按用户独立限流，避免耗尽充值等关键操作的 IP 限额；同步记录双模板支付 429 提示修复。
 
 - [maolaoapi .366 逐节点更新](../workflows/2026-11/06_maolaoapi_366_deployment.md)：生产备份、共享资源预置、串行更新与验收。
