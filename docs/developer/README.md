@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [图片任务跨域核验](../workflows/2026-11/10_image_task_cors_verification.md)：核验 #26 的四种请求、OPTIONS、Bearer 鉴权和图片内容读取边界。
+
 - [.368 支付会话恢复与跨域等待提示发布](../workflows/2026-11/06_release_368.md)：静默支付认证处理、可信跨域响应头和双模板回归。
 
 - [.367 充值限流隔离发布](../workflows/2026-11/06_release_367.md)：真实路由回归、双模板支付错误提示、PR 合并和发布资产验证。
