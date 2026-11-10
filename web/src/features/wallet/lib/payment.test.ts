@@ -22,6 +22,7 @@ import { PAYMENT_TYPES } from '../constants'
 import {
   dispatchSelectedPayment,
   getTopupErrorMessage,
+  getPaymentRequestErrorMessage,
   getPaymentFormTarget,
   isStripePayment,
   isWaffoPayment,
@@ -43,18 +44,47 @@ describe('topup error messages', () => {
     const translate = (key: string) => `translated:${key}`
 
     expect(
-      getTopupErrorMessage(
-        'top-up quota limit exceeded',
-        undefined,
-        translate
-      )
+      getTopupErrorMessage('top-up quota limit exceeded', undefined, translate)
     ).toBe(
       'translated:Top-up would exceed the wallet quota limit. Please reduce the amount or contact an administrator.'
     )
-    expect(getTopupErrorMessage('error', 'provider unavailable', translate)).toBe(
-      'provider unavailable'
-    )
+    expect(
+      getTopupErrorMessage('error', 'provider unavailable', translate)
+    ).toBe('provider unavailable')
     expect(getTopupErrorMessage('error', undefined, translate)).toBe(
+      'translated:Payment request failed'
+    )
+  })
+})
+
+describe('payment request throttling errors', () => {
+  const translate = (key: string, options?: Record<string, number>) =>
+    options ? `${key}:${options.seconds}` : `translated:${key}`
+
+  test('uses Retry-After to tell the user when payment can be retried', () => {
+    expect(
+      getPaymentRequestErrorMessage(
+        { response: { status: 429, headers: { 'retry-after': '138' } } },
+        translate
+      )
+    ).toBe(
+      'Payment requests are too frequent. Please try again in {{seconds}} seconds.:138'
+    )
+  })
+
+  test('falls back when the response has no Retry-After header', () => {
+    expect(
+      getPaymentRequestErrorMessage(
+        { response: { status: 429, headers: {} } },
+        translate
+      )
+    ).toBe(
+      'translated:Payment requests are too frequent. Please try again later.'
+    )
+  })
+
+  test('preserves the generic failure message for other errors', () => {
+    expect(getPaymentRequestErrorMessage(new Error('offline'), translate)).toBe(
       'translated:Payment request failed'
     )
   })

@@ -37,6 +37,7 @@ import { IconSearch } from '@douyinfe/semi-icons';
 import { API, timestamp2string } from '../../../helpers';
 import { isAdmin } from '../../../helpers/utils';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
+import { getPaymentRequestErrorMessage } from '../topupError';
 const { Text } = Typography;
 
 function isSafariBrowser() {
@@ -204,9 +205,11 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
   const retryPayment = async (tradeNo) => {
     setRetryingTradeNo(tradeNo);
     try {
-      const res = await API.post('/api/user/topup/retry', {
-        trade_no: tradeNo,
-      });
+      const res = await API.post(
+        '/api/user/topup/retry',
+        { trade_no: tradeNo },
+        { skipErrorHandler: true },
+      );
       const { success, message, data } = res.data;
       if (!success && message !== 'success') {
         Toast.error({ content: message || t('支付请求失败') });
@@ -221,7 +224,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       Toast.success({ content: t('正在跳转到支付页面...') });
       await loadTopups(page, pageSize);
     } catch (e) {
-      Toast.error({ content: t('支付请求失败') });
+      Toast.error({ content: getPaymentRequestErrorMessage(e, t) });
     } finally {
       setRetryingTradeNo(null);
     }

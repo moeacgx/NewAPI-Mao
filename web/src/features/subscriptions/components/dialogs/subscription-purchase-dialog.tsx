@@ -26,7 +26,10 @@ import {
   type InvoiceConfig,
   type InvoiceRequest,
 } from '@/features/invoices/types'
-import { submitPaymentForm } from '@/features/wallet/lib'
+import {
+  getPaymentRequestErrorMessage,
+  submitPaymentForm,
+} from '@/features/wallet/lib'
 import type { BepusdtChain } from '@/features/wallet/types'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { formatQuota } from '@/lib/format'
@@ -305,8 +308,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
           props.onOpenChange(false)
         } else toast.error(response.message || t('Payment request failed'))
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(
+        getPaymentRequestErrorMessage(error, (key, options) => t(key, options))
+      )
     } finally {
       setPaying(false)
     }

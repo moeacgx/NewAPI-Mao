@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  'Payment requests are too frequent. Please try again in {{seconds}} seconds.',
+  'Payment requests are too frequent. Please try again later.',
   // 工单校验、权限目录和通知模板通过动态值展示。
   'Tickets',
   'Read all tickets',

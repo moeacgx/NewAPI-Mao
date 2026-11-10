@@ -260,6 +260,14 @@ func TokenKeyReadRateLimit() func(c *gin.Context) {
 	return AdminRateLimitBypass(userRateLimitFactory(common.TokenKeyReadRateLimitNum, common.TokenKeyReadRateLimitDuration, "TKR"))
 }
 
+// TokenQueryRateLimit 必须位于只读令牌认证后，按令牌所有者隔离查询频率。
+func TokenQueryRateLimit(scope string) func(c *gin.Context) {
+	if !common.TokenQueryRateLimitEnable {
+		return defNext
+	}
+	return userRateLimitFactory(common.TokenQueryRateLimitNum, common.TokenQueryRateLimitDuration, "TQR:"+scope)
+}
+
 func DownloadRateLimit() func(c *gin.Context) {
 	return rateLimitFactory(common.DownloadRateLimitNum, common.DownloadRateLimitDuration, "DW")
 }
