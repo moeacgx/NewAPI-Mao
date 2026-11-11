@@ -69,6 +69,7 @@ import { MultiSelect } from '@/components/multi-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Combobox } from '@/components/ui/combobox'
 import {
   Form,
@@ -175,6 +176,10 @@ import {
   validateModelMappingJson,
   hasAdvancedSettingsErrors,
 } from '../../lib'
+import {
+  canConvertChannelToMultiKey,
+  isIonetManagedChannel,
+} from '../../lib/multi-key-conversion'
 import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
@@ -653,6 +658,11 @@ export function ChannelMutateDrawer({
   const queryClient = useQueryClient()
   const { setOpen } = useChannels()
   const currentUser = useAuthStore((s) => s.auth.user)
+  const canWrite = hasPermission(
+    currentUser,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.WRITE
+  )
   const canEditSensitive = hasPermission(
     currentUser,
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
@@ -769,8 +779,20 @@ export function ChannelMutateDrawer({
   const multiKeyMode = form.watch('multi_key_mode')
   const multiKeyType = form.watch('multi_key_type')
   const keyMode = form.watch('key_mode')
+  const convertToMultiKey = form.watch('convert_to_multi_key') === true
   const currentGroups = form.watch('group')
   const currentType = form.watch('type')
+  const canConvertToMultiKey =
+    canWrite &&
+    canEditSensitive &&
+    canConvertChannelToMultiKey({
+      isEditing,
+      isMultiKeyChannel,
+      originalType: channelData?.data?.type,
+      type: currentType,
+      isIonetLocked:
+        isEditing && isIonetManagedChannel(channelData?.data?.other_info),
+    })
   const currentStatus = form.watch('status')
   const currentBaseUrl = form.watch('base_url')
   const currentKey = form.watch('key')
@@ -1336,7 +1358,14 @@ export function ChannelMutateDrawer({
       initialModelMappingRef.current = ''
       initialStatusCodeMappingRef.current = ''
     }
-  }, [isEditing, channelData, form])
+  }, [isEditing, channelData, form, open])
+
+  useEffect(() => {
+    if (canConvertToMultiKey || !convertToMultiKey) return
+    form.setValue('convert_to_multi_key', false)
+    form.setValue('key_mode', 'append')
+    form.setValue('multi_key_type', 'random')
+  }, [canConvertToMultiKey, convertToMultiKey, form])
 
   // Handle type change - set default values for specific types
   useEffect(() => {
@@ -1684,7 +1713,7 @@ export function ChannelMutateDrawer({
   }, [])
 
   const channelMutation = useChannelMutateForm({
-    currentRow,
+    currentRow: channelData?.data ?? currentRow,
     isEditing,
     isMultiKeyChannel,
     onSuccess: handleSuccess,
@@ -3267,65 +3296,104 @@ export function ChannelMutateDrawer({
                                 </div>
                               )}
 
-                              {isEditing && isMultiKeyChannel && (
+                              {canConvertToMultiKey && (
                                 <FormField
                                   control={form.control}
-                                  name='key_mode'
+                                  name='convert_to_multi_key'
                                   render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>
-                                        {t('Key Update Mode')}
-                                      </FormLabel>
-                                      <Select
-                                        items={[
-                                          {
-                                            value: 'append',
-                                            label: t('Append to existing keys'),
-                                          },
-                                          {
-                                            value: 'replace',
-                                            label: t(
-                                              'Replace all existing keys'
-                                            ),
-                                          },
-                                        ]}
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                      >
-                                        <FormControl>
-                                          <SelectTrigger>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent
-                                          alignItemWithTrigger={false}
-                                        >
-                                          <SelectGroup>
-                                            <SelectItem value='append'>
-                                              {t('Append to existing keys')}
-                                            </SelectItem>
-                                            <SelectItem value='replace'>
-                                              {t('Replace all existing keys')}
-                                            </SelectItem>
-                                          </SelectGroup>
-                                        </SelectContent>
-                                      </Select>
-                                      <FormDescription>
-                                        {field.value === 'replace'
-                                          ? t(
-                                              'Replace mode: Will completely replace all existing keys'
+                                    <FormItem className='bg-muted/40 flex items-center gap-3 rounded-md border p-3'>
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value === true}
+                                          onCheckedChange={(checked) => {
+                                            field.onChange(checked === true)
+                                            form.setValue('key_mode', 'append')
+                                            form.setValue(
+                                              'multi_key_type',
+                                              'random'
                                             )
-                                          : t(
-                                              'Append mode: New keys will be added to the end of the existing key list'
-                                            )}
-                                      </FormDescription>
-                                      <FormMessage />
+                                          }}
+                                          disabled={sensitiveLocked}
+                                        />
+                                      </FormControl>
+                                      <div className='space-y-1'>
+                                        <FormLabel className='cursor-pointer'>
+                                          {t('Convert to multi-key channel')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Enable key pooling for this channel. Existing keys are preserved unless replaced.'
+                                          )}
+                                        </FormDescription>
+                                      </div>
                                     </FormItem>
                                   )}
                                 />
                               )}
 
+                              {isEditing &&
+                                (isMultiKeyChannel || convertToMultiKey) && (
+                                  <FormField
+                                    control={form.control}
+                                    name='key_mode'
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>
+                                          {t('Key Update Mode')}
+                                        </FormLabel>
+                                        <Select
+                                          items={[
+                                            {
+                                              value: 'append',
+                                              label: t(
+                                                'Append to existing keys'
+                                              ),
+                                            },
+                                            {
+                                              value: 'replace',
+                                              label: t(
+                                                'Replace all existing keys'
+                                              ),
+                                            },
+                                          ]}
+                                          onValueChange={field.onChange}
+                                          value={field.value}
+                                        >
+                                          <FormControl>
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent
+                                            alignItemWithTrigger={false}
+                                          >
+                                            <SelectGroup>
+                                              <SelectItem value='append'>
+                                                {t('Append to existing keys')}
+                                              </SelectItem>
+                                              <SelectItem value='replace'>
+                                                {t('Replace all existing keys')}
+                                              </SelectItem>
+                                            </SelectGroup>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                          {field.value === 'replace'
+                                            ? t(
+                                                'Replace mode: Will completely replace all existing keys'
+                                              )
+                                            : t(
+                                                'Append mode: New keys will be added to the end of the existing key list'
+                                              )}
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                )}
+
                               {(isMultiKeyChannel ||
+                                convertToMultiKey ||
                                 (!isEditing &&
                                   multiKeyMode === 'multi_to_single')) && (
                                 <FormField
@@ -4972,7 +5040,13 @@ export function ChannelMutateDrawer({
             >
               {t('Cancel')}
             </SheetClose>
-            <Button form='channel-form' type='submit' disabled={isSubmitting}>
+            <Button
+              form='channel-form'
+              type='submit'
+              disabled={
+                isSubmitting || (isEditing ? !canWrite : !canEditSensitive)
+              }
+            >
               {isSubmitting && (
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               )}

@@ -71,6 +71,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { GroupTagFilter } from '@/features/group-tags/components/group-tag-filter'
+import { useGroupTags } from '@/features/group-tags/use-group-tags'
 
 import type { AutoGroupConfig, GroupDetailInput } from '../types'
 import { safeJsonParse } from '../utils/json-parser'
@@ -859,6 +861,16 @@ function GroupPricingTable({
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
   const [codeMigrationDialogOpen, setCodeMigrationDialogOpen] = useState(false)
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null)
+  const [activeTag, setActiveTag] = useState('all')
+  const tagQuery = useGroupTags()
+  const tags = tagQuery.isError ? [] : (tagQuery.data ?? [])
+  const selectedTag = tags.find((tag) => String(tag.id) === activeTag)
+  const visibleGroups = groups.filter((group) => {
+    if (activeTag === 'untagged') {
+      return !tags.some((tag) => tag.group_ids.includes(Number(group.id)))
+    }
+    return !selectedTag || selectedTag.group_ids.includes(Number(group.id))
+  })
 
   const updateRow = useCallback(
     (
@@ -976,6 +988,28 @@ function GroupPricingTable({
       </CardHeader>
       <CardContent>
         <div className='space-y-3'>
+          <GroupTagFilter
+            tags={tags}
+            value={activeTag}
+            onChange={setActiveTag}
+            showUntagged
+          />
+          {tagQuery.isError && (
+            <p
+              role='alert'
+              className='text-destructive rounded-md border p-2 text-sm'
+            >
+              {t('Failed to load group tags. Showing all groups.')}{' '}
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={() => void tagQuery.refetch()}
+              >
+                {t('Retry')}
+              </Button>
+            </p>
+          )}
           <div className='overflow-x-auto rounded-md border'>
             <Table>
               <TableHeader>
@@ -1070,7 +1104,7 @@ function GroupPricingTable({
                       </TableCell>
                       <TableCell />
                     </TableRow>
-                    {groups.map((group) => {
+                    {visibleGroups.map((group) => {
                       const groupId = getGroupIdDisplayValue(group.id)
                       return (
                         <TableRow key={group._key}>
@@ -1198,6 +1232,16 @@ function GroupPricingTable({
                         </TableRow>
                       )
                     })}
+                    {visibleGroups.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          className='text-muted-foreground h-20 text-center'
+                        >
+                          {t('No available groups')}
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </>
                 )}
               </TableBody>

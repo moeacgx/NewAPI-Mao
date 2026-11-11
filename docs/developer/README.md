@@ -1,5 +1,12 @@
 # NewAPI-Mao 开发文档
 
+- [Default 正式基线集成交付](../workflows/2026-11/11_default_integration_delivery.md)：ALHE-113 P3，仅移植已审 P1/P2、保留目标索引并隔离无关快照；候选验证、可移植补丁及平台分支约束。
+- [Default 分组标签独立验收](../workflows/2026-11/11_default_group_tags_qa.md)：固定 P2 head 的 P2/B5 与 P1 组合回归 pass，不代表新集成版本或生产验收。
+- [Default 单密钥转换独立验收](../workflows/2026-11/11_default_multi_key_conversion_qa.md)：固定 P1 head 的 B2 pass，保留权限、工具版本与 E2E 边界。
+- [Default 分组标签管理与筛选](../workflows/2026-11/11_default_group_tags.md)：ALHE-113 P2/B5，管理员 CRUD、分组表筛选与普通用户令牌本地筛选，沿用既有权限和稳定 ID/code。
+- [Default 单密钥转多密钥渠道](../workflows/2026-11/11_default_multi_key_conversion.md)：ALHE-113 P1/B2 的编辑权限、转换资格、请求字段和验证状态；不含 P2 标签筛选。
+- [官方新版模板溯源、历史漏项清单与切换计划](../workflows/2026-11/11_template_audit_switching_plan.md)：Default 对应固定上游审查树（非实时最新），代码默认 default、线上主题未验证；A 类静态覆盖 18 项，B 类确认缺口 2 项（B2 仅单 key 转多 key、B5 管理与用户标签选择分链），C2 双模板①–④已有、⑤共同移除入口，未决 3 项（Classic 来源、B4 Logo URL、C1 DeepSeek UI）不进入确定实施；先补齐并独立验收，最后复制独立命名及大改。文档分别记录本地快照→固定 custom-main 的 12 项隔离范围与共同祖先→固定 custom-main 的 53 项历史范围，两者不构成包含关系；另含 RootAuth 回滚契约。
+
 - [图片任务跨域核验](../workflows/2026-11/10_image_task_cors_verification.md)：核验 #26 的四种请求、OPTIONS、Bearer 鉴权和图片内容读取边界。
 
 - [.368 支付会话恢复与跨域等待提示发布](../workflows/2026-11/06_release_368.md)：静默支付认证处理、可信跨域响应头和双模板回归。

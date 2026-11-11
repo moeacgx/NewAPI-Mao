@@ -70,6 +70,7 @@ import {
   type EditableGroupDetail,
 } from './group-ratio-visual-editor'
 import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
+import { GroupTagSettings } from './group-tag-settings'
 
 type GroupFormValues = {
   GroupRatio: string
@@ -319,6 +320,10 @@ export const GroupRatioForm = memo(function GroupRatioForm({
           queryClient.invalidateQueries({ queryKey: ['user-self-groups'] }),
           queryClient.invalidateQueries({ queryKey: ['playground-groups'] }),
           queryClient.invalidateQueries({ queryKey: ['canvas-groups'] }),
+          queryClient.invalidateQueries({ queryKey: ['group-tags'] }),
+          queryClient.invalidateQueries({
+            queryKey: ['prompt-center-admin-group-tags'],
+          }),
         ])
         if (saveWarning) {
           toast.warning(saveWarning)
@@ -612,6 +617,10 @@ export const GroupRatioForm = memo(function GroupRatioForm({
           </SettingsForm>
         )}
       </Form>
+      <GroupTagSettings
+        groups={groupDetailsQuery.data?.groups ?? []}
+        disabled={groupDetailsQuery.isPending || groupDetailsQuery.isError}
+      />
     </div>
   )
 })

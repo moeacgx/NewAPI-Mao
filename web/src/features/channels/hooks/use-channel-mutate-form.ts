@@ -34,6 +34,11 @@ import {
   transformFormDataToUpdatePayload,
   type ChannelFormValues,
 } from '../lib'
+import {
+  buildMultiKeyConversionFields,
+  canConvertChannelToMultiKey,
+  isIonetManagedChannel,
+} from '../lib/multi-key-conversion'
 import type { Channel } from '../types'
 
 type UseChannelMutateFormParams = {
@@ -83,6 +88,11 @@ function getErrorMessage(error: unknown): string | undefined {
 export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   const { t } = useTranslation()
   const currentUser = useAuthStore((s) => s.auth.user)
+  const canWrite = hasPermission(
+    currentUser,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.WRITE
+  )
   const canEditSensitive = hasPermission(
     currentUser,
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
@@ -91,7 +101,23 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
 
   return useMutation({
     mutationFn: async (data: ChannelFormValues): Promise<string> => {
+      if (props.isEditing ? !canWrite : !canEditSensitive) {
+        throw new Error(t("You don't have necessary permission"))
+      }
       if (props.isEditing && props.currentRow) {
+        if (
+          data.convert_to_multi_key &&
+          (!canEditSensitive ||
+            !canConvertChannelToMultiKey({
+              isEditing: props.isEditing,
+              isMultiKeyChannel: props.isMultiKeyChannel,
+              originalType: props.currentRow.type,
+              type: data.type,
+              isIonetLocked: isIonetManagedChannel(props.currentRow.other_info),
+            }))
+        ) {
+          throw new Error(t("You don't have necessary permission"))
+        }
         const payload = transformFormDataToUpdatePayload(
           data,
           props.currentRow.id
@@ -104,22 +130,16 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
             delete payload[field]
           }
         }
-        const payloadWithKeyMode =
-          canEditSensitive &&
-          props.isMultiKeyChannel &&
-          data.key?.trim() &&
-          data.key_mode
-            ? {
-                ...payload,
-                key_mode: data.key_mode,
-              }
-            : payload
-
         const response = await updateChannel(props.currentRow.id, {
-          ...payloadWithKeyMode,
-          ...(canEditSensitive && props.isMultiKeyChannel
-            ? { multi_key_mode: data.multi_key_type }
-            : {}),
+          ...payload,
+          ...buildMultiKeyConversionFields({
+            isMultiKeyChannel: props.isMultiKeyChannel,
+            convertToMultiKey: data.convert_to_multi_key,
+            canWriteSensitive: canEditSensitive,
+            hasNewKey: Boolean(data.key?.trim()),
+            keyMode: data.key_mode,
+            multiKeyMode: data.multi_key_type,
+          }),
         })
         if (!response.success) {
           throw new Error(response.message || t(ERROR_MESSAGES.UPDATE_FAILED))

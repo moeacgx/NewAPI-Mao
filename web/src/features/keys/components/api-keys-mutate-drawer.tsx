@@ -307,7 +307,14 @@ export function ApiKeysMutateDrawer({
   // Preserve historical group references while dropping only selections that
   // the backend can no longer identify.
   useEffect(() => {
-    if (groups.length === 0 || selectedGroups.length === 0) return
+    // A stale render must not prune the selections just loaded by form.reset.
+    if (
+      !isFormInitialized ||
+      groups.length === 0 ||
+      selectedGroups.length === 0
+    ) {
+      return
+    }
     const available = new Set(groups.map((group) => group.value))
     const next = selectedGroups.filter((group) => available.has(group))
     if (next.length !== selectedGroups.length) {
@@ -318,7 +325,7 @@ export function ApiKeysMutateDrawer({
         shouldDirty: false,
       })
     }
-  }, [groups, form, selectedGroups])
+  }, [isFormInitialized, groups, form, selectedGroups])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
     setIsSubmitting(true)
@@ -466,6 +473,7 @@ export function ApiKeysMutateDrawer({
                     <FormControl>
                       <ApiKeyGroupCombobox
                         options={groups}
+                        tags={groupsData?.group_tags}
                         selectedValues={field.value}
                         disabledValues={disabledGroupValues}
                         onValueChange={(selectedValue) => {
