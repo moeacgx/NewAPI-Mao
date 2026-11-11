@@ -287,6 +287,7 @@ export const channelFormSchema = z
     multi_key_type: z.enum(['random', 'polling']).optional(),
     batch_add_set_key_prefix_2_name: z.boolean().optional(),
     key_mode: z.enum(['append', 'replace']).optional(), // For editing multi-key channels
+    convert_to_multi_key: z.boolean().optional(),
     // Channel extra settings (stored in setting JSON, not sent directly)
     task_plugin_key: z.string().optional(),
     force_format: z.boolean().optional(),
@@ -512,6 +513,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   multi_key_type: 'random',
   batch_add_set_key_prefix_2_name: false,
   key_mode: 'append',
+  convert_to_multi_key: false,
   // Channel extra settings
   task_plugin_key: '',
   force_format: false,

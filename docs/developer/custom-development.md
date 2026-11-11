@@ -1,5 +1,12 @@
 # NewAPI-Mao 二次开发能力
 
+## 渠道单密钥转多密钥
+
+- Default 渠道编辑增加显式转换入口，复用 Classic 已有的 `PUT /api/channel/` 契约；已存在的多密钥编辑和新建多密钥流程保留。
+- 编辑要求 ChannelWrite，转换与多密钥策略要求 ChannelSensitiveWrite。来源或目标类型为 Vertex AI/Codex、io.net 托管渠道以及缺失有效来源类型时不提供转换；取回密钥的 RootAuth 不替代更新权限。
+- 没有新密钥时保留原密钥，只发送调度策略；取消、重开或切换渠道清空转换状态。无迁移，回退 UI 不会撤销服务端已完成的渠道转换。
+- 稳定性：P1 固定 head `e91adf6743fd29a7a907aae9fc47cc9720532744` 已获独立验收 pass；P2 组合 head `ffe87461b566dec6ea9119971d5d51f07b83a1f9` 的 P1 回归也已独立通过。正式基线候选仍单独验证和交验，见[集成交付](../workflows/2026-11/11_default_integration_delivery.md)。P1 验证命令、结果和范围见[工作记录](../workflows/2026-11/11_default_multi_key_conversion.md)。
+
 ## 充值日志订单客户端 IP
 
 - 新订单型充值日志使用建单时由 `c.ClientIP()` 解析的地址，遵守消费日志相同的强制／用户记录开关；回调和补单地址不作为用户 IP。
@@ -181,13 +188,14 @@
 - 多人兑换码恢复每码上限与独立用户使用记录，额度发放和名额占用在同一事务内；旧兑换码默认 1 次。
 - 文档：[令牌列表](../workflows/2026-10/02_classic_token_search_api_info.md)、[创建编辑](../workflows/2026-10/01_token_tag_picker_flow.md)、[兑换码修复](../workflows/2026-10/01_redemption_multi_user_limit.md)。本地 SQLite 验证不能代替 MySQL/PostgreSQL 实跑。
 
-## Classic 分组标签
+## 分组标签
 
 - 在分组与模型定价设置中维护标签、说明、排序、多个内置 Logo 或图片 URL，并按稳定分组 ID 绑定。
 - 令牌创建/编辑按标签过滤候选组，保留跨标签多选、排序、独立分组和倍率保护；分组管理支持同样的分类过滤。
 - 标签只管理展示分类，不改变鉴权、路由、计费或分组可用性；普通用户只能获取可用分组对应的标签。
-- 稳定性与限制：本地后端、组件、构建及浏览器验收通过，新增两张按三库兼容方式设计的表；仅 Classic 提供 UI，MySQL/PostgreSQL 实库和生产部署另行验证。
-- 契约与验证计划见[分组标签](group-tags.md)。
+- Default 在分组定价页补齐同一标签 CRUD、分组表筛选和本人令牌标签筛选。普通用户只消费 UserAuth 分组响应的 `group_tags`，不请求管理接口，不改变授权集合和原有提交契约。
+- 稳定性与限制：Classic 历史交付已有后端、组件、构建及浏览器验收；P2 Default 固定 head `ffe87461b566dec6ea9119971d5d51f07b83a1f9` 已独立通过 P2 与 P1 回归，见[独立报告](../workflows/2026-11/11_default_group_tags_qa.md)。正式基线集成另行验证和交验，不以历史结论代替。复用既有数据表，无本轮迁移或后端契约变更，未作生产验证。
+- 契约见[分组标签](group-tags.md)，本轮命令、工具版本与限制见 [Default 实施记录](../workflows/2026-11/11_default_group_tags.md)。
 
 项目名称、默认仓库和镜像规则见[项目身份与发布兼容](project-identity.md)。本次更名无新增业务功能或数据迁移；旧版自更新资产名和配套仓库保持兼容，首次新镜像发布仍须验收。
 

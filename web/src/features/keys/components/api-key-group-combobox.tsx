@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { GroupTagFilter } from '@/features/group-tags/components/group-tag-filter'
+import type { GroupTagOption } from '@/features/group-tags/types'
 import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
@@ -52,7 +54,10 @@ export type ApiKeyGroupOption = {
   exclusive?: boolean
 }
 
-type ApiKeyGroupComboboxProps = {
+type ApiKeyGroupComboboxProps = Pick<
+  React.ComponentProps<'button'>,
+  'id' | 'aria-describedby' | 'aria-invalid'
+> & {
   options: ApiKeyGroupOption[]
   value?: string
   selectedValues?: string[]
@@ -60,6 +65,7 @@ type ApiKeyGroupComboboxProps = {
   placeholder?: string
   disabled?: boolean
   disabledValues?: readonly string[]
+  tags?: GroupTagOption[]
 }
 
 export function ApiKeyGroupCombobox({
@@ -70,10 +76,29 @@ export function ApiKeyGroupCombobox({
   placeholder,
   disabled,
   disabledValues,
+  tags,
+  ...triggerProps
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
+  const [activeTag, setActiveTag] = useState('all')
+  const availableTags = useMemo(
+    () =>
+      (tags ?? []).filter((tag) =>
+        options.some(
+          (option) =>
+            option.id !== undefined &&
+            option.value !== 'auto' &&
+            tag.group_ids.includes(option.id)
+        )
+      ),
+    [tags, options]
+  )
+  const selectedTag = availableTags.find((tag) => String(tag.id) === activeTag)
+  useEffect(() => {
+    if (activeTag !== 'all' && !selectedTag) setActiveTag('all')
+  }, [activeTag, selectedTag])
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const { selectedOptions, selectedValueSet } = useMemo(() => {
     const activeValues = selectedValues ?? (value ? [value] : [])
@@ -99,9 +124,15 @@ export function ApiKeyGroupCombobox({
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
-    if (!search) return options
-
     return options.filter((option) => {
+      if (
+        selectedTag &&
+        option.value !== 'auto' &&
+        (option.id === undefined || !selectedTag.group_ids.includes(option.id))
+      ) {
+        return false
+      }
+      if (!search) return true
       const ratioText = String(option.ratio ?? '').toLowerCase()
       return (
         option.value.toLowerCase().includes(search) ||
@@ -110,7 +141,7 @@ export function ApiKeyGroupCombobox({
         ratioText.includes(search)
       )
     })
-  }, [options, searchValue])
+  }, [options, searchValue, selectedTag])
 
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue)
@@ -123,6 +154,7 @@ export function ApiKeyGroupCombobox({
       <PopoverTrigger
         render={
           <Button
+            {...triggerProps}
             type='button'
             variant='outline'
             role='combobox'
@@ -175,6 +207,17 @@ export function ApiKeyGroupCombobox({
         onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
+        {(tags?.length ?? 0) > 0 && (
+          <GroupTagFilter
+            tags={availableTags}
+            value={activeTag}
+            onChange={(value) => {
+              setActiveTag(value)
+              setSearchValue('')
+            }}
+            disabled={disabled}
+          />
+        )}
         <Command shouldFilter={false}>
           <CommandInput
             placeholder={t('Search...')}

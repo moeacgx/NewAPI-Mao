@@ -36,18 +36,22 @@ const originalAuth = useAuthStore.getState().auth
 let client: QueryClient
 let channel: Channel
 
-function renderChannel() {
-  return render(
+function channelEditor(currentRow: Channel | null, open = true) {
+  return (
     <QueryClientProvider client={client}>
       <ChannelsProvider>
         <ChannelMutateDrawer
-          open
+          open={open}
           onOpenChange={() => undefined}
-          currentRow={channel}
+          currentRow={currentRow}
         />
       </ChannelsProvider>
     </QueryClientProvider>
   )
+}
+
+function renderChannel() {
+  return render(channelEditor(channel))
 }
 
 beforeEach(() => {
@@ -81,7 +85,7 @@ beforeEach(() => {
     },
   })
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/channel/42') {
+    if (url === `/api/channel/${channel.id}`) {
       return { data: { success: true, data: channel } }
     }
     if (url === '/api/channel/models') {
@@ -115,6 +119,7 @@ afterEach(() => {
   cleanup()
   client.clear()
   useAuthStore.setState({ auth: originalAuth })
+  localStorage.clear()
 })
 
 test.each([
@@ -149,6 +154,166 @@ test.each([
   }
 )
 
+test.each([
+  ['append', 'Append to existing keys'],
+  ['replace', 'Replace all existing keys'],
+] as const)(
+  '编辑单 Key 渠道显式转换以 %s 模式提交聚合请求',
+  async (mode, label) => {
+    channel.channel_info.is_multi_key = false
+    const put = vi
+      .spyOn(api, 'put')
+      .mockResolvedValue({ data: { success: true } })
+    const user = userEvent.setup()
+    renderChannel()
+    await screen.findByDisplayValue('Existing channel')
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+    )
+    await user.click(screen.getByRole('textbox', { name: 'API Key *' }))
+    await user.paste('new-test-key')
+    await user.click(screen.getByRole('combobox', { name: 'Key Update Mode' }))
+    await user.click(screen.getByRole('option', { name: label }))
+    await user.click(
+      screen.getByRole('combobox', { name: 'Multi-Key Strategy' })
+    )
+    await user.click(screen.getByRole('option', { name: 'Polling' }))
+    await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+    await waitFor(() => expect(put).toHaveBeenCalled())
+    expect(put.mock.calls[0]?.[1]).toMatchObject({
+      id: 42,
+      key: 'new-test-key',
+      convert_to_multi_key: true,
+      key_mode: mode,
+      multi_key_mode: 'polling',
+    })
+  }
+)
+
+test('取消转换后普通更新省略转换和模式字段', async () => {
+  channel.channel_info.is_multi_key = false
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  renderChannel()
+  await screen.findByDisplayValue('Existing channel')
+  const conversion = screen.getByRole('checkbox', {
+    name: 'Convert to multi-key channel',
+  })
+  await user.click(conversion)
+  await user.click(screen.getByRole('combobox', { name: 'Key Update Mode' }))
+  await user.click(
+    screen.getByRole('option', { name: 'Replace all existing keys' })
+  )
+  await user.click(conversion)
+  expect(
+    screen.queryByRole('combobox', { name: 'Multi-Key Strategy' })
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('textbox', { name: 'API Key *' }))
+  await user.paste('updated-single-key')
+  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+  await waitFor(() => expect(put).toHaveBeenCalled())
+  const payload = put.mock.calls[0]?.[1]
+  expect(payload).toMatchObject({ key: 'updated-single-key' })
+  expect(payload).not.toHaveProperty('convert_to_multi_key')
+  expect(payload).not.toHaveProperty('key_mode')
+  expect(payload).not.toHaveProperty('multi_key_mode')
+})
+
+test.each(['reopen', 'switch'] as const)(
+  '%s 渠道编辑时清空转换和策略选择',
+  async (action) => {
+    channel.channel_info.is_multi_key = false
+    const user = userEvent.setup()
+    const view = renderChannel()
+    await screen.findByDisplayValue('Existing channel')
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+    )
+    await user.click(
+      screen.getByRole('combobox', { name: 'Multi-Key Strategy' })
+    )
+    await user.click(screen.getByRole('option', { name: 'Polling' }))
+    if (action === 'reopen') {
+      view.rerender(channelEditor(channel, false))
+      view.rerender(channelEditor(channel))
+    } else {
+      channel = { ...channel, id: 43, name: 'Another channel' }
+      view.rerender(channelEditor(channel))
+    }
+    await screen.findByDisplayValue(channel.name)
+    expect(
+      screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+    ).not.toBeChecked()
+    expect(
+      screen.queryByRole('combobox', { name: 'Multi-Key Strategy' })
+    ).not.toBeInTheDocument()
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Multi-Key Strategy' })
+    ).toHaveTextContent('Random')
+  }
+)
+
+test.each([
+  ['Vertex AI', { type: 41, other: 'global' }],
+  ['Codex', { type: 57 }],
+  ['io.net', { other_info: '{"source":"ionet"}' }],
+])('编辑 %s 单 Key 渠道时不提供转换入口', async (_label, overrides) => {
+  channel = { ...channel, ...overrides }
+  channel.channel_info.is_multi_key = false
+  renderChannel()
+  await screen.findByDisplayValue('Existing channel')
+  expect(
+    screen.queryByRole('checkbox', { name: 'Convert to multi-key channel' })
+  ).not.toBeInTheDocument()
+})
+
+test.each([
+  [true, false],
+  [false, true],
+])(
+  'write=%s sensitive_write=%s 时不提供转换入口',
+  async (write, sensitiveWrite) => {
+    channel.channel_info.is_multi_key = false
+    useAuthStore.setState({
+      auth: {
+        ...originalAuth,
+        user: {
+          id: 2,
+          username: 'operator',
+          role: ROLE.ADMIN,
+          permissions: {
+            admin_permissions: {
+              channel: { read: true, write, sensitive_write: sensitiveWrite },
+            },
+          },
+        },
+      },
+    })
+    const put = vi
+      .spyOn(api, 'put')
+      .mockResolvedValue({ data: { success: true } })
+    renderChannel()
+    await screen.findByDisplayValue('Existing channel')
+    expect(
+      screen.queryByRole('checkbox', { name: 'Convert to multi-key channel' })
+    ).not.toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Update Channel' })
+    )
+    if (write) {
+      await waitFor(() => expect(put).toHaveBeenCalled())
+      expect(put.mock.calls[0]?.[1]).not.toHaveProperty('convert_to_multi_key')
+    } else {
+      expect(put).not.toHaveBeenCalled()
+    }
+  }
+)
+
 test('编辑单 Key 渠道时隐藏策略且不发送策略字段', async () => {
   channel.channel_info.is_multi_key = false
   const put = vi
@@ -162,6 +327,36 @@ test('编辑单 Key 渠道时隐藏策略且不发送策略字段', async () => 
   await userEvent.click(screen.getByRole('button', { name: 'Update Channel' }))
   await waitFor(() => expect(put).toHaveBeenCalled())
   expect(put.mock.calls[0]?.[1]).not.toHaveProperty('multi_key_mode')
+})
+
+test('转换中目标类型切换到 Codex 后清除转换，切回普通类型也不恢复', async () => {
+  channel.channel_info.is_multi_key = false
+  const user = userEvent.setup()
+  renderChannel()
+  await screen.findByDisplayValue('Existing channel')
+  await user.click(
+    screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+  )
+  const channelType = screen.getByPlaceholderText('Search channel type...')
+  await user.click(channelType)
+  await user.clear(channelType)
+  await user.type(channelType, 'Codex')
+  await user.click(
+    screen.getByRole('option', { name: 'ChatGPT Subscription (Codex)' })
+  )
+  expect(
+    screen.queryByRole('checkbox', { name: 'Convert to multi-key channel' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('combobox', { name: 'Multi-Key Strategy' })
+  ).not.toBeInTheDocument()
+  await user.click(channelType)
+  await user.clear(channelType)
+  await user.type(channelType, 'OpenAI')
+  await user.click(screen.getByRole('option', { name: 'OpenAI' }))
+  expect(
+    screen.getByRole('checkbox', { name: 'Convert to multi-key channel' })
+  ).not.toBeChecked()
 })
 
 test('缺少敏感写权限时禁用多 Key 策略并从更新请求省略策略', async () => {

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { GroupTagOption } from '@/features/group-tags/types'
 import { api } from '@/lib/http-client'
 
 export {
@@ -57,7 +58,18 @@ export async function getUserModels(): Promise<{
 export async function getUserGroups(): Promise<{
   success: boolean
   message?: string
-  data?: Record<string, { desc: string; ratio: number | string }>
+  data?: Record<
+    string,
+    {
+      desc: string
+      ratio: number | string
+      id?: number
+      code?: string
+      name?: string
+      exclusive?: boolean
+    }
+  >
+  group_tags?: GroupTagOption[]
 }> {
   const res = await api.get('/api/user/self/groups')
   return res.data
