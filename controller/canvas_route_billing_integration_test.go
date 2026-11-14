@@ -2,6 +2,8 @@ package controller
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,11 +15,14 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	relaytypes "github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -189,7 +194,7 @@ func newCanvasRouteBillingEngine(observed chan<- canvasRouteObservation) *gin.En
 
 func performCanvasRouteImageRequest(engine *gin.Engine, sessionCookie *http.Cookie) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodPost, "/canvas/v1/images/generations?group=default", strings.NewReader(
-		`{"model":"canvas-route-priced-image","prompt":"draw a route","n":1}`,
+		`{"model":"canvas-route-priced-image","prompt":"draw a route","n":1,"group":"evil"}`,
 	))
 	request.Header.Set("Origin", middleware.CanvasConfiguredOrigin())
 	request.AddCookie(sessionCookie)
@@ -200,25 +205,37 @@ func performCanvasRouteImageRequest(engine *gin.Engine, sessionCookie *http.Cook
 }
 
 func TestCanvasRouteSyncRelayUsesWalletAndSubscriptionWithoutToken(t *testing.T) {
+	for _, passThrough := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passthrough=%t", passThrough), func(t *testing.T) {
+			testCanvasRouteSyncRelayUsesWalletAndSubscriptionWithoutToken(t, passThrough)
+		})
+	}
+}
+
+func testCanvasRouteSyncRelayUsesWalletAndSubscriptionWithoutToken(t *testing.T, passThrough bool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	var upstreamCalls atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		upstreamCalls.Add(1)
 		assert.Equal(t, "/v1/images/generations", request.URL.Path)
-		var payload struct {
-			Model string `json:"model"`
-		}
+		var payload map[string]any
 		if !assert.NoError(t, common.DecodeJson(request.Body, &payload)) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		assert.Equal(t, canvasRouteBillingModel, payload.Model)
+		assert.Equal(t, canvasRouteBillingModel, payload["model"])
+		assert.NotContains(t, payload, "group", "Canvas 路由分组不得发送给上游")
 		assert.Equal(t, "Bearer route-upstream-key", request.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", gin.MIMEJSON)
 		_, _ = w.Write([]byte(`{"created":1,"data":[{"url":"https://images.example/result.png"}]}`))
 	}))
 	defer upstream.Close()
 	setupCanvasRouteBillingTest(t, upstream.URL)
+	settings := model_setting.GetGlobalSettings()
+	previousPassThrough := settings.PassThroughRequestEnabled
+	settings.PassThroughRequestEnabled = passThrough
+	t.Cleanup(func() { settings.PassThroughRequestEnabled = previousPassThrough })
 
 	wallet, walletCookie := createCanvasRouteUserSession(t, "wallet", "wallet_only", 1_000)
 	subscriptionUser, subscriptionCookie := createCanvasRouteUserSession(t, "subscription", "subscription_only", 1_000)
@@ -335,24 +352,36 @@ func TestCanvasRoutesForwardNormalizedPathsForSyncProtocols(t *testing.T) {
 	}
 }
 func TestCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T) {
+	for _, passThrough := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passthrough=%t", passThrough), func(t *testing.T) {
+			testCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t, passThrough)
+		})
+	}
+}
+
+func testCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T, passThrough bool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	upstreamReached := make(chan struct{}, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		assert.Equal(t, "/v1/images/generations", request.URL.Path)
-		var payload struct {
-			Model string `json:"model"`
-		}
+		var payload map[string]any
 		if !assert.NoError(t, common.DecodeJson(request.Body, &payload)) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		assert.Equal(t, canvasRouteBillingModel, payload.Model)
+		assert.Equal(t, canvasRouteBillingModel, payload["model"])
+		assert.NotContains(t, payload, "group", "异步 JSON 重放不得向上游发送分组")
 		upstreamReached <- struct{}{}
 		w.Header().Set("Content-Type", gin.MIMEJSON)
 		_, _ = w.Write([]byte(`{"created":1,"data":[{"url":"https://images.example/async.png"}]}`))
 	}))
 	defer upstream.Close()
 	setupCanvasRouteBillingTest(t, upstream.URL)
+	settings := model_setting.GetGlobalSettings()
+	previousPassThrough := settings.PassThroughRequestEnabled
+	settings.PassThroughRequestEnabled = passThrough
+	t.Cleanup(func() { settings.PassThroughRequestEnabled = previousPassThrough })
 	user, sessionCookie := createCanvasRouteUserSession(t, "async-wallet", "wallet_only", 1_000)
 	resetImageTaskAdmissionTestState()
 
@@ -361,6 +390,13 @@ func TestCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T) {
 	replayObserved := make(chan imageTaskRelayRequest, 1)
 	replayMetricSource := make(chan string, 1)
 	imageTaskRelayExecutor = func(request imageTaskRelayRequest) imageTaskRelayResult {
+		body, err := request.Body.Bytes()
+		if assert.NoError(t, err) {
+			var payload map[string]any
+			if assert.NoError(t, common.Unmarshal(body, &payload)) {
+				assert.NotContains(t, payload, "group", "持久化重放正文也应移除恶意分组")
+			}
+		}
 		replayObserved <- request
 		result := executeImageTaskRelay(request)
 		replayMetricSource <- result.TrafficSource
@@ -369,7 +405,7 @@ func TestCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T) {
 
 	engine := newCanvasRouteBillingEngine(nil)
 	request := httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks?action=generations&group=default", strings.NewReader(
-		`{"model":"canvas-route-priced-image","prompt":"draw async","n":1}`,
+		`{"model":"canvas-route-priced-image","prompt":"draw async","n":1,"group":"evil"}`,
 	))
 	request.Header.Set("Origin", middleware.CanvasConfiguredOrigin())
 	request.AddCookie(sessionCookie)
@@ -422,6 +458,11 @@ func TestCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T) {
 	assert.Zero(t, task.PrivateData.TokenId)
 	assert.Equal(t, "default", task.Group)
 	assert.Equal(t, canvasRouteBillingModel, task.Properties.OriginModelName)
+	var consumeLogs []model.Log
+	require.NoError(t, model.LOG_DB.Where("user_id = ? AND type = ?", user.Id, model.LogTypeConsume).Find(&consumeLogs).Error)
+	require.Len(t, consumeLogs, 1)
+	assert.Equal(t, "default", consumeLogs[0].Group)
+	assert.Equal(t, 100, consumeLogs[0].Quota)
 	quota, err := model.GetUserQuota(user.Id, false)
 	require.NoError(t, err)
 	assert.Equal(t, int64(900), quota)
@@ -429,6 +470,115 @@ func TestCanvasRouteAsyncSubmissionReplaysAndSettlesWithoutToken(t *testing.T) {
 	require.NoError(t, model.DB.Model(&model.Token{}).Count(&tokenRows).Error)
 	assert.Zero(t, tokenRows)
 }
+func TestCanvasAsyncImageTaskRejectsRevokedGroupBeforeReplay(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, i18n.Init())
+	for _, revocation := range []struct {
+		name   string
+		update func(string) error
+		value  string
+	}{
+		{name: "group_ratio", update: ratio_setting.UpdateGroupRatioByJSONString, value: `{"vip":1}`},
+		{name: "usable_groups", update: setting.UpdateUserUsableGroupsByJSONString, value: `{"vip":"VIP"}`},
+	} {
+		for _, action := range []string{"generations", "edits"} {
+			t.Run(revocation.name+"/"+action, func(t *testing.T) {
+				var upstreamCalls atomic.Int32
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					upstreamCalls.Add(1)
+					w.Header().Set("Content-Type", gin.MIMEJSON)
+					_, _ = w.Write([]byte(`{"created":1,"data":[{"url":"https://images.example/revoked.png"}]}`))
+				}))
+				defer upstream.Close()
+				setupCanvasRouteBillingTest(t, upstream.URL)
+				user, sessionCookie := createCanvasRouteUserSession(t, "async-revoked-group", "wallet_only", 1_000)
+				// 所属组与请求组不同，避免撤销可用分组后被所属组规则自动补回。
+				require.NoError(t, model.DB.Model(user).Update("group", "vip").Error)
+				specialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+				previousSpecialGroups := specialGroups.MarshalJSONString()
+				require.NoError(t, specialGroups.UnmarshalJSON([]byte(`{}`)))
+				t.Cleanup(func() { require.NoError(t, specialGroups.UnmarshalJSON([]byte(previousSpecialGroups))) })
+				require.True(t, service.IsUserSelectableGroup("vip", "default"))
+				resetImageTaskAdmissionTestState()
+				t.Cleanup(resetImageTaskAdmissionTestState)
+
+				type replayObservation struct {
+					result imageTaskRelayResult
+					err    error
+				}
+				replayed := make(chan replayObservation, 1)
+				previousExecutor := imageTaskRelayExecutor
+				t.Cleanup(func() { imageTaskRelayExecutor = previousExecutor })
+				imageTaskRelayExecutor = func(request imageTaskRelayRequest) imageTaskRelayResult {
+					// 入口已通过权限校验；模拟管理员在真正重放、分发之前撤销授权。
+					err := revocation.update(revocation.value)
+					result := executeImageTaskRelay(request)
+					replayed <- replayObservation{result: result, err: err}
+					return result
+				}
+
+				var body bytes.Buffer
+				contentType := gin.MIMEJSON
+				if action == "edits" {
+					writer := multipart.NewWriter(&body)
+					require.NoError(t, writer.WriteField("model", canvasRouteBillingModel))
+					require.NoError(t, writer.WriteField("prompt", "edit before revocation"))
+					require.NoError(t, writer.WriteField("group", "default"))
+					header := make(textproto.MIMEHeader)
+					header.Set("Content-Disposition", `form-data; name="image"; filename="source.png"`)
+					header.Set("Content-Type", "image/png")
+					part, err := writer.CreatePart(header)
+					require.NoError(t, err)
+					_, err = part.Write(canvasTestPNG)
+					require.NoError(t, err)
+					require.NoError(t, writer.Close())
+					contentType = writer.FormDataContentType()
+				} else {
+					body.WriteString(`{"model":"canvas-route-priced-image","prompt":"draw before revocation","n":1,"group":"default"}`)
+				}
+				request := httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks?action="+action+"&group=default", &body)
+				request.Header.Set("Origin", middleware.CanvasConfiguredOrigin())
+				request.Header.Set("Content-Type", contentType)
+				request.AddCookie(sessionCookie)
+				recorder := httptest.NewRecorder()
+				newCanvasRouteBillingEngine(nil).ServeHTTP(recorder, request)
+				require.Equal(t, http.StatusAccepted, recorder.Code, recorder.Body.String())
+				var accepted struct {
+					TaskID string `json:"task_id"`
+				}
+				require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &accepted))
+				require.NotEmpty(t, accepted.TaskID)
+				select {
+				case observation := <-replayed:
+					require.NoError(t, observation.err)
+					assert.Equal(t, http.StatusForbidden, observation.result.Recorder.Code, observation.result.Recorder.Body.String())
+					assert.Zero(t, observation.result.ChannelID, "撤销权限后不得选中渠道")
+				case <-time.After(3 * time.Second):
+					t.Fatal("异步任务未完成重放")
+				}
+				assert.False(t, service.IsUserSelectableGroup("vip", "default"))
+				var task model.Task
+				require.Eventually(t, func() bool {
+					if err := model.DB.Where("task_id = ?", accepted.TaskID).First(&task).Error; err != nil {
+						return false
+					}
+					return task.Status == model.TaskStatusFailure || task.Status == model.TaskStatusSuccess
+				}, 3*time.Second, 10*time.Millisecond)
+				assert.EqualValues(t, model.TaskStatusFailure, task.Status)
+				assert.Equal(t, "default", task.Group)
+				assert.Zero(t, task.Quota)
+				assert.Zero(t, upstreamCalls.Load(), "撤销权限后不得请求上游")
+				var consumeLogs int64
+				require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("user_id = ? AND type = ?", user.Id, model.LogTypeConsume).Count(&consumeLogs).Error)
+				assert.Zero(t, consumeLogs, "被拒任务不得产生消费日志")
+				quota, err := model.GetUserQuota(user.Id, false)
+				require.NoError(t, err)
+				assert.Equal(t, int64(1_000), quota)
+			})
+		}
+	}
+}
+
 func TestCanvasAsyncImageTaskSubmitReAuditsReplayPromptAudit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	guardCalls := atomic.Int32{}
@@ -533,6 +683,15 @@ func TestCanvasAsyncImageTaskSubmitReAuditsReplayPromptAudit(t *testing.T) {
 }
 
 func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *testing.T) {
+	for _, passThrough := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passthrough=%t", passThrough), func(t *testing.T) {
+			testCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t, passThrough)
+		})
+	}
+}
+
+func testCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *testing.T, passThrough bool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	guardCalls := atomic.Int32{}
 	guard := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -547,8 +706,11 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 		authorization string
 		model         string
 		prompt        string
-		group         string
-		imageSize     int64
+		groups        []string
+		groupFiles    int
+		filenames     []string
+		contentTypes  []string
+		images        [][]byte
 		err           error
 	}
 	upstreamObserved := make(chan upstreamObservation, 1)
@@ -560,11 +722,27 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 		if err := request.ParseMultipartForm(64 << 10); err != nil {
 			observation.err = err
 		} else {
+			defer request.MultipartForm.RemoveAll()
 			observation.model = request.FormValue("model")
 			observation.prompt = request.FormValue("prompt")
-			observation.group = request.FormValue("group")
-			if files := request.MultipartForm.File["image"]; len(files) == 1 {
-				observation.imageSize = files[0].Size
+			observation.groups = request.MultipartForm.Value["group"]
+			observation.groupFiles = len(request.MultipartForm.File["group"])
+			files := append(request.MultipartForm.File["image"], request.MultipartForm.File["image[]"]...)
+			for _, header := range files {
+				file, err := header.Open()
+				if err != nil {
+					observation.err = err
+					break
+				}
+				content, err := io.ReadAll(file)
+				_ = file.Close()
+				if err != nil {
+					observation.err = err
+					break
+				}
+				observation.filenames = append(observation.filenames, header.Filename)
+				observation.contentTypes = append(observation.contentTypes, header.Header.Get("Content-Type"))
+				observation.images = append(observation.images, content)
 			}
 		}
 		upstreamObserved <- observation
@@ -574,6 +752,10 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 	defer upstream.Close()
 
 	setupCanvasRouteBillingTest(t, upstream.URL)
+	settings := model_setting.GetGlobalSettings()
+	previousPassThrough := settings.PassThroughRequestEnabled
+	settings.PassThroughRequestEnabled = passThrough
+	t.Cleanup(func() { settings.PassThroughRequestEnabled = previousPassThrough })
 	cfg, _, err := model.LoadPromptAuditConfig()
 	require.NoError(t, err)
 	cfg.Enabled = true
@@ -602,13 +784,18 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 	writer := multipart.NewWriter(&body)
 	require.NoError(t, writer.WriteField("model", canvasRouteBillingModel))
 	require.NoError(t, writer.WriteField("prompt", "edit async image"))
-	imageHeader := make(textproto.MIMEHeader)
-	imageHeader.Set("Content-Disposition", `form-data; name="image"; filename="source.png"`)
-	imageHeader.Set("Content-Type", "image/png")
-	imagePart, err := writer.CreatePart(imageHeader)
-	require.NoError(t, err)
-	_, err = imagePart.Write(canvasTestPNG)
-	require.NoError(t, err)
+	require.NoError(t, writer.WriteField("group", "evil"))
+	require.NoError(t, writer.WriteField("group", "vip"))
+	images := [][]byte{canvasTestPNG, append(append([]byte(nil), canvasTestPNG...), []byte("second-reference")...)}
+	for i, content := range images {
+		imageHeader := make(textproto.MIMEHeader)
+		imageHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="source-%d.png"`, i))
+		imageHeader.Set("Content-Type", "image/png")
+		imagePart, err := writer.CreatePart(imageHeader)
+		require.NoError(t, err)
+		_, err = imagePart.Write(content)
+		require.NoError(t, err)
+	}
 	require.NoError(t, writer.Close())
 
 	request := httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks?action=edits&group=default", bytes.NewReader(body.Bytes()))
@@ -646,8 +833,11 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 		assert.Equal(t, "Bearer route-upstream-key", observation.authorization)
 		assert.Equal(t, canvasRouteBillingModel, observation.model)
 		assert.Equal(t, "edit async image", observation.prompt)
-		assert.Equal(t, "default", observation.group)
-		assert.EqualValues(t, len(canvasTestPNG), observation.imageSize)
+		assert.Empty(t, observation.groups, "所有传入 group 字段均不得出现在上游表单")
+		assert.Zero(t, observation.groupFiles)
+		assert.Equal(t, []string{"source-0.png", "source-1.png"}, observation.filenames)
+		assert.Equal(t, []string{"image/png", "image/png"}, observation.contentTypes)
+		assert.Equal(t, images, observation.images, "双参考图片内容及顺序必须无损")
 	case <-time.After(2 * time.Second):
 		t.Fatal("async image edit replay did not reach upstream")
 	}
@@ -672,6 +862,7 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 	require.NoError(t, model.DB.Where("task_id = ?", accepted.TaskID).First(&task).Error)
 	assert.Equal(t, constant.TaskPlatform(constant.TaskPlatformCanvasImage), task.Platform)
 	assert.Equal(t, canvasImageTaskActionEdits, task.Action)
+	assert.Equal(t, "default", task.Group)
 	assert.Equal(t, canvasRouteBillingModel, task.Properties.OriginModelName)
 	assert.Equal(t, channel.Id, task.ChannelId)
 	assert.Equal(t, 100, task.Quota)
@@ -682,6 +873,7 @@ func TestCanvasAsyncImageEditTaskReplaysThroughPromptAuditDistributeAndRelay(t *
 	require.NoError(t, model.LOG_DB.Where("user_id = ? AND type = ?", user.Id, model.LogTypeConsume).Find(&consumeLogs).Error)
 	require.Len(t, consumeLogs, 1)
 	assert.Equal(t, canvasRouteBillingModel, consumeLogs[0].ModelName)
+	assert.Equal(t, "default", consumeLogs[0].Group)
 	assert.Equal(t, channel.Id, consumeLogs[0].ChannelId)
 	assert.Equal(t, 100, consumeLogs[0].Quota)
 }

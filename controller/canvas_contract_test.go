@@ -89,30 +89,44 @@ func TestCanvasPrepareRequestRequiresAuthorizedSelectedGroup(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, deniedRecorder.Code)
 }
 
-func TestCanvasJSONInjectionOverridesClientGroupAndEnforcesGlobalBound(t *testing.T) {
+func TestCanvasJSONStripsClientGroupAndEnforcesGlobalBound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousLimit := constant.MaxRequestBodyMB
 	constant.MaxRequestBodyMB = 1
 	t.Cleanup(func() { constant.MaxRequestBodyMB = previousLimit })
 
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks", strings.NewReader(`{"group":"evil","model":"gpt-image-1"}`))
-	ctx.Request.Header.Set("Content-Type", gin.MIMEJSON)
-	require.NoError(t, injectCanvasGroup(ctx, "vip"))
-	storage, err := common.GetBodyStorage(ctx)
-	require.NoError(t, err)
-	body, err := storage.Bytes()
-	require.NoError(t, err)
-	var payload map[string]any
-	require.NoError(t, common.Unmarshal(body, &payload))
-	assert.Equal(t, "vip", payload["group"])
-	common.CleanupBodyStorage(ctx)
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{name: "恶意分组", body: `{"group":"evil","model":"gpt-image-1","prompt":"draw","n":1}`},
+		{name: "无分组", body: `{"model":"gpt-image-1","prompt":"draw","n":1}`},
+		{name: "非字符串分组", body: `{"group":{"name":"evil"},"model":"gpt-image-1","prompt":"draw","n":1}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			t.Cleanup(func() { common.CleanupBodyStorage(ctx) })
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks", strings.NewReader(test.body))
+			ctx.Request.Header.Set("Content-Type", gin.MIMEJSON)
+			require.NoError(t, stripCanvasGroup(ctx))
+			storage, err := common.GetBodyStorage(ctx)
+			require.NoError(t, err)
+			body, err := storage.Bytes()
+			require.NoError(t, err)
+			var payload map[string]any
+			require.NoError(t, common.Unmarshal(body, &payload))
+			assert.NotContains(t, payload, "group")
+			assert.Equal(t, map[string]any{"model": "gpt-image-1", "prompt": "draw", "n": float64(1)}, payload)
+			requestBody, err := io.ReadAll(ctx.Request.Body)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(body), string(requestBody))
+		})
+	}
 
 	oversized, _ := gin.CreateTestContext(httptest.NewRecorder())
 	oversized.Request = httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks", strings.NewReader(`{"prompt":"`+strings.Repeat("x", 1<<20)+`"}`))
 	oversized.Request.Header.Set("Content-Type", gin.MIMEJSON)
-	assert.ErrorIs(t, injectCanvasGroup(oversized, "default"), common.ErrRequestBodyTooLarge)
+	assert.ErrorIs(t, stripCanvasJSONGroup(oversized), common.ErrRequestBodyTooLarge)
 	common.CleanupBodyStorage(oversized)
 }
 
@@ -121,7 +135,11 @@ func TestCanvasMultipartRejectsUnsafeFilenameTypeAndPartCount(t *testing.T) {
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
 		for i := 0; i < fields; i++ {
-			require.NoError(t, writer.WriteField(fmt.Sprintf("field-%d", i), "value"))
+			if i < 2 {
+				require.NoError(t, writer.WriteField("group", "evil"))
+			} else {
+				require.NoError(t, writer.WriteField(fmt.Sprintf("field-%d", i), "value"))
+			}
 		}
 		header := make(textproto.MIMEHeader)
 		header.Set("Content-Disposition", `form-data; name="image"; filename="`+filename+`"`)
@@ -136,24 +154,36 @@ func TestCanvasMultipartRejectsUnsafeFilenameTypeAndPartCount(t *testing.T) {
 		ctx.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		return ctx, func() { common.CleanupBodyStorage(ctx) }
 	}
-	valid, cleanupValid := build("safe.png", "image/png", 0)
-	require.NoError(t, injectCanvasGroup(valid, "vip"))
+	valid, cleanupValid := build("safe.png", "image/png", 3)
+	t.Cleanup(cleanupValid)
+	require.NoError(t, stripCanvasMultipartGroup(valid, valid.GetHeader("Content-Type")))
 	require.NoError(t, valid.Request.ParseMultipartForm(1<<20))
-	assert.Equal(t, "vip", valid.Request.FormValue("group"))
+	t.Cleanup(func() { _ = valid.Request.MultipartForm.RemoveAll() })
+	assert.NotContains(t, valid.Request.MultipartForm.Value, "group")
+	assert.Equal(t, "value", valid.Request.FormValue("field-2"))
 	require.Len(t, valid.Request.MultipartForm.File["image"], 1)
 	assert.Equal(t, "safe.png", valid.Request.MultipartForm.File["image"][0].Filename)
-	cleanupValid()
+	file, err := valid.Request.MultipartForm.File["image"][0].Open()
+	require.NoError(t, err)
+	defer file.Close()
+	content, err := io.ReadAll(file)
+	require.NoError(t, err)
+	assert.Equal(t, canvasTestPNG, content, "去除分组不得改变图片内容")
 
 	unsafe, cleanupUnsafe := build("../secret.png", "image/png", 0)
-	assert.Error(t, injectCanvasGroup(unsafe, "default"))
+	assert.Error(t, stripCanvasGroup(unsafe))
 	cleanupUnsafe()
 
 	badType, cleanupType := build("safe.svg", "image/svg+xml", 0)
-	assert.Error(t, injectCanvasGroup(badType, "default"))
+	assert.Error(t, stripCanvasGroup(badType))
 	cleanupType()
 
+	atLimit, cleanupLimit := build("safe.png", "image/png", canvasMultipartMaxParts-1)
+	assert.NoError(t, stripCanvasGroup(atLimit), "不再注入服务端分组后，原始部件数恰好达到上限仍应通过")
+	cleanupLimit()
+
 	tooMany, cleanupParts := build("safe.png", "image/png", canvasMultipartMaxParts)
-	assert.Error(t, injectCanvasGroup(tooMany, "default"), "server group plus bounded client parts must not permit an extra file part")
+	assert.Error(t, stripCanvasGroup(tooMany), "被移除的 group 也必须计入原始部件数量上限")
 	cleanupParts()
 }
 
