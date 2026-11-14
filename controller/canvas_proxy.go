@@ -78,7 +78,8 @@ func CanvasPrepareRequest(c *gin.Context) {
 	common.SetContextKey(c, constant.ContextKeyCanvasTrusted, true)
 
 	if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
-		if err := injectCanvasGroup(c, group); err != nil {
+		// 分组仅用于网关鉴权、路由和计费，不属于上游模型请求参数。
+		if err := stripCanvasGroup(c); err != nil {
 			status := http.StatusBadRequest
 			if common.IsRequestBodyTooLargeError(err) {
 				status = http.StatusRequestEntityTooLarge
@@ -109,7 +110,7 @@ func abortCanvasRequest(c *gin.Context, status int, message string) {
 	}})
 }
 
-func injectCanvasGroup(c *gin.Context, group string) error {
+func stripCanvasGroup(c *gin.Context) error {
 	contentType := strings.TrimSpace(c.GetHeader("Content-Type"))
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil && contentType != "" {
@@ -117,15 +118,15 @@ func injectCanvasGroup(c *gin.Context, group string) error {
 	}
 	switch mediaType {
 	case "", gin.MIMEJSON:
-		return injectCanvasJSONGroup(c, group)
+		return stripCanvasJSONGroup(c)
 	case gin.MIMEMultipartPOSTForm:
-		return injectCanvasMultipartGroup(c, group, contentType)
+		return stripCanvasMultipartGroup(c, contentType)
 	default:
 		return nil
 	}
 }
 
-func injectCanvasJSONGroup(c *gin.Context, group string) error {
+func stripCanvasJSONGroup(c *gin.Context) error {
 	storage, err := common.GetBodyStorage(c)
 	if err != nil {
 		return err
@@ -142,7 +143,7 @@ func injectCanvasJSONGroup(c *gin.Context, group string) error {
 			return err
 		}
 	}
-	payload["group"] = group
+	delete(payload, "group")
 	body, err := common.Marshal(payload)
 	if err != nil {
 		return err
@@ -159,7 +160,7 @@ func injectCanvasJSONGroup(c *gin.Context, group string) error {
 	return nil
 }
 
-func injectCanvasMultipartGroup(c *gin.Context, group, contentType string) error {
+func stripCanvasMultipartGroup(c *gin.Context, contentType string) error {
 	_, params, err := mime.ParseMediaType(contentType)
 	if err != nil || strings.TrimSpace(params["boundary"]) == "" {
 		return errors.New("invalid multipart boundary")
@@ -178,11 +179,11 @@ func injectCanvasMultipartGroup(c *gin.Context, group, contentType string) error
 	writer := multipart.NewWriter(pipeWriter)
 	nextContentType := writer.FormDataContentType()
 	go func() {
-		copyErr := copyCanvasMultipart(writer, multipart.NewReader(sourceReader, params["boundary"]), group)
+		copyErr := copyCanvasMultipart(writer, multipart.NewReader(sourceReader, params["boundary"]))
 		_ = pipeWriter.CloseWithError(copyErr)
 	}()
 
-	estimatedSize := source.Size() + 1024 + int64(len(group))
+	estimatedSize := source.Size() + 1024
 	next, createErr := common.CreateBodyStorageFromReader(pipeReader, estimatedSize, canvasRequestBodyLimit())
 	_ = pipeReader.Close()
 	_ = sourceReader.Close()
@@ -193,10 +194,7 @@ func injectCanvasMultipartGroup(c *gin.Context, group, contentType string) error
 	return nil
 }
 
-func copyCanvasMultipart(writer *multipart.Writer, reader *multipart.Reader, group string) error {
-	if err := writer.WriteField("group", group); err != nil {
-		return err
-	}
+func copyCanvasMultipart(writer *multipart.Writer, reader *multipart.Reader) error {
 	parts := 0
 	for {
 		part, err := reader.NextPart()

@@ -150,6 +150,10 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, invalidRequestStatus(err), i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
+		if common.GetContextKeyBool(c, constant.ContextKeyCanvasTrusted) {
+			// 审核等待或异步重放后重新校验分组权限，不把内部字段写回上游正文。
+			modelRequest.Group = usingGroup
+		}
 		if modelRequest.Group != "" {
 			if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") && c.GetInt("token_id") <= 0 {
 				usingGroup, err = applyPlaygroundRequestedGroup(c, usingGroup, modelRequest.Group)

@@ -1,5 +1,9 @@
 # NewAPI-Mao 开发文档
 
+- [.369 Canvas 图片请求分组隔离发布](../workflows/2026-11/14_release_369.md)：内部参数过滤、分发前撤权复查、主分支累计范围与发布验收边界。
+
+- [Canvas 分组参数与上游请求隔离](../workflows/2026-11/14_canvas_group_request_boundary.md)：正文内部 `group` 过滤、授权分组上下文保留及图片任务回归边界。
+
 - [Default 正式基线集成交付](../workflows/2026-11/11_default_integration_delivery.md)：ALHE-113 P3，仅移植已审 P1/P2、保留目标索引并隔离无关快照；候选验证、可移植补丁及平台分支约束。
 - [Default 分组标签独立验收](../workflows/2026-11/11_default_group_tags_qa.md)：固定 P2 head 的 P2/B5 与 P1 组合回归 pass，不代表新集成版本或生产验收。
 - [Default 单密钥转换独立验收](../workflows/2026-11/11_default_multi_key_conversion_qa.md)：固定 P1 head 的 B2 pass，保留权限、工具版本与 E2E 边界。
