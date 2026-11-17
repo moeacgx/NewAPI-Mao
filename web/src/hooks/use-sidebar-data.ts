@@ -241,8 +241,10 @@ export function useSidebarData(): SidebarData {
           },
           {
             title: t('Affiliate Commission'),
-            url: '/system-settings/billing/affiliate',
+            url: '/affiliate-management',
+            configUrls: ['/system-settings/billing/affiliate'],
             icon: HandCoins,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Game Management'),

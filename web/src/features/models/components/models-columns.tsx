@@ -45,6 +45,9 @@ import { DataTableRowActions } from './data-table-row-actions'
 import { DescriptionCell } from './description-cell'
 
 function getCompactModelIcon(iconKey: string) {
+  if (/^https?:\/\//i.test(iconKey.trim())) {
+    return getLobeIcon(iconKey, 20)
+  }
   const baseIconKey = iconKey.split('.')[0]
 
   return getLobeIcon(`${baseIconKey}.Avatar.type={'platform'}`, 20)
@@ -359,7 +362,16 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           <BadgeListCell
             max={3}
             items={(groups ?? []).map((g) => (
-              <GroupBadge key={g} group={g} size='sm' />
+              <GroupBadge
+                key={g}
+                group={g}
+                label={
+                  Object.hasOwn(row.original.enable_group_names ?? {}, g)
+                    ? row.original.enable_group_names?.[g]
+                    : undefined
+                }
+                size='sm'
+              />
             ))}
           />
         )

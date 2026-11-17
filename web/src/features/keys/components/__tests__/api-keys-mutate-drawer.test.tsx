@@ -415,7 +415,7 @@ describe('API keys mutate drawer Auto group integration', () => {
     selectComboboxOption(addGroupTrigger, 'Priority access')
 
     expect(
-      document.querySelector('button[aria-label="Remove vip"]')
+      document.querySelector('button[aria-label="Remove Priority models"]')
     ).toBeTruthy()
     expect(document.body.textContent?.includes('1 / 3 groups selected')).toBe(
       true
@@ -424,11 +424,13 @@ describe('API keys mutate drawer Auto group integration', () => {
 
     const groupTrigger = getControlByLabel('Group')
     selectComboboxOption(groupTrigger, 'Standard access')
-    expect(document.querySelector('button[aria-label="Remove vip"]')).toBe(null)
+    expect(
+      document.querySelector('button[aria-label="Remove Priority models"]')
+    ).toBe(null)
     selectComboboxOption(groupTrigger, 'Automatic routing')
 
     expect(
-      document.querySelector('button[aria-label="Remove vip"]')
+      document.querySelector('button[aria-label="Remove Priority models"]')
     ).toBeTruthy()
     expect(document.body.textContent?.includes('1 / 3 groups selected')).toBe(
       true

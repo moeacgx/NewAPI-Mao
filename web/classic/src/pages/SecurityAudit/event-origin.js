@@ -71,7 +71,10 @@ const normalizeChannelGroups = (groups) => {
     const item = {
       id: positiveId(group?.id),
       code: cleanText(group?.code),
-      name: cleanText(group?.name),
+      name:
+        (hasOwn(group, 'display_name') && typeof group.display_name === 'string'
+          ? group.display_name.trim()
+          : '') || cleanText(group?.name),
     };
     if (!item.id && !item.code && !item.name) return [];
 
@@ -88,7 +91,11 @@ export const getAuditEventRouteGroupOrigin = (event = {}) => {
   const routeGroup = {
     id: positiveId(event.group_id),
     code: cleanText(event.group_code),
-    name: cleanText(event.group_name),
+    name:
+      (hasOwn(event, 'group_display_name') &&
+      typeof event.group_display_name === 'string'
+        ? event.group_display_name.trim()
+        : '') || cleanText(event.group_name),
   };
   if (routeGroup.id > 0 || routeGroup.code || routeGroup.name) {
     return { state: AUDIT_EVENT_ORIGIN_ASSIGNED, items: [routeGroup] };

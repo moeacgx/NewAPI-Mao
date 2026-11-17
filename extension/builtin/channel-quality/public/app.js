@@ -1054,12 +1054,12 @@
     const includedTypes = onlyTypes ? new Set(onlyTypes) : null
     const includes = (type) => !includedTypes || includedTypes.has(type)
     const group = String(firstDefined(item, ['group'], ''))
-    const groupName = String(firstDefined(item, ['group_name'], group))
+    const groupName = String(firstDefined(item, ['group_name'], group)).trim() || group
     const channelId = numberValue(item, ['channel_id'])
     const channelName = String(firstDefined(item, ['channel_name'], channelId ? `渠道 #${channelId}` : ''))
     const model = String(firstDefined(item, ['requested_model', 'upstream_model'], ''))
     const parts = []
-    if (group && includes('group')) parts.push(`<span class="identity-part"><small>分组</small><strong>${escapeHtml(groupName || group)}</strong>${groupName && groupName !== group ? `<em>${escapeHtml(group)}</em>` : ''}</span>`)
+    if (group && includes('group')) parts.push(`<span class="identity-part"><small>分组</small><strong>${escapeHtml(groupName || group)}</strong></span>`)
     if (channelId && includes('channel')) parts.push(`<span class="identity-part"><small>渠道</small><strong>${escapeHtml(channelName)}</strong><em>#${channelId}</em></span>`)
     if (model && includes('model')) parts.push(`<span class="identity-part"><small>模型</small><strong title="${escapeHtml(model)}">${escapeHtml(model)}</strong></span>`)
     const missingLabel = onlyTypes?.length === 1 ? STABILITY_NODE_LABELS[onlyTypes[0]] : '维度'
@@ -1530,6 +1530,7 @@
       type,
       typeName: String(firstDefined(row, ['channel_type_name', 'type_name'], channelTypes[type] || `类型 ${type}`)),
       group: String(firstDefined(row, ['group', 'channel_group'], '')),
+      groupName: String(firstDefined(row, ['group_name'], '')).trim() || String(firstDefined(row, ['group', 'channel_group'], '')),
       calls: numberValue(row, ['channel_attempt_count', 'attempt_count', 'request_count', 'calls']),
       retries: numberValue(row, ['retry_count', 'retries']),
       successRate: firstDefined(row, ['channel_quality_success_rate', 'quality_success_rate', 'success_rate'], null),
@@ -1597,7 +1598,7 @@
           <button class="expand-button" type="button" data-expand-channel="${channel.id}" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escapeHtml(channel.name)}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
-          <div><div class="channel-name" title="${escapeHtml(channel.name)}">${escapeHtml(channel.name)}</div><div class="channel-sub">#${channel.id} · ${escapeHtml(channel.typeName)}${channel.group ? ` · 配置分组 ${escapeHtml(channel.group)}` : ''}</div></div>
+          <div><div class="channel-name" title="${escapeHtml(channel.name)}">${escapeHtml(channel.name)}</div><div class="channel-sub">#${channel.id} · ${escapeHtml(channel.typeName)}${channel.group ? ` · 配置分组 ${escapeHtml(channel.groupName)}` : ''}</div></div>
         </div></td>
         <td><strong>${escapeHtml(formatInteger(channel.calls))}</strong><div class="cell-sub">重试 ${escapeHtml(formatInteger(channel.retries))}</div></td>
         <td><span class="rate-value ${rateClass(channel.successRate)}">${escapeHtml(formatPercent(channel.successRate))}</span><div class="cell-sub">可归因渠道样本</div></td>

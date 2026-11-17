@@ -154,6 +154,7 @@ type ChannelAnalyticsChannelItem struct {
 	ChannelType               int                          `json:"channel_type"`
 	ChannelTypeName           string                       `json:"channel_type_name"`
 	Group                     string                       `json:"group,omitempty"`
+	GroupName                 string                       `json:"group_name,omitempty"`
 	ChannelAttemptCount       int64                        `json:"channel_attempt_count"`
 	FailureCount              int64                        `json:"failure_count"`
 	RetryCount                int64                        `json:"retry_count"`

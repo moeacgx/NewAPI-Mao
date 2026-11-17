@@ -417,6 +417,9 @@ func resolveBindingGroupsWithPolicy(tx *gorm.DB, ids []int, legacy string, polic
 				return nil, nil, nil, fmt.Errorf("分组 ID %d 不存在", id)
 			}
 			if !policy.allows(group) {
+				if name := strings.TrimSpace(group.Name); name != "" {
+					return nil, nil, nil, fmt.Errorf("分组 %q 已禁用", name)
+				}
 				return nil, nil, nil, fmt.Errorf("分组 ID %d 不存在或已禁用", id)
 			}
 			seen[id] = struct{}{}
@@ -452,7 +455,11 @@ func resolveBindingGroupsWithPolicy(tx *gorm.DB, ids []int, legacy string, polic
 			return nil, nil, nil, fmt.Errorf("查询分组 %q 失败: %w", legacyGroupCodePreview(code), err)
 		}
 		if !policy.allows(group) {
-			return nil, nil, nil, fmt.Errorf("分组 %q 已禁用", code)
+			name := strings.TrimSpace(group.Name)
+			if name == "" {
+				name = code
+			}
+			return nil, nil, nil, fmt.Errorf("分组 %q 已禁用", name)
 		}
 		if _, ok := seen[group.Id]; ok {
 			continue

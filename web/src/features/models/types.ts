@@ -49,6 +49,7 @@ export interface Model {
   // Runtime fields
   bound_channels?: BoundChannel[]
   enable_groups?: string[]
+  enable_group_names?: Record<string, string>
   quota_types?: number[]
   matched_models?: string[]
   matched_count?: number

@@ -311,6 +311,8 @@ export const GroupRatioForm = memo(function GroupRatioForm({
         }
 
         await Promise.all([
+          // 分组详情派生查询也须刷新，不能只更新父键。
+          queryClient.invalidateQueries({ queryKey: groupDetailsQueryKey }),
           queryClient.invalidateQueries({ queryKey: ['system-options'] }),
           queryClient.invalidateQueries({ queryKey: ['status'] }),
           queryClient.invalidateQueries({ queryKey: ['channels'] }),

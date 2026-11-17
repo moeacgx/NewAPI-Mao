@@ -1,11 +1,44 @@
 # NewAPI-Mao 二次开发能力
 
+## Issue #398–#402 本轮交付状态
+
+新一轮独立审查发现的活动列表刷新丢失、API 地址 500 全页跳转两项 P2 及日志 `__proto__` 名称丢失 P3 均已返修并独立复验；返佣、Logo、Classic 立即提交新独审 44 项通过。此前双模板构建结果只对应当时快照，不能作为这次返修后的发布构建。用户已授权提交推送 dev、部署 zzapi 并切换 Default，截至本段登记均尚未执行；dev 纯本轮提交与保留线上 money MCP overlay 的组合产物边界见[部署专题](../workflows/2026-11/16_issue401_dev_zzapi_deployment.md)，实际冻结、构建、发布和切换尚未执行，由协调者在全部工作者解决与最终门禁后统一登记；详见[收口记录](../workflows/2026-11/17_issue398_405_release_closeout.md)。并行 MCP 内容保留，不同步上游。
+
+## Issue #403–#405 本轮交付状态
+
+11 个翻译键（#404 倍率保护 9 键、#405 顶部导航 2 键）已写入 7 个语言包（`en/zh/zh-TW/fr/ja/ru/vi`）的 `translation` 命名空间；`bun run i18n:sync` 通过，无多余键、无键删除，MCP 条目未变；zh/zh-TW/ja 比例键术语返修（比例→倍率，レート→倍率），r3 验证 77/77 值、7770 原键不变（含 105 个 MCP 条目），exit 0；临时脚本已删除；翻译最终文档独审已通过（七语言包 SHA 一致，11 键 × 7 语言 = 77 值）。详见[i18n 集成记录](../workflows/2026-11/16_issue403_405_i18n_integration.md)。
+
+#403 分组显示名称各专题状态（字母以各专题记录自身标题为准，不按列表顺序推断）：
+
+- **A 用户分组名称**：独立审查 22 项通过（Default 14 + Classic 8）；与 F 合计 32 项。详见[工作记录](../workflows/2026-11/16_issue403_user_group_names.md)。
+- **B 订阅分组名称**：独立审查 13 项通过（Default 6/6、Classic 6/6、已删除分组 code 夹具 1/1）；六个生产文件仅格式修正已独审通过；手机夹具 E1 缺陷已由返修复审关闭，冻结夹具无新增 P1/P2，该结论仅限夹具与证据口径，不代表订阅手机全部场景验收；真机、全量构建与类型检查、真实后端权限、支付和数据库边界未验证。详见[工作记录](../workflows/2026-11/16_issue403_subscription_group_names.md)。
+- **C 模型分组名称**：15 文件范围独立审查通过，无新增 P1/P2（Go 定向测试首次 60 秒超时不计通过，重跑通过）；无全量构建、真实认证与 MySQL/PostgreSQL 验证。详见[工作记录](../workflows/2026-11/16_issue403_model_group_names.md)。
+- **D 画布与安全审计名称**：前端限定范围独立审查通过，三个 P2 均已闭环，无剩余 P1/P2；浏览器证据为本地 mock，真实父页面刷新、认证全链、MySQL/PostgreSQL 与生产未验证。详见[工作记录](../workflows/2026-11/16_issue403_canvas_audit_names.md)。
+- **E 可观测性分组名称**：额外原生路由 P2 已通过删除该路由关闭，使用既有扩展入口；最终 12 个有效成功场景、15 份证据（含 2 份旧失败与 1 份负控，不计入成功数）；v7 不作为 groups 提交证据，筛选提交原 code 以已独审的 v5 证据为准；v5 筛选与 Go 三项安装/升级测试已独审，最后的文档格式 P3 由 v9 关闭；390 为 Chrome 移动视口模拟，Classic 禁用模块仅后端拦截；未发布外仓，不称生产或真机通过。详见[工作记录](../workflows/2026-11/16_issue403_observability_group_names.md)。
+- **F 渠道分组名称**：独立审查通过（Default 6 + Classic 4 共 10 项）；与 A 合计 32 项。详见[工作记录](../workflows/2026-11/16_issue403_channel_group_names.md)。
+- **G 归档分组名称**：后端独立审查通过。详见[工作记录](../workflows/2026-11/16_issue403_archive_group_names.md)。
+- **H 分组校验名称**：后端独立审查通过。详见[工作记录](../workflows/2026-11/16_issue403_group_validation_names.md)。
+- **全局分组展示只读审计矩阵**（无字母）：记录问题发现与派发，只读审计，未验证边界保留；不等同于后端通过。详见[工作记录](../workflows/2026-11/16_issue403_group_display_audit.md)。
+- **外置扩展分组名称**（无字母）：外置与内嵌同源三入口修复及既有回归；额外路由 P2 已随路由文件删除而关闭，浏览器与安装仅以已独审的 E v5/v7 及 Go 三定向证据为限，外仓未发布，真实生产与整体验收未验证，不称整体通过。详见[工作记录](../workflows/2026-11/16_issue403_external_group_names.md)。
+
+订阅降级分组删除引用 P2：已独立审查确认通过（`model/group_identity.go:1977`、`model/group_identity.go:1980`），验证仅限 SQLite，MySQL/PostgreSQL 未验证，详见[降级分组引用记录](../workflows/2026-11/16_subscription_downgrade_group_reference.md)；著作权头部恢复（783 文件）尚未提交推送，不部署 zzapi。
+
+**#404 令牌倍率保护**：源码二层审查（2+23+8+8+Auto28）已完成，Classic 三个用例各自通过；真实后端与数据库边界未验证，不宣称整批通过。详见[工作记录](../workflows/2026-11/16_issue404_token_ratio_protection.md)。
+
+**#405 页头布局与导航**：当前代码已独立审查，无 P1/P2；`Navigation`/`Navigation menu` 两键已集成到七语。作者原始四件证据（`after-1100-dark-ordinary.json` 与展开、菜单、折叠截图）被覆盖且不可恢复，作者历史 16 场景矩阵不再作为完整通过证据，以独立复核的当前代表场景为准：Default 1100 深色、Classic 1100、Classic 390 深色及相关自动检查；访客登录链路真实浏览器、真实后端和全部视口/主题组合未验证。详见[工作记录](../workflows/2026-11/16_issue405_header_layout.md)。
+
+**格式化头部保护脚本**：实现与测试已独立审查（56/56），安全契约仅为输出候选、`--check` 只读、`--write` 拒绝；本轮不执行该脚本任何模式。详见[工作记录](../workflows/2026-11/16_formatter_header_safety.md)。
+
+**本轮收口**：全部专题的独立审查结论、待统一集成、冻结与构建事项见[收口记录](../workflows/2026-11/17_issue398_405_release_closeout.md)；用户明确全部工作者解决与最终门禁完成前不部署 zzapi，不提交推送，不访问生产。
+
 ## 渠道单密钥转多密钥
 
 - Default 渠道编辑增加显式转换入口，复用 Classic 已有的 `PUT /api/channel/` 契约；已存在的多密钥编辑和新建多密钥流程保留。
 - 编辑要求 ChannelWrite，转换与多密钥策略要求 ChannelSensitiveWrite。来源或目标类型为 Vertex AI/Codex、io.net 托管渠道以及缺失有效来源类型时不提供转换；取回密钥的 RootAuth 不替代更新权限。
 - 没有新密钥时保留原密钥，只发送调度策略；取消、重开或切换渠道清空转换状态。无迁移，回退 UI 不会撤销服务端已完成的渠道转换。
 - 稳定性：P1 固定 head `e91adf6743fd29a7a907aae9fc47cc9720532744` 已获独立验收 pass；P2 组合 head `ffe87461b566dec6ea9119971d5d51f07b83a1f9` 的 P1 回归也已独立通过。正式基线候选仍单独验证和交验，见[集成交付](../workflows/2026-11/11_default_integration_delivery.md)。P1 验证命令、结果和范围见[工作记录](../workflows/2026-11/11_default_multi_key_conversion.md)。
+
+- 2026-11-16 追加修复 Classic 多密钥选择器：在 `onSelect` 同步策略和追加/覆盖模式，避免下拉退出动画前立即保存旧值；请求字段与敏感写权限不变。Classic 10 项真实组件、8 项契约、Default 27 项对照及修后 12 次 mock 浏览器请求通过；Classic 独立重建 exit 0（33.51 秒），独立审查 `ctx_108ffd07f56c` 已通过，未发现 P1/P2。真实后端、Redis 轮询和生产权限仍未验收，见[工作记录](../workflows/2026-11/16_issue401_classic_key_mode.md)。
 
 ## 充值日志订单客户端 IP
 
@@ -17,6 +50,23 @@
 
 - Default 与 Classic 的使用日志类型下拉菜单中均包含「技能」选项（不设独立筛选框），选择时请求参数为 `type=0&skill=used`（仅实际使用：始终装载或 generation 已读，排除发现/未用）。切换到其他类型或”全部”时清除 `skill` 参数，避免残留。Default 角标从时间列迁移到令牌单元格内分组标签右上角，悬停/聚焦显示详情。纯前端虚拟值，不作为数值发给后端；旧链接自动映射。列表、总数、分页与统计使用同一技能判定，普通用户限本人。
 - 稳定性与限制：两套模板组件与 hook 测试、typecheck 和生产构建通过，未做真实浏览器视觉验收；见[使用日志技能筛选与角标](../workflows/2026-10/26_default_skill_logs.md)。后端 `skill=used` 参数支持与验证见[接口与实现记录](../workflows/2026-10/26_usage_log_skill_filter.md)。未涉及数据迁移，历史日志按需解析；大时间窗候选扫描可能达到超时，建议缩小范围。
+
+## 普通使用日志分组名称选择
+
+- Default 普通日志已对齐 Classic 的名称选组入口：选项展示当前分组名称，提交原有 code；历史 URL 的 code/alias 只解析展示，不改写查询值，无法解析时允许保留或清除原值。
+- 当前实现按管理员全部日志视图读取 `/api/group/details`，普通用户和管理员仅本人视图读取 `/api/user/self/groups`。两接口顶层新增可选 `group_names`，保留已有 data 等字段；普通用户映射限定在可用分组稳定 ID 对应的 code/alias，不按名称授权。
+- 仅覆盖普通日志，不扩展任务、绘图类别；名称展示不参与鉴权、路由或计费。Classic 已有下拉与稳定标识提交契约，本轮接口追加字段不要求其改写查询。
+- 稳定性：原双模板门禁保留为历史快照；新发现的合法 `__proto__` alias 改名后名称丢失通过查询级关闭结构共享修复，独立原夹具 4/4、定向 34/34 通过，未改授权和筛选标识；真实后端认证、数据库、多实例、历史标识和生产角色隔离仍未验收。无数据库结构变更。
+  见[工作记录](../workflows/2026-11/16_issue401_log_group_selection.md)与[历史迁移矩阵](../workflows/2026-11/16_issue401_migration_matrix.md)，
+  不以矩阵中的基线缺口描述代替修复后的验收结论。
+
+## 管理员返佣业务与 Root 配置分离
+
+- Default 当前源码增加 `/affiliate-management`，允许 role ≥ 10 管理邀请关系、返佣记录、提现、风险、申请与异常检测；未登录和普通用户不能进入。业务面板复用 `/api/affiliate/admin/*`，不挂载 Root 配置表单或读取 `/api/option/`。
+- `/system-settings/billing/affiliate` 继续由系统设置父路由限制为 Root（role 100），不扩大配置接口或其他设置权限。返佣金额、账务与审核 API 的后端契约不变。
+- Classic `/console/affiliate-admin` 的普通管理员路径已同步拆分为仅业务面板，避免进入 Root option 加载和支付配置确认流程；Root 保留原配置入口。
+- 稳定性：双模板实现、独立复审及统一构建门禁已记录；真实 Redis、多实例、生产角色权限和交易链仍未验收，
+  不代表已部署；无数据库迁移。详见[返佣管理权限记录](../workflows/2026-11/16_issue401_affiliate_admin_access.md)。
 
 ## 工单中心
 
@@ -55,17 +105,19 @@
 - 稳定性与限制：本地 HTTP 桥接及 SQLite 钱包测试已验证，随 `.352` 部署正式站三节点；生产仅验收部署和基础接口，未实测真实上游取消结算。成功流断开后最多继续读取 180 秒收集最终 usage，可能继续产生上游费用，原入口截止时间和空闲超时仍生效。窗口内无 usage 不补估；真实上游错误仍保留，不能保证追回全部上游成本。
 - 契约与验证：[Claude 流式计费对账修复](../workflows/2026-10/21_claude_billing_reconciliation_fix.md)。
 
-## 双主题当前连接与 Classic 令牌使用状态
+## 双主题当前连接与令牌使用状态
 
 - 两套主题使用日志已在本地实现限量卡片及完整分页抽屉；Default 新增独立原生入口。
-  Classic 令牌页按稳定令牌 ID 聚合正在使用数量。
+  Classic 令牌页按稳定令牌 ID 聚合正在使用数量；本轮 Default 令牌页补齐同一能力。
+- Default 与 Classic 令牌活动均使用本人 `/api/log/self/active` 摘要，以 `summary.by_token` 的稳定 ID 标记使用状态，管理员令牌页也不查询其他用户。Default 新增活动令牌数、请求数与 `active_only` 服务端筛选，错误时明确显示上次快照；状态和名称等筛选组合、分页总数继续交给服务端。
+- Default 本轮状态请求、缓存键与活动 UI 已接线；轮询、隐藏页面取消和身份切换隔离的实现及验证见[令牌状态与活动记录](../workflows/2026-11/16_issue399_400_token_activity.md)。历史独立复审和集成门禁已记录；新发现的首次列表在途刷新丢失已修复，pending 按主体与完整查询上下文隔离并在请求完成后合并补查，新独审活动 37/37 及原失败夹具通过；真实 Redis 多实例、认证和生产验收仍不属于下述历史 `.352` 发布结论。
 - Classic 与 Default 管理员按用户 ID 或精确用户名提交日志查询时，面板与抽屉联动显示该用户连接，
   清空提交后恢复本人；后端独立管理员接口保护跨用户查询。本项随 `.352` 发布并部署正式站三节点，
   验证见[查询联动记录](../workflows/2026-10/22_admin_user_active_connections.md)。
 - 连接结束后保留 5 秒并冻结耗时，结束记录不计入活动请求或正在使用的凭据；接口与轮询边界见
   [结束保留记录](../workflows/2026-10/22_active_connections_finished_retention.md)。
 - 共享 Redis 汇总多节点请求，单进程支持无 Redis；无数据表迁移，不影响计费与路由。
-- 当前状态：本次双主题查询联动随 `.352` 发布并部署正式站三节点。后端、两套主题组件与
+- 历史验证：双主题日志查询联动随 `.352` 发布并部署正式站三节点。后端、两套主题组件与
   桌面/手机预览、Default 类型检查通过；`.352` 整合时双模板完整构建通过。
   连接观察超时可恢复，切换用户隔离旧数据；未调用真实收费供应商。
   契约、生命周期与覆盖边界见[当前连接专题](active-requests.md)。
@@ -188,6 +240,12 @@
 - 多人兑换码恢复每码上限与独立用户使用记录，额度发放和名额占用在同一事务内；旧兑换码默认 1 次。
 - 文档：[令牌列表](../workflows/2026-10/02_classic_token_search_api_info.md)、[创建编辑](../workflows/2026-10/01_token_tag_picker_flow.md)、[兑换码修复](../workflows/2026-10/01_redemption_multi_user_limit.md)。本地 SQLite 验证不能代替 MySQL/PostgreSQL 实跑。
 
+## 双模板令牌 API 地址入口
+
+- Classic 与 Default 均在令牌操作区提供地址入口，读取公开 `/api/status` 的 `api_info_enabled`、`api_info` 和 `server_address`；有效列表展示线路名称、原始 URL 与说明，复制时不追加 `/v1` 或改写路径。
+- 列表关闭、缺失或没有有效地址时，优先使用去除首尾空白的站点地址，再回退当前 origin；不读取完整令牌密钥。Default 原生 Popover 提供加载、失败原地重试、复制成功/失败反馈和键盘焦点恢复。
+- 稳定性：Default 10 项组件回归及独立审查通过，模拟 API 浏览器覆盖三种宽度、深浅色与精确复制；Classic 3 项真实组件回归通过，仅覆盖线路展示及两级回退，不能扩大为 Classic 复制、异常或手机主题验收。上述构建只对应历史快照；新发现的 HTTP 500 全页跳转已修复，保留认证/取消语义，原失败夹具及新独审地址 16/16 通过，返修后的发布构建待执行；仍无本轮生产验收或数据迁移。历史说明保留在[Classic 记录](../workflows/2026-10/02_classic_token_search_api_info.md)，本轮证据见[地址入口记录](../workflows/2026-11/16_issue402_api_addresses.md)。
+
 ## 分组标签
 
 - 在分组与模型定价设置中维护标签、说明、排序、多个内置 Logo 或图片 URL，并按稳定分组 ID 绑定。
@@ -199,12 +257,12 @@
 
 项目名称、默认仓库和镜像规则见[项目身份与发布兼容](project-identity.md)。本次更名无新增业务功能或数据迁移；旧版自更新资产名和配套仓库保持兼容，首次新镜像发布仍须验收。
 
-## Classic 供应商自定义 Logo
+## 双模板供应商自定义 Logo
 
 - 在供应商图标字段填写 HTTP/HTTPS 图片直链，或继续使用 LobeHub 图标名和链式参数。
-- 覆盖 Classic 供应商、模型、渠道选择和模型广场；图片加载失败时显示默认图标。
-- 复用现有 `icon` 字段，最长 128 字符，无数据迁移；Default 未实现 URL 图标渲染。
-- 实现与验证边界见 [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md)。
+- Classic 与 Default 已有的供应商 Logo 展示入口通过各自共享加载器支持图片 URL；Default 覆盖模型名称与供应商列、模型广场及榜单。Default 渠道供应商筛选和编辑选项目前仅显示名称，不计为 Logo 展示入口。URL 图片等比显示，加载失败时回退默认占位，切换 URL 后可重新加载。
+- 复用现有 `icon` 字段，最长 128 字符，无数据迁移；保留 LobeHub 名称、链式参数及项目自定义图标。图片由浏览器直接请求并禁用 referrer，HTTPS 页面加载 HTTP 图片可能受到浏览器限制。
+- 本轮独立复审通过 Default 13 项与 Classic 14 项组件回归，另有 7 项独立边界测试通过，并核对本地模拟接口的桌面、手机及浅深色截图；未执行真实登录后的跨模板保存或生产图片验证。统一 Default typecheck、Default build 和 Classic build 已通过；真实认证、跨模板保存和生产图片仍未验收。保留 [Classic 供应商自定义 Logo URL](../workflows/2026-09/23_classic_vendor_logo_url.md) 历史记录，本轮实现与限制见 [Default Logo 补齐](../workflows/2026-11/16_issue398_logo.md)。
 
 ## xAI 渠道 Messages 兼容
 

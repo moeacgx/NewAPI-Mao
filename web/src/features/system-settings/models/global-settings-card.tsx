@@ -57,7 +57,10 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
-import { buildCanvasDefaultGroupOptions } from './canvas-default-group-options'
+import {
+  buildCanvasDefaultGroupDisplayItems,
+  buildCanvasDefaultGroupOptions,
+} from './canvas-default-group-options'
 
 const thinkingBlacklistExample = JSON.stringify(
   ['moonshotai/kimi-k2-thinking', 'kimi-k2-thinking'],
@@ -238,6 +241,18 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
                 <FormLabel>{t('Infinite Canvas Default Group')}</FormLabel>
                 <Select
                   value={field.value || '__fallback__'}
+                  items={[
+                    { value: '__fallback__', label: t('Use system fallback') },
+                    ...buildCanvasDefaultGroupDisplayItems(
+                      canvasDefaultGroupOptions,
+                      groupDetails?.groups ?? [],
+                      field.value ?? ''
+                    ).map((group) => ({
+                      value: group.value,
+                      label:
+                        group.value === 'auto' ? t(group.label) : group.label,
+                    })),
+                  ]}
                   onValueChange={(value) =>
                     field.onChange(value === '__fallback__' ? '' : value)
                   }

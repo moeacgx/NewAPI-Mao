@@ -117,7 +117,9 @@ const UserInfoModal = ({
             {userInfoData.group && (
               <div style={colStyle}>
                 {renderLabel(t('用户组'), 'tertiary')}
-                <div style={valueStyle}>{userInfoData.group}</div>
+                <div style={valueStyle}>
+                  {userInfoData.group_name?.trim() || userInfoData.group}
+                </div>
               </div>
             )}
           </div>

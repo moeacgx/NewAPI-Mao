@@ -70,13 +70,18 @@ const renderVendorTag = (vendorId, vendorMap, t) => {
 };
 
 // Render groups (enable_groups)
-const renderGroups = (groups) => {
+const renderGroups = (groups, record) => {
   if (!groups || groups.length === 0) return '-';
   return renderLimitedItems({
     items: groups,
     renderItem: (g, idx) => (
       <Tag key={idx} size='small' shape='circle' color={stringToColor(g)}>
-        {g}
+        {Object.prototype.hasOwnProperty.call(
+          record?.enable_group_names ?? {},
+          g,
+        )
+          ? record.enable_group_names[g] || g
+          : g}
       </Tag>
     ),
   });

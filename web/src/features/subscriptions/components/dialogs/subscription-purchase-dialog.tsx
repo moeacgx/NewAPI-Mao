@@ -362,7 +362,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
             <span className='text-muted-foreground text-sm'>
               {t('Upgrade Group')}
             </span>
-            <GroupBadge group={plan.upgrade_group} />
+            <GroupBadge
+              group={plan.upgrade_group}
+              label={plan.upgrade_group_name}
+            />
           </div>
         )}
         <Separator />

@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -109,32 +110,36 @@ func (PromptAuditJob) TableName() string { return "prompt_audit_jobs" }
 
 // PromptAuditEventChannelGroup 是事件发生时实际渠道业务分组的不可变快照。
 type PromptAuditEventChannelGroup struct {
-	Id   int    `json:"id"`
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Id          int    `json:"id"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name,omitempty" gorm:"-"`
 }
 
 // PromptAuditEventTokenGroup 是事件发生时令牌绑定分组的不可变快照。
 type PromptAuditEventTokenGroup struct {
-	Id   int    `json:"id"`
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Id          int    `json:"id"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name,omitempty" gorm:"-"`
 }
 
 // PromptAuditEvent 的正文存储由 PromptCipherKind 标记：有稳定密钥时是密文，
 // 未配置密钥时是 Root-only 审计明文。正文列不直接序列化到列表响应。
 type PromptAuditEvent struct {
-	Id                  int64                          `json:"id" gorm:"primaryKey"`
-	JobId               int64                          `json:"job_id" gorm:"not null;default:0;index"`
-	RequestId           string                         `json:"request_id" gorm:"type:varchar(128);not null;index"`
-	UserId              int                            `json:"user_id" gorm:"not null;index;index:idx_prompt_audit_cyber_user_time,priority:1"`
-	Username            string                         `json:"username" gorm:"type:varchar(128);not null"`
-	UserEmail           string                         `json:"user_email" gorm:"type:varchar(255);not null"`
-	TokenId             int                            `json:"api_key_id" gorm:"not null;index"`
-	TokenName           string                         `json:"api_key_name" gorm:"type:varchar(128);not null"`
-	GroupId             int                            `json:"group_id" gorm:"not null;default:0;index"`
-	GroupCode           string                         `json:"group_code" gorm:"type:varchar(64);not null;default:'';index"`
-	GroupName           string                         `json:"group_name" gorm:"type:varchar(128);not null"`
+	Id        int64  `json:"id" gorm:"primaryKey"`
+	JobId     int64  `json:"job_id" gorm:"not null;default:0;index"`
+	RequestId string `json:"request_id" gorm:"type:varchar(128);not null;index"`
+	UserId    int    `json:"user_id" gorm:"not null;index;index:idx_prompt_audit_cyber_user_time,priority:1"`
+	Username  string `json:"username" gorm:"type:varchar(128);not null"`
+	UserEmail string `json:"user_email" gorm:"type:varchar(255);not null"`
+	TokenId   int    `json:"api_key_id" gorm:"not null;index"`
+	TokenName string `json:"api_key_name" gorm:"type:varchar(128);not null"`
+	GroupId   int    `json:"group_id" gorm:"not null;default:0;index"`
+	GroupCode string `json:"group_code" gorm:"type:varchar(64);not null;default:'';index"`
+	GroupName string `json:"group_name" gorm:"type:varchar(128);not null"`
+	// GroupDisplayName 仅用于读取时展示当前名称，GroupName 始终保留事发快照。
+	GroupDisplayName    string                         `json:"group_display_name,omitempty" gorm:"-"`
 	ChannelId           int                            `json:"channel_id" gorm:"not null;default:0;index"`
 	ChannelName         string                         `json:"channel_name" gorm:"type:varchar(128);not null;default:''"`
 	ChannelGroupDetails string                         `json:"-" gorm:"type:text"`
@@ -823,7 +828,7 @@ func ListPromptAuditEvents(filter PromptAuditEventFilter, page, pageSize int) ([
 	}
 	var events []PromptAuditEvent
 	if err := query.Select("id", "job_id", "request_id", "user_id", "username", "user_email", "token_id", "token_name",
-		"group_id", "group_name", "channel_id", "channel_name", "channel_group_details",
+		"group_id", "group_code", "group_name", "channel_id", "channel_name", "channel_group_details",
 		"token_group_mode", "token_group_details",
 		"provider", "endpoint", "protocol", "model", "prompt_hash", "redacted_preview",
 		"prompt_length", "prompt_truncated", "prompt_available", "message_count", "context_segments", "source", "stage",
@@ -841,6 +846,7 @@ func ListPromptAuditEvents(filter PromptAuditEventFilter, page, pageSize int) ([
 			return nil, 0, err
 		}
 	}
+	hydratePromptAuditGroupDisplayNames(events)
 	return events, total, nil
 }
 
@@ -881,14 +887,97 @@ func GetPromptAuditEvent(id int64) (*PromptAuditEvent, error) {
 	if err := decodePromptAuditEventTokenGroups(&event); err != nil {
 		return nil, err
 	}
-	return &event, nil
+	events := []PromptAuditEvent{event}
+	hydratePromptAuditGroupDisplayNames(events)
+	return &events[0], nil
+}
+
+// hydratePromptAuditGroupDisplayNames 批量生成当前名称投影，不改原事件或嵌套快照。
+// 名称来源不可用时保留历史证据可读性，不能据此改变身份或审计处理结果。
+func hydratePromptAuditGroupDisplayNames(events []PromptAuditEvent) {
+	type groupDisplayReference struct {
+		id      int
+		code    string
+		name    string
+		display *string
+	}
+	refs := make([]groupDisplayReference, 0, len(events))
+	for i := range events {
+		event := &events[i]
+		refs = append(refs, groupDisplayReference{event.GroupId, event.GroupCode, event.GroupName, &event.GroupDisplayName})
+		for j := range event.ChannelGroups {
+			group := &event.ChannelGroups[j]
+			refs = append(refs, groupDisplayReference{group.Id, group.Code, group.Name, &group.DisplayName})
+		}
+		for j := range event.TokenGroups {
+			group := &event.TokenGroups[j]
+			refs = append(refs, groupDisplayReference{group.Id, group.Code, group.Name, &group.DisplayName})
+		}
+	}
+	ids := make([]int, 0, len(refs))
+	needsLegacyNames := false
+	for _, ref := range refs {
+		if ref.id > 0 {
+			ids = append(ids, ref.id)
+		} else if strings.TrimSpace(ref.code) != "" || strings.TrimSpace(ref.name) != "" {
+			needsLegacyNames = true
+		}
+	}
+	groups := make(map[int]*Group)
+	var names map[string]string
+	if DB != nil {
+		ids = uniquePositiveGroupIDs(ids)
+		// 限制 IN 参数数，兼容 SQLite 的参数上限与大量嵌套分组快照。
+		for offset := 0; offset < len(ids); offset += 500 {
+			batch, err := GetGroupsByIds(ids[offset:min(offset+500, len(ids))])
+			if err != nil {
+				break
+			}
+			for id, group := range batch {
+				groups[id] = group
+			}
+		}
+		if needsLegacyNames {
+			names, _ = GetGroupDisplayNameMap()
+		}
+	}
+	for _, ref := range refs {
+		name := ""
+		if ref.id > 0 {
+			// ID 缺失或已删除时绝不再按 code 绑定到重建后的另一实体。
+			if group := groups[ref.id]; group != nil {
+				name = strings.TrimSpace(group.Name)
+			}
+		} else {
+			identifier := strings.TrimSpace(ref.code)
+			if identifier == "" {
+				identifier = strings.TrimSpace(ref.name)
+			}
+			name = strings.TrimSpace(names[identifier])
+		}
+		if name == "" {
+			name = strings.TrimSpace(ref.name)
+		}
+		if name == "" {
+			name = strings.TrimSpace(ref.code)
+		}
+		if name == "" && ref.id > 0 {
+			name = strconv.Itoa(ref.id)
+		}
+		*ref.display = name
+	}
 }
 
 func encodePromptAuditEventChannelGroups(event *PromptAuditEvent) error {
 	if event == nil || event.ChannelGroups == nil {
 		return nil
 	}
-	encoded, err := common.Marshal(event.ChannelGroups)
+	// 读取响应可能被其他调用方复用，展示字段不能进入持久化证据。
+	groups := append([]PromptAuditEventChannelGroup{}, event.ChannelGroups...)
+	for i := range groups {
+		groups[i].DisplayName = ""
+	}
+	encoded, err := common.Marshal(groups)
 	if err != nil {
 		return err
 	}
@@ -911,7 +1000,11 @@ func encodePromptAuditEventTokenGroups(event *PromptAuditEvent) error {
 	if event == nil || event.TokenGroups == nil {
 		return nil
 	}
-	encoded, err := common.Marshal(event.TokenGroups)
+	groups := append([]PromptAuditEventTokenGroup{}, event.TokenGroups...)
+	for i := range groups {
+		groups[i].DisplayName = ""
+	}
+	encoded, err := common.Marshal(groups)
 	if err != nil {
 		return err
 	}

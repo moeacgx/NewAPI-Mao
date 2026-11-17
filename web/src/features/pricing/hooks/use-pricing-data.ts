@@ -29,6 +29,8 @@ export function usePricingData() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['pricing'],
     queryFn: getPricing,
+    // 保留名称映射中合法的 __proto__ 自有键，避免改名重取时被结构共享丢弃。
+    structuralSharing: false,
     staleTime: 5 * 60 * 1000,
   })
 

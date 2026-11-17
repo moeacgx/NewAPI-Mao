@@ -582,7 +582,7 @@ const EditTokenModal = (props) => {
     name: '',
     remain_quota: 0,
     remain_amount: 0,
-    expired_time: -1,
+    expired_time: null,
     unlimited_quota: true,
     model_limits_enabled: false,
     model_limits: [],
@@ -677,7 +677,7 @@ const EditTokenModal = (props) => {
       timestamp += seconds;
       formApiRef.current.setValue('expired_time', timestamp2string(timestamp));
     } else {
-      formApiRef.current.setValue('expired_time', -1);
+      formApiRef.current.setValue('expired_time', null);
     }
   };
 
@@ -749,9 +749,9 @@ const EditTokenModal = (props) => {
       if (!res?.data) return;
       const { success, message, data } = res.data;
       if (success) {
-        if (data.expired_time !== -1) {
-          data.expired_time = timestamp2string(data.expired_time);
-        }
+        // -1 是永不过期哨兵值；日期控件留空并显示永不过期占位，避免渲染成 1970 年
+        data.expired_time =
+          data.expired_time > 0 ? timestamp2string(data.expired_time) : null;
         if (data.model_limits !== '') {
           data.model_limits = data.model_limits.split(',');
         } else {
@@ -924,7 +924,7 @@ const EditTokenModal = (props) => {
         setLoading(false);
         return;
       }
-      if (localInputs.expired_time !== -1) {
+      if (localInputs.expired_time) {
         let time = Date.parse(localInputs.expired_time);
         if (isNaN(time)) {
           showError(t('过期时间格式错误！'));
@@ -932,6 +932,8 @@ const EditTokenModal = (props) => {
           return;
         }
         localInputs.expired_time = Math.ceil(time / 1000);
+      } else {
+        localInputs.expired_time = -1;
       }
       localInputs.model_limits = localInputs.model_limits.join(',');
       localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
@@ -982,7 +984,7 @@ const EditTokenModal = (props) => {
           break;
         }
 
-        if (localInputs.expired_time !== -1) {
+        if (localInputs.expired_time) {
           let time = Date.parse(localInputs.expired_time);
           if (isNaN(time)) {
             showError(t('过期时间格式错误！'));
@@ -990,6 +992,8 @@ const EditTokenModal = (props) => {
             break;
           }
           localInputs.expired_time = Math.ceil(time / 1000);
+        } else {
+          localInputs.expired_time = -1;
         }
         localInputs.model_limits = localInputs.model_limits.join(',');
         localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
@@ -1168,14 +1172,12 @@ const EditTokenModal = (props) => {
                       field='expired_time'
                       label={t('过期时间')}
                       type='dateTime'
-                      placeholder={t('请选择过期时间')}
+                      placeholder={t('永不过期')}
                       rules={[
-                        { required: true, message: t('请选择过期时间') },
                         {
                           validator: (rule, value) => {
-                            // 允许 -1 表示永不过期，也允许空值在必填校验时被拦截
-                            if (value === -1 || !value)
-                              return Promise.resolve();
+                            // 空值表示永不过期，提交时转换为 -1 哨兵值
+                            if (!value) return Promise.resolve();
                             const time = Date.parse(value);
                             if (isNaN(time)) {
                               return Promise.reject(t('过期时间格式错误！'));

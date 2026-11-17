@@ -61,6 +61,7 @@ type AutoGroupOrderEditorProps = Omit<ComponentProps<'div'>, 'onChange'> & {
 
 type AutoGroupOrderItemProps = {
   group: string
+  label: string
   index: number
   count: number
   onMove: (index: number, direction: 'up' | 'down') => void
@@ -98,14 +99,14 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
         variant='ghost'
         size='icon-sm'
         className='text-muted-foreground cursor-grab touch-none font-mono active:cursor-grabbing'
-        aria-label={t('Drag {{group}} to reorder', { group: props.group })}
+        aria-label={t('Drag {{group}} to reorder', { group: props.label })}
         onPointerDown={handleDragStart}
         onKeyDown={handleDragKeyDown}
       >
         <HugeiconsIcon icon={Drag01Icon} strokeWidth={2} aria-hidden='true' />
       </Button>
       <span className='min-w-0 flex-1 truncate text-sm font-medium'>
-        {props.group}
+        {props.label}
       </span>
       <div className='flex shrink-0 gap-1'>
         <Button
@@ -113,7 +114,7 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
           variant='ghost'
           size='icon-sm'
           disabled={props.index === 0}
-          aria-label={t('Move {{group}} up', { group: props.group })}
+          aria-label={t('Move {{group}} up', { group: props.label })}
           onClick={() => props.onMove(props.index, 'up')}
         >
           <HugeiconsIcon
@@ -127,7 +128,7 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
           variant='ghost'
           size='icon-sm'
           disabled={props.index === props.count - 1}
-          aria-label={t('Move {{group}} down', { group: props.group })}
+          aria-label={t('Move {{group}} down', { group: props.label })}
           onClick={() => props.onMove(props.index, 'down')}
         >
           <HugeiconsIcon
@@ -140,7 +141,7 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
           type='button'
           variant='ghost'
           size='icon-sm'
-          aria-label={t('Remove {{group}}', { group: props.group })}
+          aria-label={t('Remove {{group}}', { group: props.label })}
           onClick={() => props.onRemove(props.group)}
         >
           <HugeiconsIcon
@@ -276,7 +277,11 @@ export function AutoGroupOrderEditor(props: AutoGroupOrderEditorProps) {
               )}
               <span
                 data-slot='global-auto-order-chip'
-                title={option.desc}
+                title={
+                  option.desc && option.desc !== option.value
+                    ? option.desc
+                    : option.label
+                }
                 className='bg-muted/30 flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1'
               >
                 <span
@@ -292,7 +297,7 @@ export function AutoGroupOrderEditor(props: AutoGroupOrderEditorProps) {
                 >
                   {option.label}
                 </span>
-                {option.desc && (
+                {option.desc && option.desc !== option.value && (
                   <span
                     data-slot='global-auto-order-description'
                     className='sr-only'
@@ -331,6 +336,10 @@ export function AutoGroupOrderEditor(props: AutoGroupOrderEditorProps) {
             <AutoGroupOrderItem
               key={group}
               group={group}
+              label={
+                props.options.find((option) => option.value === group)?.label ||
+                group
+              }
               index={index}
               count={props.value.length}
               onMove={handleMove}

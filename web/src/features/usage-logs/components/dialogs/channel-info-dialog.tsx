@@ -70,6 +70,25 @@ export function ChannelInfoDialog(props: {
     enabled: props.open && !!props.channelId,
   })
   const channel = query.data?.data
+  const groupCodes = (channel?.group || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean)
+  const groupDetails = channel?.group_details ?? []
+  const groupsById = new Map(groupDetails.map((group) => [group.id, group]))
+  const groupsByCode = new Map(groupDetails.map((group) => [group.code, group]))
+  // 已绑定 ID 是身份依据，旧字符串仅在名称无法解析时用于回退。
+  const groupNames = channel?.group_ids?.length
+    ? channel.group_ids.map((id, index) => {
+        const detail = groupsById.get(id)
+        return (
+          detail?.name?.trim() ||
+          groupCodes[index] ||
+          detail?.code ||
+          String(id)
+        )
+      })
+    : groupCodes.map((code) => groupsByCode.get(code)?.name?.trim() || code)
   const status = channel
     ? CHANNEL_STATUS_CONFIG[
         channel.status as keyof typeof CHANNEL_STATUS_CONFIG
@@ -143,8 +162,7 @@ export function ChannelInfoDialog(props: {
             </Label>
             <ChannelInfoRow
               label={t('Group')}
-              value={channel.group || '-'}
-              mono
+              value={groupNames.join(', ') || '-'}
             />
             <ChannelInfoRow
               label={t('Models')}

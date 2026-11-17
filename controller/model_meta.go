@@ -26,6 +26,7 @@ func GetAllModelsMeta(c *gin.Context) {
 	}
 	// 批量填充附加字段，提升列表接口性能
 	enrichModels(modelsMeta)
+	enrichModelGroupNames(modelsMeta)
 
 	// 统计供应商计数（全部数据，不受分页影响）
 	vendorCounts, _ := model.GetVendorModelCounts()
@@ -57,6 +58,7 @@ func SearchModelsMeta(c *gin.Context) {
 	}
 	// 批量填充附加字段，提升列表接口性能
 	enrichModels(modelsMeta)
+	enrichModelGroupNames(modelsMeta)
 	vendorCounts, _ := model.GetVendorModelCounts()
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(modelsMeta)
@@ -83,6 +85,7 @@ func GetModelMeta(c *gin.Context) {
 		return
 	}
 	enrichModels([]*model.Model{&m})
+	enrichModelGroupNames([]*model.Model{&m})
 	common.ApiSuccess(c, &m)
 }
 
@@ -167,6 +170,26 @@ func DeleteModelMeta(c *gin.Context) {
 	}
 	model.RefreshPricing()
 	common.ApiSuccess(c, nil)
+}
+
+// enrichModelGroupNames 只投影模型已有分组，避免返回不相关分组的名称。
+func enrichModelGroupNames(models []*model.Model) {
+	if len(models) == 0 {
+		return
+	}
+	names, err := model.GetGroupDisplayNameMap()
+	if err != nil {
+		common.SysError("failed to resolve model group display names: " + err.Error())
+	}
+	for _, item := range models {
+		if item == nil {
+			continue
+		}
+		item.EnableGroupNames = make(map[string]string, len(item.EnableGroups))
+		for _, code := range item.EnableGroups {
+			item.EnableGroupNames[code] = model.FormatGroupDisplayNames(code, names)
+		}
+	}
 }
 
 // enrichModels 批量填充附加信息：端点、渠道、分组、计费类型，避免 N+1 查询

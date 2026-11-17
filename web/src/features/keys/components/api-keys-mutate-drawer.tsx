@@ -94,11 +94,13 @@ import {
   createGroupSelectionOptions,
   normalizeGroupSelection,
 } from '../lib/group-selection'
+import { retainRatioProtection } from '../lib/ratio-protection'
 import type { ApiKey } from '../types'
 import {
   ApiKeyGroupCombobox,
   type ApiKeyGroupOption,
 } from './api-key-group-combobox'
+import { ApiKeyRatioProtection } from './api-key-ratio-protection'
 import { useApiKeys } from './api-keys-provider'
 import { AutoGroupOrderEditor } from './auto-group-order-editor'
 
@@ -285,6 +287,10 @@ export function ApiKeysMutateDrawer({
       : t('{{count}} groups selected (unlimited)', {
           count: selectedGroups.length,
         })
+  const selectedGroupDescription =
+    selectedGroups.length === 0
+      ? t('No group selected. Inherit your user group.')
+      : groupSelectionDescription
   const disabledGroupValues = useMemo(() => {
     if (
       maxAutoGroups === 0 ||
@@ -517,6 +523,14 @@ export function ApiKeysMutateDrawer({
                           }
                           form.clearErrors('groups')
                           field.onChange(normalized)
+                          form.setValue(
+                            'ratioProtection',
+                            retainRatioProtection(
+                              form.getValues('ratioProtection'),
+                              normalized
+                            ),
+                            { shouldDirty: true, shouldValidate: true }
+                          )
                           const retainedIds = new Set(
                             groups
                               .filter((group) =>
@@ -554,9 +568,25 @@ export function ApiKeysMutateDrawer({
                           ? t('A token can select at most {{max}} groups', {
                               max: maxAutoGroups,
                             })
-                          : groupSelectionDescription}
+                          : selectedGroupDescription}
                       </FormDescription>
                     )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='ratioProtection'
+                render={({ field }) => (
+                  <FormItem>
+                    <ApiKeyRatioProtection
+                      value={field.value}
+                      onChange={field.onChange}
+                      selectedGroups={selectedGroups}
+                      options={groups}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}

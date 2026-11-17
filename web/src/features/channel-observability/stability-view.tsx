@@ -383,13 +383,10 @@ export function StabilityView({
       }
 
       let subtitle = ''
-      if (level === 'group') {
-        if (item.group_name && item.group_name !== item.group) {
-          subtitle = item.group || ''
-        }
-      } else if (level === 'channel') {
+      if (level === 'channel') {
         subtitle = `#${item.channel_id} · ${item.channel_type_name || t('Unknown type')}`
       } else if (
+        level === 'model' &&
         item.requested_model &&
         item.upstream_model &&
         item.requested_model !== item.upstream_model

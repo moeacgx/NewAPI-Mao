@@ -29,6 +29,8 @@ import SettingsPaymentGatewayOkpay from '../../pages/Setting/Payment/SettingsPay
 import SettingsAffiliateCommission from '../../pages/Setting/Payment/SettingsAffiliateCommission';
 import {
   API,
+  isAdmin,
+  isRoot,
   showError,
   showSuccess,
   toBoolean,
@@ -39,7 +41,7 @@ import RiskAcknowledgementModal from '../common/modals/RiskAcknowledgementModal'
 
 const CURRENT_COMPLIANCE_TERMS_VERSION = 'v1';
 
-const PaymentSetting = ({
+const RootPaymentSetting = ({
   defaultActiveKey = 'general',
   onlyAffiliate = false,
 } = {}) => {
@@ -437,4 +439,15 @@ const PaymentSetting = ({
   );
 };
 
-export default PaymentSetting;
+export default function PaymentSetting(props) {
+  // 普通管理员只挂载返佣业务，避免读取 Root 配置和继承配置页的合规确认门禁。
+  if (props.onlyAffiliate && !isRoot()) {
+    if (!isAdmin()) return null;
+    return (
+      <Card style={{ marginTop: '10px' }}>
+        <SettingsAffiliateCommission businessOnly hideSectionTitle />
+      </Card>
+    );
+  }
+  return <RootPaymentSetting {...props} />;
+}

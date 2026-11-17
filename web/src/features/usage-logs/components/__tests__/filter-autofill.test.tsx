@@ -20,12 +20,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+
+import { useAuthStore } from '@/stores/auth-store'
 
 import { CommonLogsFilterBar } from '../common-logs-filter-bar'
 import { UsageLogsProvider } from '../usage-logs-provider'
 
 const navigate = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api', () => ({
+  api: {
+    get: vi.fn(async () => ({
+      data: {
+        success: true,
+        data: [{ id: 42, code: 'vip-internal', name: '专线当前名称' }],
+        group_names: { 'vip-internal': '专线当前名称' },
+      },
+    })),
+  },
+}))
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({ useSearch: () => ({}) }),
   useNavigate: () => navigate,
@@ -51,7 +64,14 @@ function FilterFixture() {
   return <CommonLogsFilterBar table={table} />
 }
 
-afterEach(() => localStorage.clear())
+beforeEach(() => {
+  navigate.mockClear()
+  useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 10 })
+})
+afterEach(() => {
+  localStorage.clear()
+  useAuthStore.getState().auth.reset()
+})
 
 describe('日志筛选凭据自动填充边界', () => {
   test('用户查询草稿不提交，切换 ID 清除用户名，查询与重置只提交当前身份', async () => {
@@ -89,7 +109,7 @@ describe('日志筛选凭据自动填充边界', () => {
     client.clear()
   })
 
-  test('隐藏分组用户名令牌时保留文本输入且提交原始筛选值', async () => {
+  test('隐藏分组当前名称和用户名令牌时提交原始稳定筛选值，恢复后展示当前名称', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -102,20 +122,32 @@ describe('日志筛选凭据自动填充边界', () => {
       </QueryClientProvider>
     )
     await user.click(screen.getByRole('button', { name: 'Expand' }))
-    const group = screen.getByPlaceholderText('Group')
+    const group = screen.getByRole('combobox', { name: 'Group' })
     const token = screen.getByPlaceholderText('Token Name')
     const username = screen.getByPlaceholderText('Username')
-    await user.type(group, 'vip-internal')
+    await waitFor(() => expect(group).not.toHaveAttribute('aria-busy', 'true'))
+    await user.click(group)
+    await user.click(screen.getByRole('option', { name: '专线当前名称' }))
+    expect(group).toHaveTextContent('专线当前名称')
+    expect(group).not.toHaveTextContent('vip-internal')
     await user.type(token, 'work-token')
     await user.type(username, 'alice')
     await user.click(screen.getByRole('button', { name: 'Hide' }))
-    for (const input of [group, token, username]) {
+    for (const input of [token, username]) {
       expect(input).toHaveAttribute('type', 'text')
       expect(input).toHaveClass('[-webkit-text-security:disc]')
     }
-    expect(group).toHaveValue('vip-internal')
+    expect(group).toHaveTextContent('••••••')
+    expect(group).not.toHaveTextContent('专线当前名称')
+    expect(group).toHaveAccessibleName('Group')
+    expect(group.querySelector('[title]')).toBeNull()
     await user.click(group)
-    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('option', { name: '专线当前名称' })).toBeNull()
+    expect(
+      screen.getByRole('option', { name: '••••••' }).querySelector('[title]')
+    ).toBeNull()
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -128,9 +160,14 @@ describe('日志筛选凭据自动填充边界', () => {
       )
     )
     await user.click(screen.getByRole('button', { name: 'Show' }))
-    for (const input of [group, token, username]) {
+    for (const input of [token, username]) {
       expect(input).not.toHaveClass('[-webkit-text-security:disc]')
     }
+    expect(group).toHaveTextContent('专线当前名称')
+    expect(group.querySelector('[title]')).toHaveAttribute(
+      'title',
+      '专线当前名称'
+    )
     client.clear()
   })
 })

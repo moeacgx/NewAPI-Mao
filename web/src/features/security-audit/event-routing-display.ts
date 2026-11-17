@@ -31,6 +31,7 @@ type AuditRouteEvent = Pick<
   | 'group_id'
   | 'group_code'
   | 'group_name'
+  | 'group_display_name'
 >
 
 type AuditTokenGroupEvent = Pick<
@@ -61,6 +62,15 @@ function isPreRoutingStage(stage: string): boolean {
   return !stage.includes('response')
 }
 
+function getAuditGroupName(group: SecurityAuditChannelGroup): string {
+  const current =
+    Object.hasOwn(group, 'display_name') &&
+    typeof group.display_name === 'string'
+      ? group.display_name.trim()
+      : ''
+  return current || String(group.name ?? '').trim()
+}
+
 export function getAuditChannelReference(
   event: AuditRouteEvent
 ): AuditChannelReference {
@@ -86,7 +96,12 @@ export function getAuditRouteGroupReference(
 ): AuditGroupReference | null {
   const routeId = Number(event.group_id)
   const routeCode = String(event.group_code ?? '').trim()
-  const routeName = String(event.group_name ?? '').trim()
+  const currentName =
+    Object.hasOwn(event, 'group_display_name') &&
+    typeof event.group_display_name === 'string'
+      ? event.group_display_name.trim()
+      : ''
+  const routeName = currentName || String(event.group_name ?? '').trim()
   if (
     (!Number.isInteger(routeId) || routeId <= 0) &&
     !routeCode &&
@@ -111,7 +126,7 @@ export function getAuditChannelGroupReferences(
     .map((group) => ({
       id: Number(group.id) || 0,
       code: String(group.code ?? '').trim(),
-      name: String(group.name ?? '').trim(),
+      name: getAuditGroupName(group),
       source: 'channel' as const,
     }))
     .filter((group) => {
@@ -131,7 +146,7 @@ function normalizeTokenGroups(
     .map((group) => ({
       id: Number(group.id) || 0,
       code: String(group.code ?? '').trim(),
-      name: String(group.name ?? '').trim(),
+      name: getAuditGroupName(group),
       source: 'token' as const,
     }))
     .filter((group) => {
@@ -166,10 +181,5 @@ export function getAuditTokenGroupReference(
 }
 
 export function formatAuditGroupReference(group: AuditGroupReference): string {
-  const primary =
-    group.name || group.code || (group.id > 0 ? `#${group.id}` : '')
-  const metadata: string[] = []
-  if (group.code && group.code !== primary) metadata.push(group.code)
-  if (group.id > 0 && primary !== `#${group.id}`) metadata.push(`#${group.id}`)
-  return metadata.length > 0 ? `${primary} (${metadata.join(' · ')})` : primary
+  return group.name || group.code || (group.id > 0 ? `#${group.id}` : '')
 }
