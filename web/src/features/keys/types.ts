@@ -57,6 +57,7 @@ export const apiKeySchema = z.object({
   group_ids: z.array(z.number()).optional().default([]),
   group_channel_ids: z.record(z.string(), z.number()).optional(),
   group_details: z.array(groupReferenceSchema).optional().default([]),
+  group_ratio_limits: z.string().optional(),
   cross_group_retry: z
     .preprocess((v) => {
       if (v === 1) return true
@@ -101,11 +102,14 @@ export interface GetApiKeysResponse {
 export interface SearchApiKeysParams {
   keyword?: string
   token?: string
+  status?: number
+  active_only?: boolean
   p?: number
   size?: number
 }
 
 export interface ApiKeyFormData {
+  group_ratio_limits: string
   name: string
   remain_quota: number
   expired_time: number

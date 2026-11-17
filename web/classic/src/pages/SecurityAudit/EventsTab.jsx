@@ -371,14 +371,14 @@ const renderGroupOrigin = (event, t, kind = 'route') => {
   return (
     <div className='flex flex-wrap gap-1'>
       {groups.items.map((group, index) => {
-        const title = group.name || group.code || t('分组');
-        const meta = group.id ? `#${group.id}` : group.code;
+        const title =
+          group.name || group.code || (group.id ? `#${group.id}` : t('分组'));
         return (
           <Tag
             key={`${group.id || group.code || group.name}-${index}`}
             color='cyan'
           >
-            {meta ? `${title} (${meta})` : title}
+            {title}
           </Tag>
         );
       })}
@@ -411,14 +411,14 @@ const renderTokenGroupOrigin = (event, t) => {
         <Tag color='grey'>{t('继承默认')}</Tag>
       ) : null}
       {groups.items.map((group, index) => {
-        const title = group.name || group.code || t('分组');
-        const meta = group.id ? `#${group.id}` : group.code;
+        const title =
+          group.name || group.code || (group.id ? `#${group.id}` : t('分组'));
         return (
           <Tag
             key={`${group.id || group.code || group.name}-${index}`}
             color='cyan'
           >
-            {meta ? `${title} (${meta})` : title}
+            {title}
           </Tag>
         );
       })}
@@ -715,7 +715,9 @@ const EventsTab = ({ endpoints }) => {
         render: (value, record) => {
           const count = Math.max(
             0,
-            Number(record.user_policy_count ?? record.user_cyber_policy_count) || 0,
+            Number(
+              record.user_policy_count ?? record.user_cyber_policy_count,
+            ) || 0,
           );
           const hours = Math.max(
             0,

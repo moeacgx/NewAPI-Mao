@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
@@ -439,12 +440,17 @@ func GetChannelAnalyticsChannels(query dto.ChannelAnalyticsQuery) (dto.ChannelAn
 		return dto.ChannelAnalyticsChannelsResponse{}, err
 	}
 	items := make([]dto.ChannelAnalyticsChannelItem, 0, len(mergedRows))
+	var groupNames map[string]string
+	if len(channelMeta) > 0 {
+		groupNames = channelAnalyticsGroupDisplayNames()
+	}
 	for channelID, row := range mergedRows {
 		eligible := eligibleByChannel[channelID]
 		item := channelAnalyticsItemFromAggregate(row, eligible)
 		if current, ok := channelMeta[channelID]; ok {
 			item.ChannelName = current.Name
 			item.Group = current.Group
+			item.GroupName = model.FormatGroupDisplayNames(current.Group, groupNames)
 			item.ChannelType = current.Type
 			item.ChannelTypeName = constant.GetChannelTypeName(current.Type)
 		} else {
@@ -856,6 +862,12 @@ func GetChannelAnalyticsFilters() (dto.ChannelAnalyticsFiltersResponse, error) {
 }
 
 func channelAnalyticsGroupDisplayNames() map[string]string {
+	// 只为已有统计结果补充当前名称，不扩展筛选集合或改变业务标识。
+	currentNames, err := model.GetGroupDisplayNameMap()
+	if err == nil {
+		return currentNames
+	}
+	common.SysError(fmt.Sprintf("渠道统计分组名称查询失败，回退配置名称或原标识: %v", err))
 	names := appsetting.GetUserUsableGroupsCopy()
 	for code := range ratio_setting.GetGroupRatioCopy() {
 		if _, exists := names[code]; !exists {

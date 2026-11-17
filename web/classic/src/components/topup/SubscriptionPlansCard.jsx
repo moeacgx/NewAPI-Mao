@@ -932,7 +932,7 @@ const SubscriptionPlansCard = ({
                     ? `${t('总额度')}: ${renderQuota(totalAmount)}`
                     : `${t('总额度')}: ${t('不限')}`;
                 const upgradeLabel = plan?.upgrade_group
-                  ? `${t('升级分组')}: ${plan.upgrade_group}`
+                  ? `${t('升级分组')}: ${plan.upgrade_group_name || plan.upgrade_group}`
                   : null;
                 const resetLabel =
                   formatSubscriptionResetPeriod(plan, t) === t('不重置')

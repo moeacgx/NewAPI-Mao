@@ -168,6 +168,7 @@ test.each([false, true])(
           group: 'base,plus,fast,smart,media,backup',
           group_ids: [11, 12, 13, 14, 15, 16],
           group_mode: 'explicit',
+          expired_time: -1,
         }),
       ),
     );

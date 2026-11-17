@@ -341,6 +341,7 @@ func GetAllUsers(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
+	hydrateUserGroupNames(users)
 	pageInfo.SetItems(users)
 
 	common.ApiSuccess(c, pageInfo)
@@ -372,6 +373,7 @@ func SearchUsers(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
+	hydrateUserGroupNames(users)
 	pageInfo.SetItems(users)
 	common.ApiSuccess(c, pageInfo)
 	return
@@ -398,6 +400,7 @@ func GetUser(c *gin.Context) {
 		return
 	}
 	user.AdminPermissions = authz.Capabilities(user.Id, user.Role)
+	hydrateUserGroupNames([]*model.User{user})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -511,6 +514,7 @@ func GetSelf(c *gin.Context) {
 // login and refresh. It intentionally excludes password, management PAT and
 // administrator-only remarks.
 func buildSelfUserData(user *model.User) map[string]interface{} {
+	hydrateUserGroupNames([]*model.User{user})
 	userSetting := user.GetSetting()
 	permissions := calculateUserPermissions(user.Role)
 	permissions["admin_permissions"] = authz.Capabilities(user.Id, user.Role)
@@ -535,6 +539,7 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 		"wechat_id":         user.WeChatId,
 		"telegram_id":       user.TelegramId,
 		"group":             user.Group,
+		"group_name":        user.GroupName,
 		"quota":             user.Quota,
 		"used_quota":        user.UsedQuota,
 		"request_count":     user.RequestCount,
@@ -548,6 +553,62 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 		"stripe_customer":   user.StripeCustomer,
 		"sidebar_modules":   userSetting.SidebarModules,
 		"permissions":       permissions,
+	}
+}
+
+// hydrateUserGroupNames 只补齐展示字段，不改变业务标识或已有响应权限。
+func hydrateUserGroupNames(users []*model.User) {
+	ids := make([]int, 0, len(users))
+	seen := make(map[int]bool, len(users))
+	hasLegacy := false
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		user.GroupName = user.Group
+		if user.GroupId > 0 {
+			if !seen[user.GroupId] {
+				ids = append(ids, user.GroupId)
+				seen[user.GroupId] = true
+			}
+		} else if strings.TrimSpace(user.Group) != "" {
+			hasLegacy = true
+		}
+	}
+	if model.DB == nil {
+		return
+	}
+	nameByID := make(map[int]string, len(ids))
+	if len(ids) > 0 {
+		var groups []model.Group
+		if err := model.DB.Select("id", "name").Where("id IN ?", ids).Find(&groups).Error; err != nil {
+			common.SysError("读取用户分组显示名称失败: " + err.Error())
+		} else {
+			for _, group := range groups {
+				nameByID[group.Id] = strings.TrimSpace(group.Name)
+			}
+		}
+	}
+	var legacyNames map[string]string
+	if hasLegacy {
+		var err error
+		legacyNames, err = model.GetGroupDisplayNameMap()
+		if err != nil {
+			common.SysError("读取用户历史分组显示名称失败: " + err.Error())
+		}
+	}
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		if user.GroupId > 0 {
+			// 稳定 ID 已删除时不能借字符串命中另一组。
+			if name := nameByID[user.GroupId]; name != "" {
+				user.GroupName = name
+			}
+			continue
+		}
+		user.GroupName = model.FormatGroupDisplayNames(user.Group, legacyNames)
 	}
 }
 

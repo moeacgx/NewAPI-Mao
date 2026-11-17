@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -38,9 +39,10 @@ type TopNavProps = React.HTMLAttributes<HTMLElement> & {
 
 /**
  * 顶部导航栏组件
- * 在大屏幕显示水平导航，在小屏幕显示下拉菜单
+ * 桌面链接只在导航区域滚动，所有尺寸均可通过菜单访问完整导航。
  */
 export function TopNav({ className, links, ...props }: TopNavProps) {
+  const { t } = useTranslation()
   // 规范化链接，确保所有可选属性都有默认值
   const normalizedLinks = useMemo(
     () =>
@@ -53,34 +55,93 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
     [links]
   )
 
+  if (normalizedLinks.length === 0) return null
+
   return (
-    <>
-      {/* 移动端下拉菜单 */}
-      <div className='lg:hidden'>
+    <nav
+      aria-label={t('Navigation')}
+      className={cn('flex min-w-0 items-center justify-end gap-2', className)}
+      {...props}
+    >
+      {/* 链接不压缩、不换行；溢出只发生在这个可滚动区域。 */}
+      <div className='hidden min-w-0 items-center gap-4 overflow-x-auto overscroll-x-contain py-1 lg:flex'>
+        {normalizedLinks.map(
+          ({ title, href, isActive, disabled, external, icon }) => {
+            const Icon = getCustomNavIcon(icon)
+            const content = (
+              <>
+                {Icon ? <Icon className='size-4 shrink-0' /> : null}
+                <span>{title}</span>
+              </>
+            )
+            const linkClassName = cn(
+              'hover:text-primary focus-visible:ring-ring/40 inline-flex shrink-0 items-center gap-1.5 rounded-sm text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset',
+              !isActive && 'text-muted-foreground',
+              disabled && 'pointer-events-none opacity-50'
+            )
+
+            return external ? (
+              <a
+                key={`${title}-${href}`}
+                href={href}
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-disabled={disabled}
+                aria-current={isActive ? 'page' : undefined}
+                tabIndex={disabled ? -1 : undefined}
+                className={linkClassName}
+              >
+                {content}
+              </a>
+            ) : (
+              <Link
+                key={`${title}-${href}`}
+                to={href}
+                disabled={disabled}
+                aria-current={isActive ? 'page' : undefined}
+                className={linkClassName}
+              >
+                {content}
+              </Link>
+            )
+          }
+        )}
+      </div>
+
+      {/* 菜单不依赖断点隐藏，长导航也能通过键盘完整访问。 */}
+      <div className='shrink-0'>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger
-            render={<Button size='icon' variant='outline' className='size-7' />}
+            aria-label={t('Navigation menu')}
+            render={<Button size='icon' variant='ghost' className='size-8' />}
           >
-            <Menu />
+            <Menu aria-hidden='true' />
           </DropdownMenuTrigger>
-          <DropdownMenuContent side='bottom' align='start'>
+          <DropdownMenuContent
+            side='bottom'
+            align='end'
+            className='w-72 max-w-[calc(100vw-2rem)]'
+          >
             {normalizedLinks.map(
               ({ title, href, isActive, disabled, external, icon }) => {
                 const Icon = getCustomNavIcon(icon)
                 const content = (
                   <>
                     {Icon ? <Icon className='size-4' /> : null}
-                    <span>{title}</span>
+                    <span className='min-w-0 wrap-anywhere whitespace-normal'>
+                      {title}
+                    </span>
                   </>
                 )
                 const linkClassName = cn(
-                  'inline-flex items-center gap-2',
+                  'flex w-full items-center gap-2',
                   !isActive && 'text-muted-foreground'
                 )
                 return (
                   <DropdownMenuItem
                     key={`${title}-${href}`}
                     disabled={disabled}
+                    aria-current={isActive ? 'page' : undefined}
                     render={
                       external ? (
                         <a
@@ -108,55 +169,6 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* 桌面端水平导航 */}
-      <nav
-        className={cn(
-          'hidden items-center space-x-4 lg:flex lg:space-x-4 xl:space-x-6',
-          className
-        )}
-        {...props}
-      >
-        {normalizedLinks.map(
-          ({ title, href, isActive, disabled, external, icon }) => {
-            const Icon = getCustomNavIcon(icon)
-            const content = (
-              <>
-                {Icon ? <Icon className='size-4' /> : null}
-                <span>{title}</span>
-              </>
-            )
-            const linkClassName = cn(
-              'hover:text-primary inline-flex items-center gap-1.5 text-sm font-medium transition-colors',
-              !isActive && 'text-muted-foreground',
-              disabled && 'pointer-events-none opacity-50'
-            )
-
-            return external ? (
-              <a
-                key={`${title}-${href}`}
-                href={href}
-                target='_blank'
-                rel='noopener noreferrer'
-                aria-disabled={disabled}
-                tabIndex={disabled ? -1 : undefined}
-                className={linkClassName}
-              >
-                {content}
-              </a>
-            ) : (
-              <Link
-                key={`${title}-${href}`}
-                to={href}
-                disabled={disabled}
-                className={linkClassName}
-              >
-                {content}
-              </Link>
-            )
-          }
-        )}
-      </nav>
-    </>
+    </nav>
   )
 }

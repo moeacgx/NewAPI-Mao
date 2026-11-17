@@ -38,6 +38,7 @@ import {
   getSecurityAuditBuiltinPolicy,
   getSecurityAuditBuiltinPolicyChannels,
   getSecurityAuditBuiltinPolicyGroups,
+  getSecurityAuditGroupNames,
   updateSecurityAuditBuiltinPolicy,
 } from './api';
 
@@ -74,6 +75,7 @@ const BuiltinPolicyTab = ({ onSaved }) => {
   const [channelsLoading, setChannelsLoading] = useState(false);
   const [channelsError, setChannelsError] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [groupNames, setGroupNames] = useState({});
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState(false);
 
@@ -121,7 +123,11 @@ const BuiltinPolicyTab = ({ onSaved }) => {
     setGroupsLoading(true);
     setGroupsError(false);
     try {
-      const nextGroups = await getSecurityAuditBuiltinPolicyGroups();
+      const [nextGroups, names] = await Promise.all([
+        getSecurityAuditBuiltinPolicyGroups(),
+        getSecurityAuditGroupNames().catch(() => ({})),
+      ]);
+      setGroupNames(names);
       setGroups(
         [...nextGroups]
           .filter((group) => String(group?.code || '').trim())
@@ -324,9 +330,7 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                         {t('官方风控作用范围')}
                       </Text>
                       <Text type='tertiary' size='small' className='mt-1 block'>
-                        {t(
-                          '选择哪些渠道返回的上游策略事件写入安全审计。',
-                        )}
+                        {t('选择哪些渠道返回的上游策略事件写入安全审计。')}
                       </Text>
                       <RadioGroup
                         className='mt-3'
@@ -454,7 +458,7 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                                 key={group.code}
                                 value={group.code}
                               >
-                                {group.name || group.code} ({group.code})
+                                {group.name || group.code}
                               </Select.Option>
                             ))}
                             {(draft.upstream_policy_group_codes || [])
@@ -469,7 +473,9 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                                   key={`missing-${code}`}
                                   value={code}
                                 >
-                                  {t('失效分组')}: {code}
+                                  {Object.hasOwn(groupNames, code)
+                                    ? groupNames[code]
+                                    : `${t('失效分组')}: ${code}`}
                                 </Select.Option>
                               ))}
                           </Select>
@@ -529,9 +535,7 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                     }
                   />
                   <div className='min-w-0 flex-1'>
-                    <Text strong>
-                      {t('选定上游策略命中后屏蔽当前会话')}
-                    </Text>
+                    <Text strong>{t('选定上游策略命中后屏蔽当前会话')}</Text>
                     <Text type='tertiary' size='small' className='mt-1 block'>
                       {t(
                         '开启后，命中所选上游策略的显式会话会在 TTL 内由本地直接拒绝；同一 API Key 下其他会话不受影响。',
@@ -677,7 +681,7 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                       >
                         {groups.map((group) => (
                           <Select.Option key={group.code} value={group.code}>
-                            {group.name || group.code} ({group.code})
+                            {group.name || group.code}
                           </Select.Option>
                         ))}
                         {(draft.cyber_policy_auto_ban_exempt_group_codes || [])
@@ -692,7 +696,9 @@ const BuiltinPolicyTab = ({ onSaved }) => {
                               key={`missing-exempt-${code}`}
                               value={code}
                             >
-                              {t('失效分组')}: {code}
+                              {Object.hasOwn(groupNames, code)
+                                ? groupNames[code]
+                                : `${t('失效分组')}: ${code}`}
                             </Select.Option>
                           ))}
                       </Select>

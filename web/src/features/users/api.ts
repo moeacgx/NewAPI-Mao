@@ -165,6 +165,14 @@ export async function getGroups(): Promise<ApiResponse<string[]>> {
   return res.data
 }
 
+/** 管理员用户编辑器使用当前名称，选项值仍为原 code。 */
+export async function getUserGroupOptions(): Promise<
+  ApiResponse<{ id: number; code: string; name: string }[]>
+> {
+  const res = await api.get('/api/group/details')
+  return res.data
+}
+
 /**
  * Get the permission catalog (resources, actions, and role baselines).
  * Source of truth lives in the backend authz package.

@@ -44,6 +44,7 @@ import { getDefaultTimeRange } from '../lib/utils'
 import type { CommonLogFilters } from '../types'
 import { CommonLogsStats } from './common-logs-stats'
 import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
+import { LogGroupSelect } from './log-group-select'
 import {
   LogsFilterField,
   LogsFilterInput,
@@ -345,13 +346,11 @@ export function CommonLogsFilterBar<TData>(
   )
   const groupFilter = (
     <LogsFilterField>
-      <LogsFilterInput
-        placeholder={t('Group')}
-        type='text'
-        className={sensitiveInputClass}
+      <LogGroupSelect
+        isAdmin={isAdmin}
+        sensitiveVisible={sensitiveVisible}
         value={filters.group || ''}
-        onChange={(e) => handleChange('group', e.target.value)}
-        onKeyDown={handleKeyDown}
+        onValueChange={(value) => handleChange('group', value)}
       />
     </LogsFilterField>
   )

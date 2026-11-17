@@ -565,7 +565,7 @@ export function SubscriptionPlansCard({
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
-                  ? `${t('Upgrade Group')}: ${plan.upgrade_group}`
+                  ? `${t('Upgrade Group')}: ${plan.upgrade_group_name || plan.upgrade_group}`
                   : null,
               ].filter(Boolean) as string[]
 

@@ -22,5 +22,9 @@ export function getGroupDisplayName(
   groupCode: string,
   groupNames: GroupNameMap
 ): string {
-  return groupNames[groupCode]?.trim() || groupCode
+  if (!Object.hasOwn(groupNames, groupCode)) {
+    return groupCode
+  }
+  const name = groupNames[groupCode]
+  return typeof name === 'string' ? name.trim() || groupCode : groupCode
 }

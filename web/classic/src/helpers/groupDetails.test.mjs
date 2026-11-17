@@ -218,7 +218,7 @@ test('无限画布默认分组选项将可选 auto 放在实体分组之前', ()
     ),
     [
       { value: 'auto', label: '自动选择' },
-      { value: 'default', label: '默认分组 (default)' },
+      { value: 'default', label: '默认分组' },
     ],
   );
 });
@@ -229,7 +229,7 @@ test('无限画布默认分组选项在 auto 不可选时不展示 auto', () => 
       [{ code: 'default', name: '默认分组', status: 1 }],
       { user_selectable: false },
     ),
-    [{ value: 'default', label: '默认分组 (default)' }],
+    [{ value: 'default', label: '默认分组' }],
   );
 });
 

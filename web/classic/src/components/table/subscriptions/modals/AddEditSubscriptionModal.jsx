@@ -134,15 +134,32 @@ const AddEditSubscriptionModal = ({
 
   useEffect(() => {
     if (!visible) return;
+    let active = true;
+    setGroupOptions([]);
     setGroupLoading(true);
     API.get('/api/group/details')
       .then((res) => {
+        if (!active) return;
         const groups = extractGroupDetailsResponse(res?.data);
-        setGroupOptions(createGroupOptions(groups || []));
+        const options = createGroupOptions(groups || []);
+        const code = editingPlan?.plan?.upgrade_group;
+        if (code && !options.some((option) => option.value === code)) {
+          const names = res?.data?.group_names;
+          const name = names && Object.hasOwn(names, code) ? names[code] : '';
+          options.push({ value: code, label: name || code });
+        }
+        setGroupOptions(options);
       })
-      .catch(() => setGroupOptions([]))
-      .finally(() => setGroupLoading(false));
-  }, [visible]);
+      .catch(() => {
+        if (active) setGroupOptions([]);
+      })
+      .finally(() => {
+        if (active) setGroupLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [visible, editingPlan]);
 
   const submit = async (values) => {
     if (!values.title || values.title.trim() === '') {

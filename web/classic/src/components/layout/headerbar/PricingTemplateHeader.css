@@ -24,6 +24,7 @@
   height: 64px;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 8px;
   transition:
     height 700ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -59,7 +60,7 @@
 .classic-pricing-template-brand {
   display: inline-flex;
   min-width: 0;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: center;
   gap: 10px;
   color: inherit;
@@ -69,6 +70,8 @@
 .classic-pricing-template-brand-area {
   display: inline-flex;
   min-width: 0;
+  max-width: min(16rem, calc(100% - 48px));
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
 }
@@ -123,12 +126,29 @@
 .classic-pricing-template-desktop-nav {
   display: flex;
   min-width: 0;
+  flex: 0 1 auto;
   align-items: center;
   gap: 2px;
 }
 
+/* 只滚动导航链接，避免自定义长菜单把语言、通知和用户操作挤出视口。 */
+.classic-pricing-template-links {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.classic-pricing-template-desktop-nav > :not(.classic-pricing-template-links) {
+  flex-shrink: 0;
+}
+
 .classic-pricing-template-nav-link {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
@@ -145,6 +165,11 @@
 .classic-pricing-template-nav-link:hover,
 .classic-pricing-template-nav-link.is-active {
   color: var(--semi-color-text-0);
+}
+
+.classic-pricing-template-nav-link:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: -2px;
 }
 
 .classic-pricing-template-nav-divider {

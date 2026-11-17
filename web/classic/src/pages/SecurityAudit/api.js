@@ -84,7 +84,11 @@ const normalizePolicyActionSources = (values) => {
   const normalized = Array.from(
     new Set(
       values
-        .map((value) => String(value || '').trim().toLowerCase())
+        .map((value) =>
+          String(value || '')
+            .trim()
+            .toLowerCase(),
+        )
         .filter((value) => POLICY_ACTION_SOURCE_SET.has(value)),
     ),
   );
@@ -191,7 +195,9 @@ export const draftToUpdatePayload = (draft) => ({
   enabled: draft.mode !== 'off',
   blocking_enabled: draft.mode === 'blocking',
   store_pass_events: draft.store_pass_events === true,
-  policy_action_sources: normalizePolicyActionSources(draft.policy_action_sources),
+  policy_action_sources: normalizePolicyActionSources(
+    draft.policy_action_sources,
+  ),
   strategy: 'priority',
   worker_count: Number(draft.worker_count),
   queue_capacity: Number(draft.queue_capacity),
@@ -322,12 +328,27 @@ export const updateSecurityAuditConfig = async (draft) =>
 export const getSecurityAuditRuntime = async () =>
   unwrap(await API.get(`${API_ROOT}/runtime`, requestConfig));
 
-export const getSecurityAuditGroups = async () => {
-  const response = await API.get('/api/group/details', requestConfig);
+const getSecurityAuditGroupDetails = async () => {
+  // 复用当前会话 API 实例的在途去重；不缓存名称，后续刷新可读取改名。
+  const response = await API.get('/api/group/details', {
+    skipErrorHandler: true,
+  });
   if (!response?.data?.success) {
     throw new Error(response?.data?.message || 'Request failed');
   }
-  return extractGroupDetailsResponse(response.data) || [];
+  return response.data;
+};
+
+export const getSecurityAuditGroups = async () =>
+  extractGroupDetailsResponse(await getSecurityAuditGroupDetails()) || [];
+
+export const getSecurityAuditGroupNames = async () => {
+  const payload = await getSecurityAuditGroupDetails();
+  return Object.fromEntries(
+    Object.entries(payload.group_names || {})
+      .filter(([, name]) => typeof name === 'string' && name.trim())
+      .map(([code, name]) => [code, name.trim()]),
+  );
 };
 
 export const getSecurityAuditEvents = async (filter, page, pageSize) =>

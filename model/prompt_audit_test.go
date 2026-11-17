@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -299,15 +300,23 @@ func TestPromptAuditEventChannelSnapshotRoundTripAndLegacyDefault(t *testing.T) 
 		{Id: 8, Code: "shared", Name: "共享分组"},
 	}
 	require.NoError(t, CreatePromptAuditEvent(&event))
+	expectedChannelGroups := []PromptAuditEventChannelGroup{
+		{Id: 7, Code: "vip", Name: "贵宾分组", DisplayName: "贵宾分组"},
+		{Id: 8, Code: "shared", Name: "共享分组", DisplayName: "共享分组"},
+	}
+	expectedTokenGroups := []PromptAuditEventTokenGroup{
+		{Id: 7, Code: "vip", Name: "贵宾分组", DisplayName: "贵宾分组"},
+		{Id: 8, Code: "shared", Name: "共享分组", DisplayName: "共享分组"},
+	}
 
 	stored, err := GetPromptAuditEvent(event.Id)
 	require.NoError(t, err)
 	require.Equal(t, 42, stored.ChannelId)
 	require.Equal(t, "最终渠道", stored.ChannelName)
 	require.Equal(t, "vip", stored.GroupCode)
-	require.Equal(t, event.ChannelGroups, stored.ChannelGroups)
+	assert.Equal(t, expectedChannelGroups, stored.ChannelGroups)
 	require.Equal(t, TokenGroupModeExplicit, stored.TokenGroupMode)
-	require.Equal(t, event.TokenGroups, stored.TokenGroups)
+	assert.Equal(t, expectedTokenGroups, stored.TokenGroups)
 	require.JSONEq(t, `[{"id":7,"code":"vip","name":"贵宾分组"},{"id":8,"code":"shared","name":"共享分组"}]`, stored.ChannelGroupDetails)
 	require.JSONEq(t, `[{"id":7,"code":"vip","name":"贵宾分组"},{"id":8,"code":"shared","name":"共享分组"}]`, stored.TokenGroupDetails)
 
@@ -315,8 +324,8 @@ func TestPromptAuditEventChannelSnapshotRoundTripAndLegacyDefault(t *testing.T) 
 	require.NoError(t, err)
 	require.EqualValues(t, 1, total)
 	require.Len(t, listed, 1)
-	require.Equal(t, event.ChannelGroups, listed[0].ChannelGroups)
-	require.Equal(t, event.TokenGroups, listed[0].TokenGroups)
+	assert.Equal(t, expectedChannelGroups, listed[0].ChannelGroups)
+	assert.Equal(t, expectedTokenGroups, listed[0].TokenGroups)
 
 	stored.ChannelGroups = []PromptAuditEventChannelGroup{{Id: 9, Code: "final", Name: "最终分组"}}
 	stored.TokenGroupMode = TokenGroupModeAuto
@@ -324,7 +333,8 @@ func TestPromptAuditEventChannelSnapshotRoundTripAndLegacyDefault(t *testing.T) 
 	require.NoError(t, UpdatePromptAuditEvent(stored))
 	updated, err := GetPromptAuditEvent(event.Id)
 	require.NoError(t, err)
-	require.Equal(t, stored.ChannelGroups, updated.ChannelGroups)
+	assert.Equal(t, []PromptAuditEventChannelGroup{{Id: 9, Code: "final", Name: "最终分组", DisplayName: "最终分组"}}, updated.ChannelGroups)
+	assert.JSONEq(t, `[{"id":9,"code":"final","name":"最终分组"}]`, updated.ChannelGroupDetails)
 	require.Equal(t, TokenGroupModeAuto, updated.TokenGroupMode)
 	require.Empty(t, updated.TokenGroups)
 

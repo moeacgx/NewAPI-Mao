@@ -32,6 +32,11 @@ import {
   resolveApiKeyGroups,
   type GroupSelectionOption,
 } from './group-selection'
+import {
+  loadRatioProtection,
+  isValidRatioLimit,
+  serializeRatioProtection,
+} from './ratio-protection'
 
 // ============================================================================
 // Form Schema
@@ -54,6 +59,12 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
       model_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
       groups: z.array(z.string()),
+      ratioProtection: z
+        .object({
+          values: z.record(z.string(), z.string()),
+          invalid: z.boolean(),
+        })
+        .optional(),
       group_channel_ids: z
         .record(
           z.string(),
@@ -70,6 +81,18 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
       tokenCount: z.number().min(1).optional(),
     })
     .superRefine((data, ctx) => {
+      if (
+        data.ratioProtection?.invalid ||
+        Object.values(data.ratioProtection?.values || {}).some(
+          (value) => !isValidRatioLimit(value)
+        )
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ratioProtection'],
+          message: t('Check ratio protection before saving.'),
+        })
+      }
       if (data.groups.length === 1 && data.groups[0] === 'auto') {
         if (
           data.auto_groups_mode === 'custom' &&
@@ -101,14 +124,6 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
             message: t('Auto groups must not contain duplicates'),
           })
         }
-      }
-
-      if (data.groups.length === 0) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['groups'],
-          message: t('Please select a group'),
-        })
       }
 
       const isAutoOnly = data.groups.length === 1 && data.groups[0] === 'auto'
@@ -158,7 +173,8 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   quota_period_limit_dollars: 0,
   model_limits: [],
   allow_ips: '',
-  groups: [DEFAULT_GROUP],
+  groups: DEFAULT_GROUP ? [DEFAULT_GROUP] : [],
+  ratioProtection: { values: {}, invalid: false },
   group_channel_ids: {},
   auto_groups_mode: 'inherit',
   auto_groups: [],
@@ -171,7 +187,7 @@ export function getApiKeyFormDefaultValues(
 ): ApiKeyFormValues {
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
-    groups: [defaultUseAutoGroup ? 'auto' : DEFAULT_GROUP],
+    groups: defaultUseAutoGroup ? ['auto'] : API_KEY_FORM_DEFAULT_VALUES.groups,
     auto_groups_mode: 'inherit',
     auto_groups: [],
     cross_group_retry: defaultUseAutoGroup,
@@ -216,6 +232,7 @@ export function transformFormDataToPayload(
       )
     ),
     group_mode: groupSelection.group_mode,
+    group_ratio_limits: serializeRatioProtection(data.ratioProtection),
     auto_groups:
       isAuto && data.auto_groups_mode === 'custom' ? data.auto_groups : [],
     cross_group_retry:
@@ -261,6 +278,7 @@ export function transformApiKeyToFormDefaults(
       : [],
     allow_ips: apiKey.allow_ips || '',
     groups: resolveApiKeyGroups(apiKey),
+    ratioProtection: loadRatioProtection(apiKey),
     group_channel_ids: apiKey.group_channel_ids ?? {},
     auto_groups_mode: autoGroupsMode,
     auto_groups: autoGroups,

@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -165,10 +166,12 @@ func TestResponseAuditEventUsesFinalRetryGroupMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 88, detail.ChannelId)
 	require.Equal(t, "最终重试渠道", detail.ChannelName)
-	require.Equal(t, []model.PromptAuditEventChannelGroup{
-		{Id: finalGroup.Id, Code: finalGroup.Code, Name: finalGroup.Name},
-		{Id: 99, Code: "shared", Name: "共享业务分组"},
+	assert.Equal(t, []model.PromptAuditEventChannelGroup{
+		{Id: finalGroup.Id, Code: finalGroup.Code, Name: finalGroup.Name, DisplayName: finalGroup.Name},
+		{Id: 99, Code: "shared", Name: "共享业务分组", DisplayName: "共享业务分组"},
 	}, detail.ChannelGroups)
+	assert.Equal(t, finalGroup.Name, detail.GroupDisplayName)
+	assert.NotContains(t, event.ChannelGroupDetails, "display_name")
 }
 
 func TestSensitiveWordResponseArchiveFilterUsesFinalSelectedGroup(t *testing.T) {

@@ -78,7 +78,7 @@ import {
   createUser,
   updateUser,
   getUser,
-  getGroups,
+  getUserGroupOptions,
   getPermissionCatalog,
 } from '../api'
 import {
@@ -121,15 +121,22 @@ export function UsersMutateDrawer({
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [loadedGroup, setLoadedGroup] = useState<{
+    userId: number
+    code: string
+    name: string
+  } | null>(null)
 
-  // Fetch groups
-  const { data: groupsData } = useQuery({
-    queryKey: ['groups'],
-    queryFn: getGroups,
-    staleTime: 5 * 60 * 1000,
+  const groupsQuery = useQuery({
+    queryKey: ['groups', 'user-editor', currentUser?.id],
+    queryFn: getUserGroupOptions,
+    enabled: open && isUpdate,
+    staleTime: 0,
   })
 
-  const groups = groupsData?.data || []
+  const groups = groupsQuery.data?.data || []
+  const groupLoadFailed =
+    groupsQuery.isError || groupsQuery.data?.success === false
 
   // Permission catalog is owned by the backend; fetched once and reused.
   const { data: permissionCatalog = EMPTY_PERMISSION_CATALOG } = useQuery({
@@ -145,10 +152,16 @@ export function UsersMutateDrawer({
 
   // Load existing data when updating
   useEffect(() => {
+    let active = true
     if (open && isUpdate && currentRow) {
       // For update, fetch fresh data
       void getUser(currentRow.id).then((result) => {
-        if (result.success && result.data) {
+        if (active && result.success && result.data) {
+          setLoadedGroup({
+            userId: result.data.id,
+            code: result.data.group,
+            name: result.data.group_name,
+          })
           form.reset(transformUserToFormDefaults(result.data))
         }
       })
@@ -156,7 +169,31 @@ export function UsersMutateDrawer({
       // For create, reset to defaults
       form.reset(USER_FORM_DEFAULT_VALUES)
     }
+    return () => {
+      active = false
+    }
   }, [open, isUpdate, currentRow, form])
+
+  const selectedGroup = form.watch('group')
+  const groupOptions = groups.map((group) => ({
+    value: group.code,
+    label: group.name?.trim() || group.code,
+  }))
+  if (
+    selectedGroup &&
+    !groupOptions.some((group) => group.value === selectedGroup)
+  ) {
+    let label = selectedGroup
+    if (
+      loadedGroup?.userId === currentRow?.id &&
+      loadedGroup?.code === selectedGroup
+    ) {
+      label = loadedGroup.name?.trim() || selectedGroup
+    } else if (currentRow?.group === selectedGroup) {
+      label = currentRow.group_name?.trim() || selectedGroup
+    }
+    groupOptions.push({ value: selectedGroup, label })
+  }
 
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
@@ -217,6 +254,11 @@ export function UsersMutateDrawer({
     if (!currentRow) return
     const result = await getUser(currentRow.id)
     if (result.success && result.data) {
+      setLoadedGroup({
+        userId: result.data.id,
+        code: result.data.group,
+        name: result.data.group_name,
+      })
       form.reset(transformUserToFormDefaults(result.data))
     }
     triggerRefresh()
@@ -370,10 +412,8 @@ export function UsersMutateDrawer({
                       <FormItem>
                         <FormLabel>{t('Group')}</FormLabel>
                         <Select
-                          items={groups.map((group) => ({
-                            value: group,
-                            label: group,
-                          }))}
+                          items={groupOptions}
+                          disabled={groupsQuery.isFetching || groupLoadFailed}
                           onValueChange={field.onChange}
                           value={field.value}
                         >
@@ -384,14 +424,32 @@ export function UsersMutateDrawer({
                           </FormControl>
                           <SelectContent alignItemWithTrigger={false}>
                             <SelectGroup>
-                              {groups.map((group) => (
-                                <SelectItem key={group} value={group}>
-                                  {group}
+                              {groupOptions.map((group) => (
+                                <SelectItem
+                                  key={group.value}
+                                  value={group.value}
+                                >
+                                  {group.label}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                        {groupLoadFailed && (
+                          <div
+                            role='alert'
+                            className='text-destructive text-sm'
+                          >
+                            {t('Failed to load groups')}
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              onClick={() => void groupsQuery.refetch()}
+                            >
+                              {t('Retry')}
+                            </Button>
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

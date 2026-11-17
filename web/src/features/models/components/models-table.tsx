@@ -121,6 +121,8 @@ export function ModelsTable() {
   // Fetch models data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   const { data, isLoading, isFetching } = useQuery({
+    // 名称映射可能包含合法的 __proto__ 自有键，刷新时必须保留原响应。
+    structuralSharing: false,
     queryKey: modelsQueryKeys.list({
       keyword: globalFilter,
       vendor: activeVendorFilter,

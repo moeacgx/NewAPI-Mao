@@ -34,24 +34,34 @@ import type {
 
 // Get paginated API keys list
 export async function getApiKeys(
-  params: GetApiKeysParams = {}
+  params: GetApiKeysParams = {},
+  signal?: AbortSignal
 ): Promise<GetApiKeysResponse> {
   const { p = 1, size = 10 } = params
-  const res = await api.get(`/api/token/?p=${p}&size=${size}`)
+  const res = await api.get(`/api/token/?p=${p}&size=${size}`, {
+    signal,
+    disableDuplicate: true,
+  })
   return res.data
 }
 
 // Search API keys by keyword or token (with pagination)
 export async function searchApiKeys(
-  params: SearchApiKeysParams
+  params: SearchApiKeysParams,
+  signal?: AbortSignal
 ): Promise<GetApiKeysResponse> {
-  const { keyword = '', token = '', p, size } = params
+  const { keyword = '', token = '', status, active_only, p, size } = params
   const queryParams = new URLSearchParams()
   if (keyword) queryParams.set('keyword', keyword)
   if (token) queryParams.set('token', token)
+  if (status) queryParams.set('status', String(status))
+  if (active_only) queryParams.set('active_only', 'true')
   if (p != null) queryParams.set('p', String(p))
   if (size != null) queryParams.set('size', String(size))
-  const res = await api.get(`/api/token/search?${queryParams.toString()}`)
+  const res = await api.get(`/api/token/search?${queryParams.toString()}`, {
+    signal,
+    disableDuplicate: true,
+  })
   return res.data
 }
 

@@ -61,10 +61,13 @@ export const getGroupDisplayName = (code, groupNames = {}) => {
   if (!normalizedCode) return '';
 
   const mappedName =
-    groupNames && typeof groupNames === 'object'
+    groupNames &&
+    typeof groupNames === 'object' &&
+    Object.prototype.hasOwnProperty.call(groupNames, normalizedCode) &&
+    typeof groupNames[normalizedCode] === 'string'
       ? groupNames[normalizedCode]
       : '';
-  return String(mappedName ?? '').trim() || normalizedCode;
+  return mappedName.trim() || normalizedCode;
 };
 
 export const normalizeGroupDetail = (group = {}) => {
@@ -245,12 +248,39 @@ export const buildCanvasDefaultGroupOptions = (groups, autoGroup) => {
     .filter((group) => group?.status === 1)
     .map((group) => ({
       value: group.code,
-      label: `${group.name} (${group.code})`,
+      label: group.name || group.code,
     }));
 
   if (!autoGroup?.user_selectable) return activeGroups;
 
   return [{ value: 'auto', label: '自动选择' }, ...activeGroups];
+};
+
+// 无限画布默认分组：已保存的当前值若不在可选项中（例如分组已停用），
+// 返回一个仅用于显示当前名称的禁用项；它不可被新选，未知、已删除或无名称时返回 null。
+export const buildCanvasDefaultGroupCurrentItem = (
+  groups,
+  options,
+  currentValue,
+) => {
+  if (typeof currentValue !== 'string' || !currentValue) return null;
+  if (
+    (Array.isArray(options) ? options : []).some(
+      (o) => o?.value === currentValue,
+    )
+  ) {
+    return null;
+  }
+  const group = (Array.isArray(groups) ? groups : []).find(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      Object.hasOwn(item, 'code') &&
+      item.code === currentValue,
+  );
+  if (!group || !Object.hasOwn(group, 'name')) return null;
+  if (typeof group.name !== 'string' || !group.name) return null;
+  return { value: currentValue, label: group.name, disabled: true };
 };
 
 // 操练场优先展示当前选择的分组；选择无效时回退到用户默认分组。

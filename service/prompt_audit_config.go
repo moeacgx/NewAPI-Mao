@@ -199,7 +199,11 @@ func resolvePromptAuditGroupCodesForUsage(codes []string, usage string) ([]strin
 	for _, code := range canonicalPromptAuditGroupCodes(codes) {
 		group, err := model.GetGroupByCodeOrAlias(code)
 		if err != nil || group == nil || group.Status != model.GroupStatusActive {
-			return nil, fmt.Errorf("%s 引用的分组不存在或已停用：%s", usage, code)
+			name := code
+			if err == nil && group != nil && strings.TrimSpace(group.Name) != "" {
+				name = strings.TrimSpace(group.Name)
+			}
+			return nil, fmt.Errorf("%s 引用的分组不存在或已停用：%s", usage, name)
 		}
 		canonical := strings.TrimSpace(group.Code)
 		if canonical == "" {

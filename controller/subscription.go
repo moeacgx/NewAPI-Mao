@@ -17,7 +17,34 @@ import (
 // ---- Shared types ----
 
 type SubscriptionPlanDTO struct {
-	Plan model.SubscriptionPlan `json:"plan"`
+	Plan subscriptionPlanDisplay `json:"plan"`
+}
+
+// subscriptionPlanDisplay 仅增强列表展示，不进入套餐持久化及升级规则。
+type subscriptionPlanDisplay struct {
+	model.SubscriptionPlan
+	UpgradeGroupName   string `json:"upgrade_group_name"`
+	DowngradeGroupName string `json:"downgrade_group_name"`
+}
+
+func subscriptionPlansToDTO(plans []model.SubscriptionPlan) []SubscriptionPlanDTO {
+	result := make([]SubscriptionPlanDTO, 0, len(plans))
+	if len(plans) == 0 {
+		return result
+	}
+	names, err := model.GetGroupDisplayNameMap()
+	if err != nil {
+		common.SysError("读取订阅分组显示名称失败: " + err.Error())
+	}
+	for _, plan := range plans {
+		plan.NormalizeDefaults()
+		result = append(result, SubscriptionPlanDTO{Plan: subscriptionPlanDisplay{
+			SubscriptionPlan:   plan,
+			UpgradeGroupName:   model.FormatGroupDisplayNames(plan.UpgradeGroup, names),
+			DowngradeGroupName: model.FormatGroupDisplayNames(plan.DowngradeGroup, names),
+		}})
+	}
+	return result
 }
 
 type BillingPreferenceRequest struct {
@@ -50,14 +77,7 @@ func GetSubscriptionPlans(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	result := make([]SubscriptionPlanDTO, 0, len(plans))
-	for _, p := range plans {
-		p.NormalizeDefaults()
-		result = append(result, SubscriptionPlanDTO{
-			Plan: p,
-		})
-	}
-	common.ApiSuccess(c, result)
+	common.ApiSuccess(c, subscriptionPlansToDTO(plans))
 }
 
 func GetSubscriptionSelf(c *gin.Context) {
@@ -246,12 +266,7 @@ func AdminListSubscriptionPlans(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	result := make([]SubscriptionPlanDTO, 0, len(plans))
-	for _, p := range plans {
-		p.NormalizeDefaults()
-		result = append(result, SubscriptionPlanDTO{Plan: p})
-	}
-	common.ApiSuccess(c, result)
+	common.ApiSuccess(c, subscriptionPlansToDTO(plans))
 }
 
 type AdminUpsertSubscriptionPlanRequest struct {

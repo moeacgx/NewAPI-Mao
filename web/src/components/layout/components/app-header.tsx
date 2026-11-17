@@ -112,21 +112,23 @@ export function AppHeader({
 
   return (
     <Header>
-      <SystemBrand variant='inline' />
+      <div className='max-w-24 min-w-0 sm:max-w-52 [&>a]:max-w-full [&>a]:min-w-0 [&>a>div]:shrink-0'>
+        <SystemBrand variant='inline' />
+      </div>
 
       {leftContent ? (
         <div className='ms-2 flex items-center'>{leftContent}</div>
       ) : null}
 
       {rightContent ?? (
-        <div className='ms-auto flex items-center gap-1 sm:gap-2'>
+        <div className='ms-auto flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2 [&>button]:shrink-0'>
           {showTopNav && (
-            <div className='me-1 hidden lg:block'>
+            <div className='min-w-0 shrink-0 lg:flex-1 lg:shrink'>
               <TopNav links={links} />
             </div>
           )}
           {showSearch && (
-            <Search className='max-sm:w-8 max-sm:flex-none max-sm:p-0 max-sm:[&>span]:hidden' />
+            <Search className='max-sm:w-8 max-sm:flex-none max-sm:p-0 sm:w-8 sm:flex-none sm:pe-0 lg:w-8 xl:w-40 xl:pe-12 max-xl:[&>kbd]:hidden max-xl:[&>span]:hidden max-sm:[&>span]:hidden' />
           )}
           {showNotifications && (
             <NotificationPopover

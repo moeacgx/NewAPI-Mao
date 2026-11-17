@@ -49,6 +49,7 @@ import {
   getRequestArchiveRuntime,
   getSecurityAuditBuiltinPolicyChannels,
   getSecurityAuditBuiltinPolicyGroups,
+  getSecurityAuditGroupNames,
   probeRequestArchiveTarget,
   requestArchiveConfigToDraft,
   updateRequestArchiveConfig,
@@ -239,6 +240,7 @@ const RequestArchiveTab = () => {
   const [channelsLoading, setChannelsLoading] = useState(false);
   const [channelsError, setChannelsError] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [groupNames, setGroupNames] = useState({});
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState(false);
 
@@ -297,7 +299,11 @@ const RequestArchiveTab = () => {
     setGroupsLoading(true);
     setGroupsError(false);
     try {
-      const nextGroups = await getSecurityAuditBuiltinPolicyGroups();
+      const [nextGroups, names] = await Promise.all([
+        getSecurityAuditBuiltinPolicyGroups(),
+        getSecurityAuditGroupNames().catch(() => ({})),
+      ]);
+      setGroupNames(names);
       setGroups(
         [...nextGroups]
           .filter((group) => String(group?.code || '').trim())
@@ -893,7 +899,7 @@ const RequestArchiveTab = () => {
                 >
                   {groups.map((group) => (
                     <Select.Option key={group.code} value={group.code}>
-                      {group.name || group.code} ({group.code})
+                      {group.name || group.code}
                     </Select.Option>
                   ))}
                   {(draft.event_group_codes || [])
@@ -908,7 +914,9 @@ const RequestArchiveTab = () => {
                         key={`missing-archive-group-${groupCode}`}
                         value={groupCode}
                       >
-                        {t('Unavailable group')}: {groupCode}
+                        {Object.hasOwn(groupNames, groupCode)
+                          ? groupNames[groupCode]
+                          : `${t('Unavailable group')}: ${groupCode}`}
                       </Select.Option>
                     ))}
                 </Select>

@@ -37,6 +37,7 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
+import type { GroupIdentity } from '../lib/group-selection'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
@@ -47,6 +48,7 @@ import {
   UnlimitedQuotaBadge,
 } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
+import { TokenActivityBadge } from './token-activity'
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
@@ -54,29 +56,36 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-function useGroupRatios(): Record<string, number | string> {
+function useGroupMetadata() {
   const { data } = useQuery({
     queryKey: ['user-groups'],
     queryFn: getUserGroups,
     staleTime: 0,
     select: (res) => {
-      if (!res.success || !res.data) return {}
       const ratios: Record<string, number | string> = {}
-      for (const [group, info] of Object.entries(res.data)) {
+      const groups: Record<string, GroupIdentity> = {}
+      for (const [group, info] of Object.entries(
+        res.success ? res.data || {} : {}
+      )) {
+        groups[group] = { ...info, code: info.code || group }
         if (typeof info.ratio === 'number' || typeof info.ratio === 'string') {
           ratios[group] = info.ratio
         }
       }
-      return ratios
+      return { ratios, groups }
     },
   })
 
-  return data ?? {}
+  return data ?? { ratios: {}, groups: {} }
 }
 
-export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
+export function useApiKeysColumns(
+  now: number,
+  byToken: Record<string, number> = {},
+  activityStale = false
+): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
-  const groupRatios = useGroupRatios()
+  const { ratios: groupRatios, groups } = useGroupMetadata()
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
@@ -114,6 +123,11 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
             {row.getValue('name')}
           </span>
           <TokenPromptBadge token={row.original} />
+          <TokenActivityBadge
+            tokenId={row.original.id}
+            count={byToken[String(row.original.id)] || 0}
+            stale={activityStale}
+          />
         </div>
       ),
       size: 180,
@@ -205,6 +219,9 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         return (
           <ApiKeyGroupCell
             group={group}
+            groupIds={apiKey.group_ids}
+            groupDetails={apiKey.group_details}
+            groups={groups}
             ratio={groupRatios[group]}
             crossGroupRetry={apiKey.cross_group_retry}
             shouldReduceMotion={shouldReduceMotion}

@@ -78,6 +78,25 @@ const ChannelInfoModal = ({
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
+  const groupDetails = channelInfoData?.group_details || [];
+  const groupsById = new Map(groupDetails.map((group) => [group.id, group]));
+  const groupsByCode = new Map(
+    groupDetails.map((group) => [group.code, group]),
+  );
+  // 优先稳定 ID，名称缺失或分组删除时保留原标识。
+  const groupNames = channelInfoData?.group_ids?.length
+    ? channelInfoData.group_ids.map((id, index) => {
+        const detail = groupsById.get(id);
+        return {
+          key: id,
+          name:
+            detail?.name?.trim() || groups[index] || detail?.code || String(id),
+        };
+      })
+    : groups.map((code) => ({
+        key: code,
+        name: groupsByCode.get(code)?.name?.trim() || code,
+      }));
   const models = Array.isArray(channelInfoData?.models)
     ? channelInfoData.models
     : String(channelInfoData?.models || '')
@@ -138,10 +157,10 @@ const ChannelInfoModal = ({
           <div style={infoItemStyle}>
             {renderLabel(t('分组'), 'tertiary')}
             <div className='flex flex-wrap gap-2'>
-              {groups.length > 0 ? (
-                groups.map((group) => (
-                  <Tag key={group} color='blue' shape='circle'>
-                    {group}
+              {groupNames.length > 0 ? (
+                groupNames.map((group) => (
+                  <Tag key={group.key} color='blue' shape='circle'>
+                    {group.name}
                   </Tag>
                 ))
               ) : (
