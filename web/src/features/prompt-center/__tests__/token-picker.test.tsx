@@ -131,7 +131,8 @@ describe('令牌搜索卡片选择器', () => {
     )
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith(
-        '/api/token/search?keyword=Production&p=1&size=20'
+        '/api/token/search?keyword=Production&p=1&size=20',
+        { signal: undefined, disableDuplicate: true }
       )
     )
     await waitFor(() =>

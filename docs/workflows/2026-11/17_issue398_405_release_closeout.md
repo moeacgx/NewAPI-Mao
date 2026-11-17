@@ -83,3 +83,18 @@ go list -mod=readonly -json .
 以上只证明本次纯 dev 修复的资源完整合同。**新冻结、另一名 Codex 独审、Linux 主程序 binary 构建、MCP 组合验收均未完成**；未验证运行时浏览器、容器、真实数据库或生产，不部署 zzapi。没有 API、鉴权、计费或数据库共享契约改变。
 
 兄弟项目条件评估：`NewAPIForDouDi` 与 `NewAPIModifyByGang` 分别仅在确认同样使用 Go 默认目录嵌入、且前端打包会生成下划线或点前缀资源时，值得参考此修复与逐文件字节回归思路；应先核对各自构建链、依赖和 dist 安全边界，不能直接认定有同一缺陷。不创建 Issue、PR 或发送消息。
+
+## 2026-11-18 PR #407 CI 两处旧请求断言修正（实现前计划）
+
+- 问题：GitHub CI run `44164290712` 中后端与前端类型检查通过，但 217 个测试文件有 2 个失败（1394 用例中 2 个失败）。`token-switch.test.tsx` 与 `token-picker.test.tsx` 的 `toHaveBeenCalledWith` 只写 URL，而真实 `searchApiKeys`（`web/src/features/keys/api.ts`）调用 `api.get(url, { signal, disableDuplicate: true })`。
+- 范围：基于 PR #407 feature `b44f2a0da65209d416fe04bffb1b52c8352f43bf`，仅修改上述两个 Default 测试文件与本文；不改生产源码、API、Classic、locale、依赖或 CI。生产行为（绕过请求去重、可传取消信号）保持不变。
+- 方案：按生产调用链显式断言第二参数。`TokenPicker` 的 `queryFn` 调用 `searchApiKeys` 时未传 `signal`，实际值为 `undefined`；断言保留完整 URL、分页与 keyword，并覆盖操练场分页与搜索两处断言。
+- 验证：先对原版两文件运行定向 vitest 取得红测，再运行修正版及 keys api 相关测试取得绿测，进程外限 60 秒；对两测试文件执行 oxfmt 检查与 oxlint，对本文执行精确格式检查与 `git diff --check`。
+
+### 本次修正与限定验证结果
+
+- 调用链确认：`TokenPicker`（`web/src/features/prompt-center/components/token-picker.tsx`）的 `queryFn` 调用 `searchApiKeys({ keyword, p, size: 20 })` 且不传 `signal`；`PlaygroundTokenSwitch` 复用该组件。故真实第二参数为 `{ signal: undefined, disableDuplicate: true }`，三处断言按此精确补齐：操练场分页 `p=2`、操练场搜索 `keyword=Prompt`、令牌选择器搜索 `keyword=Production`。完整 URL、分页、keyword 与选择行为断言均保留，未使用 skip、模糊匹配或放宽 mock。
+- 红测：原版两文件定向 vitest exit 1、32.5 秒，2 失败 / 4 通过，差异均为第二参数 `disableDuplicate: true`、`signal: undefined`，与 CI 一致。
+- 绿测：修正后两文件加 `src/features/keys/__tests__/api-filters.test.ts` exit 0、12.3 秒，3 文件 12 用例全部通过、无 skip。两测试文件 oxfmt `--check` 与 oxlint 均 exit 0。
+- Classic：`web/classic` 使用自身 `helpers/api.js` 与 `pages/PromptCenter/TokenPicker.jsx`，不引用 Default `features/keys/api`；本次未改任何生产源码，共享 `/api/token/search` 请求契约不变，Classic 无需修改。
+- 本机未运行全量 217 文件，以 PR 更新后的真实 CI 为准；待另一名 Codex 独立审查。不提交、推送或部署。

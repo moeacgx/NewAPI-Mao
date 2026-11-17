@@ -98,7 +98,10 @@ describe('操练场身份选择', () => {
     await user.click(card)
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await waitFor(() =>
-      expect(api.get).toHaveBeenCalledWith('/api/token/search?p=2&size=20')
+      expect(api.get).toHaveBeenCalledWith('/api/token/search?p=2&size=20', {
+        signal: undefined,
+        disableDuplicate: true,
+      })
     )
     fireEvent.change(
       screen.getByRole('searchbox', { name: 'Search by name' }),
@@ -106,7 +109,8 @@ describe('操练场身份选择', () => {
     )
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith(
-        '/api/token/search?keyword=Prompt&p=1&size=20'
+        '/api/token/search?keyword=Prompt&p=1&size=20',
+        { signal: undefined, disableDuplicate: true }
       )
     )
     await waitFor(() =>
