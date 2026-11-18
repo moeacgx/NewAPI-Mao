@@ -7702,6 +7702,9 @@
     "Zoom": "ズーム",
     "包含": "含む",
     "正则表达式": "正規表現",
-    "精确匹配": "完全一致"
+    "精确匹配": "完全一致",
+    "Groups are tried from top to bottom. Drag to change the priority.": "グループは上から順に試行されます。ドラッグして優先度を変更できます。",
+    "Group priority order": "グループの優先順位",
+    "Custom Auto": "カスタム自動"
   }
 }

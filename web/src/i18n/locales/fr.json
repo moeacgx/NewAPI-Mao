@@ -7702,6 +7702,9 @@
     "Zoom": "Zoom",
     "包含": "Contient",
     "正则表达式": "Expression régulière",
-    "精确匹配": "Correspondance exacte"
+    "精确匹配": "Correspondance exacte",
+    "Groups are tried from top to bottom. Drag to change the priority.": "Les groupes sont essayés de haut en bas. Faites glisser pour modifier la priorité.",
+    "Group priority order": "Ordre de priorité des groupes",
+    "Custom Auto": "Auto personnalisé"
   }
 }

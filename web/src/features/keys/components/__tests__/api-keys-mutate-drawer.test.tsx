@@ -474,4 +474,74 @@ describe('API keys mutate drawer Auto group integration', () => {
     expect(createdPayloads[0]?.group).toBe('default')
     expect(createdPayloads[0]?.group_ids).toEqual([11])
   })
+
+  test('普通多选显示优先级列表并按调整后的顺序提交显式分组', async () => {
+    const createdPayloads: Array<Record<string, unknown>> = []
+    installApiFixtures(createdPayloads)
+    await renderCreateDrawer()
+
+    const groupTrigger = getControlByLabel('Group')
+    selectComboboxOption(groupTrigger, 'Standard access')
+    expect(
+      screen.queryByRole('list', { name: 'Group priority order', hidden: true })
+    ).not.toBeInTheDocument()
+    selectComboboxOption(groupTrigger, 'Priority access')
+
+    expect(
+      screen.getByRole('list', { name: 'Group priority order', hidden: true })
+    ).toBeInTheDocument()
+    expect(screen.getByText('Custom Auto')).toBeVisible()
+    expect(
+      [...document.querySelectorAll('[data-slot="group-priority-index"]')].map(
+        (item) => item.textContent
+      )
+    ).toEqual(['1', '2'])
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Move Priority models up',
+        hidden: true,
+      })
+    )
+    expect(
+      screen.getByRole('button', {
+        name: 'Move Priority models up',
+        hidden: true,
+      })
+    ).toBeDisabled()
+
+    changeInput(getControlByLabel('Name'), 'ordered-multi')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(createdPayloads).toHaveLength(1))
+    expect(createdPayloads[0]?.group).toBe('vip,default')
+    expect(createdPayloads[0]?.group_ids).toEqual([22, 11])
+    expect(createdPayloads[0]?.group_mode).toBe('explicit')
+    expect(createdPayloads[0]?.auto_groups).toEqual([])
+  })
+
+  test('从优先级列表移除到只剩一个分组时回到直接路由', async () => {
+    const createdPayloads: Array<Record<string, unknown>> = []
+    installApiFixtures(createdPayloads)
+    await renderCreateDrawer()
+
+    const groupTrigger = getControlByLabel('Group')
+    selectComboboxOption(groupTrigger, 'Standard access')
+    selectComboboxOption(groupTrigger, 'Priority access')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Remove Priority models',
+        hidden: true,
+      })
+    )
+
+    expect(
+      screen.queryByRole('list', { name: 'Group priority order', hidden: true })
+    ).not.toBeInTheDocument()
+    changeInput(getControlByLabel('Name'), 'collapsed')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(createdPayloads).toHaveLength(1))
+    expect(createdPayloads[0]?.group).toBe('default')
+    expect(createdPayloads[0]?.group_ids).toEqual([11])
+    expect(createdPayloads[0]?.cross_group_retry).toBe(false)
+  })
 })

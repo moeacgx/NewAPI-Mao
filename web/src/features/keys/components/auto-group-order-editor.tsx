@@ -66,9 +66,10 @@ type AutoGroupOrderItemProps = {
   count: number
   onMove: (index: number, direction: 'up' | 'down') => void
   onRemove: (group: string) => void
+  showPriority?: boolean
 }
 
-function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
+export function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
   const { t } = useTranslation()
   const dragControls = useDragControls()
 
@@ -105,6 +106,15 @@ function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
       >
         <HugeiconsIcon icon={Drag01Icon} strokeWidth={2} aria-hidden='true' />
       </Button>
+      {props.showPriority && (
+        <span
+          aria-hidden='true'
+          data-slot='group-priority-index'
+          className='bg-primary/10 text-primary flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums'
+        >
+          {props.index + 1}
+        </span>
+      )}
       <span className='min-w-0 flex-1 truncate text-sm font-medium'>
         {props.label}
       </span>

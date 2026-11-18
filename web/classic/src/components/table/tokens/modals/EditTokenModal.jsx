@@ -65,7 +65,7 @@ import {
   IconSearch,
   IconLayers,
 } from '@douyinfe/semi-icons';
-import { GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../../context/Status';
 import { UserContext } from '../../../../context/User';
@@ -358,6 +358,11 @@ export const GroupMultiPicker = ({
             <Text strong size='small'>
               {t('已选分组')}
             </Text>
+            {selectedGroups.length > 1 && (
+              <Text type='tertiary' size='small'>
+                {t('Custom Auto')}
+              </Text>
+            )}
           </div>
           {selectedGroups.map((value, index) => {
             const info = groupMap[value];
@@ -412,6 +417,14 @@ export const GroupMultiPicker = ({
                     }}
                   >
                     <GripVertical size={16} />
+                  </span>
+                )}
+                {selectedGroups.length > 1 && (
+                  <span
+                    aria-hidden='true'
+                    className='token-group-priority-index'
+                  >
+                    {index + 1}
                   </span>
                 )}
                 <div style={{ flex: '1 1 120px', minWidth: 0 }}>
@@ -484,6 +497,28 @@ export const GroupMultiPicker = ({
                     onChange={(next) => onGroupChannelChange(info.id, next)}
                     style={{ width: 120, flexShrink: 0 }}
                   />
+                )}
+                {selectedGroups.length > 1 && (
+                  <>
+                    <Button
+                      icon={<ArrowUp size={14} />}
+                      aria-label={t('Move {{name}} up', { name: displayName })}
+                      size='small'
+                      theme='borderless'
+                      disabled={index === 0}
+                      onClick={() => handleMove(index, -1)}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <Button
+                      icon={<ArrowDown size={14} />}
+                      aria-label={t('Move {{name}} down', { name: displayName })}
+                      size='small'
+                      theme='borderless'
+                      disabled={index === selectedGroups.length - 1}
+                      onClick={() => handleMove(index, 1)}
+                      style={{ flexShrink: 0 }}
+                    />
+                  </>
                 )}
                 <Button
                   icon={<IconDelete size='small' />}

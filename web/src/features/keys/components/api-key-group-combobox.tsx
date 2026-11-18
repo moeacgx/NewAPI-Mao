@@ -66,6 +66,9 @@ type ApiKeyGroupComboboxProps = Pick<
   disabled?: boolean
   disabledValues?: readonly string[]
   tags?: GroupTagOption[]
+  activeTag?: string
+  onActiveTagChange?: (value: string) => void
+  hideTagFilter?: boolean
 }
 
 export function ApiKeyGroupCombobox({
@@ -77,12 +80,17 @@ export function ApiKeyGroupCombobox({
   disabled,
   disabledValues,
   tags,
+  activeTag: controlledTag,
+  onActiveTagChange,
+  hideTagFilter,
   ...triggerProps
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
-  const [activeTag, setActiveTag] = useState('all')
+  const [innerTag, setInnerTag] = useState('all')
+  const activeTag = controlledTag ?? innerTag
+  const setActiveTag = onActiveTagChange ?? setInnerTag
   const availableTags = useMemo(
     () =>
       (tags ?? []).filter((tag) =>
@@ -98,7 +106,7 @@ export function ApiKeyGroupCombobox({
   const selectedTag = availableTags.find((tag) => String(tag.id) === activeTag)
   useEffect(() => {
     if (activeTag !== 'all' && !selectedTag) setActiveTag('all')
-  }, [activeTag, selectedTag])
+  }, [activeTag, selectedTag, setActiveTag])
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const { selectedOptions, selectedValueSet } = useMemo(() => {
     const activeValues = selectedValues ?? (value ? [value] : [])
@@ -207,7 +215,7 @@ export function ApiKeyGroupCombobox({
         onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {(tags?.length ?? 0) > 0 && (
+        {!hideTagFilter && (tags?.length ?? 0) > 0 && (
           <GroupTagFilter
             tags={availableTags}
             value={activeTag}
