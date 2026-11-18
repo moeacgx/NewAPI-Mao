@@ -231,6 +231,13 @@ export function Affiliate() {
   } | null>(null)
   const withdrawalPreviewRequest = useRef(0)
   const [transferring, setTransferring] = useState(false)
+  const [noticeOpen, setNoticeOpen] = useState(false)
+  // Set after the first summary load so refreshes, query reloads and tab
+  // changes never reopen the notice; remounting the page starts a new visit.
+  const noticeHandledRef = useRef(false)
+  // Only the newest refresh() may write state, so a delayed older response can
+  // neither overwrite fresher settings nor decide the notice from stale data.
+  const refreshSeqRef = useRef(0)
 
   // Anti-fraud: Application state
   const [appStatus, setAppStatus] = useState<string>('loading')
@@ -333,6 +340,7 @@ export function Affiliate() {
   }
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current
     try {
       setLoading(true)
       const [
@@ -349,6 +357,7 @@ export function Affiliate() {
         getAffiliateLeaderboard(leaderboardPeriod, 20, leaderboardSort),
       ])
 
+      if (seq !== refreshSeqRef.current) return
       if (summaryRes.success) setSummary(summaryRes.data)
       if (accountRes.success) setAccount(accountRes.data)
       if (recordsRes.success) setRecords(recordsRes.data.items || [])
@@ -356,14 +365,25 @@ export function Affiliate() {
         setWithdrawals(withdrawalsRes.data.items || [])
       }
       if (leaderboardRes.success) setLeaderboard(leaderboardRes.data || [])
+    } catch {
+      // The shared http client already surfaced the failure (toast). Swallow it
+      // here so the first failed summary load is not an unhandled rejection;
+      // noticeHandledRef stays false, so a later successful retry still opens
+      // the notice exactly once.
     } finally {
-      setLoading(false)
+      if (seq === refreshSeqRef.current) setLoading(false)
     }
   }, [leaderboardPeriod, leaderboardSort])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  useEffect(() => {
+    if (noticeHandledRef.current || !summary) return
+    noticeHandledRef.current = true
+    if (summary.promotion_notice?.enabled) setNoticeOpen(true)
+  }, [summary])
 
   const availableDisplayAmount = useMemo(() => {
     return quotaUnitsToDollars(summary?.balance.available_quota ?? 0)
@@ -1159,6 +1179,30 @@ export function Affiliate() {
           )}
         </SectionPageLayout.Content>
       </SectionPageLayout>
+
+      <Dialog open={noticeOpen} onOpenChange={setNoticeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {summary?.promotion_notice?.title?.trim() || t('Promotion notice')}
+            </DialogTitle>
+            <DialogDescription className='sr-only'>
+              {t('Promotion page notice')}
+            </DialogDescription>
+          </DialogHeader>
+          <p className='text-sm whitespace-pre-wrap'>
+            {summary?.promotion_notice?.text?.trim() ||
+              t(
+                'Please follow the affiliate rules when promoting. Abusive invitations may be penalized.'
+              )}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setNoticeOpen(false)}>
+              {t('I understand')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
         <DialogContent>

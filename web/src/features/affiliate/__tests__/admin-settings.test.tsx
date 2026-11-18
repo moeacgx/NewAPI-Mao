@@ -45,6 +45,9 @@ const defaultValues = {
     payout_methods: 'usdt',
     usdt_chain: 'TRC20',
     promotion_template: '{invite_link}',
+    promotion_notice_enabled: false,
+    promotion_notice_title: '',
+    promotion_notice_text: '',
     review_enabled: false,
     auto_approve_after_days: 0,
     agreement_enabled: false,
@@ -82,9 +85,10 @@ it('Root 配置保留分钟转秒保存且不加载管理员业务列表', async
     screen.getByRole('button', { name: 'Save affiliate settings' })
   )
   await waitFor(() =>
-    expect(http.put).toHaveBeenCalledWith('/api/option/', {
-      key: 'affiliate_setting.settlement_delay_seconds',
-      value: 180,
+    expect(http.put).toHaveBeenCalledWith('/api/option/affiliate-batch', {
+      options: [
+        { key: 'affiliate_setting.settlement_delay_seconds', value: 180 },
+      ],
     })
   )
   expect(http.get).not.toHaveBeenCalled()

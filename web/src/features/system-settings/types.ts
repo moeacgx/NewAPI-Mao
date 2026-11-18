@@ -509,6 +509,9 @@ export type BillingSettings = {
   "affiliate_setting.payout_methods": string;
   "affiliate_setting.usdt_chain": string;
   "affiliate_setting.promotion_template": string;
+  "affiliate_setting.promotion_notice_enabled": boolean;
+  "affiliate_setting.promotion_notice_title": string;
+  "affiliate_setting.promotion_notice_text": string;
   "affiliate_setting.review_enabled": boolean;
   "affiliate_setting.auto_approve_after_days": number;
   "affiliate_setting.agreement_enabled": boolean;

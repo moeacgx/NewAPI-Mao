@@ -236,8 +236,13 @@ func GetAffiliateSummary(c *gin.Context) {
 		"invite_link":    inviteLink,
 		"promotion_text": promotionText,
 		"setting":        affiliateSettingPayload(),
-		"display":        affiliateDisplayPayload(),
-		"can_invite":     canInvite,
+		"promotion_notice": gin.H{
+			"enabled": affiliateSetting.PromotionNoticeEnabled,
+			"title":   affiliateSetting.PromotionNoticeTitle,
+			"text":    affiliateSetting.PromotionNoticeText,
+		},
+		"display":    affiliateDisplayPayload(),
+		"can_invite": canInvite,
 	})
 }
 

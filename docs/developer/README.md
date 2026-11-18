@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [返佣规则内嵌与推广页提示](../workflows/2026-11/18_affiliate_promotion_notice.md)：Default `/affiliate-management` 新增 Root 可编辑“返佣规则”标签并复用同一规则表单；双模板新增推广页提示开关（默认关）、标题与纯文本正文，进入或刷新推广页时弹出一次（先提示后协议、一次一个弹窗、乱序响应保护）；保存走 `PUT /api/option/affiliate-batch` 原子批量写入，服务端校验开关与 100/2000 字限制；协议与结算不变；已用隔离 SQLite 与真实 Chromium 验证，未部署。
 - [Default 令牌技能弹窗计数归零卸载修复](../workflows/2026-11/18_default_token_skill_dialog_count_zero.md)：已打开的技能安装弹窗不再因令牌列表快照 `prompt_count=0` 被卸载，关闭后徽标仍隐藏；另含刷新在途不重挂载单元格、Default 手机端入口与 Classic 手机端刷新保留卡片；并补充关闭后的键盘焦点（Default `finalFocus`、Classic 关闭后聚焦）；真实浏览器复验由独立验收负责，构建未验。
 - [Issue #410 渠道可观测性原生样式泄漏到全局顶栏](../workflows/2026-11/18_issue410_observability_header_css.md)：Default 与 Classic 的 channel-quality 原生 CSS 改为 `:where(.channel-quality-native)` 作用域，不再覆盖宿主顶栏 `.w-full` 等；新增构建入口与 6 项源码级回归；真实浏览器未验。
 - [Classic 令牌编辑关闭后快速重开竞态修复](../workflows/2026-11/18_classic_token_edit_reopen_race.md)：关闭动画窗口内重开令牌编辑不再被陈旧的 500ms 回调清空编辑身份，保存仍 PUT 原 ID；Default 无同类风险；真实浏览器与构建未验。

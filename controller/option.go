@@ -118,6 +118,67 @@ type OptionUpdateRequest struct {
 	Value any    `json:"value"`
 }
 
+// OptionBatchUpdateRequest carries several options that must be persisted
+// together. Only the affiliate_setting.* keys are accepted.
+type OptionBatchUpdateRequest struct {
+	Options []OptionUpdateRequest `json:"options"`
+}
+
+const (
+	affiliateOptionKeyPrefix   = "affiliate_setting."
+	maxAffiliateBatchOptionCnt = 64
+)
+
+// UpdateAffiliateOptionsBatch persists all submitted affiliate settings in one
+// model.UpdateOptionsBulk transaction: either every option is stored and
+// published, or none is. Validation runs for the whole set before any write.
+func UpdateAffiliateOptionsBatch(c *gin.Context) {
+	var req OptionBatchUpdateRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorMsg(c, "无效的参数")
+		return
+	}
+	if len(req.Options) == 0 || len(req.Options) > maxAffiliateBatchOptionCnt {
+		common.ApiErrorMsg(c, "无效的参数")
+		return
+	}
+	values := make(map[string]string, len(req.Options))
+	keys := make([]string, 0, len(req.Options))
+	for _, item := range req.Options {
+		if !strings.HasPrefix(item.Key, affiliateOptionKeyPrefix) {
+			common.ApiErrorMsg(c, "批量保存仅支持返佣设置")
+			return
+		}
+		if _, exists := values[item.Key]; exists {
+			common.ApiErrorMsg(c, "批量保存包含重复的配置项")
+			return
+		}
+		switch v := item.Value.(type) {
+		case bool:
+			values[item.Key] = common.Interface2String(v)
+		case float64:
+			values[item.Key] = common.Interface2String(v)
+		case string:
+			values[item.Key] = v
+		default:
+			common.ApiErrorMsg(c, "无效的参数")
+			return
+		}
+		keys = append(keys, item.Key)
+	}
+	if err := model.UpdateOptionsBulk(values); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAudit(c, "option.update", map[string]interface{}{
+		"keys": keys,
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
 func UpdateOption(c *gin.Context) {
 	var option OptionUpdateRequest
 	err := common.DecodeJson(c.Request.Body, &option)

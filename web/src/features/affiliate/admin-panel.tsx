@@ -65,6 +65,7 @@ import {
   adminResolveFraudAlert,
   adminDeleteFraudAlert,
 } from '@/features/affiliate/api'
+import { AffiliateRulesPanel } from '@/features/affiliate/rules-panel'
 import type {
   AdminAffiliateApplication,
   AdminBindAffiliateInviterResult,
@@ -85,7 +86,9 @@ import {
   formatQuota,
   formatTimestampToDate,
 } from '@/lib/format'
+import { ROLE } from '@/lib/roles'
 import { getPageNumbers } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 type RiskTargetUser = Pick<User, 'id'> &
   Partial<Pick<User, 'username' | 'display_name' | 'email' | 'aff_code'>>
@@ -362,6 +365,9 @@ function AdminTablePagination({
 
 export function AffiliateAdminPanel() {
   const { t } = useTranslation()
+  const isRoot = useAuthStore(
+    (state) => (state.auth.user?.role ?? 0) >= ROLE.SUPER_ADMIN
+  )
   const [invitations, setInvitations] = useState<AffiliateAdminInvitation[]>([])
   const [invitationKeyword, setInvitationKeyword] = useState('')
   const [invitationSearch, setInvitationSearch] = useState('')
@@ -1087,6 +1093,9 @@ export function AffiliateAdminPanel() {
           className='space-y-6'
         >
           <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+            {isRoot && (
+              <TabsTrigger value='rules'>{t('Commission rules')}</TabsTrigger>
+            )}
             <TabsTrigger value='manual-bind'>
               {t('Manual referral')}
             </TabsTrigger>
@@ -1103,6 +1112,12 @@ export function AffiliateAdminPanel() {
               {t('Fraud Detection')}
             </TabsTrigger>
           </TabsList>
+
+          {isRoot && (
+            <TabsContent value='rules' className='space-y-4'>
+              {activeTab === 'rules' && <AffiliateRulesPanel />}
+            </TabsContent>
+          )}
 
           <TabsContent value='manual-bind' className='space-y-4'>
             <div className='space-y-1'>

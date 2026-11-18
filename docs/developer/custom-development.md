@@ -65,6 +65,8 @@
 - Default 当前源码增加 `/affiliate-management`，允许 role ≥ 10 管理邀请关系、返佣记录、提现、风险、申请与异常检测；未登录和普通用户不能进入。业务面板复用 `/api/affiliate/admin/*`，不挂载 Root 配置表单或读取 `/api/option/`。
 - `/system-settings/billing/affiliate` 继续由系统设置父路由限制为 Root（role 100），不扩大配置接口或其他设置权限。返佣金额、账务与审核 API 的后端契约不变。
 - Classic `/console/affiliate-admin` 的普通管理员路径已同步拆分为仅业务面板，避免进入 Root option 加载和支付配置确认流程；Root 保留原配置入口。
+- 返佣规则内嵌：Default `/affiliate-management` 为 Root 增加可编辑“返佣规则”标签，复用 `web/src/features/system-settings/billing/affiliate-config.ts` 的默认值、校验与 `affiliate-settings-section.tsx` 同一表单，不跳转系统设置；role 10 不挂载该面板、不请求 `/api/option`，后端权限不变。
+- 推广页提示：新增 `affiliate_setting.promotion_notice_enabled`（默认关闭）、`promotion_notice_title`、`promotion_notice_text`，由 `GET /api/affiliate/summary` 的 `promotion_notice` 返回；双模板以纯文本渲染，进入或刷新推广页时弹出一次，本次访问内关闭后刷新数据或切换标签不再弹出；保存使用 Root 专用原子批量接口 `PUT /api/option/affiliate-batch`（复用 `model.UpdateOptionsBulk`，写库前服务端校验开关与标题 100、正文 2000 个字符）；弹窗先提示后协议，一次只出现一个；申请协议与结算不变，无数据库迁移。详见[推广页提示记录](../workflows/2026-11/18_affiliate_promotion_notice.md)。
 - 稳定性：双模板实现、独立复审及统一构建门禁已记录；真实 Redis、多实例、生产角色权限和交易链仍未验收，
   不代表已部署；无数据库迁移。详见[返佣管理权限记录](../workflows/2026-11/16_issue401_affiliate_admin_access.md)。
 

@@ -64,6 +64,9 @@ const DEFAULT_INPUTS = {
   'affiliate_setting.payout_methods': 'usdt,alipay,wechat',
   'affiliate_setting.usdt_chain': 'TRC20',
   'affiliate_setting.promotion_template': '邀请链接：{invite_link}',
+  'affiliate_setting.promotion_notice_enabled': false,
+  'affiliate_setting.promotion_notice_title': '',
+  'affiliate_setting.promotion_notice_text': '',
   'affiliate_setting.review_enabled': false,
   'affiliate_setting.auto_approve_after_days': 0,
   'affiliate_setting.agreement_enabled': false,
@@ -75,6 +78,8 @@ const DEFAULT_INPUTS = {
 };
 
 const SETTLEMENT_DELAY_KEY = 'affiliate_setting.settlement_delay_seconds';
+// Notice limits count Unicode characters, matching the backend validator.
+const getCharacterLength = (value) => Array.from(value || '').length;
 const PAYOUT_METHOD_OPTIONS = [
   ['usdt', 'USDT'],
   ['alipay', '支付宝'],
@@ -2018,21 +2023,21 @@ export default function SettingsAffiliateCommission(props) {
     }
     setSaving(true);
     try {
-      const results = await Promise.all(
-        updateArray.map((item) =>
-          API.put('/api/option/', {
-            key: item.key,
-            value: String(
-              item.key === SETTLEMENT_DELAY_KEY
-                ? minutesToSeconds(inputs[item.key])
-                : inputs[item.key],
-            ),
-          }),
-        ),
-      );
-      const failed = results.filter((res) => !res.data.success);
-      if (failed.length > 0) {
-        failed.forEach((res) => showError(res.data.message));
+      // One atomic request: the backend validates every option first and
+      // persists them in a single transaction, so a failure never leaves a
+      // half-saved rule set and there are no parallel SQLite writers.
+      const res = await API.put('/api/option/affiliate-batch', {
+        options: updateArray.map((item) => ({
+          key: item.key,
+          value: String(
+            item.key === SETTLEMENT_DELAY_KEY
+              ? minutesToSeconds(inputs[item.key])
+              : inputs[item.key],
+          ),
+        })),
+      });
+      if (!res.data.success) {
+        showError(res.data.message || t('保存失败，请重试'));
         return;
       }
       showSuccess(t('保存成功'));
@@ -2658,6 +2663,52 @@ export default function SettingsAffiliateCommission(props) {
                       'affiliate_setting.promotion_template',
                     )}
                   />
+                </div>
+
+                <div style={PANEL_STYLE}>
+                  <SectionHeader
+                    title={t('推广页提示')}
+                    description={t(
+                      '开启后，用户每次进入或刷新推广页时弹出一次提示；内容为纯文本，标题或正文留空时使用默认文案',
+                    )}
+                  />
+                  <Space vertical align='start' style={{ width: '100%' }}>
+                    <SwitchRow
+                      title={t('进入推广页时弹出提示')}
+                      description={t(
+                        '默认关闭；在本次访问中关闭提示后，切换标签页或刷新数据不会再次弹出',
+                      )}
+                    >
+                      <Form.Switch
+                        field='affiliate_setting.promotion_notice_enabled'
+                        noLabel
+                        onChange={handleFieldChange(
+                          'affiliate_setting.promotion_notice_enabled',
+                        )}
+                      />
+                    </SwitchRow>
+                    <Form.Input
+                      field='affiliate_setting.promotion_notice_title'
+                      label={t('提示标题')}
+                      getValueLength={getCharacterLength}
+                      maxLength={100}
+                      style={WIDE_INPUT_STYLE}
+                      onChange={handleFieldChange(
+                        'affiliate_setting.promotion_notice_title',
+                      )}
+                    />
+                    <Form.TextArea
+                      field='affiliate_setting.promotion_notice_text'
+                      label={t('提示正文')}
+                      getValueLength={getCharacterLength}
+                      maxLength={2000}
+                      autosize={{ minRows: 4, maxRows: 8 }}
+                      style={WIDE_INPUT_STYLE}
+                      onChange={handleFieldChange(
+                        'affiliate_setting.promotion_notice_text',
+                      )}
+                    />
+                  </Space>
                 </div>
 
                 <div className='flex justify-end'>
