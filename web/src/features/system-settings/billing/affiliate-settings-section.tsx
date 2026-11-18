@@ -17,11 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { type ChangeEvent, useMemo } from 'react'
 import type { Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import * as z from 'zod'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -38,38 +38,17 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
+import { updateAffiliateOptionsBatch } from '../api'
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
 import { SettingsSection } from '../components/settings-section'
 import { useSettingsForm } from '../hooks/use-settings-form'
-import { useUpdateOption } from '../hooks/use-update-option'
-
-const affiliateSchema = z.object({
-  affiliate_setting: z.object({
-    first_level_enabled: z.boolean(),
-    first_level_ratio: z.coerce.number().min(0).max(100),
-    second_level_enabled: z.boolean(),
-    second_level_ratio: z.coerce.number().min(0).max(100),
-    settlement_delay_seconds: z.coerce.number().min(0),
-    min_withdrawal_amount: z.coerce.number().min(0),
-    trigger_topup_enabled: z.boolean(),
-    trigger_subscription_enabled: z.boolean(),
-    filter_redemption_topup_enabled: z.boolean(),
-    payout_methods: z.string().min(1),
-    usdt_chain: z.string().min(1),
-    promotion_template: z.string().min(1),
-    review_enabled: z.boolean(),
-    auto_approve_after_days: z.coerce.number().min(0),
-    agreement_enabled: z.boolean(),
-    agreement_text: z.string(),
-    inviter_min_account_age_days: z.coerce.number().min(0),
-    inviter_min_recharge_amount: z.coerce.number().min(0),
-    invitee_min_account_age_days: z.coerce.number().min(0),
-    invitee_min_recharge_amount: z.coerce.number().min(0),
-  }),
-})
-
-type AffiliateFormValues = z.infer<typeof affiliateSchema>
+import {
+  affiliateSchema,
+  type AffiliateFormValues,
+  PROMOTION_NOTICE_TEXT_MAX_LENGTH,
+  PROMOTION_NOTICE_TITLE_MAX_LENGTH,
+} from './affiliate-config'
 
 type Props = {
   defaultValues: AffiliateFormValues
@@ -92,7 +71,7 @@ function minutesToSeconds(value: number | string | boolean) {
 
 export function AffiliateSettingsSection({ defaultValues }: Props) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const queryClient = useQueryClient()
   const displayDefaultValues = useMemo<AffiliateFormValues>(
     () => ({
       affiliate_setting: {
@@ -121,15 +100,31 @@ export function AffiliateSettingsSection({ defaultValues }: Props) {
       >,
       defaultValues: displayDefaultValues,
       onSubmit: async (_data, changedFields) => {
-        for (const [key, value] of Object.entries(changedFields)) {
-          await updateOption.mutateAsync({
-            key: key === SETTLEMENT_DELAY_KEY ? SETTLEMENT_DELAY_KEY : key,
-            value:
-              key === SETTLEMENT_DELAY_KEY
-                ? minutesToSeconds(value as string | number | boolean)
-                : (value as string | number | boolean),
-          })
+        // One atomic request: either every changed option is stored or none,
+        // and the draft is kept when the server rejects it.
+        const options = Object.entries(changedFields).map(([key, value]) => ({
+          key,
+          value:
+            key === SETTLEMENT_DELAY_KEY
+              ? minutesToSeconds(value as string | number | boolean)
+              : (value as string | number | boolean),
+        }))
+        try {
+          const res = await updateAffiliateOptionsBatch(options)
+          if (!res.success) {
+            toast.error(res.message || t('Failed to update setting'))
+            return false
+          }
+        } catch (error) {
+          toast.error(
+            error instanceof Error && error.message
+              ? error.message
+              : t('Failed to update setting')
+          )
+          return false
         }
+        await queryClient.invalidateQueries({ queryKey: ['system-options'] })
+        toast.success(t('Setting updated successfully'))
       },
     })
 
@@ -393,13 +388,88 @@ export function AffiliateSettingsSection({ defaultValues }: Props) {
                 )}
               />
 
-              <Button
-                type='submit'
-                disabled={isSubmitting || updateOption.isPending}
-              >
-                {isSubmitting || updateOption.isPending
-                  ? t('Saving...')
-                  : t('Save affiliate settings')}
+              <FormField
+                control={form.control}
+                name='affiliate_setting.promotion_notice_enabled'
+                render={({ field }) => (
+                  <FormItem className='flex items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel>{t('Promotion page notice')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Show the notice once each time users open or refresh the promotion page.'
+                        )}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='affiliate_setting.promotion_notice_title'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Promotion notice title')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        onChange={(event) =>
+                          field.onChange(
+                            [...event.target.value]
+                              .slice(0, PROMOTION_NOTICE_TITLE_MAX_LENGTH)
+                              .join('')
+                          )
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Plain text. Leave empty to use the default notice title.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='affiliate_setting.promotion_notice_text'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Promotion notice body')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        className='min-h-28'
+                        {...field}
+                        onChange={(event) =>
+                          field.onChange(
+                            [...event.target.value]
+                              .slice(0, PROMOTION_NOTICE_TEXT_MAX_LENGTH)
+                              .join('')
+                          )
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Plain text only, line breaks are kept. Leave empty to use the default notice copy.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting ? t('Saving...') : t('Save affiliate settings')}
               </Button>
             </form>
           </Form>

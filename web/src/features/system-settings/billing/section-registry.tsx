@@ -25,6 +25,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { buildAffiliateFormValues } from './affiliate-config'
 import { AffiliateSettingsSection } from './affiliate-settings-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -236,44 +237,7 @@ const BILLING_SECTIONS = [
     descriptionKey: 'Configure paid-referral commission and payouts',
     build: (settings: BillingSettings) => (
       <AffiliateSettingsSection
-        defaultValues={{
-          affiliate_setting: {
-            first_level_enabled:
-              settings['affiliate_setting.first_level_enabled'],
-            first_level_ratio: settings['affiliate_setting.first_level_ratio'],
-            second_level_enabled:
-              settings['affiliate_setting.second_level_enabled'],
-            second_level_ratio:
-              settings['affiliate_setting.second_level_ratio'],
-            settlement_delay_seconds:
-              settings['affiliate_setting.settlement_delay_seconds'],
-            min_withdrawal_amount:
-              settings['affiliate_setting.min_withdrawal_amount'],
-            trigger_topup_enabled:
-              settings['affiliate_setting.trigger_topup_enabled'],
-            trigger_subscription_enabled:
-              settings['affiliate_setting.trigger_subscription_enabled'],
-            filter_redemption_topup_enabled:
-              settings['affiliate_setting.filter_redemption_topup_enabled'],
-            payout_methods: settings['affiliate_setting.payout_methods'],
-            usdt_chain: settings['affiliate_setting.usdt_chain'],
-            promotion_template:
-              settings['affiliate_setting.promotion_template'],
-            review_enabled: settings['affiliate_setting.review_enabled'],
-            auto_approve_after_days:
-              settings['affiliate_setting.auto_approve_after_days'],
-            agreement_enabled: settings['affiliate_setting.agreement_enabled'],
-            agreement_text: settings['affiliate_setting.agreement_text'],
-            inviter_min_account_age_days:
-              settings['affiliate_setting.inviter_min_account_age_days'],
-            inviter_min_recharge_amount:
-              settings['affiliate_setting.inviter_min_recharge_amount'],
-            invitee_min_account_age_days:
-              settings['affiliate_setting.invitee_min_account_age_days'],
-            invitee_min_recharge_amount:
-              settings['affiliate_setting.invitee_min_recharge_amount'],
-          },
-        }}
+        defaultValues={buildAffiliateFormValues(settings)}
       />
     ),
   },

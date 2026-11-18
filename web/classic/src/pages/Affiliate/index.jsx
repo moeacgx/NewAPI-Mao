@@ -397,6 +397,20 @@ const Affiliate = () => {
   const withdrawalPreviewRequest = useRef(0);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
+  const [noticeVisible, setNoticeVisible] = useState(false);
+  // True only once the notice decision is known AND the notice (if any) has
+  // finished its exit animation. The agreement modal waits for it, so the
+  // notice always comes first and two animating Semi modals are never mounted
+  // together. It stays false while the first summary is outstanding or failed,
+  // so a later retry cannot overlap an already open agreement modal.
+  const [noticeSettled, setNoticeSettled] = useState(false);
+  // Set after the first applied summary so refresh(), pagination, period and
+  // tab changes never reopen the notice; remounting starts a new visit.
+  const noticeHandledRef = useRef(false);
+  // Only the newest refresh() may write state, so a delayed older response can
+  // neither overwrite fresher settings nor decide the notice from stale data.
+  const refreshSeqRef = useRef(0);
+
 
   // Anti-fraud application state
   const [reviewStatus, setReviewStatus] = useState(null); // null = loading, object = loaded
@@ -518,6 +532,7 @@ const Affiliate = () => {
   }, [payoutMethods, withdrawMethod]);
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     setLoading(true);
     try {
       const [
@@ -560,7 +575,18 @@ const Affiliate = () => {
         }),
       ]);
 
-      if (summaryRes.data.success) setSummary(summaryRes.data.data);
+      if (seq !== refreshSeqRef.current) return;
+      if (summaryRes.data.success) {
+        const nextSummary = summaryRes.data.data;
+        setSummary(nextSummary);
+        // Decide the notice in the same batch as the summary so the agreement
+        // modal can never render in between.
+        if (!noticeHandledRef.current) {
+          noticeHandledRef.current = true;
+          if (nextSummary?.promotion_notice?.enabled) setNoticeVisible(true);
+          else setNoticeSettled(true);
+        }
+      }
       if (accountRes.data.success) setAccount(accountRes.data.data);
       if (invitationsRes.data.success) {
         const pageData = invitationsRes.data.data;
@@ -604,9 +630,11 @@ const Affiliate = () => {
         setCommissionLeaderboardTotal(getTotal(pageData));
       }
     } catch (error) {
-      showError(t('获取返佣数据失败'));
+      if (seq === refreshSeqRef.current) showError(t('获取返佣数据失败'));
     } finally {
-      setLoading(false);
+      if (seq === refreshSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [
     commissionLeaderboardPage,
@@ -901,7 +929,7 @@ const Affiliate = () => {
                 <>
                   <Modal
                     title={t('参与返佣须知')}
-                    visible={agreementModalVisible}
+                    visible={agreementModalVisible && noticeSettled && !noticeVisible}
                     closable={false}
                     maskClosable={false}
                     footer={
@@ -1501,6 +1529,27 @@ const Affiliate = () => {
             </Modal>
           </>
         )}
+
+        {/* Promotion notice: shown once per visit for every visitor, including
+            those still behind the application gate; it always precedes the
+            agreement modal so only one modal is active at a time. */}
+        <Modal
+          title={summary?.promotion_notice?.title?.trim() || t('推广提示')}
+          visible={noticeVisible}
+          onCancel={() => setNoticeVisible(false)}
+          afterClose={() => setNoticeSettled(true)}
+          footer={
+            <Button type='primary' onClick={() => setNoticeVisible(false)}>
+              {t('我已知悉')}
+            </Button>
+          }
+          centered
+        >
+          <Text style={{ whiteSpace: 'pre-wrap' }}>
+            {summary?.promotion_notice?.text?.trim() ||
+              t('推广时请遵守返佣规则，滥用邀请可能会受到处罚。')}
+          </Text>
+        </Modal>
       </div>
     </main>
   );

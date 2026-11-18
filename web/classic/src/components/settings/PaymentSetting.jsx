@@ -86,6 +86,9 @@ const RootPaymentSetting = ({
     'affiliate_setting.payout_methods': 'usdt,alipay,wechat',
     'affiliate_setting.usdt_chain': 'TRC20',
     'affiliate_setting.promotion_template': '邀请链接：{invite_link}',
+    'affiliate_setting.promotion_notice_enabled': false,
+    'affiliate_setting.promotion_notice_title': '',
+    'affiliate_setting.promotion_notice_text': '',
     'affiliate_setting.review_enabled': false,
     'affiliate_setting.auto_approve_after_days': 0,
     'affiliate_setting.agreement_enabled': false,
@@ -231,11 +234,14 @@ const RootPaymentSetting = ({
           case 'affiliate_setting.filter_redemption_topup_enabled':
           case 'affiliate_setting.review_enabled':
           case 'affiliate_setting.agreement_enabled':
+          case 'affiliate_setting.promotion_notice_enabled':
             newInputs[item.key] = toBoolean(item.value);
             break;
           case 'affiliate_setting.usdt_chain':
           case 'affiliate_setting.payout_methods':
           case 'affiliate_setting.promotion_template':
+          case 'affiliate_setting.promotion_notice_title':
+          case 'affiliate_setting.promotion_notice_text':
           case 'affiliate_setting.agreement_text':
             newInputs[item.key] = item.value;
             break;

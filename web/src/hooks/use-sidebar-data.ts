@@ -218,7 +218,7 @@ export function useSidebarData(): SidebarData {
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {
-            title: t('Redemption Codes'),
+            title: t('Marketing Benefits'),
             url: '/redemption-codes',
             icon: Ticket,
           },

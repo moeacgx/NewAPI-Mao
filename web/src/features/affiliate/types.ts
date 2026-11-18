@@ -55,6 +55,12 @@ export type AffiliateSetting = {
   usdt_chain: string
 }
 
+export type AffiliatePromotionNotice = {
+  enabled: boolean
+  title: string
+  text: string
+}
+
 export type AffiliateSummary = {
   balance: AffiliateBalance
   aff_code: string
@@ -62,6 +68,7 @@ export type AffiliateSummary = {
   invite_link: string
   promotion_text: string
   setting: AffiliateSetting
+  promotion_notice?: AffiliatePromotionNotice
   can_invite: boolean
 }
 

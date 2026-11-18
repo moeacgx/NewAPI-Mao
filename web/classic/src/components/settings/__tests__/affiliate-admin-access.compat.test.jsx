@@ -25,10 +25,13 @@ import { API } from '../../../helpers';
 import { AdminRoute } from '../../../helpers/auth';
 import PaymentSetting from '../PaymentSetting';
 
+let optionRows = [];
+
 beforeEach(() => {
+  optionRows = [];
   vi.spyOn(API, 'get').mockImplementation(async (url) => {
     if (url === '/api/option/') {
-      return { data: { success: true, data: [] } };
+      return { data: { success: true, data: optionRows } };
     }
     return {
       data: {
@@ -62,6 +65,9 @@ beforeEach(() => {
   });
   vi.spyOn(API, 'post').mockResolvedValue({
     data: { success: true, data: null },
+  });
+  vi.spyOn(API, 'put').mockResolvedValue({
+    data: { success: true, message: '' },
   });
 });
 
@@ -100,6 +106,7 @@ test('role 10 可查询返佣业务且不请求或展示 Root 配置', async () 
   ).toBe(false);
   expect(screen.queryByText('返佣规则')).toBeNull();
   expect(screen.queryByText('反欺诈设置')).toBeNull();
+  expect(screen.queryByText('推广页提示')).toBeNull();
   expect(screen.queryByText('需要确认合规声明')).toBeNull();
   fireEvent.click(screen.getByRole('tab', { name: '提现审核' }));
   fireEvent.click(await screen.findByRole('button', { name: '通过' }));
@@ -124,4 +131,64 @@ test('role 100 保留配置加载和未确认时的合规门禁', async () => {
   await waitFor(() => expect(API.get).toHaveBeenCalledWith('/api/option/'));
   expect(await screen.findByText('需要确认合规声明')).toBeTruthy();
   expect(screen.getByRole('tab', { name: '返佣规则' })).toBeTruthy();
+});
+
+test('role 100 在返佣规则页读取并保存推广页提示配置', async () => {
+  optionRows = [
+    { key: 'payment_setting.compliance_confirmed', value: 'true' },
+    { key: 'payment_setting.compliance_terms_version', value: 'v1' },
+    { key: 'affiliate_setting.promotion_notice_enabled', value: 'true' },
+    { key: 'affiliate_setting.promotion_notice_title', value: 'Seed title' },
+    { key: 'affiliate_setting.promotion_notice_text', value: 'Seed body' },
+  ];
+  renderPage(100);
+  expect(await screen.findByText('推广页提示')).toBeTruthy();
+  const titleInput = await screen.findByDisplayValue('Seed title');
+  expect(screen.getByDisplayValue('Seed body')).toBeTruthy();
+
+  fireEvent.change(titleInput, { target: { value: 'Edited title' } });
+  fireEvent.click(await screen.findByRole('button', { name: '保存设置' }));
+  await waitFor(() => expect(API.put).toHaveBeenCalledTimes(1));
+  expect(API.put).toHaveBeenCalledWith('/api/option/affiliate-batch', {
+    options: [
+      {
+        key: 'affiliate_setting.promotion_notice_title',
+        value: 'Edited title',
+      },
+    ],
+  });
+});
+
+test('多项修改合并为一次原子请求，服务端拒绝时保留草稿并提示原因', async () => {
+  optionRows = [
+    { key: 'payment_setting.compliance_confirmed', value: 'true' },
+    { key: 'payment_setting.compliance_terms_version', value: 'v1' },
+    { key: 'affiliate_setting.promotion_notice_title', value: 'Seed title' },
+    { key: 'affiliate_setting.promotion_notice_text', value: 'Seed body' },
+  ];
+  API.put.mockResolvedValueOnce({
+    data: { success: false, message: 'promotion notice title is too long' },
+  });
+  renderPage(100);
+  const titleInput = await screen.findByDisplayValue('Seed title');
+  const bodyInput = screen.getByDisplayValue('Seed body');
+  fireEvent.change(titleInput, { target: { value: 'Mixed title' } });
+  fireEvent.change(bodyInput, { target: { value: 'Mixed body' } });
+  fireEvent.click(await screen.findByRole('button', { name: '保存设置' }));
+  await waitFor(() => expect(API.put).toHaveBeenCalledTimes(1));
+  const [url, body] = API.put.mock.calls[0];
+  expect(url).toBe('/api/option/affiliate-batch');
+  expect(
+    Object.fromEntries(body.options.map((item) => [item.key, item.value])),
+  ).toEqual({
+    'affiliate_setting.promotion_notice_title': 'Mixed title',
+    'affiliate_setting.promotion_notice_text': 'Mixed body',
+  });
+  // The rejected draft stays in the form so it can be corrected and re-sent.
+  await waitFor(() =>
+    expect(screen.getByDisplayValue('Mixed title')).toBeTruthy(),
+  );
+  expect(screen.getByDisplayValue('Mixed body')).toBeTruthy();
+  fireEvent.click(await screen.findByRole('button', { name: '保存设置' }));
+  await waitFor(() => expect(API.put).toHaveBeenCalledTimes(2));
 });

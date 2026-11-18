@@ -1,6 +1,42 @@
 package setting
 
-import "github.com/QuantumNous/new-api/setting/config"
+import (
+	"errors"
+	"unicode/utf8"
+
+	"github.com/QuantumNous/new-api/setting/config"
+)
+
+const (
+	AffiliatePromotionNoticeEnabledKey = "affiliate_setting.promotion_notice_enabled"
+	AffiliatePromotionNoticeTitleKey   = "affiliate_setting.promotion_notice_title"
+	AffiliatePromotionNoticeTextKey    = "affiliate_setting.promotion_notice_text"
+
+	// Limits are Unicode characters (code points), identical in both templates.
+	AffiliatePromotionNoticeTitleMaxRunes = 100
+	AffiliatePromotionNoticeTextMaxRunes  = 2000
+)
+
+// ValidateAffiliatePromotionNoticeOption validates one promotion notice option
+// before it is persisted. Empty title/text are allowed and fall back to the
+// localized default copy in the user pages.
+func ValidateAffiliatePromotionNoticeOption(key string, value string) error {
+	switch key {
+	case AffiliatePromotionNoticeEnabledKey:
+		if value != "true" && value != "false" {
+			return errors.New("推广页提示开关必须是 true 或 false")
+		}
+	case AffiliatePromotionNoticeTitleKey:
+		if !utf8.ValidString(value) || utf8.RuneCountInString(value) > AffiliatePromotionNoticeTitleMaxRunes {
+			return errors.New("推广页提示标题不能超过 100 个字符")
+		}
+	case AffiliatePromotionNoticeTextKey:
+		if !utf8.ValidString(value) || utf8.RuneCountInString(value) > AffiliatePromotionNoticeTextMaxRunes {
+			return errors.New("推广页提示正文不能超过 2000 个字符")
+		}
+	}
+	return nil
+}
 
 const DefaultAffiliatePayoutMethods = "usdt,alipay,wechat"
 const DefaultAffiliateAgreementText = "我已知悉并同意：利用小号邀请自身账号或关联账号参与返佣属于违规行为。一经发现，将永久封禁相关账号并冻结所有返佣收益，不予退款。"
@@ -18,6 +54,10 @@ type AffiliateSetting struct {
 	PayoutMethods                string `json:"payout_methods"`
 	UsdtChain                    string `json:"usdt_chain"`
 	PromotionTemplate            string `json:"promotion_template"`
+	// Promotion page notice
+	PromotionNoticeEnabled bool   `json:"promotion_notice_enabled"`
+	PromotionNoticeTitle   string `json:"promotion_notice_title"`
+	PromotionNoticeText    string `json:"promotion_notice_text"`
 	// Anti-fraud: Inviter review
 	ReviewEnabled        bool `json:"review_enabled"`
 	AutoApproveAfterDays int  `json:"auto_approve_after_days"`
@@ -45,6 +85,9 @@ var affiliateSetting = AffiliateSetting{
 	PayoutMethods:                DefaultAffiliatePayoutMethods,
 	UsdtChain:                    "TRC20",
 	PromotionTemplate:            "邀请链接：{invite_link}",
+	PromotionNoticeEnabled:       false,
+	PromotionNoticeTitle:         "",
+	PromotionNoticeText:          "",
 	ReviewEnabled:                false,
 	AutoApproveAfterDays:         0,
 	AgreementEnabled:             false,

@@ -184,7 +184,7 @@ export function SidebarModulesSection({
         description: t('Manage catalog visibility and pricing.'),
       },
       redemption: {
-        title: t('Redeem codes'),
+        title: t('Marketing Benefits'),
         description: t('Create and review invite or credit codes.'),
       },
       user: {

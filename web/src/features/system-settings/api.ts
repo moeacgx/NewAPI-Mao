@@ -54,6 +54,17 @@ export async function updateSystemOption(request: UpdateOptionRequest) {
   return res.data
 }
 
+// Atomic all-or-nothing save for affiliate_setting.* options (Root only).
+export async function updateAffiliateOptionsBatch(
+  options: UpdateOptionRequest[]
+) {
+  const res = await api.put<UpdateOptionResponse>(
+    '/api/option/affiliate-batch',
+    { options }
+  )
+  return res.data
+}
+
 export async function getGroupDetails(): Promise<GroupDetailsData> {
   const res = await api.get<GroupDetailsResponse>('/api/group/details')
   if (Array.isArray(res.data)) {

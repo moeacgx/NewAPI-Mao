@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import TokenPromptInstallationModal from '../../../pages/PromptCenter/TokenPromptInstallationModal';
@@ -27,9 +27,31 @@ export default function TokenPromptBadge(props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [updated, setUpdated] = useState(null);
+  const triggerRef = useRef(null);
+  const rowRef = useRef(null);
+  const wasOpenRef = useRef(false);
   useEffect(() => {
     setUpdated(null);
   }, [props.token.prompt_count, props.token.enabled_prompt_count]);
+  // Semi 关闭时只会把焦点还给打开前的旧按钮；计数归零重建徽标后它已断开，
+  // 因此在弹窗卸载后改为聚焦当前徽标，或同一令牌行里稳定的可操作控件。
+  useEffect(() => {
+    const closed = wasOpenRef.current && !open;
+    wasOpenRef.current = open;
+    if (!closed) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    if (triggerRef.current?.isConnected) {
+      triggerRef.current.focus();
+      return;
+    }
+    const row = rowRef.current;
+    if (!row?.isConnected) return;
+    const control = Array.from(
+      row.querySelectorAll('button, input, a[href], [tabindex]'),
+    ).find((node) => node.tabIndex >= 0 && !node.disabled);
+    control?.focus();
+  }, [open]);
   const count = updated?.count ?? props.token.prompt_count ?? 0;
   const enabled = updated?.enabled ?? props.token.enabled_prompt_count ?? 0;
   if (!count && !open) return null;
@@ -40,7 +62,11 @@ export default function TokenPromptBadge(props) {
           type='button'
           className='token-prompt-badge'
           data-active={enabled > 0}
-          onClick={() => setOpen(true)}
+          ref={triggerRef}
+          onClick={(event) => {
+            rowRef.current = event.currentTarget.closest('tr, article');
+            setOpen(true);
+          }}
           aria-label={t(
             '{{name}}: {{count}} installed prompts, {{enabled}} enabled',
             { name: props.token.name, count, enabled },
