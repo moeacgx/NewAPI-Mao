@@ -90,10 +90,20 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     };
   };
 
+  // 关闭动画结束后才清空编辑身份；窗口内重开时必须取消，避免旧回调清掉新身份。
+  const closeEditTimerRef = useRef(null);
+  useEffect(() => {
+    if (showEdit) {
+      clearTimeout(closeEditTimerRef.current);
+    }
+  }, [showEdit]);
+  useEffect(() => () => clearTimeout(closeEditTimerRef.current), []);
+
   // Close edit modal
   const closeEdit = () => {
     setShowEdit(false);
-    setTimeout(() => {
+    clearTimeout(closeEditTimerRef.current);
+    closeEditTimerRef.current = setTimeout(() => {
       setEditingToken({
         id: undefined,
       });
