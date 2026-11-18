@@ -1,5 +1,7 @@
 # NewAPI-Mao 开发文档
 
+- [Default 令牌技能弹窗计数归零卸载修复](../workflows/2026-11/18_default_token_skill_dialog_count_zero.md)：已打开的技能安装弹窗不再因令牌列表快照 `prompt_count=0` 被卸载，关闭后徽标仍隐藏；另含刷新在途不重挂载单元格、Default 手机端入口与 Classic 手机端刷新保留卡片；并补充关闭后的键盘焦点（Default `finalFocus`、Classic 关闭后聚焦）；真实浏览器复验由独立验收负责，构建未验。
+- [Issue #410 渠道可观测性原生样式泄漏到全局顶栏](../workflows/2026-11/18_issue410_observability_header_css.md)：Default 与 Classic 的 channel-quality 原生 CSS 改为 `:where(.channel-quality-native)` 作用域，不再覆盖宿主顶栏 `.w-full` 等；新增构建入口与 6 项源码级回归；真实浏览器未验。
 - [Classic 令牌编辑关闭后快速重开竞态修复](../workflows/2026-11/18_classic_token_edit_reopen_race.md)：关闭动画窗口内重开令牌编辑不再被陈旧的 500ms 回调清空编辑身份，保存仍 PUT 原 ID；Default 无同类风险；真实浏览器与构建未验。
 - [Classic 令牌编辑永不过期显示修复](../workflows/2026-11/18_classic_token_expiry_sentinel.md)：Classic 编辑弹窗不再把 `expired_time=-1` 渲染为 1970 日期，控件留空并显示“永不过期”占位，提交仍为 `-1`；Default 已按 `> 0` 判断无需修改。
 - [Issue #403–#405 i18n 共享翻译集成](../workflows/2026-11/16_issue403_405_i18n_integration.md)：11 键（#404 倍率保护 9 键、#405 导航 2 键）七语写入 `translation` 命名空间并经 `bun run i18n:sync`，原键值与 MCP 条目保留，临时脚本已删；zh/zh-TW/ja 比例键术语已返修（比例→倍率，レート→倍率），r3 验证 77/77 值通过、7770 原键不变；最终文档独审已通过；不部署 zzapi。

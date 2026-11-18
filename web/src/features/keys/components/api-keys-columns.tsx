@@ -28,7 +28,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { TokenPromptBadge } from '@/features/prompt-center/components/token-prompt-badge'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
@@ -40,6 +39,7 @@ import { API_KEY_STATUSES } from '../constants'
 import type { GroupIdentity } from '../lib/group-selection'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
+import { ApiKeyNameCell } from './api-key-name-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
@@ -48,7 +48,6 @@ import {
   UnlimitedQuotaBadge,
 } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
-import { TokenActivityBadge } from './token-activity'
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
@@ -79,11 +78,7 @@ function useGroupMetadata() {
   return data ?? { ratios: {}, groups: {} }
 }
 
-export function useApiKeysColumns(
-  now: number,
-  byToken: Record<string, number> = {},
-  activityStale = false
-): ColumnDef<ApiKey>[] {
+export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
   const { ratios: groupRatios, groups } = useGroupMetadata()
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -117,19 +112,7 @@ export function useApiKeysColumns(
     {
       accessorKey: 'name',
       header: t('Name'),
-      cell: ({ row }) => (
-        <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-          <span className='min-w-0 font-medium [overflow-wrap:anywhere]'>
-            {row.getValue('name')}
-          </span>
-          <TokenPromptBadge token={row.original} />
-          <TokenActivityBadge
-            tokenId={row.original.id}
-            count={byToken[String(row.original.id)] || 0}
-            stale={activityStale}
-          />
-        </div>
-      ),
+      cell: ApiKeyNameCell,
       size: 180,
       meta: { mobileTitle: true },
     },

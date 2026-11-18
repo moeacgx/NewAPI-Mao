@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Layers3, Sparkles, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,8 @@ export interface TokenPromptDialogProps {
   onOpenChange: (open: boolean) => void
   token: PromptToken
   templateToInstall?: PromptTemplate
+  // 关闭后的焦点去向；令牌徽标在计数归零时会重建触发按钮，需要由调用方指定。
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }
 
 export function TokenPromptDialog(props: TokenPromptDialogProps) {
@@ -54,7 +56,11 @@ export function TokenPromptDialog(props: TokenPromptDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className='max-h-[85dvh] overflow-y-auto rounded-2xl sm:max-w-2xl'>
+      <DialogContent
+        data-token-prompt-dialog=''
+        finalFocus={props.finalFocus}
+        className='max-h-[85dvh] overflow-y-auto rounded-2xl sm:max-w-2xl'
+      >
         <DialogHeader className='border-border/70 bg-muted/20 rounded-2xl border p-4'>
           <div className='flex items-start gap-3'>
             <div className='bg-primary/[0.1] text-primary flex size-10 shrink-0 items-center justify-center rounded-xl'>

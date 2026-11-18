@@ -38,6 +38,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TokenPromptBadge } from '@/features/prompt-center/components/token-prompt-badge'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -52,6 +53,7 @@ import {
 import { useApiKeysQuery } from '../hooks/use-api-keys-query'
 import { useTokenActivity } from '../hooks/use-token-activity'
 import type { ApiKey } from '../types'
+import { ApiKeyActivityContext } from './api-key-activity-context'
 import { ApiKeySearchInput } from './api-key-search-input'
 import { ApiKeyCell, UnlimitedQuotaBadge } from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
@@ -146,6 +148,7 @@ function ApiKeysMobileList({
         return (
           <div
             key={row.id}
+            data-token-row={apiKey.id}
             className={cn(
               'bg-card space-y-2.5 border-b px-3 py-2.5 last:border-b-0',
               isDisabledApiKeyRow(apiKey) && DISABLED_ROW_MOBILE
@@ -164,6 +167,9 @@ function ApiKeysMobileList({
                   count={byToken[String(apiKey.id)] || 0}
                   stale={activityStale}
                 />
+                <div className='flex flex-wrap items-center gap-1.5 pt-1 empty:hidden'>
+                  <TokenPromptBadge token={apiKey} />
+                </div>
               </div>
               {statusConfig && (
                 <StatusBadge
@@ -224,7 +230,7 @@ function ApiKeysTableContent(props: {
   const [now, setNow] = useState(() => Date.now())
   const activity = useTokenActivity(props.userId, props.sessionId)
   const byToken = activity.snapshot?.summary.by_token || {}
-  const columns = useApiKeysColumns(now, byToken, activity.stale)
+  const columns = useApiKeysColumns(now)
   const search = route.useSearch()
   const navigate = route.useNavigate()
   const { history } = useRouter()
@@ -327,126 +333,128 @@ function ApiKeysTableContent(props: {
   })
 
   return (
-    <div className='flex h-full min-h-0 flex-col gap-3'>
-      <TokenActivityBar
-        activity={activity}
-        activeOnly={activeOnly}
-        onActiveOnlyChange={(value) => {
-          table.resetRowSelection()
-          void navigate({
-            search: (prev) => ({
-              ...prev,
-              active_only: value || undefined,
-              page: undefined,
-            }),
-          })
-        }}
-      />
-      {query.error && (
-        <div
-          role='alert'
-          className='bg-card text-destructive flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm'
-        >
-          <span>
-            {t(ERROR_MESSAGES.LOAD_FAILED)}
-            {data && ` ${t('Showing the last known state.')}`}
-          </span>
-          <Button
-            variant='outline'
-            size='sm'
-            disabled={isFetching}
-            onClick={() => void query.refetch()}
-          >
-            {t('Retry')}
-          </Button>
-        </div>
-      )}
-      <DataTablePage
-        table={table}
-        columns={columns}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        emptyTitle={t(
-          query.error ? ERROR_MESSAGES.LOAD_FAILED : 'No API Keys Found'
-        )}
-        emptyDescription={t(
-          query.error
-            ? 'Retry'
-            : 'No API keys available. Create your first API key to get started.'
-        )}
-        skeletonKeyPrefix='api-keys-skeleton'
-        applyHeaderSize
-        toolbarProps={{
-          hasAdditionalFilters: activeOnly,
-          onReset: () => {
-            setSearchResetVersion((version) => version + 1)
+    <ApiKeyActivityContext.Provider value={{ byToken, stale: activity.stale }}>
+      <div className='flex h-full min-h-0 flex-col gap-3'>
+        <TokenActivityBar
+          activity={activity}
+          activeOnly={activeOnly}
+          onActiveOnlyChange={(value) => {
             table.resetRowSelection()
             void navigate({
               search: (prev) => ({
                 ...prev,
+                active_only: value || undefined,
                 page: undefined,
-                filter: undefined,
-                token: undefined,
-                status: undefined,
-                active_only: undefined,
               }),
             })
-          },
-          customSearch: (
-            <ApiKeySearchInput
-              key={`name:${searchResetVersion}`}
-              field='name'
-              value={globalFilter}
-              onCommit={(value) =>
-                void navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    filter: value || undefined,
-                    page: undefined,
-                  }),
-                })
-              }
-            />
-          ),
-          additionalSearch: (
-            <ApiKeySearchInput
-              key={`key:${searchResetVersion}`}
-              field='key'
-              value={search.token || ''}
-              onCommit={(value) =>
-                void navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    token: value || undefined,
-                    page: undefined,
-                  }),
-                })
-              }
-            />
-          ),
-          filters: [
-            {
-              columnId: 'status',
-              title: t('Status'),
-              options: API_KEY_STATUS_OPTIONS,
-              singleSelect: true,
+          }}
+        />
+        {query.error && (
+          <div
+            role='alert'
+            className='bg-card text-destructive flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm'
+          >
+            <span>
+              {t(ERROR_MESSAGES.LOAD_FAILED)}
+              {data && ` ${t('Showing the last known state.')}`}
+            </span>
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t('Retry')}
+            </Button>
+          </div>
+        )}
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          emptyTitle={t(
+            query.error ? ERROR_MESSAGES.LOAD_FAILED : 'No API Keys Found'
+          )}
+          emptyDescription={t(
+            query.error
+              ? 'Retry'
+              : 'No API keys available. Create your first API key to get started.'
+          )}
+          skeletonKeyPrefix='api-keys-skeleton'
+          applyHeaderSize
+          toolbarProps={{
+            hasAdditionalFilters: activeOnly,
+            onReset: () => {
+              setSearchResetVersion((version) => version + 1)
+              table.resetRowSelection()
+              void navigate({
+                search: (prev) => ({
+                  ...prev,
+                  page: undefined,
+                  filter: undefined,
+                  token: undefined,
+                  status: undefined,
+                  active_only: undefined,
+                }),
+              })
             },
-          ],
-        }}
-        mobile={
-          <ApiKeysMobileList
-            table={table}
-            isLoading={isLoading}
-            byToken={byToken}
-            activityStale={activity.stale}
-            failed={Boolean(query.error)}
-          />
-        }
-        getRowClassName={(row) =>
-          isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
-        }
-        bulkActions={<DataTableBulkActions table={table} />}
-      />
-    </div>
+            customSearch: (
+              <ApiKeySearchInput
+                key={`name:${searchResetVersion}`}
+                field='name'
+                value={globalFilter}
+                onCommit={(value) =>
+                  void navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      filter: value || undefined,
+                      page: undefined,
+                    }),
+                  })
+                }
+              />
+            ),
+            additionalSearch: (
+              <ApiKeySearchInput
+                key={`key:${searchResetVersion}`}
+                field='key'
+                value={search.token || ''}
+                onCommit={(value) =>
+                  void navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      token: value || undefined,
+                      page: undefined,
+                    }),
+                  })
+                }
+              />
+            ),
+            filters: [
+              {
+                columnId: 'status',
+                title: t('Status'),
+                options: API_KEY_STATUS_OPTIONS,
+                singleSelect: true,
+              },
+            ],
+          }}
+          mobile={
+            <ApiKeysMobileList
+              table={table}
+              isLoading={isLoading}
+              byToken={byToken}
+              activityStale={activity.stale}
+              failed={Boolean(query.error)}
+            />
+          }
+          getRowClassName={(row) =>
+            isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
+          }
+          bulkActions={<DataTableBulkActions table={table} />}
+        />
+      </div>
+    </ApiKeyActivityContext.Provider>
   )
 }
