@@ -7702,6 +7702,9 @@
     "Zoom": "Zoom",
     "包含": "Chứa",
     "正则表达式": "Biểu thức chính quy",
-    "精确匹配": "Khớp chính xác"
+    "精确匹配": "Khớp chính xác",
+    "Groups are tried from top to bottom. Drag to change the priority.": "Các nhóm được thử từ trên xuống dưới. Kéo để thay đổi mức ưu tiên.",
+    "Group priority order": "Thứ tự ưu tiên của nhóm",
+    "Custom Auto": "Tự động tùy chỉnh"
   }
 }

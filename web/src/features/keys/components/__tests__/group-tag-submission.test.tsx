@@ -139,19 +139,26 @@ describe('user token group tag request contracts', () => {
         ).toHaveTextContent('标准当前名称')
       }
       if (!editing) {
+        fireEvent.click(await screen.findByRole('button', { name: /标准平台/ }))
         fireEvent.click(screen.getByRole('combobox', { name: 'Group' }))
-        fireEvent.click(await screen.findByRole('button', { name: '标准平台' }))
         fireEvent.click(
           within(screen.getByRole('listbox')).getByRole('option', {
             name: /标准当前名称/,
           })
         )
       }
-      fireEvent.click(screen.getByRole('combobox', { name: 'Group' }))
-      fireEvent.click(await screen.findByRole('button', { name: '专业平台' }))
+      const professionalCard = await screen.findByRole('button', {
+        name: /专业平台/,
+      })
+      fireEvent.click(professionalCard)
+      expect(professionalCard).toHaveAttribute('aria-pressed', 'true')
       expect(
-        screen.queryByRole('button', { name: '无权平台' })
+        screen.queryByRole('button', { name: /无权平台/ })
       ).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Group' })).toHaveTextContent(
+        '标准当前名称'
+      )
+      fireEvent.click(screen.getByRole('combobox', { name: 'Group' }))
       expect(
         within(screen.getByRole('listbox')).queryByText('标准当前名称')
       ).not.toBeInTheDocument()

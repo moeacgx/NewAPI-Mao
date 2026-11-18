@@ -7702,6 +7702,9 @@
     "Zoom": "縮放",
     "包含": "包含",
     "正则表达式": "正規表示式",
-    "精确匹配": "精確比對"
+    "精确匹配": "精確比對",
+    "Groups are tried from top to bottom. Drag to change the priority.": "分組會由上而下依序嘗試，拖曳即可調整優先順序。",
+    "Group priority order": "分組優先順序",
+    "Custom Auto": "自選 Auto"
   }
 }

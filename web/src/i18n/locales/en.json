@@ -7702,6 +7702,9 @@
     "Zoom": "Zoom",
     "包含": "Contains",
     "正则表达式": "Regular expression",
-    "精确匹配": "Exact match"
+    "精确匹配": "Exact match",
+    "Groups are tried from top to bottom. Drag to change the priority.": "Groups are tried from top to bottom. Drag to change the priority.",
+    "Group priority order": "Group priority order",
+    "Custom Auto": "Custom Auto"
   }
 }

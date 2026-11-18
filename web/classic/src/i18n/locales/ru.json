@@ -6510,6 +6510,9 @@
     "{{count}} / {{max}} groups selected": "Выбрано {{count}} / {{max}} групп",
     "Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.": "По умолчанию 0 (без ограничений). Положительное значение ограничивает явные списки групп и пользовательские снимки Auto. Токены, наследующие глобальный порядок Auto, не ограничены.",
     "Enter a non-negative integer (0 for unlimited)": "Введите неотрицательное целое число (0 — без ограничений)",
-    "{{count}} groups selected (unlimited)": "Выбрано групп: {{count}} (без ограничений)"
+    "{{count}} groups selected (unlimited)": "Выбрано групп: {{count}} (без ограничений)",
+    "Move {{name}} up": "Переместить {{name}} вверх",
+    "Move {{name}} down": "Переместить {{name}} вниз",
+    "Custom Auto": "Пользовательский авто"
   }
 }
