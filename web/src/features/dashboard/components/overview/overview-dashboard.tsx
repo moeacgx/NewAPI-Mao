@@ -476,12 +476,19 @@ export function OverviewDashboard() {
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
 
+  const userId = user?.id
+  // Scoped by user so an account switch never reuses the previous account's
+  // keys; a failed fetch throws so it cannot masquerade as "no keys yet".
   const apiKeysQuery = useQuery({
-    queryKey: ['dashboard', 'overview', 'api-keys'],
+    queryKey: ['dashboard', 'overview', 'api-keys', userId],
     queryFn: async () => {
       const result = await getApiKeys({ p: 1, size: 10 })
-      return result.success ? (result.data?.items ?? []) : []
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to load API keys')
+      }
+      return result.data?.items ?? []
     },
+    enabled: userId != null,
     staleTime: 60 * 1000,
   })
 
@@ -606,9 +613,11 @@ export function OverviewDashboard() {
 
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
-  const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
-  const setupGuideExpanded =
-    manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
+  // Only real, loaded data for the current user decides the guide. Cached data
+  // stays during refetches, so a completed setup never flashes back.
+  const setupStatusReady = Boolean(user) && apiKeysQuery.data !== undefined
+  const showSetupGuide = setupStatusReady && !setupComplete
+  const setupGuideExpanded = manualSetupGuideExpanded ?? true
   const showLeftContentPanels =
     isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
   const showContentPanels = showLeftContentPanels || showUptimePanel
@@ -621,7 +630,7 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
-      {setupGuideExpanded ? (
+      {showSetupGuide && setupGuideExpanded && (
         <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
@@ -697,7 +706,8 @@ export function OverviewDashboard() {
             </div>
           </CardStaggerItem>
         </CardStaggerContainer>
-      ) : (
+      )}
+      {showSetupGuide && !setupGuideExpanded && (
         <CardStaggerContainer>
           <CardStaggerItem className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative overflow-hidden px-4 py-3 sm:px-5'>
@@ -705,14 +715,15 @@ export function OverviewDashboard() {
               <div className='relative flex flex-wrap items-center justify-between gap-3'>
                 <div className='flex min-w-0 items-center gap-3'>
                   <span className='bg-background/70 flex size-9 shrink-0 items-center justify-center rounded-xl border shadow-xs'>
-                    <Check className='text-success size-4' aria-hidden='true' />
+                    <ListChecks
+                      className='text-muted-foreground size-4'
+                      aria-hidden='true'
+                    />
                   </span>
                   <div className='min-w-0'>
                     <div className='flex items-center gap-2'>
                       <h3 className='truncate text-sm font-semibold'>
-                        {setupComplete
-                          ? t('Setup guide complete')
-                          : t('Setup guide')}
+                        {t('Setup guide')}
                       </h3>
                       <span className='text-muted-foreground bg-background/60 rounded-md border px-2 py-0.5 text-xs'>
                         {t('Setup progress: {{completed}}/{{total}}', {
@@ -722,11 +733,7 @@ export function OverviewDashboard() {
                       </span>
                     </div>
                     <p className='text-muted-foreground line-clamp-1 text-xs'>
-                      {setupComplete
-                        ? t(
-                            'Your setup guide is collapsed so usage stays in focus.'
-                          )
-                        : t('Setup guide is collapsed. Expand it anytime.')}
+                      {t('Setup guide is collapsed. Expand it anytime.')}
                     </p>
                   </div>
                 </div>
