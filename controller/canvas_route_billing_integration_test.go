@@ -161,11 +161,11 @@ func newCanvasRouteBillingEngine(observed chan<- canvasRouteObservation) *gin.En
 	canvas := engine.Group("/canvas/v1")
 	canvas.Use(middleware.DecompressRequestMiddleware(), middleware.BodyStorageCleanup(), middleware.StatsMiddleware())
 	canvas.Use(middleware.RouteTag("relay"), middleware.SystemPerformanceCheck(), middleware.UserSessionAuth())
-	canvas.POST("/images/tasks", ImageTaskAdmissionGuard(), CanvasPrepareRequest, middleware.PromptAudit(), CanvasImageTaskSubmit)
+	canvas.POST("/images/tasks", ImageTaskAdmissionGuard(), CanvasPrepareRequest, ImageTaskModelAdmission(), middleware.PromptAudit(), CanvasImageTaskSubmit)
 	prepared := canvas.Group("")
 	prepared.Use(CanvasPrepareRequest)
 	syncRoute := prepared.Group("")
-	syncRoute.Use(middleware.ModelRequestRateLimit(), middleware.PromptAudit(), middleware.Distribute())
+	syncRoute.Use(middleware.ModelRequestRateLimit(), middleware.AdmitRequestModel(), middleware.PromptAudit(), middleware.Distribute())
 	if observed != nil {
 		syncRoute.Use(func(c *gin.Context) {
 			c.Next()
@@ -186,10 +186,10 @@ func newCanvasRouteBillingEngine(observed chan<- canvasRouteObservation) *gin.En
 	tokenTasks := engine.Group("/v1/images/tasks")
 	tokenTasks.Use(middleware.RelayCORS(), middleware.DecompressRequestMiddleware(), middleware.BodyStorageCleanup(), middleware.StatsMiddleware())
 	tokenTasks.Use(middleware.RouteTag("relay"), middleware.SystemPerformanceCheck(), middleware.TokenAuth())
-	tokenTasks.POST("", ImageTaskAdmissionGuard(), middleware.PromptAudit(), ImageTaskSubmit)
+	tokenTasks.POST("", ImageTaskAdmissionGuard(), ImageTaskModelAdmission(), middleware.PromptAudit(), ImageTaskSubmit)
 	normalRelay := engine.Group("/v1")
 	normalRelay.Use(middleware.RouteTag("relay"), middleware.SystemPerformanceCheck(), middleware.TokenAuth())
-	normalRelay.POST("/images/generations", middleware.PromptAudit(), middleware.Distribute(), middleware.ModelRequestRateLimit(), func(c *gin.Context) {
+	normalRelay.POST("/images/generations", middleware.AdmitRequestModel(), middleware.PromptAudit(), middleware.Distribute(), middleware.ModelRequestRateLimit(), func(c *gin.Context) {
 		Relay(c, relaytypes.RelayFormatOpenAIImage)
 	})
 	return engine
@@ -920,6 +920,65 @@ func TestCanvasAsyncImageTaskSubmitRunsPromptAuditBeforeTaskInsert(t *testing.T)
 	var taskRows int64
 	require.NoError(t, model.DB.Model(&model.Task{}).Count(&taskRows).Error)
 	assert.Zero(t, taskRows)
+}
+
+// 异步图片任务提交必须在 PromptAudit 和任务入队前拒绝未收录模型。
+func TestCanvasAsyncImageTaskSubmitRejectsUnlistedBeforePromptAudit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	guardCalls := atomic.Int32{}
+	guard := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		guardCalls.Add(1)
+		w.Header().Set("Content-Type", gin.MIMEJSON)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"Safety: Safe\nCategories: None"}}]}`))
+	}))
+	defer guard.Close()
+	upstreamCalls := atomic.Int32{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		upstreamCalls.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	setupCanvasRouteBillingTest(t, upstream.URL)
+	cfg, _, err := model.LoadPromptAuditConfig()
+	require.NoError(t, err)
+	cfg.Enabled = true
+	cfg.BlockingEnabled = true
+	require.NoError(t, model.SavePromptAuditConfig(cfg.ConfigVersion, cfg, []model.PromptAuditEndpoint{{
+		Id: "canvas-unlisted-guard", Name: "Canvas Unlisted Guard", Protocol: "openai_compatible",
+		BaseUrl: guard.URL, Model: service.PromptAuditDefaultModel,
+		TimeoutMs: 1000, InputLimit: service.PromptAuditDefaultInputLimit, Enabled: true,
+	}}))
+	service.InvalidatePromptAuditConfig()
+	_, sessionCookie := createCanvasRouteUserSession(t, "async-unlisted", "wallet_only", 1_000)
+	resetImageTaskAdmissionTestState()
+	t.Cleanup(resetImageTaskAdmissionTestState)
+
+	for _, body := range []string{
+		`{"model":"unlisted-image-model","prompt":"draw","n":1}`,
+		`{"prompt":"draw","n":1}`,
+	} {
+		guardCalls.Store(0)
+		request := httptest.NewRequest(http.MethodPost, "/canvas/v1/images/tasks?action=generations&group=default", strings.NewReader(body))
+		request.Header.Set("Origin", middleware.CanvasConfiguredOrigin())
+		request.AddCookie(sessionCookie)
+		request.Header.Set("Content-Type", gin.MIMEJSON)
+		recorder := httptest.NewRecorder()
+		newCanvasRouteBillingEngine(nil).ServeHTTP(recorder, request)
+		assert.Equal(t, http.StatusNotFound, recorder.Code, recorder.Body.String())
+		assert.Contains(t, recorder.Body.String(), `"code":"model_not_found"`)
+		assert.Zero(t, guardCalls.Load(), "未收录模型不得调用 PromptAudit")
+	}
+	assert.Zero(t, upstreamCalls.Load())
+
+	var taskRows int64
+	require.NoError(t, model.DB.Model(&model.Task{}).Count(&taskRows).Error)
+	assert.Zero(t, taskRows, "未收录模型不得写入任务")
+	var auditRows int64
+	require.NoError(t, model.DB.Model(&model.PromptAuditEvent{}).Count(&auditRows).Error)
+	assert.Zero(t, auditRows)
+	var archiveRows int64
+	require.NoError(t, model.DB.Model(&model.RequestArchiveJob{}).Count(&archiveRows).Error)
+	assert.Zero(t, archiveRows)
 }
 
 func TestCanvasRouteFundingFailureRollsBackBeforeUpstream(t *testing.T) {

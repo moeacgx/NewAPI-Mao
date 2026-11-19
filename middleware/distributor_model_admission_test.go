@@ -152,3 +152,66 @@ func TestDistributeModelCatalog(t *testing.T) {
 		})
 	}
 }
+
+// 未收录模型必须在 PromptAudit 和后续中间件执行前被拒绝，且不留下日志。
+func TestAdmitRequestModelRejectsBeforePromptAudit(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&model.Model{}, &model.Vendor{}, &model.Channel{}, &model.Ability{}, &model.Log{}))
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		model.InvalidatePricingCache()
+		require.NoError(t, sqlDB.Close())
+	})
+	model.InvalidatePricingCache()
+	require.NoError(t, (&model.Model{ModelName: "listed-model", Status: 1}).Insert())
+
+	for _, test := range []struct {
+		name, method, path, body string
+		wantStatus               int
+	}{
+		{name: "同步未收录", method: http.MethodPost, path: "/v1/chat/completions", body: `{"model":"unlisted"}`, wantStatus: http.StatusNotFound},
+		{name: "Gemini 路径未收录", method: http.MethodPost, path: "/v1beta/models/unlisted:generateContent", body: `{}`, wantStatus: http.StatusNotFound},
+		{name: "已收录", method: http.MethodPost, path: "/v1/chat/completions", body: `{"model":"listed-model"}`, wantStatus: http.StatusNoContent},
+		{name: "空模型", method: http.MethodPost, path: "/v1/chat/completions", body: `{}`, wantStatus: http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			engine := gin.New()
+			auditCalls := 0
+			distributeCalls := 0
+			terminalCalls := 0
+			engine.Use(BodyStorageCleanup())
+			engine.POST("/v1/chat/completions",
+				AdmitRequestModel(),
+				func(c *gin.Context) { auditCalls++; c.Next() },
+				func(c *gin.Context) { distributeCalls++; c.Next() },
+				func(c *gin.Context) { terminalCalls++; c.Status(http.StatusNoContent) },
+			)
+			engine.POST("/v1beta/models/*action",
+				AdmitRequestModel(),
+				func(c *gin.Context) { auditCalls++; c.Next() },
+				func(c *gin.Context) { terminalCalls++; c.Status(http.StatusNoContent) },
+			)
+			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
+			req.Header.Set("Content-Type", gin.MIMEJSON)
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, req)
+			assert.Equal(t, test.wantStatus, response.Code, response.Body.String())
+			if test.wantStatus == http.StatusNotFound {
+				assert.Contains(t, response.Body.String(), `"code":"model_not_found"`)
+				assert.Zero(t, auditCalls, "未收录模型不得进入 PromptAudit")
+				assert.Zero(t, distributeCalls)
+				assert.Zero(t, terminalCalls)
+				var count int64
+				require.NoError(t, db.Model(&model.Log{}).Count(&count).Error)
+				assert.Zero(t, count, "未收录模型不得写入错误日志")
+			}
+		})
+	}
+}
