@@ -127,7 +127,7 @@ test('标签卡片跨标签累加多选，保留预填并按 code/ID 提交', as
   expect(captured.payload.group_ids).toEqual([11, 12, 13]);
 });
 
-test('清空后提交为空分组继承语义', async () => {
+test('清空只清除草稿，重新选择后按新分组提交', async () => {
   const captured = {};
   mockApi(TAGS, captured);
   renderModal();
@@ -139,10 +139,18 @@ test('清空后提交为空分组继承语义', async () => {
   );
   await user.click(screen.getByRole('button', { name: '清空' }));
   expect(document.querySelector('.channel-group-selected-list')).toBeNull();
+  // 后端拒绝空分组，这里只验证清空的是草稿：未提交，且可重新选择后正常保存。
+  expect(captured.payload).toBeUndefined();
+  await user.click(screen.getByRole('radio', { name: /海外标签/ }));
+  const dialog = await screen.findByRole('dialog', { name: '选择分组' });
+  await user.click(within(dialog).getByRole('checkbox', { name: '伽马组' }));
+  await user.keyboard('{Escape}');
+  const list = document.querySelector('.channel-group-selected-list');
+  expect(list.textContent).toBe('伽马组');
   await user.click(screen.getByRole('button', { name: /提交/ }));
   await waitFor(() => expect(captured.payload).toBeTruthy());
-  expect(captured.payload.group).toBe('');
-  expect(captured.payload.group_ids).toEqual([]);
+  expect(captured.payload.group).toBe('g_gamma');
+  expect(captured.payload.group_ids).toEqual([13]);
 });
 
 test('没有标签时保留原多选下拉并原样保存历史分组', async () => {
