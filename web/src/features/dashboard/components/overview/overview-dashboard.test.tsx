@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -26,9 +26,23 @@ import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 
 import { OverviewDashboard } from './overview-dashboard'
 
+const navigatedTo = vi.hoisted(() => [] as string[])
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: { to: string; children?: React.ReactNode }) => (
-    <a href={props.to}>{props.children}</a>
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: { to: string; children?: React.ReactNode } & Record<string, unknown>) => (
+    <a
+      {...rest}
+      href={to}
+      onClick={(event) => {
+        event.preventDefault()
+        navigatedTo.push(to)
+      }}
+    >
+      {children}
+    </a>
   ),
 }))
 vi.mock('@/features/keys/api', () => ({
@@ -88,6 +102,14 @@ const newUser: AuthUser = {
   used_quota: 0,
   request_count: 0,
 }
+const doneAdmin: AuthUser = {
+  id: 13,
+  username: 'done-admin',
+  role: 10,
+  quota: 500,
+  used_quota: 20,
+  request_count: 3,
+}
 const doneUser: AuthUser = {
   id: 12,
   username: 'done-user',
@@ -131,6 +153,7 @@ function guideVisible() {
 
 describe('OverviewDashboard setup guide', () => {
   beforeEach(() => {
+    navigatedTo.length = 0
     window.localStorage.clear()
     useAuthStore.getState().auth.setUser(null)
   })
@@ -175,6 +198,48 @@ describe('OverviewDashboard setup guide', () => {
     expect(guideVisible()).toBe(false)
     expect(screen.queryByText(/Setup progress/)).not.toBeInTheDocument()
     expect(screen.queryByText('Setup guide complete')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hide setup guide')).not.toBeInTheDocument()
+
+    // The compact quick entries stay in the overview action area and still
+    // navigate; Channels keeps its admin-only gate.
+    const actions = screen.getByRole('navigation', { name: 'Quick actions' })
+    expect(
+      Array.from(actions.querySelectorAll('a'), (link) =>
+        link.getAttribute('href')
+      )
+    ).toEqual(['/keys', '/usage-logs', '/pricing'])
+    await userEvent.click(within(actions).getByText('Usage Logs'))
+    await userEvent.click(within(actions).getByText('Pricing'))
+    expect(navigatedTo).toEqual(['/usage-logs', '/pricing'])
+  })
+
+  it('keeps all four quick entries for a completed admin, including Channels', async () => {
+    mockKeys({ [doneAdmin.id]: [key] })
+    useAuthStore.getState().auth.setUser(doneAdmin)
+    renderOverview()
+
+    const actions = await screen.findByRole('navigation', {
+      name: 'Quick actions',
+    })
+    expect(guideVisible()).toBe(false)
+    expect(
+      Array.from(actions.querySelectorAll('a'), (link) =>
+        link.getAttribute('href')
+      )
+    ).toEqual(['/keys', '/channels', '/usage-logs', '/pricing'])
+    await userEvent.click(within(actions).getByText('Channels'))
+    expect(navigatedTo).toEqual(['/channels'])
+  })
+
+  it('keeps quick entries inside the guide while setup is incomplete', async () => {
+    mockKeys({})
+    useAuthStore.getState().auth.setUser(newUser)
+    renderOverview()
+
+    await screen.findByText('Build on your API gateway in minutes')
+    expect(
+      screen.queryByRole('navigation', { name: 'Quick actions' })
+    ).not.toBeInTheDocument()
   })
 
   it('never renders the guide during a cold start before key data arrives', async () => {
@@ -187,9 +252,15 @@ describe('OverviewDashboard setup guide', () => {
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
     expect(guideVisible()).toBe(false)
+    expect(
+      screen.queryByRole('navigation', { name: 'Quick actions' })
+    ).not.toBeInTheDocument()
 
     await act(async () => resolveKeys(keysOf([key])))
     expect(guideVisible()).toBe(false)
+    expect(
+      screen.getByRole('navigation', { name: 'Quick actions' })
+    ).toBeInTheDocument()
   })
 
   it('does not flash the guide back on refetch failure or account switch', async () => {

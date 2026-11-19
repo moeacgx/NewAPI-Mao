@@ -757,6 +757,16 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
+      {setupStatusReady && setupComplete && (
+        <nav
+          aria-label={t('Quick actions')}
+          className='flex flex-wrap items-center justify-end gap-2'
+        >
+          {visibleQuickActions.map((action) => (
+            <CompactQuickAction key={action.title} action={action} />
+          ))}
+        </nav>
+      )}
 
       <SummaryCards />
       <PendingTicketCard />
