@@ -201,23 +201,23 @@ func AdmitRequestModel() gin.HandlerFunc {
 	}
 }
 
-func modelRequestForDistribution(c *gin.Context) (*ModelRequest, bool, bool, error) {
-	if value, exists := c.Get(admittedModelRequestContextKey); exists {
-		if state, valid := value.(admittedModelRequest); valid && state.request != nil {
-			return state.request, state.shouldSelectChannel, state.admitted, nil
-		}
-	}
-	modelRequest, shouldSelectChannel, err := getModelRequest(c)
-	return modelRequest, shouldSelectChannel, false, err
-}
-
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
 		var selectGroup string
 		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
-		modelRequest, shouldSelectChannel, admitted, err := modelRequestForDistribution(c)
+		var modelRequest *ModelRequest
+		var shouldSelectChannel, admitted bool
+		var err error
+		if value, exists := c.Get(admittedModelRequestContextKey); exists {
+			if state, valid := value.(admittedModelRequest); valid && state.request != nil {
+				modelRequest, shouldSelectChannel, admitted = state.request, state.shouldSelectChannel, state.admitted
+			}
+		}
+		if modelRequest == nil {
+			modelRequest, shouldSelectChannel, err = getModelRequest(c)
+		}
 		if err != nil {
 			abortWithOpenAiMessage(c, invalidRequestStatus(err), i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
