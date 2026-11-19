@@ -78,11 +78,15 @@ func setThemeWebRouter(router *gin.Engine, defaultFS static.ServeFileSystem, def
 		if serveCurrentIndexAssetFallback(c, frontendFS, currentAssets) {
 			return
 		}
-		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") || strings.HasPrefix(c.Request.RequestURI, "/assets") {
-			if strings.HasPrefix(c.Request.URL.Path, "/assets") {
-				// 滚动更新时短暂缺失的资源不得被浏览器或代理长期缓存为 404。
-				c.Header("Cache-Control", "no-store")
-			}
+		requestPath := c.Request.URL.Path
+		if requestPath == "/assets" || strings.HasPrefix(requestPath, "/assets/") ||
+			requestPath == "/static" || strings.HasPrefix(requestPath, "/static/") {
+			// 缺失的构建资源不得回退为应用 HTML，也不得缓存错误响应。
+			c.Header("Cache-Control", "no-store")
+			controller.RelayNotFound(c)
+			return
+		}
+		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") {
 			controller.RelayNotFound(c)
 			return
 		}
