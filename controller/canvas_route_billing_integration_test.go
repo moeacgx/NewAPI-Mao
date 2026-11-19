@@ -42,6 +42,7 @@ type canvasRouteObservation struct {
 
 func setupCanvasRouteBillingTest(t *testing.T, upstreamURL string) {
 	t.Helper()
+	require.NoError(t, i18n.Init())
 	previousDB := model.DB
 	previousLogDB := model.LOG_DB
 	previousMemoryCache := common.MemoryCacheEnabled
