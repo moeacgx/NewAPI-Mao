@@ -411,6 +411,8 @@ func validateOptionValue(key string, value string) error {
 			return errors.New("前端主题只能是 default 或 classic")
 		}
 		return nil
+	case setting.AffiliatePromotionNoticeEnabledKey, setting.AffiliatePromotionNoticeTitleKey, setting.AffiliatePromotionNoticeTextKey:
+		return setting.ValidateAffiliatePromotionNoticeOption(key, value)
 	default:
 		return nil
 	}

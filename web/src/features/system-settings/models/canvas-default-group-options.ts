@@ -31,7 +31,7 @@ export function buildCanvasDefaultGroupOptions(
     .filter((group) => group.status === 1)
     .map((group) => ({
       value: group.code,
-      label: `${group.name} (${group.code})`,
+      label: group.name || group.code,
     }))
 
   if (!autoGroup?.user_selectable) {
@@ -39,4 +39,24 @@ export function buildCanvasDefaultGroupOptions(
   }
 
   return [{ value: 'auto', label: 'Automatic selection' }, ...activeGroups]
+}
+
+// 当前已保存值若是停用分组，不属于可选项；这里只为 Select 的 items 补充当前名称，避免显示原始 code。
+export function buildCanvasDefaultGroupDisplayItems(
+  options: CanvasDefaultGroupOption[],
+  groups: GroupDetail[] = [],
+  currentValue = ''
+): CanvasDefaultGroupOption[] {
+  if (
+    !currentValue ||
+    options.some((option) => option.value === currentValue)
+  ) {
+    return options
+  }
+  const current = groups.find((group) => group.code === currentValue)
+  const name = typeof current?.name === 'string' ? current.name.trim() : ''
+  if (!name) {
+    return options
+  }
+  return [...options, { value: currentValue, label: name }]
 }

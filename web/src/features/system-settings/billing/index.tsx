@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { SettingsPage } from '../components/settings-page'
 import type { BillingSettings } from '../types'
+import { AFFILIATE_DEFAULT_SETTINGS } from './affiliate-config'
 import {
   BILLING_DEFAULT_SECTION,
   getBillingSectionContent,
@@ -138,26 +139,7 @@ const defaultBillingSettings: BillingSettings = {
   WaffoPancakeMinTopUp: 1,
   WaffoPancakeStoreID: '',
   WaffoPancakeProductID: '',
-  'affiliate_setting.first_level_enabled': false,
-  'affiliate_setting.first_level_ratio': 0,
-  'affiliate_setting.second_level_enabled': false,
-  'affiliate_setting.second_level_ratio': 0,
-  'affiliate_setting.settlement_delay_seconds': 0,
-  'affiliate_setting.min_withdrawal_amount': 10,
-  'affiliate_setting.trigger_topup_enabled': true,
-  'affiliate_setting.trigger_subscription_enabled': false,
-  'affiliate_setting.filter_redemption_topup_enabled': false,
-  'affiliate_setting.payout_methods': 'usdt,alipay,wechat',
-  'affiliate_setting.usdt_chain': 'TRC20',
-  'affiliate_setting.promotion_template': '邀请链接：{invite_link}',
-  'affiliate_setting.review_enabled': false,
-  'affiliate_setting.auto_approve_after_days': 0,
-  'affiliate_setting.agreement_enabled': false,
-  'affiliate_setting.agreement_text': '',
-  'affiliate_setting.inviter_min_account_age_days': 0,
-  'affiliate_setting.inviter_min_recharge_amount': 0,
-  'affiliate_setting.invitee_min_account_age_days': 0,
-  'affiliate_setting.invitee_min_recharge_amount': 0,
+  ...AFFILIATE_DEFAULT_SETTINGS,
   'checkin_setting.enabled': false,
   'checkin_setting.min_quota': 1000,
   'checkin_setting.max_quota': 10000,

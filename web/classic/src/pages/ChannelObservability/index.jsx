@@ -489,10 +489,7 @@ const ChannelObservability = () => {
                 placeholder={t('全部请求分组')}
                 optionList={filterOptions.groups.map((item) => ({
                   value: item.code,
-                  label:
-                    item.name === item.code
-                      ? item.name
-                      : `${item.name} (${item.code})`,
+                  label: item.name || item.code,
                 }))}
                 onChange={(value) => updateFilter('group', value || '')}
               />

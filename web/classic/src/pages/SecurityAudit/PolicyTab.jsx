@@ -109,7 +109,11 @@ const PolicyTab = ({ draft, groups, groupsLoading, groupsError, onChange }) => {
         {!draft.all_groups ? (
           <>
             {groupsError ? (
-              <Banner type='warning' className='mt-4' description={groupsError} />
+              <Banner
+                type='warning'
+                className='mt-4'
+                description={groupsError}
+              />
             ) : null}
             <Spin spinning={groupsLoading}>
               <Select
@@ -131,7 +135,7 @@ const PolicyTab = ({ draft, groups, groupsLoading, groupsError, onChange }) => {
                   .filter((group) => group.id)
                   .map((group) => (
                     <Select.Option key={group.id} value={group.id}>
-                      {group.name || group.code} ({group.code})
+                      {group.name || group.code}
                     </Select.Option>
                   ))}
               </Select>

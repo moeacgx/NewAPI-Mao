@@ -65,7 +65,7 @@ import {
   IconSearch,
   IconLayers,
 } from '@douyinfe/semi-icons';
-import { GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../../context/Status';
 import { UserContext } from '../../../../context/User';
@@ -358,6 +358,11 @@ export const GroupMultiPicker = ({
             <Text strong size='small'>
               {t('已选分组')}
             </Text>
+            {selectedGroups.length > 1 && (
+              <Text type='tertiary' size='small'>
+                {t('Custom Auto')}
+              </Text>
+            )}
           </div>
           {selectedGroups.map((value, index) => {
             const info = groupMap[value];
@@ -412,6 +417,14 @@ export const GroupMultiPicker = ({
                     }}
                   >
                     <GripVertical size={16} />
+                  </span>
+                )}
+                {selectedGroups.length > 1 && (
+                  <span
+                    aria-hidden='true'
+                    className='token-group-priority-index'
+                  >
+                    {index + 1}
                   </span>
                 )}
                 <div style={{ flex: '1 1 120px', minWidth: 0 }}>
@@ -484,6 +497,28 @@ export const GroupMultiPicker = ({
                     onChange={(next) => onGroupChannelChange(info.id, next)}
                     style={{ width: 120, flexShrink: 0 }}
                   />
+                )}
+                {selectedGroups.length > 1 && (
+                  <>
+                    <Button
+                      icon={<ArrowUp size={14} />}
+                      aria-label={t('Move {{name}} up', { name: displayName })}
+                      size='small'
+                      theme='borderless'
+                      disabled={index === 0}
+                      onClick={() => handleMove(index, -1)}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <Button
+                      icon={<ArrowDown size={14} />}
+                      aria-label={t('Move {{name}} down', { name: displayName })}
+                      size='small'
+                      theme='borderless'
+                      disabled={index === selectedGroups.length - 1}
+                      onClick={() => handleMove(index, 1)}
+                      style={{ flexShrink: 0 }}
+                    />
+                  </>
                 )}
                 <Button
                   icon={<IconDelete size='small' />}
@@ -582,7 +617,7 @@ const EditTokenModal = (props) => {
     name: '',
     remain_quota: 0,
     remain_amount: 0,
-    expired_time: -1,
+    expired_time: null,
     unlimited_quota: true,
     model_limits_enabled: false,
     model_limits: [],
@@ -677,7 +712,7 @@ const EditTokenModal = (props) => {
       timestamp += seconds;
       formApiRef.current.setValue('expired_time', timestamp2string(timestamp));
     } else {
-      formApiRef.current.setValue('expired_time', -1);
+      formApiRef.current.setValue('expired_time', null);
     }
   };
 
@@ -749,9 +784,9 @@ const EditTokenModal = (props) => {
       if (!res?.data) return;
       const { success, message, data } = res.data;
       if (success) {
-        if (data.expired_time !== -1) {
-          data.expired_time = timestamp2string(data.expired_time);
-        }
+        // -1 是永不过期哨兵值；日期控件留空并显示永不过期占位，避免渲染成 1970 年
+        data.expired_time =
+          data.expired_time > 0 ? timestamp2string(data.expired_time) : null;
         if (data.model_limits !== '') {
           data.model_limits = data.model_limits.split(',');
         } else {
@@ -924,7 +959,7 @@ const EditTokenModal = (props) => {
         setLoading(false);
         return;
       }
-      if (localInputs.expired_time !== -1) {
+      if (localInputs.expired_time) {
         let time = Date.parse(localInputs.expired_time);
         if (isNaN(time)) {
           showError(t('过期时间格式错误！'));
@@ -932,6 +967,8 @@ const EditTokenModal = (props) => {
           return;
         }
         localInputs.expired_time = Math.ceil(time / 1000);
+      } else {
+        localInputs.expired_time = -1;
       }
       localInputs.model_limits = localInputs.model_limits.join(',');
       localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
@@ -982,7 +1019,7 @@ const EditTokenModal = (props) => {
           break;
         }
 
-        if (localInputs.expired_time !== -1) {
+        if (localInputs.expired_time) {
           let time = Date.parse(localInputs.expired_time);
           if (isNaN(time)) {
             showError(t('过期时间格式错误！'));
@@ -990,6 +1027,8 @@ const EditTokenModal = (props) => {
             break;
           }
           localInputs.expired_time = Math.ceil(time / 1000);
+        } else {
+          localInputs.expired_time = -1;
         }
         localInputs.model_limits = localInputs.model_limits.join(',');
         localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
@@ -1168,14 +1207,12 @@ const EditTokenModal = (props) => {
                       field='expired_time'
                       label={t('过期时间')}
                       type='dateTime'
-                      placeholder={t('请选择过期时间')}
+                      placeholder={t('永不过期')}
                       rules={[
-                        { required: true, message: t('请选择过期时间') },
                         {
                           validator: (rule, value) => {
-                            // 允许 -1 表示永不过期，也允许空值在必填校验时被拦截
-                            if (value === -1 || !value)
-                              return Promise.resolve();
+                            // 空值表示永不过期，提交时转换为 -1 哨兵值
+                            if (!value) return Promise.resolve();
                             const time = Date.parse(value);
                             if (isNaN(time)) {
                               return Promise.reject(t('过期时间格式错误！'));

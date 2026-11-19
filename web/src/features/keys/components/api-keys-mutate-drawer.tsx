@@ -94,13 +94,17 @@ import {
   createGroupSelectionOptions,
   normalizeGroupSelection,
 } from '../lib/group-selection'
+import { retainRatioProtection } from '../lib/ratio-protection'
 import type { ApiKey } from '../types'
 import {
   ApiKeyGroupCombobox,
   type ApiKeyGroupOption,
 } from './api-key-group-combobox'
+import { ApiKeyRatioProtection } from './api-key-ratio-protection'
 import { useApiKeys } from './api-keys-provider'
 import { AutoGroupOrderEditor } from './auto-group-order-editor'
+import { GroupTagCards } from './group-tag-cards'
+import { SelectedGroupOrderList } from './selected-group-order-list'
 
 type ApiKeyMutateDrawerProps = {
   open: boolean
@@ -121,6 +125,7 @@ export function ApiKeysMutateDrawer({
   const { status, loading: statusLoading } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [groupTag, setGroupTag] = useState('all')
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
     null
   )
@@ -285,6 +290,10 @@ export function ApiKeysMutateDrawer({
       : t('{{count}} groups selected (unlimited)', {
           count: selectedGroups.length,
         })
+  const selectedGroupDescription =
+    selectedGroups.length === 0
+      ? t('No group selected. Inherit your user group.')
+      : groupSelectionDescription
   const disabledGroupValues = useMemo(() => {
     if (
       maxAutoGroups === 0 ||
@@ -470,10 +479,20 @@ export function ApiKeysMutateDrawer({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t('Group')}</FormLabel>
+                    <GroupTagCards
+                      tags={groupsData?.group_tags ?? []}
+                      options={groups}
+                      value={groupTag}
+                      onChange={setGroupTag}
+                      disabled={isSubmitting}
+                    />
                     <FormControl>
                       <ApiKeyGroupCombobox
                         options={groups}
                         tags={groupsData?.group_tags}
+                        activeTag={groupTag}
+                        onActiveTagChange={setGroupTag}
+                        hideTagFilter
                         selectedValues={field.value}
                         disabledValues={disabledGroupValues}
                         onValueChange={(selectedValue) => {
@@ -517,6 +536,14 @@ export function ApiKeysMutateDrawer({
                           }
                           form.clearErrors('groups')
                           field.onChange(normalized)
+                          form.setValue(
+                            'ratioProtection',
+                            retainRatioProtection(
+                              form.getValues('ratioProtection'),
+                              normalized
+                            ),
+                            { shouldDirty: true, shouldValidate: true }
+                          )
                           const retainedIds = new Set(
                             groups
                               .filter((group) =>
@@ -554,9 +581,61 @@ export function ApiKeysMutateDrawer({
                           ? t('A token can select at most {{max}} groups', {
                               max: maxAutoGroups,
                             })
-                          : groupSelectionDescription}
+                          : selectedGroupDescription}
                       </FormDescription>
                     )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {selectedGroups.length > 1 && !isAutoGroupSelection && (
+                <SelectedGroupOrderList
+                  value={selectedGroups}
+                  options={groups}
+                  onChange={(next) => {
+                    form.clearErrors('groups')
+                    form.setValue('groups', next, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                    form.setValue(
+                      'ratioProtection',
+                      retainRatioProtection(form.getValues('ratioProtection'), next),
+                      { shouldDirty: true, shouldValidate: true }
+                    )
+                    const retainedIds = new Set(
+                      groups
+                        .filter((group) => next.includes(group.value))
+                        .map((group) => String(group.id))
+                    )
+                    form.setValue(
+                      'group_channel_ids',
+                      Object.fromEntries(
+                        Object.entries(
+                          form.getValues('group_channel_ids') ?? {}
+                        ).filter(([id]) => retainedIds.has(id))
+                      ),
+                      { shouldDirty: true }
+                    )
+                    form.setValue('cross_group_retry', next.length > 1, {
+                      shouldDirty: true,
+                    })
+                  }}
+                />
+              )}
+
+              <FormField
+                control={form.control}
+                name='ratioProtection'
+                render={({ field }) => (
+                  <FormItem>
+                    <ApiKeyRatioProtection
+                      value={field.value}
+                      onChange={field.onChange}
+                      selectedGroups={selectedGroups}
+                      options={groups}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}

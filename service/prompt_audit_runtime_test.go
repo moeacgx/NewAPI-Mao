@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -130,9 +131,11 @@ func TestAuditPromptSnapshotBlockingStoresEncryptedEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 42, detail.ChannelId)
 	require.Equal(t, "最终渠道", detail.ChannelName)
-	require.Equal(t, []model.PromptAuditEventChannelGroup{{Id: 7, Code: "vip", Name: "贵宾分组"}}, detail.ChannelGroups)
+	assert.Equal(t, []model.PromptAuditEventChannelGroup{{Id: 7, Code: "vip", Name: "贵宾分组", DisplayName: "贵宾分组"}}, detail.ChannelGroups)
 	require.Equal(t, model.TokenGroupModeExplicit, detail.TokenGroupMode)
-	require.Equal(t, []model.PromptAuditEventTokenGroup{{Id: 7, Code: "vip", Name: "贵宾分组"}}, detail.TokenGroups)
+	assert.Equal(t, []model.PromptAuditEventTokenGroup{{Id: 7, Code: "vip", Name: "贵宾分组", DisplayName: "贵宾分组"}}, detail.TokenGroups)
+	assert.JSONEq(t, `[{"id":7,"code":"vip","name":"贵宾分组"}]`, event.ChannelGroupDetails)
+	assert.JSONEq(t, `[{"id":7,"code":"vip","name":"贵宾分组"}]`, event.TokenGroupDetails)
 	require.Equal(t, secretPrompt, detail.FullPrompt)
 	require.Equal(t, []string{"jailbreak"}, detail.MatchedScanners)
 	encodedDetail, err := common.Marshal(detail)

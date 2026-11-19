@@ -194,7 +194,10 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           }
           return (
             <BadgeCell>
-              <GroupBadge group={group} />
+              <GroupBadge
+                group={group}
+                label={row.original.plan.upgrade_group_name}
+              />
             </BadgeCell>
           )
         },

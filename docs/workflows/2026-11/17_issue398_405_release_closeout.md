@@ -1,0 +1,100 @@
+# Issue #398–#405 收口记录
+
+状态：本文只整合本轮已完成的实现独审结论，不重新实现功能。统一集成、冻结与构建尚未执行；用户明确全部工作者解决与最终门禁完成前，不部署 zzapi，不提交、不推送、不访问生产。
+
+## 独立审查结论汇总
+
+| 专题                      | 最终结论                                                                                                               | 边界                                                                                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| #403 A/F                  | 无 P1/P2；A 22 项（14+8），F 10 项（6+4），合计 32 项                                                                  | 不含真实后端与生产                                                                                                                             |
+| #403 B 订阅分组名称       | Default 6/6、Classic 6/6、已删除分组 code 夹具 1/1；六个生产文件仅格式修正已独审；手机夹具 E1 已由返修复审关闭         | 仅限夹具口径，不代表订阅手机全部场景；真机、全量构建、真实后端、支付、数据库未验证                                                             |
+| #403 C 模型分组名称       | 15 文件范围通过，无新增 P1/P2；Go 定向测试首次 60 秒超时不计通过，重跑 exit 0                                          | 无全量构建、真实认证、MySQL/PostgreSQL 验证                                                                                                    |
+| #403 D 画布与安全审计名称 | 前端限定范围独审通过，三个 P2 已闭环                                                                                   | 浏览器证据为本地 mock；真实父页面刷新、认证全链、MySQL/PostgreSQL、生产未验证                                                                  |
+| #403 E 可观测性分组名称   | 额外原生路由 P2 已通过删除该路由关闭；最终 12 个有效成功、15 份证据；v5 筛选与 Go 子集已独审；v9 关闭最后的文档格式 P3 | v7 不作 groups 提交证据；外部文档保留继承的开头 BOM；未发布外仓；不称生产或真机通过                                                            |
+| #403 订阅降级分组引用     | P2 已关闭（`model/group_identity.go:1977`、`model/group_identity.go:1980`）                                            | 仅 SQLite 验证                                                                                                                                 |
+| #404 令牌倍率保护         | 源码二层审查完成，Classic 三例分别通过                                                                                 | 真实后端与数据库未验证，不称整批通过                                                                                                           |
+| #405 顶栏布局与导航       | 当前代码独审无 P1/P2；翻译 2 键已集成                                                                                  | 作者四件原始证据被覆盖且不可恢复，历史 16 场景矩阵不再作为完整通过证据；以独立当前代表场景为准；访客登录链路、真实后端、全部视口与主题组合未验 |
+| 格式化头部保护脚本        | 实现与测试独审 56/56（12 套件）；v4 复核关闭 P2/P3                                                                     | 安全契约仅候选输出、`--check` 只读、`--write` 拒绝；本轮不执行该脚本任何模式；真实 web 树、Linux/macOS、网络盘未验                             |
+| 翻译集成                  | 11 键 × 7 语言 = 77 值；七语言包 SHA 一致；最终文档独审通过                                                            | 仅文档与语言包范围                                                                                                                             |
+
+## 历史与当前状态的区分
+
+以下表述曾出现在早期文档中，现均为历史，不再代表当前状态：B 补验未完、D 前端未完、E 路由 P2 未解、#405 未独审、formatter 待独审、翻译待独审。各专题文档中保留的过程记录均已标注为历史。
+
+## Default 与 Classic 边界
+
+- Default（`web/src`）与 Classic（`web/classic`）是两套独立模板，上述结论按各自实际覆盖记录，不互相推断。
+- #405：Default 以 1100 深色独立复跑为准；Classic 以 1100 与 390 深色代表场景为准，其 390 截图呈加载状态的一份不计入通过。
+- 纯后端或共享契约变更不另造页面改动。
+
+## 待统一集成、冻结与构建
+
+- 待协调者在全部工作者解决后统一集成、冻结源码与文档 SHA，再执行双模板构建与最终门禁。
+- 此前的构建结果只对应旧快照，不能作为本轮发布构建。
+- 著作权头部恢复（783 文件）尚未提交推送。
+- 外部扩展仓库未发布。
+
+## 兄弟项目建议
+
+- `NewAPIForDouDi`：建议评估 #405 顶栏窄屏横向滚动与聚焦滚入思路；需其自行核对模板结构，不建议照搬。
+- `NewAPIModifyByGang`：同上，仅供参考。
+- 以上仅为建议；未向任何兄弟仓库创建 Issue、PR 或消息。
+
+## 本文档变更范围
+
+仅编辑 `docs/developer/README.md`、`docs/developer/custom-development.md`、`docs/workflows/2026-11/16_issue405_header_layout.md`、`docs/workflows/2026-11/16_formatter_header_safety.md`，并新增本文。编辑前 SHA256 备份位于 `D:/Temp/issue398-405-closeout-doc/backup/`。
+
+## 2026-11-17 Go 嵌入完整性最小修复（实现前计划）
+
+本节是后续追加工作，不改写上文历史门禁。独立嵌入验证报告 `D:/Temp/issue398-405-dev-embed-build-20261117/report.md`（SHA256 `c0eb95fbc86b4aaf2fb62f50522f92c2afbdef5c27b229c7a9801b5222fb7170`）确认旧源码实际嵌入仅 402/404：Default 263/263、Classic 139/141。Classic 两个被真实 JS 引用的下划线前缀分块被 Go 默认目录遍历规则排除；尚未进行运行时 HTTP 故障复现。
+
+- 目标和范围：只修改 `main.go` 两个目录嵌入模式，新增根目录 `main_embed_test.go`，并在本文记录验证。固定原 HEAD `13f5fdbb93f88da11a157efa69094a9a5e472b60`，保留全部既有差异；不修改前端源码、dist、构建命名、依赖或 Git 状态。
+- 方案与契约：Default、Classic 的 dist 目录嵌入同时增加 `all:`，保留两个独立 index 字节声明。回归测试从磁盘读取真实构建资源，与编译后的两份嵌入文件系统逐文件比较路径集合和字节，要求 dist 存在且非空，不硬编码本次分块文件名。
+- 测试计划：在全新独占 `D:/Temp/issue398-405-embed-repair-20261117/source` 复制冻结的 4322 源文件及真实 263/141 两份 dist；先用旧源码运行红测，再同步正式三文件运行绿测，内部超时 55 秒、外部硬上限 60 秒。冷编译可单独预编译暖缓存并保留真实记录；另以 linux/amd64 的 `go list -mod=readonly -json .` 核对 EmbedFiles 完整 404/404 集合。
+- 安全和兼容边界：`all:` 仅用于两处构建 dist，不能把任意隐藏敏感文件视为合法资源；本轮须对照已有前端 TSV 清单、逐文件 SHA 与完整路径集合，记录点前缀、下划线前缀及异常文件检查。测试保护嵌入完整性，不代替产物内容审查；后续构建仍必须使用干净、可追溯的构建产物。
+- 发布边界：修复须由另一名 Codex 独立审查，再进行新冻结和主程序 binary 构建；本任务不完成 MCP 组合验收，不提交、推送、部署 zzapi，不访问生产或真实数据库。
+
+### 本次实现与限定验证结果
+
+实施任务 `task_93a3af1a5fca / ctx_ff0c393425ab` 仅完成两处 `all:` 修复、真实资源回归测试及本文追加记录，**待另一名 Codex 独立审查**。独占证据目录为 `D:/Temp/issue398-405-embed-repair-20261117`；完整三文件增量、修改前后 SHA、命令 stdout/stderr、起止守卫及交付报告在该目录保存，不修改旧冻结或前端作者副本。
+
+原生工具链为 `go1.25.5 windows/386`，`CGO_ENABLED=0`、`GOWORK=off`、只读模块，连接数据库和 Redis 的环境值置空，TEMP/TMP/TMPDIR/GOTMPDIR 与可写构建缓存均在本任务独占 D 盘目录。模块解析离线，不改全局配置，不调用 main 或启动服务。复用已结束 Go 验证目录的缓存时只读复制，不使用硬链接；预编译与测试进程外部硬上限均为 60 秒，测试内部上限为 55 秒。
+
+- 初次 `red`：编译阶段触及 60 秒外限，exit 1、60.326 秒，不计为有效红测。
+- `warm1`：预编译触及 60 秒外限，exit 1、60.344 秒，不计通过；`warm2`：预编译 exit 0、15.107 秒。
+- 有效 `red-retry`：旧 `main.go` 与修改前备份逐字节相同，exit 1、4.452 秒、未超时；Default 263/263 通过，Classic 139/141 失败，缺少 `_basePickBy-BcbDWuJ0.js`、`_baseUniq-SmaJL4Bf.js` 两个真实资源。
+- `green`：正式修复源码，exit 0、5.405 秒、未超时、无 skip；Default 263/263、Classic 141/141，路径集合及每个文件字节全部相同。
+- linux/amd64（`GOEXPERIMENT=greenteagc`）实际 `go list`：exit 0、3.804 秒、未超时；EmbedFiles 完整集合 404/404，无缺失、无额外。此项不代替 Linux 主程序 binary 构建。
+
+独占副本根目录的有效红绿命令相同；区别仅在正式 `main.go` 修复同步前后：
+
+```sh
+go test -mod=readonly -buildvcs=false -p=2 -run '^TestFrontendBuildEmbedding$' -count=1 -timeout=55s -v .
+```
+
+另以进程级 `GOOS=linux`、`GOARCH=amd64` 执行：
+
+```sh
+go list -mod=readonly -json .
+```
+
+本轮完整白名单为已封存前端 TSV 的 404 个文件，两份 dist 树 SHA 分别保持 `03e49dad5660368c31906703a05925908cc5150127acfeb3d49b6d343684e201`（Default）和 `2921826382b8198f4dbb4811c89189f340f1971da5d5206167c2fc6fef25a724`（Classic）。实际路径中无点前缀文件或目录，无 .env、证书/密钥/数据库扩展文件；只有上述两个下划线 JS 分块。路径与类型审查不等于对任意文件内容的敏感性鉴定。后续仍须使用干净构建目录和封存产物清单，避免人工混入隐藏敏感文件，不能因完整性测试通过就认定其合法。
+
+以上只证明本次纯 dev 修复的资源完整合同。**新冻结、另一名 Codex 独审、Linux 主程序 binary 构建、MCP 组合验收均未完成**；未验证运行时浏览器、容器、真实数据库或生产，不部署 zzapi。没有 API、鉴权、计费或数据库共享契约改变。
+
+兄弟项目条件评估：`NewAPIForDouDi` 与 `NewAPIModifyByGang` 分别仅在确认同样使用 Go 默认目录嵌入、且前端打包会生成下划线或点前缀资源时，值得参考此修复与逐文件字节回归思路；应先核对各自构建链、依赖和 dist 安全边界，不能直接认定有同一缺陷。不创建 Issue、PR 或发送消息。
+
+## 2026-11-18 PR #407 CI 两处旧请求断言修正（实现前计划）
+
+- 问题：GitHub CI run `44164290712` 中后端与前端类型检查通过，但 217 个测试文件有 2 个失败（1394 用例中 2 个失败）。`token-switch.test.tsx` 与 `token-picker.test.tsx` 的 `toHaveBeenCalledWith` 只写 URL，而真实 `searchApiKeys`（`web/src/features/keys/api.ts`）调用 `api.get(url, { signal, disableDuplicate: true })`。
+- 范围：基于 PR #407 feature `b44f2a0da65209d416fe04bffb1b52c8352f43bf`，仅修改上述两个 Default 测试文件与本文；不改生产源码、API、Classic、locale、依赖或 CI。生产行为（绕过请求去重、可传取消信号）保持不变。
+- 方案：按生产调用链显式断言第二参数。`TokenPicker` 的 `queryFn` 调用 `searchApiKeys` 时未传 `signal`，实际值为 `undefined`；断言保留完整 URL、分页与 keyword，并覆盖操练场分页与搜索两处断言。
+- 验证：先对原版两文件运行定向 vitest 取得红测，再运行修正版及 keys api 相关测试取得绿测，进程外限 60 秒；对两测试文件执行 oxfmt 检查与 oxlint，对本文执行精确格式检查与 `git diff --check`。
+
+### 本次修正与限定验证结果
+
+- 调用链确认：`TokenPicker`（`web/src/features/prompt-center/components/token-picker.tsx`）的 `queryFn` 调用 `searchApiKeys({ keyword, p, size: 20 })` 且不传 `signal`；`PlaygroundTokenSwitch` 复用该组件。故真实第二参数为 `{ signal: undefined, disableDuplicate: true }`，三处断言按此精确补齐：操练场分页 `p=2`、操练场搜索 `keyword=Prompt`、令牌选择器搜索 `keyword=Production`。完整 URL、分页、keyword 与选择行为断言均保留，未使用 skip、模糊匹配或放宽 mock。
+- 红测：原版两文件定向 vitest exit 1、32.5 秒，2 失败 / 4 通过，差异均为第二参数 `disableDuplicate: true`、`signal: undefined`，与 CI 一致。
+- 绿测：修正后两文件加 `src/features/keys/__tests__/api-filters.test.ts` exit 0、12.3 秒，3 文件 12 用例全部通过、无 skip。两测试文件 oxfmt `--check` 与 oxlint 均 exit 0。
+- Classic：`web/classic` 使用自身 `helpers/api.js` 与 `pages/PromptCenter/TokenPicker.jsx`，不引用 Default `features/keys/api`；本次未改任何生产源码，共享 `/api/token/search` 请求契约不变，Classic 无需修改。
+- 本机未运行全量 217 文件，以 PR 更新后的真实 CI 为准；待另一名 Codex 独立审查。不提交、推送或部署。

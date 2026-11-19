@@ -35,12 +35,18 @@ func GetGroupDetails(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"success":    true,
 		"message":    "",
 		"data":       groups,
 		"auto_group": setting.GetAutoGroupConfig(),
-	})
+	}
+	if names, err := model.GetGroupDisplayNameMap(); err != nil {
+		common.SysError("读取管理员分组展示名称失败: " + err.Error())
+	} else {
+		response["group_names"] = names
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 type groupConfigUpdateRequest struct {
@@ -335,14 +341,20 @@ func GetUserGroups(c *gin.Context) {
 		common.SysError("读取分组标签失败: " + err.Error())
 		groupTags = []model.GroupTag{}
 	}
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"success":    true,
 		"message":    "",
 		"data":       usableGroups,
 		"group_tags": groupTags,
 		// 仅下发当前用户确实可用的预设分组；前端仍允许用户手动切换。
 		"canvas_default_group": canvasDefaultGroup,
-	})
+	}
+	if names, err := model.GetLogGroupNamesForIDs(groupIDs); err != nil {
+		common.SysError("读取用户分组展示名称失败: " + err.Error())
+	} else {
+		response["group_names"] = names
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func canvasDefaultGroupForUsableGroups(

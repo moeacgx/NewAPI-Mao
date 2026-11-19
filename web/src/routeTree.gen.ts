@@ -34,6 +34,7 @@ import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
+import { Route as AuthenticatedAffiliateManagementIndexRouteImport } from './routes/_authenticated/affiliate-management/index'
 import { Route as AuthenticatedAffiliateIndexRouteImport } from './routes/_authenticated/affiliate/index'
 import { Route as AuthenticatedBenefitsIndexRouteImport } from './routes/_authenticated/benefits/index'
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
@@ -209,6 +210,12 @@ const authUserResetRoute = authUserResetRouteImport.update({
   path: '/user/reset',
   getParentRoute: () => authRouteRoute,
 } as any)
+const AuthenticatedAffiliateManagementIndexRoute =
+  AuthenticatedAffiliateManagementIndexRouteImport.update({
+    id: '/affiliate-management/',
+    path: '/affiliate-management/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAffiliateIndexRoute =
   AuthenticatedAffiliateIndexRouteImport.update({
     id: '/affiliate/',
@@ -535,6 +542,7 @@ export interface FileRoutesByFullPath {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+  '/affiliate-management/': typeof AuthenticatedAffiliateManagementIndexRoute
   '/affiliate/': typeof AuthenticatedAffiliateIndexRoute
   '/benefits/': typeof AuthenticatedBenefitsIndexRoute
   '/canvas/': typeof AuthenticatedCanvasIndexRoute
@@ -609,6 +617,7 @@ export interface FileRoutesByTo {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+  '/affiliate-management': typeof AuthenticatedAffiliateManagementIndexRoute
   '/affiliate': typeof AuthenticatedAffiliateIndexRoute
   '/benefits': typeof AuthenticatedBenefitsIndexRoute
   '/canvas': typeof AuthenticatedCanvasIndexRoute
@@ -687,6 +696,7 @@ export interface FileRoutesById {
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/models/$section': typeof AuthenticatedModelsSectionRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+  '/_authenticated/affiliate-management/': typeof AuthenticatedAffiliateManagementIndexRoute
   '/_authenticated/affiliate/': typeof AuthenticatedAffiliateIndexRoute
   '/_authenticated/benefits/': typeof AuthenticatedBenefitsIndexRoute
   '/_authenticated/canvas/': typeof AuthenticatedCanvasIndexRoute
@@ -764,6 +774,7 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/models/$section'
     | '/usage-logs/$section'
+    | '/affiliate-management/'
     | '/affiliate/'
     | '/benefits/'
     | '/canvas/'
@@ -838,6 +849,7 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/models/$section'
     | '/usage-logs/$section'
+    | '/affiliate-management'
     | '/affiliate'
     | '/benefits'
     | '/canvas'
@@ -915,6 +927,7 @@ export interface FileRouteTypes {
     | '/_authenticated/errors/$error'
     | '/_authenticated/models/$section'
     | '/_authenticated/usage-logs/$section'
+    | '/_authenticated/affiliate-management/'
     | '/_authenticated/affiliate/'
     | '/_authenticated/benefits/'
     | '/_authenticated/canvas/'
@@ -1157,6 +1170,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/user/reset'
       preLoaderRoute: typeof authUserResetRouteImport
       parentRoute: typeof authRouteRoute
+    }
+    '/_authenticated/affiliate-management/': {
+      id: '/_authenticated/affiliate-management/'
+      path: '/affiliate-management'
+      fullPath: '/affiliate-management/'
+      preLoaderRoute: typeof AuthenticatedAffiliateManagementIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/affiliate/': {
       id: '/_authenticated/affiliate/'
@@ -1605,6 +1625,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedModelsSectionRoute: typeof AuthenticatedModelsSectionRoute
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
+  AuthenticatedAffiliateManagementIndexRoute: typeof AuthenticatedAffiliateManagementIndexRoute
   AuthenticatedAffiliateIndexRoute: typeof AuthenticatedAffiliateIndexRoute
   AuthenticatedBenefitsIndexRoute: typeof AuthenticatedBenefitsIndexRoute
   AuthenticatedCanvasIndexRoute: typeof AuthenticatedCanvasIndexRoute
@@ -1644,6 +1665,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedModelsSectionRoute: AuthenticatedModelsSectionRoute,
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
+  AuthenticatedAffiliateManagementIndexRoute:
+    AuthenticatedAffiliateManagementIndexRoute,
   AuthenticatedAffiliateIndexRoute: AuthenticatedAffiliateIndexRoute,
   AuthenticatedBenefitsIndexRoute: AuthenticatedBenefitsIndexRoute,
   AuthenticatedCanvasIndexRoute: AuthenticatedCanvasIndexRoute,

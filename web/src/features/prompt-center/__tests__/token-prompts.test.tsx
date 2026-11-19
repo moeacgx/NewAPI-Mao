@@ -97,6 +97,106 @@ describe('令牌技能徽标', () => {
     expect(api.get).toHaveBeenCalledWith('/api/token/3/prompts')
   })
 
+  it('弹窗已打开时令牌技能计数更新为 0 不会卸载弹窗', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge token={token} />
+      </QueryClientProvider>
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage installed skills (1)' })
+    )
+    const dialog = await screen.findByRole('dialog')
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge
+          token={{ ...token, prompt_count: 0, enabled_prompt_count: 0 }}
+        />
+      </QueryClientProvider>
+    )
+    expect(screen.getByRole('dialog')).toBe(dialog)
+    expect(dialog).toBeVisible()
+    expect(
+      screen.queryByRole('button', {
+        name: /Manage installed skills/,
+        hidden: true,
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('弹窗打开期间计数恢复为正数时徽标重新出现且弹窗节点不变', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge token={token} />
+      </QueryClientProvider>
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage installed skills (1)' })
+    )
+    const dialog = await screen.findByRole('dialog')
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge
+          token={{ ...token, prompt_count: 0, enabled_prompt_count: 0 }}
+        />
+      </QueryClientProvider>
+    )
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge token={token} />
+      </QueryClientProvider>
+    )
+    expect(screen.getByRole('dialog')).toBe(dialog)
+    expect(
+      screen.getByRole('button', {
+        name: 'Manage installed skills (1)',
+        hidden: true,
+      })
+    ).toBeInTheDocument()
+  })
+
+  it('计数归零后关闭弹窗，徽标与弹窗都不再显示', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge token={token} />
+      </QueryClientProvider>
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage installed skills (1)' })
+    )
+    const dialog = await screen.findByRole('dialog')
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <TokenPromptBadge
+          token={{ ...token, prompt_count: 0, enabled_prompt_count: 0 }}
+        />
+      </QueryClientProvider>
+    )
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('全部停用时保留数量并提供可访问的停用状态', () => {
     renderWithQuery(
       <TokenPromptBadge token={{ ...token, enabled_prompt_count: 0 }} />

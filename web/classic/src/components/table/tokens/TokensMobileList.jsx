@@ -46,7 +46,8 @@ export default function TokensMobileList({
     [columns],
   );
 
-  if (loading || searching) {
+  // 仅首次加载（尚无令牌）显示骨架；同一列表刷新时保留卡片，避免卸载已打开的技能弹窗。
+  if ((loading || searching) && !tokens.length) {
     return (
       <div className='tokens-mobile-list' aria-busy='true'>
         <span className='tokens-mobile-sr-only' role='status'>
@@ -83,7 +84,10 @@ export default function TokensMobileList({
   }
 
   return (
-    <div className='tokens-mobile-list'>
+    <div
+      className='tokens-mobile-list'
+      aria-busy={loading || searching || undefined}
+    >
       {tokens.map((record, index) => (
         <article
           key={record.id}

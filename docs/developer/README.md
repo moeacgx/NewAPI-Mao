@@ -1,5 +1,41 @@
 # NewAPI-Mao 开发文档
 
+- [令牌分组标签大卡片与普通多选优先级列表](../workflows/2026-11/18_token_auto_group_cards.md)：Default 令牌创建/编辑在选择器上方显示分组标签大卡片（手机 2 列、`sm` 起 3 列，品牌图标、名称、可选分组数、选中态），两套模板在普通选择器选中 2 个及以上具体分组时显示“Custom Auto”有序优先级列表（序号、拖拽、上移/下移、移除，首项最先尝试）；线路格式保持显式 `group`/`group_ids`/`group_mode=explicit`，不转为 `auto`，不改后端、计费、鉴权；显式 Auto 的 `auto_groups` 行为不变；已跑 Default 32 项与 Classic 33 项聚焦测试、lint、typecheck，真实浏览器、构建与部署未验。
+- [返佣规则内嵌与推广页提示](../workflows/2026-11/18_affiliate_promotion_notice.md)：Default `/affiliate-management` 新增 Root 可编辑“返佣规则”标签并复用同一规则表单；双模板新增推广页提示开关（默认关）、标题与纯文本正文，进入或刷新推广页时弹出一次（先提示后协议、一次一个弹窗、乱序响应保护）；保存走 `PUT /api/option/affiliate-batch` 原子批量写入，服务端校验开关与 100/2000 字限制；协议与结算不变；已用隔离 SQLite 与真实 Chromium 验证，未部署。
+- [Default 令牌技能弹窗计数归零卸载修复](../workflows/2026-11/18_default_token_skill_dialog_count_zero.md)：已打开的技能安装弹窗不再因令牌列表快照 `prompt_count=0` 被卸载，关闭后徽标仍隐藏；另含刷新在途不重挂载单元格、Default 手机端入口与 Classic 手机端刷新保留卡片；并补充关闭后的键盘焦点（Default `finalFocus`、Classic 关闭后聚焦）；真实浏览器复验由独立验收负责，构建未验。
+- [Issue #410 渠道可观测性原生样式泄漏到全局顶栏](../workflows/2026-11/18_issue410_observability_header_css.md)：Default 与 Classic 的 channel-quality 原生 CSS 改为 `:where(.channel-quality-native)` 作用域，不再覆盖宿主顶栏 `.w-full` 等；新增构建入口与 6 项源码级回归；真实浏览器未验。
+- [Classic 令牌编辑关闭后快速重开竞态修复](../workflows/2026-11/18_classic_token_edit_reopen_race.md)：关闭动画窗口内重开令牌编辑不再被陈旧的 500ms 回调清空编辑身份，保存仍 PUT 原 ID；Default 无同类风险；真实浏览器与构建未验。
+- [Classic 令牌编辑永不过期显示修复](../workflows/2026-11/18_classic_token_expiry_sentinel.md)：Classic 编辑弹窗不再把 `expired_time=-1` 渲染为 1970 日期，控件留空并显示“永不过期”占位，提交仍为 `-1`；Default 已按 `> 0` 判断无需修改。
+- [Issue #403–#405 i18n 共享翻译集成](../workflows/2026-11/16_issue403_405_i18n_integration.md)：11 键（#404 倍率保护 9 键、#405 导航 2 键）七语写入 `translation` 命名空间并经 `bun run i18n:sync`，原键值与 MCP 条目保留，临时脚本已删；zh/zh-TW/ja 比例键术语已返修（比例→倍率，レート→倍率），r3 验证 77/77 值通过、7770 原键不变；最终文档独审已通过；不部署 zzapi。
+
+- [Issue #403 用户分组名称（A）](../workflows/2026-11/16_issue403_user_group_names.md)：独立审查 22 项通过（Default 14 + Classic 8）；与 F 合计 32 项。
+- [Issue #403 订阅分组名称（B）](../workflows/2026-11/16_issue403_subscription_group_names.md)：独立审查 13 项通过；六个生产文件格式修正已独审；手机夹具 E1 已关闭，仅限夹具口径；真机、全量构建、真实后端、支付与数据库未验证。
+- [Issue #403 模型分组名称（C）](../workflows/2026-11/16_issue403_model_group_names.md)：15 文件范围独立审查通过，无新增 P1/P2；无全量构建与真实数据库验证。
+- [Issue #403 画布与安全审计名称（D）](../workflows/2026-11/16_issue403_canvas_audit_names.md)：前端限定范围独立审查通过，三个 P2 已闭环；浏览器证据为本地 mock，生产与真实认证全链未验。
+- [Issue #403 可观测性分组名称（E）](../workflows/2026-11/16_issue403_observability_group_names.md)：额外路由 P2 已通过删除路由关闭；12 个有效成功场景、15 份证据，v7 不作 groups 提交证据，v5 筛选与 Go 子集已独审，格式 P3 由 v9 关闭；未发布外仓，不称生产或真机通过。
+- [Issue #403 渠道分组名称（F）](../workflows/2026-11/16_issue403_channel_group_names.md)：独立审查通过（Default 6 + Classic 4 共 10 项）；与 A 合计 32 项。
+- [Issue #403 归档分组名称（G）](../workflows/2026-11/16_issue403_archive_group_names.md)：后端独立审查通过。
+- [Issue #403 分组校验名称（H）](../workflows/2026-11/16_issue403_group_validation_names.md)：后端独立审查通过。
+- [Issue #403 全局分组展示只读审计矩阵](../workflows/2026-11/16_issue403_group_display_audit.md)：无字母；记录问题发现与派发，只读审计，未验证边界保留，不等同于后端通过。
+- [Issue #403 外置扩展分组名称](../workflows/2026-11/16_issue403_external_group_names.md)：无字母；外置与内嵌同源三入口修复及既有回归；额外路由 P2 已随路由文件删除而关闭，浏览器与安装仅以已独审的 E v5/v7 及 Go 三定向证据为限，外仓未发布，真实生产与整体验收未验证，不称整体通过。
+- [Issue #403 订阅降级分组删除引用保护](../workflows/2026-11/16_subscription_downgrade_group_reference.md)：P2 已独立审查通过，验证仅限 SQLite；著作权头部恢复未提交推送、不部署 zzapi。
+- [Issue #404 令牌倍率保护](../workflows/2026-11/16_issue404_token_ratio_protection.md)：源码独审 2+23+8+8 及额外 Auto28、仓外 drawer3，Classic 三例分别通过，不称整批通过；真实后端与数据库未验证。
+- [Issue #405 顶栏布局与导航](../workflows/2026-11/16_issue405_header_layout.md)：当前代码独立审查无 P1/P2，两个导航翻译键已集成；作者原始证据已被覆盖，以独立当前代表场景为准，访客登录链路真实浏览器与真实后端未验。
+- [格式化头部保护](../workflows/2026-11/16_formatter_header_safety.md)：实现与测试独审 56/56；安全契约仅候选输出、`--check` 只读、`--write` 拒绝；不执行该脚本任何模式。
+- [Issue #398–#405 收口记录](../workflows/2026-11/17_issue398_405_release_closeout.md)：各专题最终独审结论汇总，待统一集成、冻结与构建；不部署 zzapi，不提交推送。
+
+- [Issue #398–#402 dev 与 zzapi/Default 部署准备](../workflows/2026-11/16_issue401_dev_zzapi_deployment.md)：已获提交推送 dev、部署 zzapi 和切换 Default 授权；区分本轮提交与保留线上 money MCP overlay，实际冻结、构建与发布尚未执行，见收口记录。
+
+- [Classic 多密钥策略立即提交修复（#401 追加）](../workflows/2026-11/16_issue401_classic_key_mode.md)：真实选择器退出动画前提交旧值已修复；组件、契约、mock 浏览器与 Classic 重建通过，独立审查已通过。
+
+- [#401 / #398 / #399 / #400 / #402 双模板集成总交付记录](../workflows/2026-11/16_issue401_delivery.md)：汇总历史门禁及新一轮三项缺陷的返修独立复验；已获 dev/zzapi/Default 授权，尚未提交部署，不同步上游。
+- [Classic → Default 历史迁移矩阵（#401）](../workflows/2026-11/16_issue401_migration_matrix.md)：对照本仓库两套模板的历史能力；24 个 Chromium/mock 代表场景已记录，真实后端、数据库和完整 E2E 边界仍保留。
+- [供应商 Logo URL 补齐（#398）](../workflows/2026-11/16_issue398_logo.md)：Default 共享图标加载器对齐 Classic，独立复审已记录，保留图片失败占位与既有图标契约。
+- [令牌状态与实时活动（#399／#400）](../workflows/2026-11/16_issue399_400_token_activity.md)：服务端状态筛选、本人活动摘要、稳定令牌 ID 徽标与 active_only；独立复审及 F3 分组名称边界已记录；新发现的首次请求在途活动刷新 P2 已独立复验通过。
+- [令牌页 API 地址入口（#402）](../workflows/2026-11/16_issue402_api_addresses.md)：双模板地址回退契约、Default 复制与失败重试、独立审查和 Classic 动态回归证据；新发现的 HTTP 500 全页跳转 P2 已独立复验通过，不是生产验收。
+- [普通日志分组名称选择（#401）](../workflows/2026-11/16_issue401_log_group_selection.md)：原两项 P2 及新发现的 `__proto__` 别名名称丢失 P3 均已独立复验通过；真实后端认证、数据库与生产权限仍未验收。
+- [普通管理员返佣业务入口（#401）](../workflows/2026-11/16_issue401_affiliate_admin_access.md)：独立复审和统一构建门禁已记录，真实角色权限与交易链仍未验收。
+
 - [.369 Canvas 图片请求分组隔离发布](../workflows/2026-11/14_release_369.md)：内部参数过滤、分发前撤权复查、主分支累计范围与发布验收边界。
 
 - [Canvas 分组参数与上游请求隔离](../workflows/2026-11/14_canvas_group_request_boundary.md)：正文内部 `group` 过滤、授权分组上下文保留及图片任务回归边界。
@@ -138,7 +174,7 @@
 
 - [Classic 当前连接 zzapi 试用部署](../workflows/2026-10/22_classic_active_connections_zzapi.md)：PR、保留现有 dev 功能的组合源码、备份、测试镜像与逐节点验收。
 
-- [双主题当前连接与 Classic 令牌使用状态](active-requests.md)：当前用户活动请求、限量预览、分页抽屉、令牌聚合与多节点租约。
+- [双主题当前连接与令牌使用状态](active-requests.md)：当前用户活动请求、日志预览/抽屉与多节点租约；含本轮 Default 令牌摘要、稳定 ID 徽标、状态/活动 URL 组合筛选、最终门禁结果及生产验收边界，Classic 原有令牌抽屉契约保留。
 
 - [maolaoapi .349 当前连接发布](../workflows/2026-10/22_active_connections_349_maolaoapi_release.md)：保留现有 dev 功能的正式发布、固定镜像、生产备份与三节点验收。
 

@@ -45,6 +45,8 @@ export interface UserProfile {
   email?: string
   /** User group */
   group: string
+  /** 当前分组显示名称；旧服务端可能不返回 */
+  group_name?: string
   /** Current quota balance */
   quota: number
   /** Total used quota */

@@ -90,7 +90,7 @@ describe('security audit event routing display', () => {
       source: 'route',
     })
     if (!routeGroup) throw new Error('Expected the route group snapshot')
-    expect(formatAuditGroupReference(routeGroup)).toBe('Legacy (legacy · #9)')
+    expect(formatAuditGroupReference(routeGroup)).toBe('Legacy')
   })
 
   it('shows a stable route code when name and ID are unavailable', () => {
@@ -116,7 +116,7 @@ describe('security audit event routing display', () => {
     const group = groups[0]
     expect(group?.source).toBe('channel')
     if (!group) throw new Error('Expected one channel-group snapshot')
-    expect(formatAuditGroupReference(group)).toBe('VIP (vip · #4)')
+    expect(formatAuditGroupReference(group)).toBe('VIP')
   })
 
   it('does not replace the route group with channel-group snapshots', () => {
@@ -127,7 +127,7 @@ describe('security audit event routing display', () => {
     expect(getAuditChannelGroupReferences(withoutChannelGroups)).toEqual([])
     const routeGroup = getAuditRouteGroupReference(withoutChannelGroups)
     if (!routeGroup) throw new Error('Expected the historical route snapshot')
-    expect(formatAuditGroupReference(routeGroup)).toBe('Legacy (legacy · #9)')
+    expect(formatAuditGroupReference(routeGroup)).toBe('Legacy')
   })
 
   it('shows every explicitly bound token group and removes duplicates', () => {

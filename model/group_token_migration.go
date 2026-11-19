@@ -521,11 +521,15 @@ func buildTokenGroupMigrationPlans(
 			if len(tokenBindings) > 0 {
 				bindingLimit := bindingLimits[groupID]
 				jsonLimit, hasJSONLimit := limits[group.Code]
+				name := strings.TrimSpace(group.Name)
+				if name == "" {
+					name = group.Code
+				}
 				if bindingLimit == nil && hasJSONLimit {
 					return nil, nil, fmt.Errorf(
 						"令牌 %d 分组 %s 的稳定倍率保护与旧镜像不一致，请先修复数据后再迁移",
 						token.Id,
-						group.Code,
+						name,
 					)
 				}
 				if bindingLimit != nil {
@@ -533,7 +537,7 @@ func buildTokenGroupMigrationPlans(
 						return nil, nil, fmt.Errorf(
 							"令牌 %d 分组 %s 的稳定倍率保护与旧镜像不一致，请先修复数据后再迁移",
 							token.Id,
-							group.Code,
+							name,
 						)
 					}
 				}

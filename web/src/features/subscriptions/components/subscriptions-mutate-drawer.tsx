@@ -99,7 +99,9 @@ export function SubscriptionsMutateDrawer({
   const tokensOnly = currencyMeta.kind === 'tokens'
   const currencyLabel = getCurrencyLabel()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [groupOptions, setGroupOptions] = useState<string[]>([])
+  const [groupOptions, setGroupOptions] = useState<
+    { value: string; label: string }[]
+  >([])
   const [creatingPancakeProduct, setCreatingPancakeProduct] = useState(false)
   const [pancakeProducts, setPancakeProducts] = useState<
     { id: string; name: string; status: string }[]
@@ -113,6 +115,8 @@ export function SubscriptionsMutateDrawer({
 
   useEffect(() => {
     if (open) {
+      let active = true
+      setGroupOptions([])
       if (currentRow?.plan) {
         form.reset(planToFormValues(currentRow.plan))
       } else {
@@ -120,7 +124,22 @@ export function SubscriptionsMutateDrawer({
       }
       getGroups()
         .then((res) => {
-          if (res.success) setGroupOptions(res.data || [])
+          if (!active || !res.success) return
+          const options = (res.data || []).map((group) => ({
+            value: group.code,
+            label: group.name || group.code,
+          }))
+          for (const key of ['upgrade_group', 'downgrade_group'] as const) {
+            const code = currentRow?.plan[key]
+            if (code && !options.some((option) => option.value === code)) {
+              const name =
+                res.group_names && Object.hasOwn(res.group_names, code)
+                  ? res.group_names[code]
+                  : undefined
+              options.push({ value: code, label: name || code })
+            }
+          }
+          setGroupOptions(options)
         })
         .catch(() => {})
       // Best-effort — empty list still lets the operator use "+ Create".
@@ -140,6 +159,9 @@ export function SubscriptionsMutateDrawer({
           }
         })
         .catch(() => setPancakeProducts([]))
+      return () => {
+        active = false
+      }
     }
   }, [open, currentRow, form])
 
@@ -428,7 +450,7 @@ export function SubscriptionsMutateDrawer({
                       <Select
                         items={[
                           { value: '__none__', label: t('No Upgrade') },
-                          ...groupOptions.map((g) => ({ value: g, label: g })),
+                          ...groupOptions,
                         ]}
                         onValueChange={(v) =>
                           field.onChange(v === '__none__' ? '' : v)
@@ -446,8 +468,8 @@ export function SubscriptionsMutateDrawer({
                               {t('No Upgrade')}
                             </SelectItem>
                             {groupOptions.map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {g}
+                              <SelectItem key={g.value} value={g.value}>
+                                {g.label}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -470,7 +492,7 @@ export function SubscriptionsMutateDrawer({
                             value: '__none__',
                             label: t('Downgrade to pre-purchase group'),
                           },
-                          ...groupOptions.map((g) => ({ value: g, label: g })),
+                          ...groupOptions,
                         ]}
                         onValueChange={(v) =>
                           field.onChange(v === '__none__' ? '' : v)
@@ -490,8 +512,8 @@ export function SubscriptionsMutateDrawer({
                               {t('Downgrade to pre-purchase group')}
                             </SelectItem>
                             {groupOptions.map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {g}
+                              <SelectItem key={g.value} value={g.value}>
+                                {g.label}
                               </SelectItem>
                             ))}
                           </SelectGroup>

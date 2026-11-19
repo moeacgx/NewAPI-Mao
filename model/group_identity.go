@@ -1719,7 +1719,7 @@ func lockOwnedGroupReferenceOptionWrite(tx *gorm.DB, key string, value string) e
 	}
 
 	var exclusiveGroup Group
-	err = tx.Select("id", "code").
+	err = tx.Select("id", "code", "name").
 		Where("id IN ? AND exclusive = ?", groupIDs, true).
 		Order("id ASC").
 		First(&exclusiveGroup).Error
@@ -1729,7 +1729,11 @@ func lockOwnedGroupReferenceOptionWrite(tx *gorm.DB, key string, value string) e
 	if err != nil {
 		return err
 	}
-	return fmt.Errorf("独立分组 %s 不能加入自动分组", exclusiveGroup.Code)
+	name := strings.TrimSpace(exclusiveGroup.Name)
+	if name == "" {
+		name = exclusiveGroup.Code
+	}
+	return fmt.Errorf("独立分组 %s 不能加入自动分组", name)
 }
 
 func validateStoredGroupReferenceOptions(tx *gorm.DB) error {
@@ -1970,8 +1974,10 @@ func groupBusinessReferenceCount(tx *gorm.DB, group *Group) (int64, error) {
 		{model: &User{}, fieldName: "Group", columnName: "group"},
 		{model: &Ability{}, fieldName: "Group", columnName: "group"},
 		{model: &SubscriptionPlan{}, fieldName: "UpgradeGroup", columnName: "upgrade_group"},
+		{model: &SubscriptionPlan{}, fieldName: "DowngradeGroup", columnName: "downgrade_group"},
 		{model: &UserSubscription{}, fieldName: "UpgradeGroup", columnName: "upgrade_group"},
 		{model: &UserSubscription{}, fieldName: "PrevUserGroup", columnName: "prev_user_group"},
+		{model: &UserSubscription{}, fieldName: "DowngradeGroup", columnName: "downgrade_group"},
 	}
 	for _, check := range legacyChecks {
 		count, err := countLegacyGroupReferences(
@@ -2180,10 +2186,10 @@ func SaveGroupConfigWithOptionsAndResult(
 				seenIDs[item.Id] = struct{}{}
 			}
 			if item.Ratio < 0 {
-				return fmt.Errorf("分组 %s 的倍率不能小于 0", code)
+				return fmt.Errorf("分组 %s 的倍率不能小于 0", name)
 			}
 			if item.SingleUserConcurrencyLimit < 0 {
-				return fmt.Errorf("分组 %s 的单用户并发上限不能小于 0", code)
+				return fmt.Errorf("分组 %s 的单用户并发上限不能小于 0", name)
 			}
 			if !item.ExclusiveOmitted && item.Exclusive && item.AutoEnabled {
 				return fmt.Errorf("独立分组 %s 不能加入自动分组", name)

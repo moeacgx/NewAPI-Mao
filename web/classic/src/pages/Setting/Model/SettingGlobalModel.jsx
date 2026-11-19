@@ -36,6 +36,7 @@ import {
   showWarning,
   verifyJSON,
   buildCanvasDefaultGroupOptions,
+  buildCanvasDefaultGroupCurrentItem,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -194,6 +195,7 @@ export default function SettingGlobalModel(props) {
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.Select
                   label={t('无限画布默认分组')}
+                  allowEmptyString
                   field='global.canvas_default_group'
                   optionList={[
                     { value: '', label: t('跟随系统默认') },
@@ -205,6 +207,16 @@ export default function SettingGlobalModel(props) {
                       label:
                         group.value === 'auto' ? t(group.label) : group.label,
                     })),
+                    ...[
+                      buildCanvasDefaultGroupCurrentItem(
+                        props.groups,
+                        buildCanvasDefaultGroupOptions(
+                          props.groups,
+                          props.autoGroup,
+                        ),
+                        inputs['global.canvas_default_group'],
+                      ),
+                    ].filter(Boolean),
                   ]}
                   onChange={(value) =>
                     setInputs({

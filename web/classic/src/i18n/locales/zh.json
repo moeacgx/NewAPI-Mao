@@ -41,10 +41,16 @@
     "Resolved": "已解决",
     "Closed": "已关闭",
     "Used skills": "已使用技能",
+    "开启后，用户每次进入或刷新推广页时弹出一次提示；内容为纯文本，标题或正文留空时使用默认文案": "开启后，用户每次进入或刷新推广页时弹出一次提示；内容为纯文本，标题或正文留空时使用默认文案",
     "技能": "技能",
     "技能 {{count}}": "技能 {{count}}",
     "始终装载": "始终装载",
     "按需读取": "按需读取",
+    "推广提示": "推广提示",
+    "推广时请遵守返佣规则，滥用邀请可能会受到处罚。": "推广时请遵守返佣规则，滥用邀请可能会受到处罚。",
+    "推广页提示": "推广页提示",
+    "提示标题": "提示标题",
+    "提示正文": "提示正文",
     "未用技能": "未用技能",
     "可用 {{count}} 个技能，本次未读取": "可用 {{count}} 个技能，本次未读取",
     "技能发现 · 第 {{round}} 轮": "技能发现 · 第 {{round}} 轮",
@@ -273,6 +279,7 @@
     "表单引用错误，请刷新页面重试": "表单引用错误，请刷新页面重试",
     "表格视图": "表格视图",
     "并确认自行承担部署": "并确认自行承担部署",
+    "进入推广页时弹出提示": "进入推广页时弹出提示",
     "驳回": "驳回",
     "补单": "补单",
     "补单成功": "补单成功",
@@ -1367,6 +1374,7 @@
     "默认": "默认",
     "默认 API 版本": "默认 API 版本",
     "默认 Responses API 版本，为空则使用上方版本": "默认 Responses API 版本，为空则使用上方版本",
+    "默认关闭；在本次访问中关闭提示后，切换标签页或刷新数据不会再次弹出": "默认关闭；在本次访问中关闭提示后，切换标签页或刷新数据不会再次弹出",
     "默认补全倍率": "默认补全倍率",
     "默认不会覆盖已有邀请人；强制覆盖会同步调整新旧邀请人的邀请人数。": "默认不会覆盖已有邀请人；强制覆盖会同步调整新旧邀请人的邀请人数。",
     "默认测试模型": "默认测试模型",
@@ -4043,6 +4051,9 @@
     "Ticket notifications send an excerpt of the current user message to the recipients configured by Root. The escaped excerpt is limited to 2000 characters; longer messages include a truncation notice. View the full message in ticket details.": "工单通知会将本次用户正文摘要发送到 Root 配置的接收目标。转义后的摘要最多 2000 个字符，超长内容附带截断提示，完整正文请到工单详情查看。",
     "Default is 0 (unlimited). A positive value limits explicit group lists and custom Auto snapshots. Tokens inheriting the global Auto order are not limited.": "默认值为 0（不限制）。正整数限制显式分组列表和自定义 Auto 快照的分组数量，继承全局 Auto 顺序的令牌不受限制。",
     "Enter a non-negative integer (0 for unlimited)": "请输入非负整数（0 表示不限制）",
-    "{{count}} groups selected (unlimited)": "已选择 {{count}} 个分组（不限制）"
+    "{{count}} groups selected (unlimited)": "已选择 {{count}} 个分组（不限制）",
+    "Move {{name}} up": "将 {{name}} 上移",
+    "Move {{name}} down": "将 {{name}} 下移",
+    "Custom Auto": "自选 Auto"
   }
 }

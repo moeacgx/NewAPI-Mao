@@ -28,7 +28,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { TokenPromptBadge } from '@/features/prompt-center/components/token-prompt-badge'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
@@ -37,8 +36,10 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
+import type { GroupIdentity } from '../lib/group-selection'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
+import { ApiKeyNameCell } from './api-key-name-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
@@ -54,29 +55,32 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-function useGroupRatios(): Record<string, number | string> {
+function useGroupMetadata() {
   const { data } = useQuery({
     queryKey: ['user-groups'],
     queryFn: getUserGroups,
     staleTime: 0,
     select: (res) => {
-      if (!res.success || !res.data) return {}
       const ratios: Record<string, number | string> = {}
-      for (const [group, info] of Object.entries(res.data)) {
+      const groups: Record<string, GroupIdentity> = {}
+      for (const [group, info] of Object.entries(
+        res.success ? res.data || {} : {}
+      )) {
+        groups[group] = { ...info, code: info.code || group }
         if (typeof info.ratio === 'number' || typeof info.ratio === 'string') {
           ratios[group] = info.ratio
         }
       }
-      return ratios
+      return { ratios, groups }
     },
   })
 
-  return data ?? {}
+  return data ?? { ratios: {}, groups: {} }
 }
 
 export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
-  const groupRatios = useGroupRatios()
+  const { ratios: groupRatios, groups } = useGroupMetadata()
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
@@ -108,14 +112,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'name',
       header: t('Name'),
-      cell: ({ row }) => (
-        <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-          <span className='min-w-0 font-medium [overflow-wrap:anywhere]'>
-            {row.getValue('name')}
-          </span>
-          <TokenPromptBadge token={row.original} />
-        </div>
-      ),
+      cell: ApiKeyNameCell,
       size: 180,
       meta: { mobileTitle: true },
     },
@@ -205,6 +202,9 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         return (
           <ApiKeyGroupCell
             group={group}
+            groupIds={apiKey.group_ids}
+            groupDetails={apiKey.group_details}
+            groups={groups}
             ratio={groupRatios[group]}
             crossGroupRetry={apiKey.cross_group_retry}
             shouldReduceMotion={shouldReduceMotion}

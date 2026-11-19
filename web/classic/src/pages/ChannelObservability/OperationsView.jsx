@@ -533,18 +533,16 @@ const OperationsView = ({
     const descriptor = record.descriptor;
     const isExpanded = expanded.has(descriptor.key);
     const display = nodeDisplay(record.item, descriptor.type, t);
-    const meta =
-      descriptor.type === 'group'
-        ? record.item.group_name && record.item.group_name !== record.item.group
-          ? record.item.group
-          : ''
-        : descriptor.type === 'channel'
-          ? `#${record.item.channel_id}${record.item.channel_type_name ? ` · ${record.item.channel_type_name}` : ''}`
-          : modelDimension === 'upstream' && record.item.requested_model
-            ? `${t('请求')}：${record.item.requested_model}`
-            : modelDimension === 'requested' && record.item.upstream_model
-              ? `${t('上游')}：${record.item.upstream_model}`
-              : '';
+    let meta = '';
+    if (descriptor.type === 'channel') {
+      meta = `#${record.item.channel_id}${record.item.channel_type_name ? ` · ${record.item.channel_type_name}` : ''}`;
+    } else if (descriptor.type === 'model') {
+      if (modelDimension === 'upstream' && record.item.requested_model) {
+        meta = `${t('请求')}：${record.item.requested_model}`;
+      } else if (modelDimension === 'requested' && record.item.upstream_model) {
+        meta = `${t('上游')}：${record.item.upstream_model}`;
+      }
+    }
     return (
       <div
         className='flex min-w-0 items-center'

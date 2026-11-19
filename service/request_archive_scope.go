@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -43,12 +44,41 @@ func BuildRequestArchiveRequest(c *gin.Context, body []byte, contentType, method
 	request.UserEmail = common.GetContextKeyString(c, constant.ContextKeyUserEmail)
 	request.TokenId = common.GetContextKeyInt(c, constant.ContextKeyTokenId)
 	request.TokenName = c.GetString("token_name")
-	request.GroupId = common.GetContextKeyInt(c, constant.ContextKeyUserGroupId)
-	request.GroupCode = common.GetContextKeyString(c, constant.ContextKeyPromptAuditGroupCode)
-	if request.GroupCode == "" {
-		request.GroupCode = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	// HTTP 首次捕获尚未分配渠道，只能记录当时的请求分组意图。审计
+	// 稳定 ID 与用户归属 ID 不是同一身份，不得用后者补齐前者。
+	request.GroupId = common.GetContextKeyInt(c, constant.ContextKeyPromptAuditGroupId)
+	request.GroupCode = strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyPromptAuditGroupCode))
+	request.GroupName = strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyPromptAuditGroupName))
+	// Realtime 后续帧可能已经完成选组，旧的审计候选不能覆盖实际选组。
+	if selected := strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeySelectedChannelGroup)); selected != "" && selected != request.GroupCode {
+		request.GroupId, request.GroupCode, request.GroupName = 0, selected, ""
 	}
-	request.GroupName = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	if request.GroupCode == "" && request.GroupId <= 0 {
+		request.GroupCode = strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyUsingGroup))
+	}
+	if model.DB != nil {
+		var group *model.Group
+		if request.GroupId > 0 {
+			// 精确批量工具只查此 ID；ID 已删除时不得按重用 code 认成新组。
+			groups, err := model.GetGroupsByIds([]int{request.GroupId})
+			if err == nil {
+				group = groups[request.GroupId]
+			}
+		} else if request.GroupCode != "" && !strings.EqualFold(request.GroupCode, "auto") && !strings.ContainsAny(request.GroupCode, ",，") {
+			group, _ = model.GetGroupByCodeOrAlias(request.GroupCode)
+		}
+		if group != nil {
+			request.GroupId = group.Id
+			request.GroupCode = strings.TrimSpace(group.Code)
+			request.GroupName = strings.TrimSpace(group.Name)
+		}
+	}
+	if request.GroupName == "" {
+		request.GroupName = request.GroupCode
+	}
+	if request.GroupName == "" && request.GroupId > 0 {
+		request.GroupName = strconv.Itoa(request.GroupId)
+	}
 	return request
 }
 

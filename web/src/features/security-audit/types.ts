@@ -177,12 +177,14 @@ export interface SecurityAuditChannelGroup {
   id: number
   code: string
   name: string
+  display_name?: string
 }
 
 export interface SecurityAuditTokenGroup {
   id: number
   code: string
   name: string
+  display_name?: string
 }
 
 export interface SecurityAuditEvent {
@@ -202,6 +204,7 @@ export interface SecurityAuditEvent {
   group_id: number
   group_code: string
   group_name: string
+  group_display_name?: string
   provider: string
   endpoint: string
   protocol: string

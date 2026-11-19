@@ -93,7 +93,11 @@ const renderPlanTitle = (text, record, t) => {
           <Text>{t('不限')}</Text>
         )}
         <Text type='tertiary'>{t('升级分组')}</Text>
-        <Text>{plan?.upgrade_group ? plan.upgrade_group : t('不升级')}</Text>
+        <Text>
+          {plan?.upgrade_group
+            ? plan.upgrade_group_name || plan.upgrade_group
+            : t('不升级')}
+        </Text>
         <Text type='tertiary'>{t('购买上限')}</Text>
         <Text>
           {plan?.max_purchase_per_user > 0
@@ -191,7 +195,7 @@ const renderUpgradeGroup = (text, record, t) => {
   const group = record?.plan?.upgrade_group || '';
   return (
     <Text type={group ? 'secondary' : 'tertiary'}>
-      {group ? group : t('不升级')}
+      {group ? record.plan.upgrade_group_name || group : t('不升级')}
     </Text>
   );
 };

@@ -26,14 +26,57 @@ For commercial licensing, please contact support@quantumnous.com
  * - Size parameter: getLobeIcon("OpenAI", 20)
  */
 import * as LobeIcons from '@lobehub/icons'
-import type React from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 
 import { IconSub2api } from '@/assets/custom/icon-sub2api'
 import { IconWan } from '@/assets/custom/icon-wan'
 
-const CUSTOM_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+const CUSTOM_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   Sub2API: IconSub2api,
   Wan: IconWan,
+}
+
+// oxlint-disable-next-line react/only-export-components
+function FallbackIcon({
+  character,
+  size,
+}: {
+  character: string
+  size: number
+}) {
+  return (
+    <div
+      className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
+      style={{ width: size, height: size, flexShrink: 0 }}
+    >
+      {character}
+    </div>
+  )
+}
+
+// oxlint-disable-next-line react/only-export-components
+function CustomLogo({ src, size }: { src: string; size: number }) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) return <FallbackIcon character='?' size={size} />
+
+  return (
+    <img
+      src={src}
+      alt=''
+      width={size}
+      height={size}
+      loading='lazy'
+      referrerPolicy='no-referrer'
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        flexShrink: 0,
+      }}
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 /**
@@ -84,28 +127,28 @@ function parseValue(raw: string | undefined | null): string | number | boolean {
 export function getLobeIcon(
   iconName: string | undefined | null,
   size: number = 20
-): React.ReactNode {
+): ReactNode {
   if (!iconName || typeof iconName !== 'string') {
-    return (
-      <div
-        className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
-        style={{ width: size, height: size }}
-      >
-        ?
-      </div>
-    )
+    return <FallbackIcon character='?' size={size} />
   }
 
   const trimmedName = iconName.trim()
   if (!trimmedName) {
-    return (
-      <div
-        className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
-        style={{ width: size, height: size }}
-      >
-        ?
-      </div>
-    )
+    return <FallbackIcon character='?' size={size} />
+  }
+
+  if (/^https?:\/\//i.test(trimmedName)) {
+    try {
+      const url = new URL(trimmedName)
+      const authority = trimmedName
+        .slice(trimmedName.indexOf('//') + 2)
+        .split(/[/?#]/, 1)[0]
+      if (!url.username && !url.password && !authority.includes('@')) {
+        return <CustomLogo key={trimmedName} src={trimmedName} size={size} />
+      }
+    } catch {
+      // 非法 URL 沿用 LobeHub 名称解析和首字母兜底，不发起图片请求。
+    }
   }
 
   // Parse component path and chained properties
@@ -119,17 +162,17 @@ export function getLobeIcon(
     | Record<string, unknown>
     | undefined
 
-  let IconComponent: React.ComponentType<Record<string, unknown>> | undefined
+  let IconComponent: ComponentType<Record<string, unknown>> | undefined
   let propStartIndex: number
 
   if (BaseIcon && segments.length > 1 && BaseIcon[segments[1]]) {
-    IconComponent = BaseIcon[segments[1]] as React.ComponentType<
+    IconComponent = BaseIcon[segments[1]] as ComponentType<
       Record<string, unknown>
     >
     propStartIndex = 2
   } else {
     IconComponent = (LobeIcons as Record<string, unknown>)[baseKey] as
-      | React.ComponentType<Record<string, unknown>>
+      | ComponentType<Record<string, unknown>>
       | undefined
     propStartIndex = segments.length > 1 && /^[A-Z]/.test(segments[1]) ? 2 : 1
   }
@@ -140,14 +183,7 @@ export function getLobeIcon(
     (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')
   ) {
     const firstLetter = trimmedName.charAt(0).toUpperCase()
-    return (
-      <div
-        className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
-        style={{ width: size, height: size }}
-      >
-        {firstLetter}
-      </div>
-    )
+    return <FallbackIcon character={firstLetter} size={size} />
   }
 
   // Parse chained properties (e.g., "type={'platform'}", "shape='square'")

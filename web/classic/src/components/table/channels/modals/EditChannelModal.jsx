@@ -3852,7 +3852,11 @@ const EditChannelModal = (props) => {
                         ]}
                         style={{ width: '100%' }}
                         value={keyMode}
-                        onChange={(value) => setKeyMode(value)}
+                        // Semi 的 onChange 等退出动画结束才触发，提交必须立即使用选中的模式。
+                        onSelect={(value) => {
+                          setKeyMode(value);
+                          handleInputChange('key_mode', value);
+                        }}
                         extraText={
                           <Text type='tertiary' size='small'>
                             {keyMode === 'replace'
@@ -3875,7 +3879,8 @@ const EditChannelModal = (props) => {
                           ]}
                           style={{ width: '100%' }}
                           value={inputs.multi_key_mode || 'random'}
-                          onChange={(value) => {
+                          // 在选中时同步策略，避免退出动画期间提交仍携带旧值。
+                          onSelect={(value) => {
                             setMultiKeyMode(value);
                             handleInputChange('multi_key_mode', value);
                           }}

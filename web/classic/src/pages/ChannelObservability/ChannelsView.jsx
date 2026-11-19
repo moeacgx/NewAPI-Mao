@@ -295,7 +295,9 @@ const ChannelsView = ({
             <div>
               <Text type='tertiary' size='small'>
                 #{record.id} · {record.typeName}
-                {record.group ? ` · ${t('配置分组')} ${record.group}` : ''}
+                {record.group
+                  ? ` · ${t('配置分组')} ${record.group_name || record.group}`
+                  : ''}
               </Text>
             </div>
           </div>

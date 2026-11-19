@@ -331,6 +331,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.PUT("/affiliate-batch", controller.UpdateAffiliateOptionsBatch)
 			optionRoute.GET("/okpay/rate-preview", controller.PreviewOkpayRate)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)

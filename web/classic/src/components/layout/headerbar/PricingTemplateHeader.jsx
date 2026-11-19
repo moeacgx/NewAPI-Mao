@@ -130,6 +130,13 @@ const PricingTemplateHeader = ({
         onClick={() => {
           if (mobile) setMobileOpen(false);
         }}
+        onFocus={(event) => {
+          if (mobile) return;
+          event.currentTarget.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+          });
+        }}
       >
         {Icon && <Icon size={mobile ? 20 : 16} aria-hidden='true' />}
         <span>{link.text}</span>
@@ -175,7 +182,9 @@ const PricingTemplateHeader = ({
             </div>
 
             <div className='classic-pricing-template-desktop-nav'>
-              {mainNavLinks.map((link) => renderLink(link))}
+              <div className='classic-pricing-template-links'>
+                {mainNavLinks.map((link) => renderLink(link))}
+              </div>
               <span className='classic-pricing-template-nav-divider' />
               <LanguageSelector
                 currentLang={currentLang}
