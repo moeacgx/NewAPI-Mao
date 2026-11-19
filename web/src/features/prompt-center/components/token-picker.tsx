@@ -75,8 +75,8 @@ export function TokenPicker(props: {
         if (!open) props.onClose()
       }}
     >
-      <DialogContent className='max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl p-0 font-sans sm:max-w-xl'>
-        <DialogHeader className='border-b px-5 py-5 pr-10 sm:px-6'>
+      <DialogContent className='flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 font-sans sm:max-w-xl'>
+        <DialogHeader className='shrink-0 border-b px-5 py-4 pr-10 sm:px-6 sm:py-5'>
           <div className='mb-1 flex items-center gap-3'>
             <span className='border-primary/20 bg-primary/10 text-primary flex size-11 shrink-0 items-center justify-center rounded-xl border'>
               <HugeiconsIcon icon={Key01Icon} className='size-5' aria-hidden />
@@ -92,7 +92,7 @@ export function TokenPicker(props: {
               )}
           </DialogDescription>
         </DialogHeader>
-        <div className='flex min-h-0 flex-col gap-4 px-5 py-4 sm:px-6'>
+        <div className='flex min-h-0 flex-1 flex-col gap-3 px-5 py-4 sm:gap-4 sm:px-6'>
           <div className='relative'>
             <Label className='sr-only' htmlFor={`${fieldId}-search`}>
               {t('Search by name')}
@@ -119,7 +119,7 @@ export function TokenPicker(props: {
             {query.isSuccess && <span>{query.data.total}</span>}
           </div>
           <div
-            className='max-h-[min(24rem,42dvh)] min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1'
+            className='max-h-96 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1'
             aria-busy={query.isFetching}
           >
             {query.isPending && (
@@ -248,7 +248,7 @@ export function TokenPicker(props: {
             )}
           </div>
           {query.isSuccess && (
-            <div className='flex items-center justify-between gap-2 border-t pt-3'>
+            <div className='flex shrink-0 items-center justify-between gap-2 border-t pt-3'>
               <Button
                 variant='outline'
                 size='sm'
@@ -285,7 +285,7 @@ export function TokenPicker(props: {
             </div>
           )}
         </div>
-        <div className='bg-muted/40 flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6'>
+        <div className='bg-muted/40 flex shrink-0 flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6'>
           <div className='min-w-0' role='status' aria-live='polite'>
             <p className='text-muted-foreground text-xs'>
               {t(selected ? 'Selected' : 'Select API key')}
