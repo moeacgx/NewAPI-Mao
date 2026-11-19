@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import TokenTimestamp from './TokenTimestamp';
 import TokenPromptBadge from './TokenPromptBadge';
 import { TokenActivityBadge } from '../../active-requests/TokenActivityBar';
@@ -66,15 +66,67 @@ const renderStatus = (text, record, t) => {
   return <TokenStatusBadge label={t(config[0])} variant={config[1]} />;
 };
 
+// 多分组折叠单元格：悬停预览，点击/点按/键盘固定展开，再次点击、Esc 或外部点击收起。
+// Semi hover 触发在触屏上不会打开，因此用 custom 触发自行管理显隐。
+function TokenGroupsCollapsed({ groups, ratio, t }) {
+  const [visible, setVisible] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const toggle = () => {
+    setPinned(!pinned);
+    setVisible(!pinned);
+  };
+  const close = () => {
+    setPinned(false);
+    setVisible(false);
+  };
+  return (
+    <Tooltip
+      trigger='custom'
+      visible={visible}
+      onClickOutSide={close}
+      content={
+        <div className='tokens-group-list'>
+          {groups.map((group, index) => (
+            <div key={group.code}>{index + 1 + '. ' + group.name}</div>
+          ))}
+        </div>
+      }
+    >
+      <span
+        role='button'
+        tabIndex={0}
+        aria-expanded={visible}
+        aria-label={t('分组') + ': ' + groups.map((g) => g.name).join(', ')}
+        data-token-group-cell='multiple'
+        className='tokens-group tokens-group--multi'
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => {
+          if (!pinned) setVisible(false);
+        }}
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggle();
+          }
+          if (event.key === 'Escape') close();
+        }}
+      >
+        <TokenGroupBadge
+          code={groups[0].code}
+          name={groups[0].name}
+          ratio={ratio}
+        />
+        <TokenStatusBadge variant='info' label={'+' + (groups.length - 1)} />
+      </span>
+    </Tooltip>
+  );
+}
+
 const renderGroupColumn = (text, record, t, groupRatios = {}) => {
   const details = Array.isArray(record.group_details)
     ? record.group_details
     : [];
-  const labels = Object.fromEntries(
-    details
-      .filter((group) => group.code && group.name)
-      .map((group) => [group.code, group.name]),
-  );
   if (text === 'auto')
     return (
       <Tooltip
@@ -92,26 +144,31 @@ const renderGroupColumn = (text, record, t, groupRatios = {}) => {
     .map((code) => code.trim())
     .filter(Boolean);
   if (!codes.length) return <TokenStatusBadge label={t('User Group')} />;
-  const code = codes[0],
-    name = labels[code] || code;
+  // ID 与原标识一一对应时按 ID 关联，兼容改名后的历史 alias；否则按 code 匹配。
+  const ids =
+    Array.isArray(record.group_ids) && record.group_ids.length === codes.length
+      ? record.group_ids
+      : [];
+  const groups = codes.map((code, index) => {
+    const detail = details.find((group) =>
+      ids.length ? group.id === ids[index] : group.code === code,
+    );
+    return {
+      code: detail?.code || code,
+      name: detail?.name || code,
+    };
+  });
+  const ratio = groupRatios[groups[0].code] ?? groupRatios[codes[0]];
+  if (groups.length > 1)
+    return <TokenGroupsCollapsed groups={groups} ratio={ratio} t={t} />;
   return (
-    <Tooltip
-      content={
-        <div>
-          {codes.map((item, index) => (
-            <div key={item}>
-              {codes.length > 1 ? index + 1 + '. ' : ''}
-              {labels[item] || item}
-            </div>
-          ))}
-        </div>
-      }
-    >
+    <Tooltip content={groups[0].name}>
       <span className='tokens-group'>
-        <TokenGroupBadge code={code} name={name} ratio={groupRatios[code]} />
-        {codes.length > 1 && (
-          <TokenStatusBadge variant='info' label={'+' + (codes.length - 1)} />
-        )}
+        <TokenGroupBadge
+          code={groups[0].code}
+          name={groups[0].name}
+          ratio={ratio}
+        />
       </span>
     </Tooltip>
   );

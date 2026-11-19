@@ -22,6 +22,14 @@ import { BadgeCell, TruncatedCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -41,6 +49,8 @@ type ApiKeyGroupCellProps = {
   groupDetails?: readonly GroupIdentity[]
   groups?: Record<string, GroupIdentity>
   ratio?: GroupRatio
+  // 按分组 code 的倍率；多分组时第一个分组和弹层逐项展示各自倍率。
+  ratios?: Record<string, GroupRatio>
   shouldReduceMotion: boolean
 }
 
@@ -48,44 +58,120 @@ export function ApiKeyGroupCell(props: ApiKeyGroupCellProps) {
   const { t } = useTranslation()
 
   if (props.group !== 'auto') {
-    const ratio = typeof props.ratio === 'number' ? props.ratio : undefined
     const codes = (props.group || '')
       .split(',')
       .map((code) => code.trim())
       .filter(Boolean)
     const details = props.groupDetails || []
     const groups = Object.values(props.groups || {})
-    const label = codes
-      .map((code, index) => {
-        // ID 与原标识完整对应时优先按 ID 关联，兼容改名后的历史 alias。
-        // 缺失绑定导致长度不同时不能按位置猜测，避免把别组名称贴给已删除组。
-        const id =
-          props.groupIds?.length === codes.length
-            ? props.groupIds[index]
-            : undefined
-        const detail = details.find((group) =>
-          id !== undefined ? group.id === id : group.code === code
-        )
-        const known = groups.find((group) =>
-          (id ?? detail?.id) !== undefined
-            ? group.id === (id ?? detail?.id)
-            : group.code === code
-        )
-        return detail?.name?.trim() || known?.name?.trim() || code
-      })
-      .join(', ')
+    const resolved = codes.map((code, index) => {
+      // ID 与原标识完整对应时优先按 ID 关联，兼容改名后的历史 alias。
+      // 缺失绑定导致长度不同时不能按位置猜测，避免把别组名称贴给已删除组。
+      const id =
+        props.groupIds?.length === codes.length
+          ? props.groupIds[index]
+          : undefined
+      const detail = details.find((group) =>
+        id !== undefined ? group.id === id : group.code === code
+      )
+      const known = groups.find((group) =>
+        (id ?? detail?.id) !== undefined
+          ? group.id === (id ?? detail?.id)
+          : group.code === code
+      )
+      return {
+        // 倍率按当前 code 查找，历史 alias 改名后仍能对上。
+        code: detail?.code || known?.code || code,
+        name: detail?.name?.trim() || known?.name?.trim() || code,
+      }
+    })
+    const names = resolved.map((group) => group.name)
+    const ratioOf = (index: number) => {
+      const value =
+        props.ratios?.[resolved[index]?.code ?? ''] ??
+        props.ratios?.[codes[index] ?? ''] ??
+        (codes.length === 1 ? props.ratio : undefined)
+      return typeof value === 'number' ? value : undefined
+    }
+
+    if (codes.length <= 1) {
+      const label = names[0] || ''
+      const ratio = ratioOf(0)
+      return (
+        <TruncatedCell
+          className='-ml-1.5'
+          tooltipContent={label || '-'}
+          tooltipClassName='break-all'
+        >
+          <GroupBadge
+            group={props.group}
+            label={label || undefined}
+            ratio={ratio}
+          />
+        </TruncatedCell>
+      )
+    }
+
+    // 多分组折叠为“第一个分组 + N”，悬停预览、点击固定，Esc/外部点击/关闭按钮收起。
     return (
-      <TruncatedCell
-        className='-ml-1.5'
-        tooltipContent={label || '-'}
-        tooltipClassName='break-all'
-      >
-        <GroupBadge
-          group={props.group}
-          label={label || undefined}
-          ratio={ratio}
-        />
-      </TruncatedCell>
+      <Popover>
+        <PopoverTrigger
+          openOnHover
+          delay={150}
+          closeDelay={150}
+          data-api-key-group-cell='multiple'
+          aria-label={`${t('Selected groups')}: ${names.join(', ')}`}
+          className='focus-visible:ring-ring/50 -ml-1.5 flex max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md text-left outline-none focus-visible:ring-2'
+        >
+          {/* 限制首个分组宽度，长名截断，+N 紧随其后且不撑宽列。 */}
+          <span className='max-w-44 min-w-0 overflow-hidden'>
+            <GroupBadge
+              group={resolved[0]?.code}
+              label={names[0]}
+              ratio={ratioOf(0)}
+            />
+          </span>
+          <span
+            data-api-key-group-more
+            className='bg-info/10 text-info inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs leading-none font-medium tabular-nums'
+          >
+            +{codes.length - 1}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent
+          align='start'
+          className='w-auto max-w-[min(20rem,calc(100vw-2rem))] min-w-48'
+        >
+          <PopoverHeader className='flex-row items-center justify-between gap-2'>
+            <PopoverTitle className='text-xs'>
+              {t('Selected groups')} ({codes.length})
+            </PopoverTitle>
+            <PopoverClose className='text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded px-1 text-xs outline-none focus-visible:ring-2'>
+              {t('Close')}
+            </PopoverClose>
+          </PopoverHeader>
+          <ol className='flex flex-col gap-1 text-xs'>
+            {codes.map((code, index) => {
+              const ratio = ratioOf(index)
+              return (
+                <li
+                  key={code}
+                  className='flex items-start justify-between gap-3'
+                >
+                  <span className='min-w-0 break-words'>
+                    {index + 1}. {names[index]}
+                  </span>
+                  {ratio != null && (
+                    <span className='text-muted-foreground shrink-0 font-mono tabular-nums'>
+                      {ratio}x
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </PopoverContent>
+      </Popover>
     )
   }
 

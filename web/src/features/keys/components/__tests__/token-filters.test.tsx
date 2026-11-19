@@ -505,16 +505,16 @@ describe('真实令牌表格的服务端筛选与 URL 状态', () => {
       return original(url, config)
     })
     const view = mountTable('/keys')
-    expect(
-      await screen.findByText('Standard Display, Premium Display')
-    ).toBeVisible()
+    // 多分组折叠：只显示第一个当前显示名和 +N，完整名单在弹层。
+    expect(await screen.findByText('Standard Display')).toBeVisible()
+    expect(screen.getByText('+1')).toBeVisible()
+    expect(screen.queryByText('Premium Display')).toBeNull()
     groupName = 'Renamed Display'
     await act(async () => {
       await view.client.invalidateQueries({ queryKey: ['keys'] })
     })
-    expect(
-      await screen.findByText('Renamed Display, Premium Display')
-    ).toBeVisible()
+    expect(await screen.findByText('Renamed Display')).toBeVisible()
+    expect(screen.queryByText('Standard Display')).toBeNull()
     expect(screen.queryByText(/old_alias|stable_b/)).toBeNull()
     expect(token.group).toBe('old_alias,stable_b')
     expect(token.group_ids).toEqual([11, 22])
