@@ -70,6 +70,8 @@ import {
 } from '../../../../helpers';
 import ModelSelectModal from './ModelSelectModal';
 import TaskPluginSelect from './TaskPluginSelect';
+import ChannelGroupSelect from './ChannelGroupSelect';
+import useGroupTags from '../../../../hooks/common/useGroupTags';
 import {
   canConvertChannelToMultiKey,
   buildChannelKeyUpdateFields,
@@ -263,6 +265,7 @@ const EditChannelModal = (props) => {
   const [originModelOptions, setOriginModelOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
   const [groupOptions, setGroupOptions] = useState([]);
+  const { tags: groupTags, error: groupTagsError } = useGroupTags();
   const [basicModels, setBasicModels] = useState([]);
   const [fullModels, setFullModels] = useState([]);
   const [modelGroups, setModelGroups] = useState([]);
@@ -4318,18 +4321,12 @@ const EditChannelModal = (props) => {
                   />
 
                   {/* Groups - Core Config */}
-                  <Form.Select
+                  <ChannelGroupSelect
                     field='groups'
                     label={t('分组')}
                     placeholder={t('请选择可以使用该渠道的分组')}
-                    multiple
-                    allowAdditions
-                    additionLabel={t(
-                      '请在系统设置页面编辑分组倍率以添加新的分组：',
-                    )}
-                    optionList={groupOptions}
-                    style={{ width: '100%' }}
-                    position='top'
+                    groupOptions={groupOptions}
+                    tags={groupTagsError ? [] : groupTags}
                     onChange={(value) => handleInputChange('groups', value)}
                   />
 
