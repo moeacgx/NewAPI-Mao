@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { toIntlLocale } from "@/i18n/languages";
 import { cn } from "@/lib/utils";
 
 import {
@@ -110,15 +111,16 @@ export function StatusSegments(props: StatusSegmentsProps) {
     () => buildStatusSegments(props.series, endTs, props.segmentCount),
     [endTs, props.segmentCount, props.series],
   );
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language);
   const formatter = useMemo(
     () =>
-      new Intl.DateTimeFormat(i18n.language, {
+      new Intl.DateTimeFormat(locale, {
         month: "2-digit",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
       }),
-    [i18n.language],
+    [locale],
   );
 
   if (props.series.length === 0) {

@@ -191,7 +191,7 @@
   min-width: 30px;
   height: 30px;
   padding: 0;
-  color: var(--semi-color-text-2);
+  color: var(--semi-color-text-1);
   background: transparent;
   border-radius: 6px;
 }
@@ -233,8 +233,38 @@
   background: var(--semi-color-primary);
   color: white;
 }
-.playground-composer .playground-send-button.semi-button-disabled {
-  opacity: 0.45;
+.playground-composer .playground-tool-button.semi-button.semi-button-disabled {
+  color: var(--semi-color-text-2);
+}
+/* 禁用发送仍保留主色识别与可读对比，避免整体降透明度后像背景。 */
+.playground-composer .playground-send-button.semi-button.semi-button-disabled {
+  border: 1px solid
+    color-mix(in srgb, var(--semi-color-primary) 40%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--semi-color-primary) 14%,
+    var(--semi-color-bg-0)
+  );
+  color: oklch(0.42 0.16 250);
+  opacity: 1;
+  cursor: not-allowed;
+}
+body[theme-mode='dark']
+  .playground-composer
+  .playground-send-button.semi-button.semi-button-disabled {
+  background: color-mix(
+    in srgb,
+    var(--semi-color-primary) 22%,
+    var(--semi-color-bg-0)
+  );
+  color: oklch(0.88 0.06 240);
+}
+.playground-model-selectors .semi-select,
+.playground-model-selectors .semi-select-arrow {
+  color: var(--semi-color-text-0);
+}
+.playground-model-selectors .semi-select-selection-placeholder {
+  color: var(--semi-color-text-1);
 }
 .playground-settings-sheet .semi-sidesheet-body {
   overflow: hidden;

@@ -39,6 +39,24 @@ test('最近 24 小时状态压缩为四段并保留空段', () => {
   assert.equal(segments[2].sample_count, 0);
 });
 
+test('卡片可显式放宽到 24 段并保留无请求小时为空段，默认仍为四段', () => {
+  const endTs = 24 * 60 * 60;
+  const series = [
+    { ts: 60 * 60, success_rate: 100, avg_latency_ms: 100 },
+    { ts: 5 * 60 * 60 + 60, success_rate: 90, avg_latency_ms: 200 },
+  ];
+  const hourly = buildStatusSegments(series, endTs, 24, 24);
+
+  assert.equal(hourly.length, 24);
+  assert.equal(hourly[0].success_rate, null);
+  assert.equal(hourly[1].success_rate, 100);
+  assert.equal(hourly[5].success_rate, 90);
+  assert.equal(hourly[10].success_rate, null);
+  assert.equal(hourly[10].sample_count, 0);
+  assert.equal(buildStatusSegments(series, endTs, 24).length, 4);
+  assert.equal(buildStatusSegments(series, endTs).length, 4);
+});
+
 test('状态柱高度随延迟升高而降低，并忽略无效延迟的缩放影响', () => {
   const heights = buildLatencyBarHeights([
     { avg_latency_ms: 100 },

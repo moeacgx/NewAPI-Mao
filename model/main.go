@@ -283,6 +283,9 @@ func migrateDB() error {
 	}
 
 	err := DB.AutoMigrate(
+		&MCPKey{},
+		&MCPCallLog{},
+		&MCPWriteRequest{},
 		&Channel{},
 		&Token{},
 		&User{},
@@ -448,6 +451,9 @@ func migrateDBFast() error {
 		model interface{}
 		name  string
 	}{
+		{&MCPKey{}, "MCPKey"},
+		{&MCPCallLog{}, "MCPCallLog"},
+		{&MCPWriteRequest{}, "MCPWriteRequest"},
 		{&Channel{}, "Channel"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},

@@ -149,8 +149,18 @@ func authenticateDashboardRequest(c *gin.Context) (*model.UserBase, service.Auth
 }
 
 func classifyDashboardCredential(c *gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+	if keyID, ok := service.MCPInternalKeyID(c.Request.Context()); ok {
+		identity, err := service.ValidateMCPIdentity(keyID)
+		if err != nil {
+			return nil, service.AuthIdentity{}, dashboardCredentialInternal, service.ErrAuthTokenInvalid
+		}
+		return identity.User, service.AuthIdentity{UserID: identity.User.Id, UserAuthVersion: identity.User.AuthVersion}, dashboardCredentialInternal, nil
+	}
 	raw, ok := authorizationToken(c.GetHeader("Authorization"))
 	if !ok {
+		return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
+	}
+	if strings.HasPrefix(raw, "mcp_") {
 		return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
 	}
 	identity, internal, err := service.ParseDashboardAccessToken(raw)
@@ -228,7 +238,11 @@ func RequirePermission(permission authz.Permission) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		role := c.GetInt("role")
 		userID := c.GetInt("id")
-		if authz.Can(userID, role, permission) {
+		allowed := authz.Can(userID, role, permission)
+		if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+			allowed = service.MCPPermissionAllowed(userID, role, permission)
+		}
+		if allowed {
 			c.Next()
 			return
 		}

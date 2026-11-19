@@ -26,7 +26,7 @@ func TestDistributeReselectionUsesActualGroupAndHonorsUserConcurrency(t *testing
 			dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 			db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 			require.NoError(t, err)
-			require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}))
+			require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}, &model.Model{}, &model.Vendor{}))
 			model.DB, model.LOG_DB = db, nil
 			common.MemoryCacheEnabled, common.RedisEnabled, common.RetryTimes = true, false, 3
 			t.Cleanup(func() {
@@ -43,6 +43,7 @@ func TestDistributeReselectionUsesActualGroupAndHonorsUserConcurrency(t *testing
 
 			const userID = 998100
 			const modelName = "group-fallback-model"
+			require.NoError(t, (&model.Model{ModelName: modelName, Status: 1}).Insert())
 			groups := []model.Group{
 				{Id: 998101, Code: "fallback-first", Name: "首选分组", SingleUserConcurrencyLimit: 1},
 				{Id: 998102, Code: "fallback-second", Name: "后备分组", SingleUserConcurrencyLimit: 1},

@@ -49,7 +49,8 @@ func setupUpstreamModelGuardMiddlewareTest(t *testing.T) *model.Channel {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	model.DB, common.RedisEnabled, common.MemoryCacheEnabled = db, false, true
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
-	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.Model{}, &model.Vendor{}))
+	require.NoError(t, (&model.Model{ModelName: "client-model", Status: 1}).Insert())
 	require.NoError(t, db.Create(&model.Group{Code: "guard-route", Name: "Guard route", Status: model.GroupStatusActive}).Error)
 	channel := &model.Channel{
 		Id: 991001, Name: "guard-channel", Type: constant.ChannelTypeOpenAI,

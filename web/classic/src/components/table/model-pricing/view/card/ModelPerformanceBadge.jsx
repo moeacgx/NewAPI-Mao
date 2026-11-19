@@ -66,7 +66,7 @@ const ModelPerformanceBadge = ({ performance, t }) => {
       </div>
       <div
         title={`${t('状态')} · ${statusRateText}`}
-        className='min-w-0'
+        className='classic-pricing-model-performance-status min-w-0'
         style={{
           '--classic-pricing-performance-status-color': statusRateColor,
         }}
@@ -78,10 +78,10 @@ const ModelPerformanceBadge = ({ performance, t }) => {
           <SuccessRateSparkline
             series={statusSeries}
             overall={statusRate}
-            maxPoints={3}
+            maxPoints={24}
             showOverall={false}
+            compact
             availabilityTone
-            signalStyle
             aggregateWindow
             className='classic-pricing-model-performance-signal'
           />

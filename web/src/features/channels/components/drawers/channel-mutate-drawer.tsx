@@ -112,6 +112,7 @@ import {
   SecureVerificationDialog,
   useSecureVerification,
 } from '@/features/auth/secure-verification'
+import { useGroupTags } from '@/features/group-tags/use-group-tags'
 import { getVendors } from '@/features/models/api'
 import { vendorsQueryKeys } from '@/features/models/lib'
 import { TaskPluginBindingField } from '@/features/task-plugins/components/task-plugin-binding-field'
@@ -185,6 +186,7 @@ import {
   collectNewDisallowedStatusCodeRedirects,
 } from '../../lib/status-code-risk-guard'
 import type { Channel } from '../../types'
+import { ChannelGroupPicker } from '../channel-group-picker'
 import { useChannels } from '../channels-provider'
 import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
 import { FetchModelsDialog } from '../dialogs/fetch-models-dialog'
@@ -725,6 +727,8 @@ export function ChannelMutateDrawer({
     queryKey: ['group-details'],
     queryFn: getGroupDetails,
   })
+
+  const { data: groupTagsData } = useGroupTags()
 
   // Fetch all available models
   const { data: allModelsData } = useQuery({
@@ -3808,8 +3812,9 @@ export function ChannelMutateDrawer({
                                     {isLoadingGroups ? (
                                       <Skeleton className='h-10 w-full' />
                                     ) : (
-                                      <MultiSelect
+                                      <ChannelGroupPicker
                                         options={groupOptions}
+                                        tags={groupTagsData ?? []}
                                         selected={field.value}
                                         onChange={(groups) => {
                                           field.onChange(groups)

@@ -3,12 +3,14 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
@@ -77,6 +79,41 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 }
 
 func GetOptions(c *gin.Context) {
+	if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+		page, _ := strconv.Atoi(c.DefaultQuery("p", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+		if page < 1 || page > 10000 || pageSize < 1 || pageSize > 100 {
+			common.ApiErrorMsg(c, "分页参数无效")
+			return
+		}
+		exact, keyword := c.Query("key"), strings.ToLower(c.Query("keyword"))
+		items := make([]service.MCPOptionView, 0)
+		optionValues := make(map[string]string, len(completionRatioMetaOptionKeys))
+		common.OptionMapRWMutex.RLock()
+		for _, key := range completionRatioMetaOptionKeys {
+			optionValues[key] = common.Interface2String(common.OptionMap[key])
+		}
+		for key, value := range common.OptionMap {
+			// 动态元数据以实时计算为准，不读取历史误保存的同名选项。
+			if key == "CompletionRatioMeta" {
+				continue
+			}
+			if exact != "" && key != exact || keyword != "" && !strings.Contains(strings.ToLower(key), keyword) {
+				continue
+			}
+			items = append(items, service.MCPProjectOption(key, common.Interface2String(value)))
+		}
+		common.OptionMapRWMutex.RUnlock()
+		if (exact == "" || exact == "CompletionRatioMeta") && (keyword == "" || strings.Contains("completionratiometa", keyword)) {
+			items = append(items, service.MCPProjectOption("CompletionRatioMeta", buildCompletionRatioMetaValue(optionValues)))
+		}
+		sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
+		total := len(items)
+		start := min((page-1)*pageSize, total)
+		end := min(start+pageSize, total)
+		common.ApiSuccess(c, gin.H{"items": items[start:end], "total": total, "page": page, "page_size": pageSize})
+		return
+	}
 	var options []*model.Option
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
@@ -187,6 +224,10 @@ func UpdateOption(c *gin.Context) {
 			"success": false,
 			"message": "无效的参数",
 		})
+		return
+	}
+	if option.Key == "CompletionRatioMeta" {
+		common.ApiErrorMsg(c, "CompletionRatioMeta 是动态只读元数据，请更新 CompletionRatio 等原始配置")
 		return
 	}
 	switch option.Value.(type) {

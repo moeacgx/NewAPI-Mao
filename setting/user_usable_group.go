@@ -13,6 +13,23 @@ var userUsableGroups = map[string]string{
 }
 var userUsableGroupsMutex sync.RWMutex
 
+func HasPublicUsableGroup(groups []string) bool {
+	userUsableGroupsMutex.RLock()
+	defer userUsableGroupsMutex.RUnlock()
+	if len(userUsableGroups) == 0 {
+		return false
+	}
+	for _, group := range groups {
+		if group == "all" {
+			return true
+		}
+		if _, exists := userUsableGroups[group]; exists {
+			return true
+		}
+	}
+	return false
+}
+
 func GetUserUsableGroupsCopy() map[string]string {
 	userUsableGroupsMutex.RLock()
 	defer userUsableGroupsMutex.RUnlock()

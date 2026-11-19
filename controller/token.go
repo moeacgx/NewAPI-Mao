@@ -453,6 +453,11 @@ func AddToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	// MCP 按新 ID 继续精确管理，避免重名令牌创建后无法可靠定位；密钥仍独立读取。
+	if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+		common.ApiSuccess(c, gin.H{"id": cleanToken.Id})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

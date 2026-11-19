@@ -68,7 +68,16 @@ export default defineConfig(({ envMode }) => {
     server: {
       host: '0.0.0.0',
       strictPort: false,
-      proxy: devProxy,
+      proxy: {
+        ...devProxy,
+        '/mcp': {
+          target: serverUrl,
+          changeOrigin: true,
+          // 按路径边界匹配，避免把 /mcp-management 页面也转发给后端。
+          pathFilter: (pathname: string) =>
+            pathname === '/mcp' || pathname.startsWith('/mcp/'),
+        },
+      },
     },
     output: {
       // Production optimizations

@@ -118,7 +118,9 @@ func TestTaskPluginMixedChannelRealDistribution(t *testing.T) {
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			sqlDB.SetMaxOpenConns(1)
-			require.NoError(t, db.AutoMigrate(&model.TaskPlugin{}, &model.Option{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}))
+			require.NoError(t, db.AutoMigrate(&model.TaskPlugin{}, &model.Option{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Model{}, &model.Vendor{}))
+			model.InvalidatePricingCache()
+			t.Cleanup(model.InvalidatePricingCache)
 			oldCache := common.MemoryCacheEnabled
 			common.MemoryCacheEnabled = memory
 			t.Cleanup(func() { common.MemoryCacheEnabled = oldCache })
@@ -153,9 +155,9 @@ func TestTaskPluginMixedChannelRealDistribution(t *testing.T) {
 				c.Next()
 			})
 			respond := func(c *gin.Context) { c.JSON(200, gin.H{"channel_id": c.GetInt("channel_id")}) }
-			engine.POST("/v1/task/plugins/:plugin_key", middleware.TaskPluginRequest(), middleware.Distribute(), respond)
-			engine.POST("/v1/videos", middleware.Distribute(), respond)
-			engine.POST("/v1/chat/completions", middleware.Distribute(), respond)
+			engine.POST("/v1/task/plugins/:plugin_key", middleware.TaskPluginRequest(), middleware.AdmitRequestModel(), middleware.Distribute(), respond)
+			engine.POST("/v1/videos", middleware.AdmitRequestModel(), middleware.Distribute(), respond)
+			engine.POST("/v1/chat/completions", middleware.AdmitRequestModel(), middleware.Distribute(), respond)
 			for _, tc := range []struct {
 				path, forced string
 				id           int

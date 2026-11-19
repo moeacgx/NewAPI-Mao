@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [网关模型准入（#417）](model-admission.md)：模型广场和模型管理目录、路由前拒绝及日志契约。
 - [令牌分组标签大卡片与普通多选优先级列表](../workflows/2026-11/18_token_auto_group_cards.md)：Default 令牌创建/编辑在选择器上方显示分组标签大卡片（手机 2 列、`sm` 起 3 列，品牌图标、名称、可选分组数、选中态），两套模板在普通选择器选中 2 个及以上具体分组时显示“Custom Auto”有序优先级列表（序号、拖拽、上移/下移、移除，首项最先尝试）；线路格式保持显式 `group`/`group_ids`/`group_mode=explicit`，不转为 `auto`，不改后端、计费、鉴权；显式 Auto 的 `auto_groups` 行为不变；已跑 Default 32 项与 Classic 33 项聚焦测试、lint、typecheck，真实浏览器、构建与部署未验。
 - [返佣规则内嵌与推广页提示](../workflows/2026-11/18_affiliate_promotion_notice.md)：Default `/affiliate-management` 新增 Root 可编辑“返佣规则”标签并复用同一规则表单；双模板新增推广页提示开关（默认关）、标题与纯文本正文，进入或刷新推广页时弹出一次（先提示后协议、一次一个弹窗、乱序响应保护）；保存走 `PUT /api/option/affiliate-batch` 原子批量写入，服务端校验开关与 100/2000 字限制；协议与结算不变；已用隔离 SQLite 与真实 Chromium 验证，未部署。
 - [Default 令牌技能弹窗计数归零卸载修复](../workflows/2026-11/18_default_token_skill_dialog_count_zero.md)：已打开的技能安装弹窗不再因令牌列表快照 `prompt_count=0` 被卸载，关闭后徽标仍隐藏；另含刷新在途不重挂载单元格、Default 手机端入口与 Classic 手机端刷新保留卡片；并补充关闭后的键盘焦点（Default `finalFocus`、Classic 关闭后聚焦）；真实浏览器复验由独立验收负责，构建未验。
@@ -35,6 +36,8 @@
 - [令牌页 API 地址入口（#402）](../workflows/2026-11/16_issue402_api_addresses.md)：双模板地址回退契约、Default 复制与失败重试、独立审查和 Classic 动态回归证据；新发现的 HTTP 500 全页跳转 P2 已独立复验通过，不是生产验收。
 - [普通日志分组名称选择（#401）](../workflows/2026-11/16_issue401_log_group_selection.md)：原两项 P2 及新发现的 `__proto__` 别名名称丢失 P3 均已独立复验通过；真实后端认证、数据库与生产权限仍未验收。
 - [普通管理员返佣业务入口（#401）](../workflows/2026-11/16_issue401_affiliate_admin_access.md)：独立复审和统一构建门禁已记录，真实角色权限与交易链仍未验收。
+
+- [MCP 管理接入](mcp-management.md)：本地客户端 HTTP MCP、按工具授权密钥、调用审计、写入去重，以及 Default / Classic 管理入口；含[模型接入与测试覆盖清单](mcp-management.md#添加模型与测试的实际范围)。
 
 - [.369 Canvas 图片请求分组隔离发布](../workflows/2026-11/14_release_369.md)：内部参数过滤、分发前撤权复查、主分支累计范围与发布验收边界。
 

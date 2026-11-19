@@ -120,6 +120,7 @@ export default function SettingsSidebarModulesUser() {
         affiliate_admin: isSidebarModuleAllowed('admin', 'affiliate_admin'),
         extension_admin: isSidebarModuleAllowed('admin', 'extension_admin'),
         task_plugins: isSidebarModuleAllowed('admin', 'task_plugins'),
+        mcp: isSidebarModuleAllowed('admin', 'mcp'),
         setting: isSidebarModuleAllowed('admin', 'setting'),
       };
     }
@@ -427,6 +428,11 @@ export default function SettingsSidebarModulesUser() {
           key: 'task_plugins',
           title: t('Task Plugins'),
           description: t('Task plugin details'),
+        },
+        {
+          key: 'mcp',
+          title: t('MCP management'),
+          description: t('MCP access, tools, keys and call logs'),
         },
         {
           key: 'setting',

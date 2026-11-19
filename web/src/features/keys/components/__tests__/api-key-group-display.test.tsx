@@ -75,7 +75,8 @@ describe('令牌分组展示名称', () => {
     )
   })
 
-  test('多组按稳定 ID 展示，详情无序也不能错配，缺失名称才回退原标识', async () => {
+  test('多组折叠为第一个显示名与倍率加 +N，悬停/点击/键盘展开完整顺序并可关闭', async () => {
+    const user = userEvent.setup()
     render(
       <TooltipProvider delay={0}>
         <ApiKeyGroupCell
@@ -85,25 +86,51 @@ describe('令牌分组展示名称', () => {
             { id: 22, code: 'stable_b', name: 'Premium Display' },
             { id: 11, code: 'stable_a', name: 'Standard Display' },
           ]}
+          ratios={{ stable_a: 1.5, stable_b: 2 }}
           crossGroupRetry={false}
           shouldReduceMotion
         />
       </TooltipProvider>
     )
-    const label = 'Standard Display, Premium Display, deleted_group'
-    expect(screen.getByText(label)).toBeVisible()
-    await userEvent.hover(screen.getByText(label))
-    await waitFor(() =>
-      expect(
-        document.querySelector('[data-slot="tooltip-content"]')
-      ).toHaveTextContent(label)
+    const trigger = document.querySelector<HTMLElement>(
+      '[data-api-key-group-cell="multiple"]'
     )
-    expect(
-      document.querySelector('[data-slot="tooltip-content"]')
-    ).not.toHaveTextContent('legacy_a')
-    expect(
-      document.querySelector('[data-slot="tooltip-content"]')
-    ).not.toHaveTextContent('stable_b')
+    if (!trigger) throw new Error('multi-group trigger missing')
+    expect(trigger).toHaveTextContent('Standard Display')
+    expect(trigger).toHaveTextContent('1.5x')
+    expect(trigger).toHaveTextContent('+2')
+    expect(trigger).not.toHaveTextContent('Premium Display')
+    expect(trigger).not.toHaveTextContent('legacy_a')
+    const popup = () => document.querySelector('[data-slot="popover-content"]')
+
+    // 鼠标悬停预览
+    await user.hover(trigger)
+    await waitFor(() => expect(popup()).not.toBeNull())
+    const items = [...(popup()?.querySelectorAll('li') ?? [])].map(
+      (li) => li.textContent
+    )
+    expect(items).toEqual([
+      '1. Standard Display1.5x',
+      '2. Premium Display2x',
+      '3. deleted_group',
+    ])
+    expect(popup()).not.toHaveTextContent('legacy_a')
+    expect(popup()).not.toHaveTextContent('stable_b')
+    await user.unhover(trigger)
+    await waitFor(() => expect(popup()).toBeNull())
+
+    // 点击（触屏同路径）固定展开，关闭按钮收起
+    await user.click(trigger)
+    await waitFor(() => expect(popup()).not.toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(popup()).toBeNull())
+
+    // 键盘：Enter 打开，Escape 关闭
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(popup()).not.toBeNull())
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(popup()).toBeNull())
   })
 
   test('缺少详情名称复用批量分组映射，无法解析及已删除分组回退标识', () => {
@@ -116,9 +143,15 @@ describe('令牌分组展示名称', () => {
       shouldReduceMotion: true,
     }
     const view = render(<ApiKeyGroupCell {...props} />)
-    expect(screen.getByText('Current Name, deleted_group')).toBeVisible()
+    const trigger = () =>
+      view.container.querySelector('[data-api-key-group-cell="multiple"]')
+    expect(trigger()).toHaveAccessibleName(
+      'Selected groups: Current Name, deleted_group'
+    )
     view.rerender(<ApiKeyGroupCell {...props} groupIds={[]} groups={{}} />)
-    expect(screen.getByText('legacy_a, deleted_group')).toBeVisible()
+    expect(trigger()).toHaveAccessibleName(
+      'Selected groups: legacy_a, deleted_group'
+    )
   })
 
   test('旧接口无 ID 时按 code 解析，已知 ID 冲突不能显示其他分组的名称', () => {

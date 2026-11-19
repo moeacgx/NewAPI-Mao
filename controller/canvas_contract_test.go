@@ -15,6 +15,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -384,6 +385,10 @@ func TestImageTaskRelayBoundsOversizedUpstreamResponse(t *testing.T) {
 func TestImageTaskSubmitReturnsExactAcceptedSchema(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	setupCanvasControllerDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Model{}, &model.Vendor{}, &model.Channel{}, &model.Ability{}))
+	require.NoError(t, (&model.Model{ModelName: "gpt-image-1", Status: 1}).Insert())
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
 	previousExecutor := imageTaskRelayExecutor
 	done := make(chan imageTaskRelayRequest, 1)
 	imageTaskRelayExecutor = func(request imageTaskRelayRequest) imageTaskRelayResult {
@@ -425,6 +430,36 @@ func TestImageTaskSubmitReturnsExactAcceptedSchema(t *testing.T) {
 		return model.DB.Where("task_id = ?", taskID).First(&task).Error == nil && task.Status == model.TaskStatusSuccess
 	}, time.Second, 10*time.Millisecond)
 	common.CleanupBodyStorage(ctx)
+}
+
+func TestImageTaskSubmitRejectsUnlistedModelBeforeQueue(t *testing.T) {
+	setupCanvasControllerDB(t)
+	require.NoError(t, i18n.Init())
+	require.NoError(t, model.DB.AutoMigrate(&model.Model{}, &model.Vendor{}, &model.Channel{}, &model.Ability{}))
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+
+	for _, endpoint := range []struct {
+		path   string
+		submit gin.HandlerFunc
+	}{
+		{path: "/v1/images/tasks", submit: ImageTaskSubmit},
+		{path: "/canvas/v1/images/tasks", submit: CanvasImageTaskSubmit},
+	} {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPost, endpoint.path+"?action=images/generations", strings.NewReader(`{"model":"not-in-site-catalog"}`))
+		ctx.Request.Header.Set("Content-Type", gin.MIMEJSON)
+		ctx.Set("id", 9)
+		common.SetContextKey(ctx, constant.ContextKeyUsingGroup, "default")
+		endpoint.submit(ctx)
+		common.CleanupBodyStorage(ctx)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), `"code":"model_not_found"`)
+	}
+	var count int64
+	require.NoError(t, model.DB.Model(&model.Task{}).Count(&count).Error)
+	assert.Zero(t, count)
 }
 
 func TestImageTaskHeaderAggregateBound(t *testing.T) {
