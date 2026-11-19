@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, KeyRound, Settings2, WalletCards, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -126,6 +126,9 @@ export function ApiKeysMutateDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [groupTag, setGroupTag] = useState('all')
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false)
+  const groupPickerReturnFocusRef = useRef<HTMLElement | null>(null)
+  const groupCardsRef = useRef<HTMLDivElement | null>(null)
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
     null
   )
@@ -219,6 +222,8 @@ export function ApiKeysMutateDrawer({
   useEffect(() => {
     if (!open) {
       setInitializedTarget(null)
+      setGroupTag('all')
+      setGroupPickerOpen(false)
       return
     }
     if (
@@ -277,6 +282,10 @@ export function ApiKeysMutateDrawer({
   const selectedGroups = form.watch('groups')
   const isAutoGroupSelection =
     selectedGroups.length === 1 && selectedGroups[0] === 'auto'
+  const hasGroupTags = (groupsData?.group_tags?.length ?? 0) > 0
+  const selectedGroupOption = groups.find(
+    (group) => group.value === selectedGroups[0]
+  )
   const groupSelectionOverLimit =
     !isAutoGroupSelection &&
     maxAutoGroups > 0 &&
@@ -476,117 +485,165 @@ export function ApiKeysMutateDrawer({
               <FormField
                 control={form.control}
                 name='groups'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Group')}</FormLabel>
-                    <GroupTagCards
-                      tags={groupsData?.group_tags ?? []}
-                      options={groups}
-                      value={groupTag}
-                      onChange={setGroupTag}
-                      disabled={isSubmitting}
-                    />
-                    <FormControl>
-                      <ApiKeyGroupCombobox
+                render={({ field }) => {
+                  const handleGroupSelect = (
+                    selectedValue: string,
+                    remove = false
+                  ) => {
+                    let next: string[]
+                    if (!field.value.includes(selectedValue)) {
+                      next = [...field.value, selectedValue]
+                    } else if (selectedValue === 'auto' && !remove) {
+                      next = field.value
+                    } else {
+                      next = field.value.filter(
+                        (value) => value !== selectedValue
+                      )
+                    }
+                    const normalized = normalizeGroupSelection(
+                      field.value,
+                      next,
+                      groups
+                    )
+                    const replacesSelection =
+                      normalized.length === 1 &&
+                      (normalized[0] === 'auto' ||
+                        groups.some(
+                          (group) =>
+                            group.value === normalized[0] &&
+                            group.exclusive === true
+                        ))
+                    if (
+                      !replacesSelection &&
+                      maxAutoGroups > 0 &&
+                      normalized.length > maxAutoGroups &&
+                      normalized.length > field.value.length
+                    ) {
+                      form.setError('groups', {
+                        type: 'manual',
+                        message: t(
+                          'A token can select at most {{max}} groups',
+                          { max: maxAutoGroups }
+                        ),
+                      })
+                      return
+                    }
+                    form.clearErrors('groups')
+                    field.onChange(normalized)
+                    form.setValue(
+                      'ratioProtection',
+                      retainRatioProtection(
+                        form.getValues('ratioProtection'),
+                        normalized
+                      ),
+                      { shouldDirty: true, shouldValidate: true }
+                    )
+                    const retainedIds = new Set(
+                      groups
+                        .filter((group) => normalized.includes(group.value))
+                        .map((group) => String(group.id))
+                    )
+                    form.setValue(
+                      'group_channel_ids',
+                      Object.fromEntries(
+                        Object.entries(
+                          form.getValues('group_channel_ids') ?? {}
+                        ).filter(([id]) => retainedIds.has(id))
+                      ),
+                      { shouldDirty: true }
+                    )
+                    form.setValue(
+                      'cross_group_retry',
+                      normalized.length > 1 || normalized[0] === 'auto',
+                      { shouldDirty: true }
+                    )
+                  }
+                  return (
+                    <FormItem>
+                      <FormLabel>{t('Group')}</FormLabel>
+                      <GroupTagCards
+                        tags={groupsData?.group_tags ?? []}
                         options={groups}
-                        tags={groupsData?.group_tags}
-                        activeTag={groupTag}
-                        onActiveTagChange={setGroupTag}
-                        hideTagFilter
-                        selectedValues={field.value}
-                        disabledValues={disabledGroupValues}
-                        onValueChange={(selectedValue) => {
-                          let next: string[]
-                          if (!field.value.includes(selectedValue)) {
-                            next = [...field.value, selectedValue]
-                          } else if (selectedValue === 'auto') {
-                            next = field.value
-                          } else {
-                            next = field.value.filter(
-                              (value) => value !== selectedValue
-                            )
-                          }
-                          const normalized = normalizeGroupSelection(
-                            field.value,
-                            next,
-                            groups
-                          )
-                          const replacesSelection =
-                            normalized.length === 1 &&
-                            (normalized[0] === 'auto' ||
-                              groups.some(
-                                (group) =>
-                                  group.value === normalized[0] &&
-                                  group.exclusive === true
-                              ))
-                          if (
-                            !replacesSelection &&
-                            maxAutoGroups > 0 &&
-                            normalized.length > maxAutoGroups &&
-                            normalized.length > field.value.length
-                          ) {
-                            form.setError('groups', {
-                              type: 'manual',
-                              message: t(
-                                'A token can select at most {{max}} groups',
-                                { max: maxAutoGroups }
-                              ),
-                            })
-                            return
-                          }
-                          form.clearErrors('groups')
-                          field.onChange(normalized)
-                          form.setValue(
-                            'ratioProtection',
-                            retainRatioProtection(
-                              form.getValues('ratioProtection'),
-                              normalized
-                            ),
-                            { shouldDirty: true, shouldValidate: true }
-                          )
-                          const retainedIds = new Set(
-                            groups
-                              .filter((group) =>
-                                normalized.includes(group.value)
-                              )
-                              .map((group) => String(group.id))
-                          )
-                          form.setValue(
-                            'group_channel_ids',
-                            Object.fromEntries(
-                              Object.entries(
-                                form.getValues('group_channel_ids') ?? {}
-                              ).filter(([id]) => retainedIds.has(id))
-                            ),
-                            { shouldDirty: true }
-                          )
-                          form.setValue(
-                            'cross_group_retry',
-                            normalized.length > 1 || normalized[0] === 'auto',
-                            { shouldDirty: true }
-                          )
+                        value={groupTag}
+                        onChange={setGroupTag}
+                        expanded={groupPickerOpen}
+                        containerRef={groupCardsRef}
+                        onActivate={(element) => {
+                          groupPickerReturnFocusRef.current = element
+                          setGroupPickerOpen(true)
                         }}
-                        placeholder={t('Select a group')}
+                        disabled={isSubmitting}
                       />
-                    </FormControl>
-                    {!isAutoGroupSelection && (
-                      <FormDescription
-                        className={
-                          groupSelectionOverLimit
-                            ? 'text-destructive'
-                            : undefined
-                        }
-                      >
-                        {groupSelectionOverLimit
-                          ? t('A token can select at most {{max}} groups', {
-                              max: maxAutoGroups,
-                            })
-                          : selectedGroupDescription}
-                      </FormDescription>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
+                      <FormControl>
+                        <ApiKeyGroupCombobox
+                          options={groups}
+                          tags={groupsData?.group_tags}
+                          activeTag={groupTag}
+                          onActiveTagChange={setGroupTag}
+                          open={groupPickerOpen}
+                          onOpenChange={setGroupPickerOpen}
+                          returnFocusRef={groupPickerReturnFocusRef}
+                          anchorRef={hasGroupTags ? groupCardsRef : undefined}
+                          hideTagFilter
+                          selectedValues={field.value}
+                          disabledValues={disabledGroupValues}
+                          onValueChange={handleGroupSelect}
+                          placeholder={t('Select a group')}
+                        />
+                      </FormControl>
+                      {hasGroupTags && selectedGroups.length === 1 && (
+                        <div className='bg-muted/40 flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2'>
+                          <span className='min-w-0 flex-1'>
+                            <span
+                              title={
+                                selectedGroupOption?.label ?? selectedGroups[0]
+                              }
+                              className='block truncate text-sm font-medium'
+                            >
+                              {selectedGroupOption?.label ?? selectedGroups[0]}
+                            </span>
+                            {selectedGroupOption?.desc && (
+                              <span className='text-muted-foreground block truncate text-xs'>
+                                {selectedGroupOption.desc}
+                              </span>
+                            )}
+                          </span>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon-sm'
+                            disabled={isSubmitting}
+                            aria-label={t('Remove {{group}}', {
+                              group:
+                                selectedGroupOption?.label ?? selectedGroups[0],
+                            })}
+                            onClick={() =>
+                              handleGroupSelect(selectedGroups[0], true)
+                            }
+                          >
+                            <X aria-hidden='true' />
+                          </Button>
+                        </div>
+                      )}
+                      {!isAutoGroupSelection && (
+                        <FormDescription
+                          className={
+                            groupSelectionOverLimit
+                              ? 'text-destructive'
+                              : undefined
+                          }
+                        >
+                          {groupSelectionOverLimit
+                            ? t('A token can select at most {{max}} groups', {
+                                max: maxAutoGroups,
+                              })
+                            : selectedGroupDescription}
+                        </FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
               />
 
               {selectedGroups.length > 1 && !isAutoGroupSelection && (
@@ -601,7 +658,10 @@ export function ApiKeysMutateDrawer({
                     })
                     form.setValue(
                       'ratioProtection',
-                      retainRatioProtection(form.getValues('ratioProtection'), next),
+                      retainRatioProtection(
+                        form.getValues('ratioProtection'),
+                        next
+                      ),
                       { shouldDirty: true, shouldValidate: true }
                     )
                     const retainedIds = new Set(

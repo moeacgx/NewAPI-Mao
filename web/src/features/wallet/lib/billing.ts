@@ -64,20 +64,38 @@ export function getStatusConfig(status: TopupStatus): StatusConfig {
  */
 export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   stripe: 'Stripe',
+  creem: 'Creem',
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',
   waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
+  bepusdt: 'USDT',
+  okpay: 'OKPay',
+  balance: 'Balance',
 }
 
 /**
- * Get payment method display name
+ * Normalize a stored payment method value (trim and lower-case) so that
+ * historical records with different casing resolve to the same provider.
+ */
+export function normalizePaymentMethod(method: string | null | undefined) {
+  return (method ?? '').trim().toLowerCase()
+}
+
+/**
+ * Get payment method display name. Unknown methods keep their stored value so
+ * custom epay types stay readable; empty values render as a dash.
  */
 export function getPaymentMethodName(
-  method: string,
+  method: string | null | undefined,
   t?: (key: string) => string
 ): string {
-  const name = PAYMENT_METHOD_NAMES[method] || method
-  return t ? t(name) : name
+  const key = normalizePaymentMethod(method)
+  if (Object.hasOwn(PAYMENT_METHOD_NAMES, key)) {
+    const name = PAYMENT_METHOD_NAMES[key]
+    return t ? t(name) : name
+  }
+  return method?.trim() || '-'
 }
 
 /**

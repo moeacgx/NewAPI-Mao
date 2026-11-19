@@ -664,4 +664,38 @@ describe('分组标签筛选', () => {
       'new.svg',
     );
   });
+
+  it('自动选择只在全部分组中置顶，命名标签中不出现，搜索过滤后不强制保留', async () => {
+    render(<Picker initial={[]} />);
+    const optionNames = () =>
+      screen
+        .getAllByRole('button')
+        .filter((node) => node.classList.contains('token-group-picker-option'))
+        .map((node) => node.textContent);
+    fireEvent.click(screen.getByRole('radio', { name: /All groups/ }));
+    await waitFor(() => expect(optionNames()[0]).toContain('自动选择'));
+    expect(optionNames()[0]).toContain('自动选择');
+    fireEvent.click(screen.getByRole('radio', { name: /OpenAI/ }));
+    await waitFor(() =>
+      expect(optionNames().join('|')).not.toContain('自动选择'),
+    );
+    expect(optionNames().join('|')).toContain('开放平台旗舰');
+    fireEvent.click(screen.getByRole('radio', { name: /All groups/ }));
+    await waitFor(() => expect(optionNames()[0]).toContain('自动选择'));
+    const allTag = screen.getByRole('radio', { name: /All groups/ });
+    const popupId = allTag
+      .closest('[aria-controls]')
+      .getAttribute('aria-controls');
+    fireEvent.change(
+      within(document.getElementById(popupId)).getByPlaceholderText(
+        '搜索分组...',
+      ),
+      {
+        target: { value: '开放' },
+      },
+    );
+    await waitFor(() =>
+      expect(optionNames().join('|')).not.toContain('自动选择'),
+    );
+  });
 });

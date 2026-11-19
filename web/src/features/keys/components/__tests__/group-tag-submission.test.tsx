@@ -133,18 +133,27 @@ describe('user token group tag request contracts', () => {
           screen.getByRole('button', { name: 'Save changes' })
         ).toBeEnabled()
       )
+      expect(
+        screen.queryByRole('combobox', { name: 'Group' })
+      ).not.toBeInTheDocument()
       if (editing) {
         expect(
-          screen.getByRole('combobox', { name: 'Group' })
-        ).toHaveTextContent('标准当前名称')
+          screen.getByRole('button', { name: 'Remove 标准当前名称' })
+        ).toBeInTheDocument()
       }
       if (!editing) {
-        fireEvent.click(await screen.findByRole('button', { name: /标准平台/ }))
-        fireEvent.click(screen.getByRole('combobox', { name: 'Group' }))
+        const standardCard = await screen.findByRole('button', {
+          name: /标准平台/,
+        })
+        fireEvent.click(standardCard)
+        expect(standardCard).toHaveAttribute('aria-pressed', 'true')
         fireEvent.click(
-          within(screen.getByRole('listbox')).getByRole('option', {
+          within(await screen.findByRole('listbox')).getByRole('option', {
             name: /标准当前名称/,
           })
+        )
+        await waitFor(() =>
+          expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
         )
       }
       const professionalCard = await screen.findByRole('button', {
@@ -155,21 +164,27 @@ describe('user token group tag request contracts', () => {
       expect(
         screen.queryByRole('button', { name: /无权平台/ })
       ).not.toBeInTheDocument()
-      expect(screen.getByRole('combobox', { name: 'Group' })).toHaveTextContent(
-        '标准当前名称'
-      )
-      fireEvent.click(screen.getByRole('combobox', { name: 'Group' }))
-      expect(
-        within(screen.getByRole('listbox')).queryByText('标准当前名称')
-      ).not.toBeInTheDocument()
+      const list = await screen.findByRole('listbox')
+      expect(within(list).queryByText('标准当前名称')).not.toBeInTheDocument()
       fireEvent.click(
-        within(screen.getByRole('listbox')).getByRole('option', {
-          name: /专业当前名称/,
-        })
+        within(list).getByRole('option', { name: /专业当前名称/ })
       )
-      expect(screen.getByRole('combobox', { name: 'Group' })).toHaveTextContent(
-        '标准当前名称, 专业当前名称'
+      await waitFor(() =>
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
       )
+      expect(
+        screen.queryByRole('combobox', { name: 'Group' })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Add group' })
+      ).not.toBeInTheDocument()
+      const order = screen.getByRole('list', { name: 'Group priority order' })
+      expect(
+        within(order)
+          .getAllByRole('listitem')
+          .map((item) => item.textContent)
+          .join('|')
+      ).toMatch(/标准当前名称.*\|.*专业当前名称/)
       if (!editing) {
         fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
           target: { value: 'new-tag-token' },
@@ -195,4 +210,61 @@ describe('user token group tag request contracts', () => {
       if (editing) expect(request.mock.calls[0]?.[1]).toHaveProperty('id', 71)
     }
   )
+
+  test('single selected group is a removable chip without a second picker trigger', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/status') {
+        return { data: { data: { default_use_auto_group: false } } }
+      }
+      if (url === '/api/user/models') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/self/groups') {
+        return {
+          data: {
+            success: true,
+            data: {
+              stable_a: {
+                id: 11,
+                name: '标准当前名称',
+                code: 'stable_a',
+                ratio: 1,
+                desc: '',
+              },
+            },
+            group_tags: tags,
+          },
+        }
+      }
+      if (url === '/api/token/auto-groups') {
+        return { data: { success: true, data: { groups: [], max_count: 0 } } }
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <ApiKeysProvider>
+          <ApiKeysMutateDrawer open onOpenChange={() => undefined} />
+        </ApiKeysProvider>
+      </QueryClientProvider>
+    )
+    const card = await screen.findByRole('button', { name: /标准平台/ })
+    expect(screen.queryByRole('combobox', { name: 'Group' })).toBeNull()
+    fireEvent.click(card)
+    fireEvent.click(
+      within(await screen.findByRole('listbox')).getByRole('option', {
+        name: /标准当前名称/,
+      })
+    )
+    const remove = await screen.findByRole('button', {
+      name: 'Remove 标准当前名称',
+    })
+    fireEvent.click(remove)
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Remove 标准当前名称' })
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.queryByRole('combobox', { name: 'Group' })).toBeNull()
+  })
 })
