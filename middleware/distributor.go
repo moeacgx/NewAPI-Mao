@@ -30,6 +30,14 @@ type ModelRequest struct {
 	Group string `json:"group,omitempty"`
 }
 
+const admittedModelRequestContextKey = "admitted_model_request"
+
+type admittedModelRequest struct {
+	request             *ModelRequest
+	shouldSelectChannel bool
+	admitted            bool
+}
+
 const channelConcurrencyContextKey = "channel_concurrency_lease"
 
 const groupUserConcurrencyContextKey = string(constant.ContextKeyGroupUserConcurrency)
@@ -164,18 +172,57 @@ func AdmitRealtimeModel(c *gin.Context) {
 	}
 }
 
+// AdmitRequestModel 在 PromptAudit 之前完成选渠模型准入。
+// 解析结果会缓存给 Distribute 复用，避免同一请求重复读取正文。
+func AdmitRequestModel() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request == nil {
+			return
+		}
+		// 历史任务查询等 GET 入口不选渠，保持原有审计和查询顺序。
+		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
+			c.Next()
+			return
+		}
+		modelRequest, shouldSelectChannel, err := getModelRequest(c)
+		if err != nil {
+			// 正文解析错误仍由 PromptAudit 与 Distribute 按原顺序处理。
+			c.Next()
+			return
+		}
+		state := admittedModelRequest{request: modelRequest, shouldSelectChannel: shouldSelectChannel}
+		c.Set(admittedModelRequestContextKey, state)
+		if shouldSelectChannel && !AdmitRelayModel(c, modelRequest.Model) {
+			return
+		}
+		state.admitted = shouldSelectChannel
+		c.Set(admittedModelRequestContextKey, state)
+		c.Next()
+	}
+}
+
+func modelRequestForDistribution(c *gin.Context) (*ModelRequest, bool, bool, error) {
+	if value, exists := c.Get(admittedModelRequestContextKey); exists {
+		if state, valid := value.(admittedModelRequest); valid && state.request != nil {
+			return state.request, state.shouldSelectChannel, state.admitted, nil
+		}
+	}
+	modelRequest, shouldSelectChannel, err := getModelRequest(c)
+	return modelRequest, shouldSelectChannel, false, err
+}
+
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
 		var selectGroup string
 		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
-		modelRequest, shouldSelectChannel, err := getModelRequest(c)
+		modelRequest, shouldSelectChannel, admitted, err := modelRequestForDistribution(c)
 		if err != nil {
 			abortWithOpenAiMessage(c, invalidRequestStatus(err), i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
-		if shouldSelectChannel && !common.GetContextKeyBool(c, constant.ContextKeyRealtimeModelAdmitted) && !AdmitRelayModel(c, modelRequest.Model) {
+		if shouldSelectChannel && !admitted && !common.GetContextKeyBool(c, constant.ContextKeyRealtimeModelAdmitted) && !AdmitRelayModel(c, modelRequest.Model) {
 			return
 		}
 		if common.GetContextKeyBool(c, constant.ContextKeyCanvasTrusted) {

@@ -191,6 +191,32 @@ func ImageTaskSubmit(c *gin.Context) {
 	submitImageTask(c, action, constant.TaskPlatformImage, apiImageTaskRelayPrefix)
 }
 
+// ImageTaskModelAdmission 在异步图片任务的 PromptAudit 与任务入队前完成准入。
+// 与提交逻辑一致：generations 缺省模型按 dall-e 检查；解析失败交由后续处理。
+func ImageTaskModelAdmission() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		action, ok := parseImageTaskAction(c.Query("action"))
+		if !ok {
+			c.Next()
+			return
+		}
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			c.Next()
+			return
+		}
+		modelName := extractImageTaskModel(storage, c.GetHeader("Content-Type"))
+		if modelName == "" && action == canvasImageTaskActionGenerations {
+			modelName = "dall-e"
+		}
+		if !middleware.AdmitRelayModel(c, modelName) {
+			return
+		}
+		common.SetContextKey(c, constant.ContextKeyAdmittedImageTaskModel, modelName)
+		c.Next()
+	}
+}
+
 func submitImageTask(c *gin.Context, action string, platform constant.TaskPlatform, relayPrefix string) {
 	body, err := cloneImageTaskBody(c)
 	if err != nil {
@@ -208,13 +234,16 @@ func submitImageTask(c *gin.Context, action string, platform constant.TaskPlatfo
 		abortCanvasRequest(c, http.StatusBadRequest, "invalid image task request headers")
 		return
 	}
-	modelName := extractImageTaskModel(body, header.Get("Content-Type"))
-	if modelName == "" && action == canvasImageTaskActionGenerations {
-		modelName = "dall-e"
-	}
-	if !middleware.AdmitRelayModel(c, modelName) {
-		_ = body.Close()
-		return
+	modelName := common.GetContextKeyString(c, constant.ContextKeyAdmittedImageTaskModel)
+	if modelName == "" {
+		modelName = extractImageTaskModel(body, header.Get("Content-Type"))
+		if modelName == "" && action == canvasImageTaskActionGenerations {
+			modelName = "dall-e"
+		}
+		if !middleware.AdmitRelayModel(c, modelName) {
+			_ = body.Close()
+			return
+		}
 	}
 	now := time.Now().Unix()
 	task := &model.Task{
@@ -519,7 +548,7 @@ func executeImageTaskRelay(relayRequest imageTaskRelayRequest) imageTaskRelayRes
 		c.Next()
 	})
 	engine.Use(middleware.BodyStorageCleanup())
-	engine.POST(targetPath, middleware.PromptAudit(), middleware.Distribute(), func(c *gin.Context) {
+	engine.POST(targetPath, middleware.AdmitRequestModel(), middleware.PromptAudit(), middleware.Distribute(), func(c *gin.Context) {
 		Relay(c, types.RelayFormatOpenAIImage)
 	})
 

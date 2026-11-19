@@ -15,7 +15,7 @@ func registerCanvasRelayRoutes(router *gin.Engine) {
 	canvasRoute.Use(middleware.RouteTag("relay"))
 	canvasRoute.Use(middleware.SystemPerformanceCheck())
 	canvasRoute.Use(middleware.UserSessionAuth())
-	registerAsyncImageTaskSubmitRoute(canvasRoute, "/images/tasks", controller.CanvasImageTaskSubmit, controller.CanvasPrepareRequest, middleware.PromptAudit())
+	registerAsyncImageTaskSubmitRoute(canvasRoute, "/images/tasks", controller.CanvasImageTaskSubmit, controller.CanvasPrepareRequest, controller.ImageTaskModelAdmission(), middleware.PromptAudit())
 
 	canvasPreparedRoute := canvasRoute.Group("")
 	canvasPreparedRoute.Use(controller.CanvasPrepareRequest)
@@ -26,7 +26,7 @@ func registerCanvasRelayRoutes(router *gin.Engine) {
 
 		canvasSyncRoute := canvasPreparedRoute.Group("")
 		canvasSyncRoute.Use(middleware.ModelRequestRateLimit())
-		canvasSyncRoute.Use(middleware.PromptAudit())
+		canvasSyncRoute.Use(middleware.AdmitRequestModel(), middleware.PromptAudit())
 		canvasSyncRoute.Use(middleware.Distribute())
 		{
 			canvasSyncRoute.POST("/chat/completions", controller.CanvasChatCompletions)
@@ -48,7 +48,7 @@ func registerCanvasRelayRoutes(router *gin.Engine) {
 	imageTaskRoute.Use(middleware.SystemPerformanceCheck())
 	imageTaskRoute.Use(middleware.TokenAuth())
 	{
-		registerAsyncImageTaskSubmitRoute(imageTaskRoute, "", controller.ImageTaskSubmit, middleware.PromptAudit())
+		registerAsyncImageTaskSubmitRoute(imageTaskRoute, "", controller.ImageTaskSubmit, controller.ImageTaskModelAdmission(), middleware.PromptAudit())
 		imageTaskRoute.GET("/:task_id", controller.ImageTaskFetch)
 		imageTaskRoute.GET("/:task_id/content/:index", controller.ImageTaskContent)
 	}

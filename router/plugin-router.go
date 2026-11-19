@@ -116,6 +116,7 @@ func productionPluginRouteHandlers(generation *jsplugin.RoutingGeneration, bindi
 		middleware.SystemPerformanceCheck(),
 		middleware.ModelRequestRateLimit(),
 		middleware.PrepareTaskPluginRoute(),
+		middleware.AdmitRequestModel(),
 		middleware.Distribute(),
 		controller.ResolveOfficialPluginOrigins(),
 		middleware.PromptAudit(),
