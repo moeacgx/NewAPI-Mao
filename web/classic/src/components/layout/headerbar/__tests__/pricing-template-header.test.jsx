@@ -66,12 +66,39 @@ test('模型广场顶栏在宽屏为用户名区扩展可见空间', () => {
   expect(headerSource).toContain('classic-pricing-template-user-area');
   expect(headerSource).toContain('PRICING_TEMPLATE_MOBILE_BREAKPOINT = 1100');
   expect(stylesheet).toContain('max-width: 1440px;');
-  expect(stylesheet).toContain('max-width: min(1440px, calc(100% - 32px));');
   expect(stylesheet).toMatch(
     /\.classic-pricing-template-user-area \.semi-button\s*\{[\s\S]*?width:\s*auto !important;[\s\S]*?min-width:\s*max-content !important;/,
   );
   expect(stylesheet).toMatch(
     /\.classic-pricing-template-user-area\s*\{[\s\S]*?margin-right:\s*-4px;[\s\S]*?margin-left:\s*4px;/,
+  );
+});
+
+test('模型广场顶栏滚动后保持完整尺寸，仅改变整条顶栏的表面', () => {
+  const headerSource = readFileSync(
+    new URL('../PricingTemplateHeader.jsx', import.meta.url),
+    'utf8',
+  );
+  const stylesheet = readFileSync(
+    new URL('../PricingTemplateHeader.css', import.meta.url),
+    'utf8',
+  );
+
+  expect(headerSource).toContain("scrolled ? ' is-scrolled' : ''");
+  expect(headerSource).not.toMatch(/classic-pricing-template-header-frame\$\{/);
+  expect(stylesheet).not.toContain('calc(100% - 32px)');
+  expect(stylesheet).not.toMatch(
+    /\.is-scrolled\s+\.classic-pricing-template-nav/,
+  );
+  expect(stylesheet).not.toMatch(
+    /\.classic-pricing-template-header-frame\.is-scrolled/,
+  );
+  const scrolledRule = stylesheet.match(
+    /\.classic-pricing-template-header\.is-scrolled\s*\{([^}]*)\}/,
+  );
+  expect(scrolledRule).not.toBeNull();
+  expect(scrolledRule[1]).not.toMatch(
+    /(max-)?(width|height)|padding|margin|border-radius/,
   );
 });
 

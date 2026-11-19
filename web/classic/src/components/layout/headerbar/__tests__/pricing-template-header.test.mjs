@@ -13,7 +13,10 @@ test('模型广场顶栏把自定义图标作为组件渲染', () => {
   );
 
   assert.equal(React.isValidElement(Icon), false);
-  assert.equal(React.isValidElement(React.createElement(Icon, { size: 16 })), true);
+  assert.equal(
+    React.isValidElement(React.createElement(Icon, { size: 16 })),
+    true,
+  );
   assert.match(headerSource, /getCustomNavIconComponent\(link\.iconName\)/);
 });
 
@@ -23,7 +26,10 @@ test('模型广场顶栏会跟随实际的布局滚动容器收缩', () => {
     'utf8',
   );
 
-  assert.equal(isPricingHeaderScrolled([{ scrollTop: 0 }, { scrollTop: 21 }]), true);
+  assert.equal(
+    isPricingHeaderScrolled([{ scrollTop: 0 }, { scrollTop: 21 }]),
+    true,
+  );
   assert.equal(
     isPricingHeaderScrolled([{ scrollTop: 0 }, { scrollTop: 0 }], 21),
     true,
@@ -48,7 +54,6 @@ test('模型广场顶栏在宽屏为用户名区扩展可见空间', () => {
   assert.match(headerSource, /classic-pricing-template-user-area/);
   assert.match(headerSource, /PRICING_TEMPLATE_MOBILE_BREAKPOINT = 1100/);
   assert.match(stylesheet, /max-width: 1440px;/);
-  assert.match(stylesheet, /max-width: min\(1440px, calc\(100% - 32px\)\);/);
   assert.match(
     stylesheet,
     /\.classic-pricing-template-user-area \.semi-button\s*\{[\s\S]*?width:\s*auto !important;[\s\S]*?min-width:\s*max-content !important;/,
@@ -56,6 +61,40 @@ test('模型广场顶栏在宽屏为用户名区扩展可见空间', () => {
   assert.match(
     stylesheet,
     /\.classic-pricing-template-user-area\s*\{[\s\S]*?margin-right:\s*-4px;[\s\S]*?margin-left:\s*4px;/,
+  );
+});
+
+test('模型广场顶栏滚动后保持完整尺寸，仅改变整条顶栏的表面', () => {
+  const headerSource = readFileSync(
+    new URL('../PricingTemplateHeader.jsx', import.meta.url),
+    'utf8',
+  );
+  const stylesheet = readFileSync(
+    new URL('../PricingTemplateHeader.css', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(headerSource, /scrolled \? ' is-scrolled' : ''/);
+  assert.doesNotMatch(
+    headerSource,
+    /classic-pricing-template-header-frame\$\{/,
+  );
+  assert.doesNotMatch(stylesheet, /calc\(100% - 32px\)/);
+  assert.doesNotMatch(
+    stylesheet,
+    /\.is-scrolled\s+\.classic-pricing-template-nav/,
+  );
+  assert.doesNotMatch(
+    stylesheet,
+    /\.classic-pricing-template-header-frame\.is-scrolled/,
+  );
+  const scrolledRule = stylesheet.match(
+    /\.classic-pricing-template-header\.is-scrolled\s*\{([^}]*)\}/,
+  );
+  assert.ok(scrolledRule);
+  assert.doesNotMatch(
+    scrolledRule[1],
+    /(max-)?(width|height)|padding|margin|border-radius/,
   );
 });
 
