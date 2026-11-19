@@ -79,4 +79,28 @@ describe('标签卡片对齐布局', () => {
       ).toBeTruthy();
     },
   );
+
+  it('标签列数跟随容器宽度而不是视口宽度', () => {
+    expect(styles).toMatch(
+      /\.group-tag-container\s*\{[^}]*container-type:\s*inline-size/,
+    );
+    const containerRule = styles.match(
+      /@container \(min-width: \d+px\)\s*\{[^@]*?\.group-tag-grid\s*\{[^}]*repeat\(3/,
+    );
+    expect(containerRule).not.toBeNull();
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\)\s*\{\s*\.group-tag-grid\s*\{/,
+    );
+    const { container } = render(
+      <GroupTagFilter
+        tags={[{ id: 1, name: '标签', icons: [], group_ids: [11] }]}
+        groups={[{ id: 11, value: 'internal', label: '当前显示名称' }]}
+        value='all'
+        onChange={() => {}}
+      />,
+    );
+    expect(
+      container.querySelector('.group-tag-container > .group-tag-grid'),
+    ).not.toBeNull();
+  });
 });

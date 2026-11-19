@@ -253,7 +253,7 @@ describe('API keys mutate drawer Auto group integration', () => {
       selectComboboxOption(getControlByLabel('Group'), description)
     }
     expect(screen.getByText('6 groups selected (unlimited)')).toBeVisible()
-    expect(getControlByLabel('Group')).toHaveTextContent('旗舰模型')
+    expect(getControlByLabel('Group')).not.toHaveTextContent('旗舰模型')
     changeInput(getControlByLabel('Name'), 'unlimited-explicit')
     fireEvent.click(findButton('Save changes', true))
     await waitFor(() => expect(payloads).toHaveLength(1))

@@ -128,21 +128,20 @@ export const GroupMultiPicker = ({
           count: selectedGroups.length,
         });
 
-  const availableGroups = filterGroupsByTag(
-    groups,
-    groupTags,
-    selectedTag,
-  ).filter((g) => {
-    if (selectedGroups.includes(g.value)) return false;
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      return (
-        g.value.toLowerCase().includes(q) ||
-        (typeof g.label === 'string' && g.label.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const availableGroups = [...filterGroupsByTag(groups, groupTags, selectedTag)]
+    // Auto has no group ID: first under All groups, absent under named tags.
+    .sort((a, b) => (a.value === 'auto' ? -1 : b.value === 'auto' ? 1 : 0))
+    .filter((g) => {
+      if (selectedGroups.includes(g.value)) return false;
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        return (
+          g.value.toLowerCase().includes(q) ||
+          (typeof g.label === 'string' && g.label.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
 
   const handleAdd = (value) => {
     if (!selectedGroups.includes(value)) {
@@ -511,7 +510,9 @@ export const GroupMultiPicker = ({
                     />
                     <Button
                       icon={<ArrowDown size={14} />}
-                      aria-label={t('Move {{name}} down', { name: displayName })}
+                      aria-label={t('Move {{name}} down', {
+                        name: displayName,
+                      })}
                       size='small'
                       theme='borderless'
                       disabled={index === selectedGroups.length - 1}
