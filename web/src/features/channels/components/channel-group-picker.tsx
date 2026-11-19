@@ -218,8 +218,7 @@ export function ChannelGroupPicker(props: ChannelGroupPickerProps) {
             {props.placeholder}
           </span>
         ) : (
-          <ul className='flex max-h-40 min-w-0 flex-wrap gap-1.5 overflow-y-auto'
-          >
+          <ul className='flex max-h-40 min-w-0 flex-wrap gap-1.5 overflow-y-auto'>
             {props.selected.map((value) => {
               const label = labelByValue.get(value) ?? value
               return (
