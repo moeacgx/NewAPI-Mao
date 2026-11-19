@@ -99,7 +99,7 @@ func SetRelayRouter(router *gin.Engine) {
 	{
 		// WebSocket 路由（统一到 Relay）
 		wsRouter := relayV1Router.Group("")
-		wsRouter.Use(middleware.PromptAuditRealtime(), middleware.Distribute())
+		wsRouter.Use(middleware.AdmitRealtimeModel, middleware.PromptAuditRealtime(), middleware.Distribute())
 		wsRouter.GET("/realtime", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIRealtime)
 		})

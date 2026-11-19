@@ -74,6 +74,8 @@ func setupCanvasRouteBillingTest(t *testing.T, upstreamURL string) {
 		&model.GroupAlias{},
 		&model.Channel{},
 		&model.Ability{},
+		&model.Model{},
+		&model.Vendor{},
 		&model.Log{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
@@ -88,6 +90,7 @@ func setupCanvasRouteBillingTest(t *testing.T, upstreamURL string) {
 		&model.RequestArchiveJob{},
 		&model.RequestArchiveQueueState{},
 	))
+	require.NoError(t, (&model.Model{ModelName: canvasRouteBillingModel, Status: 1}).Insert())
 	require.NoError(t, model.EnsurePromptAuditDefaults())
 	require.NoError(t, model.EnsureRequestArchiveDefaults())
 	withCanvasGroupSettings(t)

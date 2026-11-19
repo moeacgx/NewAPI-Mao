@@ -118,7 +118,9 @@ func TestTaskPluginMixedChannelRealDistribution(t *testing.T) {
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			sqlDB.SetMaxOpenConns(1)
-			require.NoError(t, db.AutoMigrate(&model.TaskPlugin{}, &model.Option{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}))
+			require.NoError(t, db.AutoMigrate(&model.TaskPlugin{}, &model.Option{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Model{}, &model.Vendor{}))
+			model.InvalidatePricingCache()
+			t.Cleanup(model.InvalidatePricingCache)
 			oldCache := common.MemoryCacheEnabled
 			common.MemoryCacheEnabled = memory
 			t.Cleanup(func() { common.MemoryCacheEnabled = oldCache })

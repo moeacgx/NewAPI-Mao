@@ -209,6 +209,13 @@ func submitImageTask(c *gin.Context, action string, platform constant.TaskPlatfo
 		return
 	}
 	modelName := extractImageTaskModel(body, header.Get("Content-Type"))
+	if modelName == "" && action == canvasImageTaskActionGenerations {
+		modelName = "dall-e"
+	}
+	if !middleware.AdmitRelayModel(c, modelName) {
+		_ = body.Close()
+		return
+	}
 	now := time.Now().Unix()
 	task := &model.Task{
 		TaskID:      model.GenerateTaskID(),

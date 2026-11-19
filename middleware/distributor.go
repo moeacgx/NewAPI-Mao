@@ -139,6 +139,31 @@ func abortDistributorError(c *gin.Context, statusCode int, message, modelName, g
 	model.RecordErrorLog(c, c.GetInt("id"), 0, modelName, c.GetString("token_name"), message,
 		c.GetInt("token_id"), useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), group, other)
 }
+
+func AdmitRelayModel(c *gin.Context, name string) bool {
+	if name == "" {
+		abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
+		return false
+	}
+	admitted, err := model.IsModelInCatalog(name)
+	if err != nil {
+		abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorModelCatalogUnavailable))
+		return false
+	}
+	if !admitted {
+		message := i18n.T(c, i18n.MsgDistributorModelNotFound, map[string]any{"Model": name})
+		abortWithOpenAiMessage(c, http.StatusNotFound, message, types.ErrorCodeModelNotFound)
+	}
+	return admitted
+}
+
+func AdmitRealtimeModel(c *gin.Context) {
+	if AdmitRelayModel(c, c.Query("model")) {
+		common.SetContextKey(c, constant.ContextKeyRealtimeModelAdmitted, true)
+		c.Next()
+	}
+}
+
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
@@ -148,6 +173,9 @@ func Distribute() func(c *gin.Context) {
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
 			abortWithOpenAiMessage(c, invalidRequestStatus(err), i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
+			return
+		}
+		if shouldSelectChannel && !common.GetContextKeyBool(c, constant.ContextKeyRealtimeModelAdmitted) && !AdmitRelayModel(c, modelRequest.Model) {
 			return
 		}
 		if common.GetContextKeyBool(c, constant.ContextKeyCanvasTrusted) {
@@ -204,10 +232,6 @@ func Distribute() func(c *gin.Context) {
 			}
 
 			if shouldSelectChannel {
-				if modelRequest.Model == "" {
-					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
-					return
-				}
 				if binding, found := service.GetPreferredChannelAffinityBinding(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					bindingKeyUsable := true
@@ -283,7 +307,12 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
-		newAPIError := SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		var newAPIError *types.NewAPIError
+		if channel != nil || shouldSelectChannel {
+			newAPIError = SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		} else {
+			c.Set("original_model", modelRequest.Model)
+		}
 		if newAPIError != nil && !ok && shouldSelectChannel && !errors.Is(newAPIError, model.ErrGroupUserConcurrencyLimitReached) {
 			releaseChannelConcurrencyForContext(c)
 			releaseGroupUserConcurrencyForContext(c)
