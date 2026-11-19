@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
-import type { GroupNameMap, PricingModel, TokenUnit } from '../types'
+import type { PricingModel, TokenUnit } from '../types'
 import { ModelCard } from './model-card'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 
@@ -37,7 +37,6 @@ export interface ModelCardGridProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   selectedGroup?: string
-  groupNames?: GroupNameMap
 }
 
 export function ModelCardGrid(props: ModelCardGridProps) {
@@ -79,7 +78,6 @@ export function ModelCardGrid(props: ModelCardGridProps) {
           <ModelCard
             key={model.id ?? model.model_name}
             model={model}
-            groupNames={props.groupNames}
             tokenUnit={tokenUnit}
             priceRate={props.priceRate}
             usdExchangeRate={props.usdExchangeRate}

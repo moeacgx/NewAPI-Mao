@@ -23,10 +23,12 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
 import { ApiKeyGroupCombobox } from '../api-key-group-combobox'
+import { GroupTagCards } from '../group-tag-cards'
 
 const options = [
   { id: 11, value: 'stable_a', label: '当前标准组', ratio: 1 },
@@ -67,14 +69,13 @@ describe('token group tag filtering', () => {
     )
     const list = screen.getByRole('listbox')
     expect(within(list).queryByText('当前专业组')).not.toBeInTheDocument()
-    expect(within(list).getByText('Auto')).toBeVisible()
+    expect(within(list).queryByText('Auto')).not.toBeInTheDocument()
     fireEvent.click(within(list).getByText('当前标准组'))
     expect(screen.getByLabelText('Selected codes')).toHaveTextContent(
       'stable_b,stable_a'
     )
-    expect(screen.getByRole('combobox')).toHaveTextContent(
-      '当前专业组, 当前标准组'
-    )
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('当前专业组')
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('当前标准组')
   })
 
   test('clears tag and search filters while retaining the current group name after refresh', async () => {
@@ -126,5 +127,112 @@ describe('token group tag filtering', () => {
       'aria-pressed',
       'true'
     )
+  })
+
+  test('tag card opens the picker with its filter and returns focus on dismiss', async () => {
+    const user = userEvent.setup()
+    const longName = '超长标签名称'.repeat(12)
+    const longTags = [
+      { id: 1, name: longName, group_ids: [11], icons: [] },
+      { id: 3, name: '专业平台', group_ids: [12], icons: [] },
+    ]
+    function CardsHarness() {
+      const [tag, setTag] = useState('all')
+      const [open, setOpen] = useState(false)
+      const returnFocus = useRef<HTMLElement | null>(null)
+      const cardsRef = useRef<HTMLDivElement | null>(null)
+      const [selected, setSelected] = useState(['stable_b'])
+      return (
+        <>
+          <GroupTagCards
+            tags={longTags}
+            options={options}
+            value={tag}
+            onChange={setTag}
+            expanded={open}
+            containerRef={cardsRef}
+            onActivate={(element) => {
+              returnFocus.current = element
+              setOpen(true)
+            }}
+          />
+          <ApiKeyGroupCombobox
+            options={options}
+            tags={longTags}
+            activeTag={tag}
+            onActiveTagChange={setTag}
+            hideTagFilter
+            open={open}
+            onOpenChange={setOpen}
+            returnFocusRef={returnFocus}
+            anchorRef={cardsRef}
+            selectedValues={selected}
+            onValueChange={(value) =>
+              setSelected((current) =>
+                current.includes(value)
+                  ? current.filter((item) => item !== value)
+                  : [...current, value]
+              )
+            }
+          />
+          <output aria-label='Selected codes'>{selected.join(',')}</output>
+        </>
+      )
+    }
+    render(<CardsHarness />)
+    const group = screen.getByRole('group', { name: 'Group tags' })
+    expect(group.parentElement).toHaveClass('@container')
+    expect(group).toHaveClass('@md:grid-cols-3')
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    const longCard = screen.getByRole('button', { name: new RegExp(longName) })
+    longCard.focus()
+    await user.keyboard('{Enter}')
+    expect(longCard).toHaveAttribute('aria-pressed', 'true')
+    expect(longCard).toHaveAttribute('aria-expanded', 'true')
+    const list = await screen.findByRole('listbox')
+    expect(within(list).getByText('当前标准组')).toBeVisible()
+    expect(within(list).queryByText('当前专业组')).not.toBeInTheDocument()
+    await user.click(within(list).getByText('当前标准组'))
+    await waitFor(() =>
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    )
+    expect(screen.getByLabelText('Selected codes')).toHaveTextContent(
+      'stable_b,stable_a'
+    )
+    await waitFor(() => expect(longCard).toHaveFocus())
+
+    const proCard = screen.getByRole('button', { name: /专业平台/ })
+    await user.click(proCard)
+    const proList = await screen.findByRole('listbox')
+    expect(within(proList).getByText('当前专业组')).toBeVisible()
+    expect(within(proList).queryByText('当前标准组')).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    )
+    await waitFor(() => expect(proCard).toHaveFocus())
+    expect(screen.getByLabelText('Selected codes')).toHaveTextContent(
+      'stable_b,stable_a'
+    )
+  })
+
+  test('Auto is the first option only under All groups, including while the popup stays open', async () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('combobox'))
+    const names = () =>
+      within(screen.getByRole('listbox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent)
+    expect(names()[0]).toContain('Auto')
+    fireEvent.click(screen.getByRole('button', { name: '模型平台' }))
+    expect(names().join('|')).not.toContain('Auto')
+    fireEvent.click(screen.getByRole('button', { name: 'All groups' }))
+    expect(names()[0]).toContain('Auto')
+    fireEvent.change(screen.getByPlaceholderText('Search...'), {
+      target: { value: '专业' },
+    })
+    expect(names().join('|')).not.toContain('Auto')
+    expect(names()).toHaveLength(1)
   })
 })

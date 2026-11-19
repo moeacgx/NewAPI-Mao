@@ -93,7 +93,7 @@ export function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
       value={props.group}
       dragListener={false}
       dragControls={dragControls}
-      className='bg-background flex items-center gap-2 rounded-lg border p-2'
+      className='bg-background flex min-w-0 items-center gap-2 rounded-lg border p-2'
     >
       <Button
         type='button'
@@ -115,7 +115,10 @@ export function AutoGroupOrderItem(props: AutoGroupOrderItemProps) {
           {props.index + 1}
         </span>
       )}
-      <span className='min-w-0 flex-1 truncate text-sm font-medium'>
+      <span
+        title={props.label}
+        className='min-w-0 flex-1 truncate text-sm font-medium'
+      >
         {props.label}
       </span>
       <div className='flex shrink-0 gap-1'>

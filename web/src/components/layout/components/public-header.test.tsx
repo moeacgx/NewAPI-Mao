@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   createElement,
@@ -144,5 +144,45 @@ describe('PublicHeader mobile navigation', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(navigation).toHaveAttribute('inert')
     expect(aboutLink).toHaveAttribute('tabindex', '-1')
+  })
+})
+
+describe('PublicHeader scrolled geometry', () => {
+  test('keeps the full-size frame and only adds a surface after scrolling', () => {
+    const { container } = render(
+      <PublicHeader
+        navLinks={[{ title: '这是一个很长的自定义导航名称', href: '/long' }]}
+        showThemeSwitch={false}
+        showLanguageSwitcher={false}
+        showNotifications={false}
+      />
+    )
+    const header = container.querySelector('header')
+    const frame = header?.firstElementChild
+    const nav = frame?.firstElementChild
+    if (!header || !frame || !nav) throw new Error('Expected header structure')
+    const frameClass = frame.className
+    const navClass = nav.className
+
+    expect(header.className).not.toContain('backdrop-blur')
+
+    act(() => {
+      Object.defineProperty(window, 'scrollY', {
+        value: 100,
+        configurable: true,
+      })
+      window.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(header.className).toContain('backdrop-blur')
+    expect(frame.className).toBe(frameClass)
+    expect(nav.className).toBe(navClass)
+    expect(frame.className).toContain('max-w-7xl')
+    expect(nav.className).toContain('h-16')
+    expect(header.outerHTML).not.toContain('52rem')
+    expect(header.outerHTML).not.toContain('rounded-2xl')
+    expect(
+      screen.getAllByText('这是一个很长的自定义导航名称')[0].closest('a')
+    ).toHaveClass('whitespace-nowrap')
   })
 })

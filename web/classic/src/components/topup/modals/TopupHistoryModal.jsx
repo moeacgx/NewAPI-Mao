@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
-  Table,
   Badge,
   Typography,
   Toast,
@@ -32,11 +31,14 @@ import {
   IllustrationNoResult,
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
-import { Coins } from 'lucide-react';
+import { Coins, CreditCard } from 'lucide-react';
+import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si';
 import { IconSearch } from '@douyinfe/semi-icons';
 import { API, timestamp2string } from '../../../helpers';
 import { isAdmin } from '../../../helpers/utils';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
+import { useActualTheme } from '../../../context/Theme';
+import CardTable from '../../common/ui/CardTable';
 import { getPaymentRequestErrorMessage } from '../topupError';
 const { Text } = Typography;
 
@@ -119,8 +121,12 @@ const PAYMENT_METHOD_MAP = {
   stripe: 'Stripe',
   creem: 'Creem',
   waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
   alipay: '支付宝',
   wxpay: '微信',
+  bepusdt: 'USDT',
+  okpay: 'OKPay',
+  balance: '余额',
 };
 
 const TopupHistoryModal = ({ visible, onCancel, t }) => {
@@ -132,6 +138,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
   const [keyword, setKeyword] = useState('');
   const [retryingTradeNo, setRetryingTradeNo] = useState(null);
   const isMobile = useIsMobile();
+  const actualTheme = useActualTheme();
 
   const loadTopups = async (currentPage, currentPageSize) => {
     setLoading(true);
@@ -243,8 +250,50 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
 
   // 渲染支付方式
   const renderPaymentMethod = (pm) => {
-    const displayName = PAYMENT_METHOD_MAP[pm];
-    return <Text>{displayName ? t(displayName) : pm || '-'}</Text>;
+    const key = String(pm ?? '')
+      .trim()
+      .toLowerCase();
+    const displayName = Object.prototype.hasOwnProperty.call(
+      PAYMENT_METHOD_MAP,
+      key,
+    )
+      ? PAYMENT_METHOD_MAP[key]
+      : '';
+    const logoStyle = { width: 16, height: 16, objectFit: 'contain' };
+    let icon = <CreditCard size={16} color='var(--semi-color-text-2)' />;
+    if (key === 'alipay') {
+      icon = <SiAlipay size={16} color='#1677FF' />;
+    } else if (key === 'wxpay') {
+      icon = <SiWechat size={16} color='#07C160' />;
+    } else if (key === 'stripe') {
+      icon = <SiStripe size={16} color='#635BFF' />;
+    } else if (key === 'bepusdt') {
+      icon = <img src='/pay-usdt.svg' alt='USDT' style={logoStyle} />;
+    } else if (key === 'okpay') {
+      icon = <img src='/pay-okpay.svg' alt='OKPay' style={logoStyle} />;
+    } else if (key === 'waffo_pancake') {
+      icon = (
+        <img
+          src={
+            actualTheme === 'dark'
+              ? '/waffo-logo-dark.svg'
+              : '/waffo-logo-light.svg'
+          }
+          alt='Waffo'
+          style={logoStyle}
+        />
+      );
+    }
+    return (
+      <span className='inline-flex min-w-0 items-center gap-1.5'>
+        <span className='inline-flex shrink-0' aria-hidden='true'>
+          {icon}
+        </span>
+        <Text className='break-words'>
+          {displayName ? t(displayName) : String(pm || '').trim() || '-'}
+        </Text>
+      </span>
+    );
   };
 
   const isSubscriptionTopup = (record) => {
@@ -267,9 +316,9 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
               dataIndex: 'username',
               key: 'username',
               render: (username, record) => (
-                <div className='flex flex-col'>
-                  <Text>{username || '-'}</Text>
-                  <Text type='tertiary' size='small'>
+                <div className='flex min-w-0 flex-col break-all text-right md:text-left'>
+                  <Text className='break-all'>{username || '-'}</Text>
+                  <Text type='tertiary' size='small' className='break-all'>
                     ID: {record.user_id ?? '-'}
                   </Text>
                 </div>
@@ -281,7 +330,11 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
         title: t('订单号'),
         dataIndex: 'trade_no',
         key: 'trade_no',
-        render: (text) => <Text copyable>{text}</Text>,
+        render: (text) => (
+          <Text copyable className='break-all'>
+            {text}
+          </Text>
+        ),
       },
       {
         title: t('支付方式'),
@@ -335,7 +388,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             return null;
           }
           return (
-            <div className='flex items-center gap-2'>
+            <div className='flex flex-wrap items-center justify-end gap-2'>
               {canAdminComplete(record) && (
                 <Button
                   key='complete'
@@ -404,7 +457,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
           showClear
         />
       </div>
-      <Table
+      <CardTable
         columns={columns}
         dataSource={topups}
         loading={loading}
@@ -413,6 +466,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
           currentPage: page,
           pageSize: pageSize,
           total: total,
+          size: isMobile ? 'small' : 'default',
           showSizeChanger: true,
           pageSizeOpts: [10, 20, 50, 100],
           onPageChange: handlePageChange,

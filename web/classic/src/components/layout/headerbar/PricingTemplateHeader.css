@@ -14,9 +14,6 @@
   margin: 0 auto;
   padding: 0 24px;
   pointer-events: auto;
-  transition:
-    max-width 700ms cubic-bezier(0.16, 1, 0.3, 1),
-    padding 700ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .classic-pricing-template-nav {
@@ -26,34 +23,21 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0 8px;
+}
+
+/*
+ * 滚动后只改变整条顶栏的表面（背景、模糊、阴影），框架宽度、导航高度与内边距
+ * 必须与未滚动时一致，避免滚动时导航收缩成胶囊或把自定义长菜单挤出视口。
+ */
+.classic-pricing-template-header {
   transition:
-    height 700ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-radius 700ms cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 700ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 700ms cubic-bezier(0.16, 1, 0.3, 1);
+    background-color 300ms ease,
+    box-shadow 300ms ease;
 }
 
-.classic-pricing-template-header-frame.is-scrolled {
-  /*
-   * 模型广场允许配置较长的自定义导航。收缩态仍保持新版的悬浮外观，
-   * 但必须沿用完整桌面容器宽度，让用户区固定在最右侧而不是压住导航。
-   */
-  max-width: min(1440px, calc(100% - 32px));
-  padding: 12px 0;
-}
-
-.classic-pricing-template-header-frame.is-scrolled
-  .classic-pricing-template-nav {
-  height: 48px;
-  padding-right: 6px;
-  padding-left: 16px;
-  border: 1px solid
-    color-mix(in srgb, var(--semi-color-border) 50%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--semi-color-bg-0) 60%, transparent);
-  box-shadow:
-    0 2px 16px -6px rgb(0 0 0 / 8%),
-    0 0 0 0.5px rgb(0 0 0 / 2%);
+.classic-pricing-template-header.is-scrolled {
+  background: color-mix(in srgb, var(--semi-color-bg-0) 80%, transparent);
+  box-shadow: 0 2px 16px -6px rgb(0 0 0 / 8%);
   backdrop-filter: blur(24px);
 }
 
@@ -422,22 +406,6 @@
 @media (max-width: 1099px) {
   .classic-pricing-template-header-frame {
     padding: 0 16px;
-  }
-
-  .classic-pricing-template-header-frame.is-scrolled {
-    max-width: none;
-    padding: 0 16px;
-  }
-
-  .classic-pricing-template-header-frame.is-scrolled
-    .classic-pricing-template-nav {
-    height: 64px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
   }
 
   .classic-pricing-template-desktop-nav {

@@ -52,8 +52,11 @@ import { useBillingHistory } from '../../hooks/use-billing-history'
 import {
   getStatusConfig,
   getPaymentMethodName,
+  normalizePaymentMethod,
   formatTimestamp,
 } from '../../lib/billing'
+import { getPaymentIcon } from '../../lib/ui'
+
 const BILLING_SKELETON_KEYS = [
   'billing-skeleton-1',
   'billing-skeleton-2',
@@ -118,8 +121,8 @@ export function BillingHistoryDialog({
       >
         <div className='min-h-0 space-y-3'>
           {/* Search and Filter Bar */}
-          <div className='flex items-center gap-2'>
-            <div className='relative flex-1'>
+          <div className='flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center'>
+            <div className='relative min-w-0 flex-1'>
               <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
               <Input
                 placeholder={t(
@@ -142,7 +145,7 @@ export function BillingHistoryDialog({
                 value !== null && handlePageSizeChange(Number.parseInt(value))
               }
             >
-              <SelectTrigger className='h-9 w-[92px] sm:w-32'>
+              <SelectTrigger className='h-9 w-full min-[420px]:w-[92px] sm:w-32'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false}>
@@ -157,7 +160,7 @@ export function BillingHistoryDialog({
           </div>
 
           {/* Records List */}
-          <div className='max-h-[min(54vh,520px)] overflow-y-auto pr-1'>
+          <div className='sm:max-h-[min(54vh,520px)] sm:overflow-y-auto sm:pr-1'>
             {(() => {
               if (loading) {
                 return (
@@ -206,19 +209,20 @@ export function BillingHistoryDialog({
                     return (
                       <div
                         key={record.id}
-                        className='rounded-lg border p-3 sm:p-4'
+                        className='min-w-0 rounded-lg border p-3 sm:p-4'
                       >
                         {/* Header Row */}
                         <div className='flex items-start justify-between gap-2'>
-                          <div className='flex-1 space-y-1'>
-                            <div className='flex min-w-0 items-center gap-2'>
-                              <code className='text-foreground truncate font-mono text-sm'>
+                          <div className='min-w-0 flex-1 space-y-1'>
+                            <div className='flex min-w-0 items-start gap-1'>
+                              <code className='text-foreground min-w-0 font-mono text-sm break-all'>
                                 {record.trade_no}
                               </code>
                               <Button
                                 variant='ghost'
                                 size='sm'
-                                className='h-5 w-5 p-0'
+                                className='h-5 w-5 shrink-0 p-0'
+                                aria-label={t('Copy')}
                                 onClick={() =>
                                   void copyToClipboard(record.trade_no)
                                 }
@@ -229,7 +233,9 @@ export function BillingHistoryDialog({
                                   <Copy className='h-3 w-3' />
                                 )}
                               </Button>
-                              {isAdmin && record.user_id != null && (
+                            </div>
+                            {isAdmin && record.user_id != null && (
+                              <div className='flex min-w-0'>
                                 <StatusBadge
                                   label={
                                     record.username
@@ -238,12 +244,19 @@ export function BillingHistoryDialog({
                                   }
                                   variant='neutral'
                                   size='sm'
+                                  className='h-auto py-0.5 whitespace-normal'
                                   copyText={
                                     record.username || String(record.user_id)
                                   }
-                                />
-                              )}
-                            </div>
+                                >
+                                  <span className='min-w-0 leading-normal break-all'>
+                                    {record.username
+                                      ? `${record.username} (${t('User ID')}: ${record.user_id})`
+                                      : `${t('User ID')}: ${record.user_id}`}
+                                  </span>
+                                </StatusBadge>
+                              </div>
+                            )}
                             <div className='text-muted-foreground text-xs'>
                               {formatTimestamp(record.create_time)}
                             </div>
@@ -253,20 +266,32 @@ export function BillingHistoryDialog({
                             variant={statusConfig.variant}
                             showDot
                             copyable={false}
+                            className='shrink-0'
                           />
                         </div>
 
                         {/* Details Grid */}
                         <div className='mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
-                          <div className='space-y-1'>
+                          <div className='min-w-0 space-y-1'>
                             <Label className='text-muted-foreground text-xs'>
                               {t('Payment Method')}
                             </Label>
-                            <div className='text-sm font-medium'>
-                              {getPaymentMethodName(record.payment_method, t)}
+                            <div className='flex min-w-0 items-center gap-1.5 text-sm font-medium'>
+                              <span
+                                className='inline-flex shrink-0 items-center'
+                                aria-hidden='true'
+                              >
+                                {getPaymentIcon(
+                                  normalizePaymentMethod(record.payment_method),
+                                  'h-4 w-4 shrink-0'
+                                )}
+                              </span>
+                              <span className='min-w-0 break-words'>
+                                {getPaymentMethodName(record.payment_method, t)}
+                              </span>
                             </div>
                           </div>
-                          <div className='space-y-1'>
+                          <div className='min-w-0 space-y-1'>
                             <Label className='text-muted-foreground text-xs'>
                               {t('Amount')}
                             </Label>

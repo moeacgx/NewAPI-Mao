@@ -180,6 +180,8 @@ func TestSetThemeWebRouterStaticAssetCachePolicy(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(root, "assets", "index-"+theme+"."+extension), []byte(theme+"-"+extension), 0o600))
 		}
 	}
+	require.NoError(t, os.MkdirAll(filepath.Join(roots["default"], "static", "js", "async"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(roots["default"], "static", "js", "async", "3369.current.js"), []byte("export {}"), 0o600))
 	engine := gin.New()
 	setThemeWebRouter(
 		engine,
@@ -193,7 +195,10 @@ func TestSetThemeWebRouterStaticAssetCachePolicy(t *testing.T) {
 		t.Run(theme, func(t *testing.T) {
 			common.SetTheme(theme)
 			for _, method := range []string{http.MethodGet, http.MethodHead} {
-				for _, assetPath := range []string{"/assets/index-previous.css", "/assets/index-previous.js", "/assets/index-previous.css?refresh=1", "/assets/index-previous.js?refresh=1"} {
+				for _, assetPath := range []string{
+					"/assets/index-previous.css", "/assets/index-previous.js?refresh=1",
+					"/static/js/async/3369.previous.js", "/static/css/async/5542.previous.css?refresh=1",
+				} {
 					t.Run(method+assetPath, func(t *testing.T) {
 						request := httptest.NewRequest(method, assetPath, nil)
 						recorder := httptest.NewRecorder()
@@ -207,6 +212,22 @@ func TestSetThemeWebRouterStaticAssetCachePolicy(t *testing.T) {
 						}
 					})
 				}
+			}
+
+			for _, route := range []string{"/dashboard/overview", "/static-guide", "/assets-guide"} {
+				recorder := httptest.NewRecorder()
+				engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route, nil))
+				require.Equal(t, http.StatusOK, recorder.Code, "%s", route)
+				assert.Equal(t, "no-cache", recorder.Header().Get("Cache-Control"))
+				assert.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
+			}
+			if theme == "default" {
+				recorder := httptest.NewRecorder()
+				engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/static/js/async/3369.current.js", nil))
+				require.Equal(t, http.StatusOK, recorder.Code)
+				assert.Equal(t, "max-age=604800", recorder.Header().Get("Cache-Control"))
+				assert.Contains(t, recorder.Header().Get("Content-Type"), "javascript")
+				assert.Equal(t, "export {}", recorder.Body.String())
 			}
 
 			otherTheme := "classic"
