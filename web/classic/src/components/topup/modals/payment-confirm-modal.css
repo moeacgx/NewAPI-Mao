@@ -1,0 +1,28 @@
+/*
+ * Payment confirmation modal: keep the header and the Cancel / Confirm
+ * footer visible on short mobile viewports. Only the body scrolls, and the
+ * modal height follows the dynamic viewport minus the device safe areas.
+ */
+.classic-payment-confirm-modal .semi-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 24px);
+  max-height: calc(
+    100dvh - 24px - env(safe-area-inset-top, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
+  overflow: hidden;
+}
+
+.classic-payment-confirm-modal .semi-modal-header,
+.classic-payment-confirm-modal .semi-modal-footer {
+  flex-shrink: 0;
+}
+
+.classic-payment-confirm-modal .semi-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

@@ -270,11 +270,11 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       </p>
 
       {/* Footer: billing mode and performance summary share one row */}
-      <div className='mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-1 sm:mt-4'>
-        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+      <div className='mt-2 flex items-end gap-x-2 sm:mt-4 sm:gap-x-3'>
+        <div className='flex shrink-0 items-center'>
           <ModelBillingModeBadge model={props.model} />
         </div>
-        <ModelPerfBadge perf={props.perf} />
+        <ModelPerfBadge perf={props.perf} className='min-w-0 flex-1' />
       </div>
     </div>
   )

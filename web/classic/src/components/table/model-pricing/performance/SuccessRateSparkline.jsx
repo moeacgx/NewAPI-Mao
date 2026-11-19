@@ -49,7 +49,7 @@ const SuccessRateSparkline = ({
   const windowEndTs = Math.trunc(Date.now() / 1000);
   const points = useMemo(() => {
     if (aggregateWindow) {
-      return buildStatusSegments(series, windowEndTs, maxPoints);
+      return buildStatusSegments(series, windowEndTs, maxPoints, maxPoints);
     }
     return normalizePerformanceSeries(series).slice(-Math.max(1, maxPoints));
   }, [aggregateWindow, maxPoints, series, windowEndTs]);
@@ -81,7 +81,9 @@ const SuccessRateSparkline = ({
   const gap = signalStyle
     ? 'gap-0.5'
     : aggregateWindow
-      ? 'gap-1'
+      ? compact
+        ? 'gap-px'
+        : 'gap-1'
       : compact
         ? 'gap-px'
         : 'gap-[2px]';

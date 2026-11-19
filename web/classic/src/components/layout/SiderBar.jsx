@@ -64,6 +64,7 @@ const routerMap = {
   game_management: '/console/game-management',
   extension_admin: '/console/extensions',
   task_plugins: '/console/task-plugins',
+  mcp: '/console/mcp',
   playground: '/console/playground',
   canvas: '/console/canvas',
   personal: '/console/personal',
@@ -351,6 +352,13 @@ const SiderBar = ({
         text: t('Task Plugins'),
         itemKey: 'task_plugins',
         to: '/console/task-plugins',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('MCP management'),
+        itemKey: 'mcp',
+        to: '/console/mcp',
+        iconName: 'Plug',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

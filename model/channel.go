@@ -1307,8 +1307,9 @@ func BatchSetChannelTag(ids []int, tag *string) error {
 		return err
 	}
 
-	// update ability status
-	channels, err := GetChannelsByIds(ids)
+	// 使用同一事务读取更新后的标签，避免连接池只有一个连接时等待自身事务。
+	var channels []*Channel
+	err = tx.Where("id in (?)", ids).Find(&channels).Error
 	if err != nil {
 		tx.Rollback()
 		return err

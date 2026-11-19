@@ -81,6 +81,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     notification_center: true,
     extension_admin: true,
     task_plugins: true,
+    mcp: true,
     security_audit: true,
     setting: true,
   },

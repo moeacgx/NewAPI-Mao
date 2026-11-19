@@ -36,6 +36,8 @@
 - [普通日志分组名称选择（#401）](../workflows/2026-11/16_issue401_log_group_selection.md)：原两项 P2 及新发现的 `__proto__` 别名名称丢失 P3 均已独立复验通过；真实后端认证、数据库与生产权限仍未验收。
 - [普通管理员返佣业务入口（#401）](../workflows/2026-11/16_issue401_affiliate_admin_access.md)：独立复审和统一构建门禁已记录，真实角色权限与交易链仍未验收。
 
+- [MCP 管理接入](mcp-management.md)：本地客户端 HTTP MCP、按工具授权密钥、调用审计、写入去重，以及 Default / Classic 管理入口；含[模型接入与测试覆盖清单](mcp-management.md#添加模型与测试的实际范围)。
+
 - [.369 Canvas 图片请求分组隔离发布](../workflows/2026-11/14_release_369.md)：内部参数过滤、分发前撤权复查、主分支累计范围与发布验收边界。
 
 - [Canvas 分组参数与上游请求隔离](../workflows/2026-11/14_canvas_group_request_boundary.md)：正文内部 `group` 过滤、授权分组上下文保留及图片任务回归边界。

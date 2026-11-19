@@ -2051,11 +2051,14 @@ html.dark .with-pastel-balls::before {
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--semi-color-fill-0);
+  flex: 1 1 220px;
+  grid-template-columns: auto auto minmax(0, 120px);
+  justify-content: end;
+  align-items: end;
+  column-gap: 8px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--semi-color-text-2);
   font-size: 11px;
   text-align: left;
@@ -2124,16 +2127,35 @@ html.dark .with-pastel-balls::before {
   height: 12px;
 }
 
+/* 卡片状态条收紧为固定上限并随卡片宽度收缩，保证计费、延迟、吞吐量与状态同处一行。 */
+.classic-pricing-model-performance-signal {
+  width: 100%;
+  min-width: 0;
+}
+
+.classic-pricing-model-performance-signal > [role='img'] {
+  width: 100%;
+  min-width: 0;
+}
+
+.classic-pricing-model-performance-signal > [role='img'] > span {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
 @media (max-width: 459px) {
   .classic-pricing-model-performance-badge {
+    grid-template-columns: auto auto minmax(0, 96px);
+    column-gap: 6px;
     background: transparent;
   }
 }
 
 @media (min-width: 460px) {
   .classic-pricing-model-performance-badge {
-    width: 132px;
-    grid-template-columns: 38px 48px 30px;
+    width: auto;
+    min-width: 0;
     column-gap: 8px;
     padding: 0;
     border-radius: 0;
@@ -2142,8 +2164,12 @@ html.dark .with-pastel-balls::before {
     text-align: right;
   }
 
+  .classic-pricing-model-performance-status {
+    text-align: left;
+  }
+
   .classic-pricing-model-performance-signal {
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 }
 
@@ -3910,10 +3936,15 @@ html.dark .classic-pricing-detail-special-expr-title {
 
 /* 卡片页脚遵循新版的同一行信息密度；Classic 的选择和性能数据仍按需插入。 */
 .classic-pricing-model-card-footer-info {
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: flex-end;
   column-gap: 8px;
-  row-gap: 4px;
+}
+
+.classic-pricing-model-card-footer-info > .classic-pricing-model-card-billing {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .classic-pricing-card-group,

@@ -75,6 +75,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     invoice_admin: true,
     ticket_management: true,
     notification_center: true,
+    mcp: true,
     extension_admin: true,
     security_audit: true,
     game: true,
@@ -116,6 +117,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
     section: 'admin',
     module: 'notification_center',
   },
+  '/mcp-management': { section: 'admin', module: 'mcp' },
   '/extensions': { section: 'admin', module: 'extension_admin' },
   '/security-audit': { section: 'admin', module: 'security_audit' },
   '/system-settings/billing/affiliate': {

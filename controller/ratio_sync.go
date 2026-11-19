@@ -21,6 +21,7 @@ import (
 
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/samber/lo"
@@ -216,6 +217,12 @@ func FetchUpstreamRatios(c *gin.Context) {
 		return dialer.DialContext(ctx, network, addr)
 	}
 	client := &http.Client{Transport: transport}
+	if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+		// MCP 的来源授权只覆盖明确指定的地址，重定向不能扩大凭据作用域。
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
 
 	for _, chn := range upstreams {
 		wg.Add(1)

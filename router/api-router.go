@@ -71,6 +71,7 @@ func SetApiRouter(router *gin.Engine) {
 	}
 
 	apiRouter.Use(middleware.GlobalAPIRateLimitWithAdminBypass())
+	registerMCPRoutes(router, apiRouter)
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{
 		apiRouter.GET("/setup", controller.GetSetup)

@@ -63,7 +63,10 @@ export function normalizeInterfaceLanguage(value?: string | null): string {
 export function convertDetectedLanguage(value: string): string {
   const lower = value.trim().replaceAll('_', '-').toLowerCase()
   if (!lower.startsWith('zh')) return value
+  // The detector also feeds the persisted `i18nextLng` value through here, so
+  // our own `zhTW` code must stay Traditional Chinese.
   if (
+    lower === 'zhtw' ||
     lower === 'zh-tw' ||
     lower === 'zh-hk' ||
     lower === 'zh-mo' ||

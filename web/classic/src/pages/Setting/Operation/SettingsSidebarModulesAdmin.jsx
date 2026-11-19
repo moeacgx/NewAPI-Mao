@@ -319,6 +319,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           description: t('Task plugin details'),
         },
         {
+          key: 'mcp',
+          title: t('MCP management'),
+          description: t('MCP access, tools, keys and call logs'),
+        },
+        {
           key: 'setting',
           title: t('系统设置'),
           description: t('系统参数配置'),
