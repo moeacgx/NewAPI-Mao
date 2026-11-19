@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -95,6 +96,11 @@ func auditOperatorInfo(c *gin.Context) map[string]interface{} {
 }
 
 func auditAuthMethod(c *gin.Context) string {
+	if c.Request != nil {
+		if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+			return "mcp"
+		}
+	}
 	if c.GetBool("use_access_token") {
 		return "access_token"
 	}

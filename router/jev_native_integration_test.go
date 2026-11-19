@@ -39,7 +39,10 @@ func TestJevNativeIntegration(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.PromptAuditConfig{}, &model.PromptAuditEndpoint{}, &model.RequestArchiveConfig{}, &model.RequestArchiveTarget{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.Model{}, &model.Vendor{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.PromptAuditConfig{}, &model.PromptAuditEndpoint{}, &model.RequestArchiveConfig{}, &model.RequestArchiveTarget{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	require.NoError(t, (&model.Model{ModelName: "jev-1.13.0", Status: 1}).Insert())
 	oldRegistry, oldLogDB := jsplugin.DefaultRegistry, model.LOG_DB
 	oldCache, oldBatch, oldLog := common.MemoryCacheEnabled, common.BatchUpdateEnabled, common.LogConsumeEnabled
 	oldQuotaPerUnit := common.QuotaPerUnit

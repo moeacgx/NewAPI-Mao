@@ -215,6 +215,10 @@ export function SidebarModulesSection({
         title: t('Notification Center'),
         description: t('Configure notification tasks and Telegram Bots.'),
       },
+      mcp: {
+        title: t('MCP Management'),
+        description: t('Manage the MCP keys you created.'),
+      },
       extension_admin: {
         title: t('Extensions'),
         description: t('Manage extension modules and enable or disable them.'),

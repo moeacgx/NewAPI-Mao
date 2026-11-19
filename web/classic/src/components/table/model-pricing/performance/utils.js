@@ -185,12 +185,16 @@ export const buildStatusSegments = (
   series,
   endTs,
   segmentCount = STATUS_SEGMENT_COUNT,
+  maxSegments = STATUS_SEGMENT_COUNT,
 ) => {
   const normalizedEndTs = Number.isFinite(Number(endTs))
     ? Math.trunc(Number(endTs))
     : Math.trunc(Date.now() / 1000);
   const safeSegmentCount = Math.min(
-    STATUS_SEGMENT_COUNT,
+    Math.max(
+      STATUS_SEGMENT_COUNT,
+      Math.trunc(finiteNumber(maxSegments, STATUS_SEGMENT_COUNT)),
+    ),
     Math.max(1, Math.trunc(finiteNumber(segmentCount, STATUS_SEGMENT_COUNT))),
   );
   const startTs = normalizedEndTs - STATUS_WINDOW_SECONDS;

@@ -29,6 +29,7 @@ import {
 import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si';
 import { CreditCard } from 'lucide-react';
 import InvoiceRequestForm from '../../invoice/InvoiceRequestForm';
+import './payment-confirm-modal.css';
 
 const { Text } = Typography;
 
@@ -96,6 +97,7 @@ const PaymentConfirmModal = ({
           {t('充值确认')}
         </div>
       }
+      className='classic-payment-confirm-modal'
       visible={open}
       onOk={onlineTopUp}
       onCancel={handleCancel}

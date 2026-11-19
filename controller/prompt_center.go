@@ -124,6 +124,10 @@ func GetPromptTemplates(c *gin.Context) {
 }
 
 func GetAdminPromptTemplates(c *gin.Context) {
+	if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+		getMCPPromptContent(c)
+		return
+	}
 	templates, err := model.ListPromptTemplates(false)
 	if err != nil {
 		common.ApiError(c, err)

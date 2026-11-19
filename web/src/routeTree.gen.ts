@@ -49,6 +49,7 @@ import { Route as AuthenticatedGameManagementIndexRouteImport } from './routes/_
 import { Route as AuthenticatedInvoiceManagementIndexRouteImport } from './routes/_authenticated/invoice-management/index'
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
+import { Route as AuthenticatedMcpManagementIndexRouteImport } from './routes/_authenticated/mcp-management/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
 import { Route as AuthenticatedNotificationCenterIndexRouteImport } from './routes/_authenticated/notification-center/index'
@@ -298,6 +299,12 @@ const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
   path: '/keys/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMcpManagementIndexRoute =
+  AuthenticatedMcpManagementIndexRouteImport.update({
+    id: '/mcp-management/',
+    path: '/mcp-management/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedModelsIndexRoute =
   AuthenticatedModelsIndexRouteImport.update({
     id: '/models/',
@@ -554,6 +561,7 @@ export interface FileRoutesByFullPath {
   '/invoice-management/': typeof AuthenticatedInvoiceManagementIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
+  '/mcp-management/': typeof AuthenticatedMcpManagementIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/notification-center/': typeof AuthenticatedNotificationCenterIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -629,6 +637,7 @@ export interface FileRoutesByTo {
   '/invoice-management': typeof AuthenticatedInvoiceManagementIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
+  '/mcp-management': typeof AuthenticatedMcpManagementIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/notification-center': typeof AuthenticatedNotificationCenterIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
@@ -708,6 +717,7 @@ export interface FileRoutesById {
   '/_authenticated/invoice-management/': typeof AuthenticatedInvoiceManagementIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
+  '/_authenticated/mcp-management/': typeof AuthenticatedMcpManagementIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/notification-center/': typeof AuthenticatedNotificationCenterIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -786,6 +796,7 @@ export interface FileRouteTypes {
     | '/invoice-management/'
     | '/invoices/'
     | '/keys/'
+    | '/mcp-management/'
     | '/models/'
     | '/notification-center/'
     | '/playground/'
@@ -861,6 +872,7 @@ export interface FileRouteTypes {
     | '/invoice-management'
     | '/invoices'
     | '/keys'
+    | '/mcp-management'
     | '/models'
     | '/notification-center'
     | '/playground'
@@ -939,6 +951,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invoice-management/'
     | '/_authenticated/invoices/'
     | '/_authenticated/keys/'
+    | '/_authenticated/mcp-management/'
     | '/_authenticated/models/'
     | '/_authenticated/notification-center/'
     | '/_authenticated/playground/'
@@ -1274,6 +1287,13 @@ declare module '@tanstack/react-router' {
       path: '/keys'
       fullPath: '/keys/'
       preLoaderRoute: typeof AuthenticatedKeysIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mcp-management/': {
+      id: '/_authenticated/mcp-management/'
+      path: '/mcp-management'
+      fullPath: '/mcp-management/'
+      preLoaderRoute: typeof AuthenticatedMcpManagementIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/models/': {
@@ -1637,6 +1657,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInvoiceManagementIndexRoute: typeof AuthenticatedInvoiceManagementIndexRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
+  AuthenticatedMcpManagementIndexRoute: typeof AuthenticatedMcpManagementIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedNotificationCenterIndexRoute: typeof AuthenticatedNotificationCenterIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
@@ -1679,6 +1700,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedInvoiceManagementIndexRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
+  AuthenticatedMcpManagementIndexRoute: AuthenticatedMcpManagementIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedNotificationCenterIndexRoute:
     AuthenticatedNotificationCenterIndexRoute,

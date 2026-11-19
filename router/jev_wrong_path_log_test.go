@@ -45,7 +45,10 @@ func TestCloudflareJevWrongPathKeepsLogsWithoutPerformanceSamples(t *testing.T) 
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			sqlDB.SetMaxOpenConns(1)
-			require.NoError(t, db.AutoMigrate(&model.Log{}, &model.PerfMetric{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}))
+			require.NoError(t, db.AutoMigrate(&model.Log{}, &model.PerfMetric{}, &model.Channel{}, &model.Ability{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Model{}, &model.Vendor{}))
+			model.InvalidatePricingCache()
+			t.Cleanup(model.InvalidatePricingCache)
+			require.NoError(t, (&model.Model{ModelName: "decision-alias", Status: 1}).Insert())
 			oldLog, oldCache, oldErrors, oldRegistry := model.LOG_DB, common.MemoryCacheEnabled, constant.ErrorLogEnabled, jsplugin.DefaultRegistry
 			oldPerformance := perf_metrics_setting.GetSetting()
 			oldGroupRatios := ratio_setting.GroupRatio2JSONString()
@@ -133,7 +136,7 @@ func TestCloudflareJevWrongPathKeepsLogsWithoutPerformanceSamples(t *testing.T) 
 			testRequest("auto", "/v1/responses", "decision-alias", "", 503, 1)
 			usingGroup = group.Code
 			tokenGroups = nil
-			testRequest("unknown-model", "/v1/responses", "unknown-alias", "", 503, 1)
+			testRequest("unknown-model", "/v1/responses", "unknown-alias", "", 404, 0)
 			usingGroup = "unrelated"
 			testRequest("other-group", "/v1/responses", "decision-alias", "", 503, 1)
 			usingGroup = group.Code

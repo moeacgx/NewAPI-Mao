@@ -111,6 +111,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     invoice_admin: true,
     ticket_management: true,
     notification_center: true,
+    mcp: true,
     extension_admin: true,
     // Root 专属内置页面，保留在序列化权限映射中，但不显示在可编辑设置表单。
     security_audit: true,

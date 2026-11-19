@@ -98,7 +98,7 @@ func TestDistributeRedisConcurrentPrecheckFallsBackWithZeroRetryBudget(t *testin
 	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Group{}, &model.Model{}, &model.Vendor{}))
 	model.DB, model.LOG_DB = db, nil
 	common.MemoryCacheEnabled, common.RedisEnabled, common.RDB, common.RetryTimes = true, true, clientA, 0
 	t.Cleanup(func() {
@@ -124,6 +124,7 @@ func TestDistributeRedisConcurrentPrecheckFallsBackWithZeroRetryBudget(t *testin
 		{Id: 999101, Code: "redis-race-first", Name: "首组", SingleUserConcurrencyLimit: 1},
 		{Id: 999102, Code: "redis-race-second", Name: "后备组", SingleUserConcurrencyLimit: 1},
 	}
+	require.NoError(t, (&model.Model{ModelName: modelName, Status: 1}).Insert())
 	require.NoError(t, db.Create(&groups).Error)
 	for _, item := range []struct {
 		id    int

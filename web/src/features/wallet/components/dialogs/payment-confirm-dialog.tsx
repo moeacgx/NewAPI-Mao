@@ -100,8 +100,8 @@ export function PaymentConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'>
-        <AlertDialogHeader>
+      <AlertDialogContent className='flex max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden max-sm:w-[calc(100vw-1.5rem)] sm:max-h-[calc(100dvh-4rem)] sm:max-w-md'>
+        <AlertDialogHeader className='shrink-0'>
           <AlertDialogTitle className='text-xl font-semibold'>
             {t('Confirm Payment')}
           </AlertDialogTitle>
@@ -110,7 +110,10 @@ export function PaymentConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className='space-y-3 py-3 sm:space-y-4 sm:py-4'>
+        <div
+          data-slot='payment-confirm-scroll'
+          className='-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 sm:space-y-4 sm:py-4'
+        >
           <div className='flex items-center justify-between'>
             <span className='text-muted-foreground text-sm'>
               {t('Topup Amount')}
@@ -214,7 +217,7 @@ export function PaymentConfirmDialog({
           />
         </div>
 
-        <AlertDialogFooter className='grid grid-cols-2 gap-2 sm:flex'>
+        <AlertDialogFooter className='grid shrink-0 grid-cols-2 gap-2 sm:flex'>
           <AlertDialogCancel disabled={processing}>
             {t('Cancel')}
           </AlertDialogCancel>

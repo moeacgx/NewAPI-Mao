@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
@@ -55,6 +56,11 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
+const EMPTY_GROUP_METADATA: {
+  ratios: Record<string, number | string>
+  groups: Record<string, GroupIdentity>
+} = { ratios: {}, groups: {} }
+
 function useGroupMetadata() {
   const { data } = useQuery({
     queryKey: ['user-groups'],
@@ -75,7 +81,7 @@ function useGroupMetadata() {
     },
   })
 
-  return data ?? { ratios: {}, groups: {} }
+  return data ?? EMPTY_GROUP_METADATA
 }
 
 export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
@@ -84,6 +90,33 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
+  // 表格每次渲染都会因活动轮询重建列定义，flexRender 会把新 cell 函数当作新组件重新挂载；
+  // 分组列独立记忆，避免已点开的分组弹层被轮询或时钟刷新关闭。
+  const groupColumn = useMemo<ColumnDef<ApiKey>>(
+    () => ({
+      accessorKey: 'group',
+      header: t('Group'),
+      cell: ({ row }) => {
+        const apiKey = row.original
+        const group = row.getValue('group') as string
+        return (
+          <ApiKeyGroupCell
+            group={group}
+            groupIds={apiKey.group_ids}
+            groupDetails={apiKey.group_details}
+            groups={groups}
+            ratio={groupRatios[group]}
+            ratios={groupRatios}
+            crossGroupRetry={apiKey.cross_group_retry}
+            shouldReduceMotion={shouldReduceMotion}
+          />
+        )
+      },
+      size: 220,
+      meta: { mobileHidden: true },
+    }),
+    [t, groups, groupRatios, shouldReduceMotion]
+  )
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
   return [
     {
@@ -193,27 +226,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       },
       size: 170,
     },
-    {
-      accessorKey: 'group',
-      header: t('Group'),
-      cell: ({ row }) => {
-        const apiKey = row.original
-        const group = row.getValue('group') as string
-        return (
-          <ApiKeyGroupCell
-            group={group}
-            groupIds={apiKey.group_ids}
-            groupDetails={apiKey.group_details}
-            groups={groups}
-            ratio={groupRatios[group]}
-            crossGroupRetry={apiKey.cross_group_retry}
-            shouldReduceMotion={shouldReduceMotion}
-          />
-        )
-      },
-      size: 220,
-      meta: { mobileHidden: true },
-    },
+    groupColumn,
     {
       id: 'model_limits',
       accessorKey: 'model_limits',

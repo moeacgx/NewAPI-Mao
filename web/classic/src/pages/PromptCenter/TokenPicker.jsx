@@ -117,6 +117,7 @@ export default function TokenPicker(props) {
           props.onClose?.();
         }}
         width={560}
+        centered
         style={{ maxWidth: 'calc(100vw - 24px)' }}
         className='prompt-token-modal'
       >

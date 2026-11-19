@@ -50,7 +50,10 @@ func TestTaskPluginPerformanceFilterPreservesLogsAndBilling(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.PerfMetric{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.PromptAuditConfig{}, &model.PromptAuditEndpoint{}, &model.RequestArchiveConfig{}, &model.RequestArchiveTarget{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TaskPlugin{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.PerfMetric{}, &model.Group{}, &model.GroupAlias{}, &model.ChannelGroupBinding{}, &model.Ability{}, &model.Model{}, &model.Vendor{}, &model.PromptAuditConfig{}, &model.PromptAuditEndpoint{}, &model.RequestArchiveConfig{}, &model.RequestArchiveTarget{}, &model.PromptAuditQueueState{}, &model.RequestArchiveQueueState{}))
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	require.NoError(t, (&model.Model{ModelName: "filter-alias", Status: 1}).Insert())
 	oldRegistry, oldLogDB := jsplugin.DefaultRegistry, model.LOG_DB
 	oldCache, oldBatch, oldLog, oldErrors := common.MemoryCacheEnabled, common.BatchUpdateEnabled, common.LogConsumeEnabled, constant.ErrorLogEnabled
 	oldPrice := ratio_setting.ModelPrice2JSONString()

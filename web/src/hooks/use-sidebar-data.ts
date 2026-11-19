@@ -264,6 +264,12 @@ export function useSidebarData(): SidebarData {
             requiredRole: ROLE.ADMIN,
           },
           {
+            title: t('MCP Management'),
+            url: '/mcp-management',
+            icon: ServerCog,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
             title: t('System Settings'),
             url: '/system-settings/site',
             activeUrls: ['/system-settings'],

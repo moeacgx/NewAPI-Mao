@@ -87,6 +87,8 @@ const (
 	// Realtime security audit upgrades the client connection before channel
 	// distribution and preserves the initial control frames for the relay.
 	ContextKeyPromptAuditRealtimeClientWs       ContextKey = "prompt_audit_realtime_client_ws"
+	ContextKeyRealtimeModelAdmitted             ContextKey = "realtime_model_admitted"
+	ContextKeyAdmittedImageTaskModel            ContextKey = "admitted_image_task_model"
 	ContextKeyPromptAuditRealtimeBufferedFrames ContextKey = "prompt_audit_realtime_buffered_frames"
 	ContextKeyPromptAuditRealtimeActive         ContextKey = "prompt_audit_realtime_active"
 	ContextKeyPromptAuditGroupId                ContextKey = "prompt_audit_group_id"

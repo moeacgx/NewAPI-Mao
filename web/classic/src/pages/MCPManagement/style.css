@@ -1,0 +1,501 @@
+.mcp-page {
+  width: 100%;
+  max-width: 1328px;
+  margin: 0 auto;
+  padding: 56px 24px 32px;
+  min-width: 0;
+  color: var(--semi-color-text-0);
+}
+.mcp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.mcp-page .semi-card {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 12px;
+  background: var(--semi-color-bg-1);
+  min-width: 0;
+}
+.mcp-page .semi-card-header {
+  border-bottom: 1px solid var(--semi-color-border);
+  padding: 16px 24px;
+}
+.mcp-page .semi-card-body {
+  padding: 24px;
+}
+.mcp-heading h1 {
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 650;
+  margin: 4px 0 0;
+}
+.mcp-page h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+.mcp-page h3,
+.mcp-permissions h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.mcp-page p,
+.mcp-permissions p {
+  margin: 8px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.mcp-page .mcp-muted,
+.mcp-permissions .mcp-muted {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+}
+.mcp-toolbar,
+.mcp-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.mcp-section-heading {
+  justify-content: space-between;
+}
+.mcp-tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--semi-color-border);
+  overflow-x: auto;
+}
+.mcp-tabs button {
+  padding: 12px 16px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--semi-color-text-2);
+  cursor: pointer;
+}
+.mcp-tabs button[aria-selected='true'] {
+  color: var(--semi-color-text-0);
+  border-bottom-color: var(--semi-color-text-0);
+  font-weight: 600;
+}
+.mcp-page :focus-visible,
+.mcp-permissions :focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 3px;
+}
+.mcp-access-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.mcp-access-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 32px;
+}
+.mcp-access-card .semi-card-body {
+  padding: 28px;
+}
+.mcp-steps {
+  padding-left: 20px;
+  margin: 24px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.mcp-steps li {
+  padding: 5px 0;
+}
+.mcp-steps .semi-button {
+  vertical-align: baseline;
+  height: auto;
+  padding: 2px 4px;
+}
+.mcp-endpoint {
+  border-top: 1px solid var(--semi-color-border);
+  padding-top: 20px;
+}
+.mcp-address {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  border: 1px solid var(--semi-color-border);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.mcp-address code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.mcp-client-switch {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.mcp-client-switch button {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--semi-color-text-1);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mcp-client-switch button[aria-pressed='true'] {
+  background: var(--semi-color-fill-1);
+  color: var(--semi-color-text-0);
+  font-weight: 600;
+}
+.mcp-config {
+  border: 1px solid var(--semi-color-border);
+  background: var(--semi-color-fill-0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mcp-config-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--semi-color-border);
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+.mcp-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.mcp-config .mcp-code {
+  min-height: 260px;
+  margin: 0;
+  padding: 20px;
+  background: transparent;
+}
+.mcp-rules {
+  margin-top: 28px;
+  border-top: 1px solid var(--semi-color-border);
+  padding-top: 20px;
+}
+.mcp-rules ul {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+  line-height: 2;
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+.mcp-form-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.mcp-form-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.mcp-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) minmax(100px, 1fr) minmax(
+      100px,
+      1fr
+    );
+  gap: 12px;
+}
+.mcp-filters label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.mcp-page input:not([type='checkbox']),
+.mcp-catalog input:not([type='checkbox']),
+.mcp-catalog select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  background: var(--semi-color-bg-0);
+  color: var(--semi-color-text-0);
+  max-width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+}
+.mcp-page input::placeholder,
+.mcp-catalog input::placeholder {
+  color: var(--semi-color-text-3);
+}
+.mcp-page fieldset {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0;
+}
+.mcp-page legend {
+  padding: 0 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.mcp-create-button {
+  align-self: flex-start;
+  min-width: 120px;
+}
+.mcp-catalog {
+  gap: 12px;
+}
+.mcp-catalog p {
+  margin: 0;
+  font-size: 13px;
+}
+.mcp-catalog-list {
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 360px;
+  overscroll-behavior: contain;
+  background: var(--semi-color-bg-1);
+}
+.mcp-tool-group {
+  min-width: 0;
+}
+.mcp-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--semi-color-border);
+  background: var(--semi-color-fill-0);
+}
+.mcp-catalog .mcp-checkbox,
+.mcp-tool {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+.mcp-catalog .mcp-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.mcp-checkbox > div {
+  min-width: 0;
+}
+.mcp-catalog input[type='checkbox'] {
+  flex-shrink: 0;
+  margin-top: 4px;
+  accent-color: var(--semi-color-primary);
+}
+.mcp-catalog .mcp-tool-name {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 500;
+}
+.mcp-checkbox p {
+  margin-top: 4px;
+}
+.mcp-tool .mcp-toolbar {
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.mcp-tool details {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+.mcp-tool summary {
+  cursor: pointer;
+}
+.mcp-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mcp-catalog .mcp-bulk-button {
+  padding: 6px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  color: var(--semi-color-text-0);
+  background: var(--semi-color-bg-1);
+  white-space: normal;
+  text-align: start;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mcp-catalog .mcp-bulk-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mcp-catalog .mcp-write-action,
+.mcp-catalog .mcp-write-badge {
+  color: var(--semi-color-danger);
+  background: var(--semi-color-danger-light-default);
+}
+.mcp-catalog .mcp-write-badge,
+.mcp-catalog .mcp-read-badge,
+.mcp-catalog .mcp-unknown-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.mcp-catalog .mcp-read-badge {
+  color: var(--semi-color-success);
+  background: var(--semi-color-success-light-default);
+}
+.mcp-catalog .mcp-unknown-badge {
+  color: var(--semi-color-text-2);
+  background: var(--semi-color-fill-0);
+}
+.mcp-break {
+  overflow-wrap: anywhere;
+}
+.mcp-copy {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mcp-copy .semi-button {
+  font-size: 12px;
+}
+.mcp-table {
+  overflow-x: auto;
+}
+.mcp-table table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 820px;
+  font-size: 13px;
+}
+.mcp-table th,
+.mcp-table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--semi-color-border);
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+.mcp-table th {
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mcp-permission-summary {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  white-space: nowrap;
+}
+.mcp-permission-summary .semi-button {
+  padding: 0;
+  height: 24px;
+}
+.mcp-page [role='alert'] {
+  color: var(--semi-color-danger);
+}
+.mcp-permissions {
+  min-width: 0;
+}
+.mcp-permissions .mcp-catalog-list {
+  max-height: min(55vh, 480px);
+}
+@media (max-width: 900px) {
+  .mcp-access-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .mcp-page {
+    padding: 72px 12px 20px;
+  }
+  .mcp-page .semi-card-body,
+  .mcp-access-card .semi-card-body {
+    padding: 16px;
+  }
+  .mcp-page .semi-card-header {
+    padding: 14px 16px;
+  }
+  .mcp-tabs {
+    gap: 0;
+  }
+  .mcp-tabs button {
+    padding: 12px 10px;
+  }
+  .mcp-form-fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .mcp-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mcp-filters > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .mcp-page fieldset {
+    padding: 12px;
+  }
+  .mcp-address {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .mcp-group-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* ?? Classic ???? important?????????????? */
+.mcp-page .semi-card-header {
+  padding: 16px 24px !important;
+}
+.mcp-page .semi-card-body {
+  padding: 24px !important;
+}
+.mcp-page .mcp-access-card .semi-card-body {
+  padding: 28px !important;
+}
+.mcp-steps {
+  list-style: decimal;
+}
+.mcp-rules ul {
+  list-style: disc;
+}
+@media (max-width: 640px) {
+  .mcp-page .semi-card-header {
+    padding: 14px 16px !important;
+  }
+  .mcp-page .semi-card-body,
+  .mcp-page .mcp-access-card .semi-card-body {
+    padding: 16px !important;
+  }
+}

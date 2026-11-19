@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -54,6 +56,7 @@ var (
 	supportedEndpointMap map[string]common.EndpointInfo
 	lastGetPricingTime   time.Time
 	updatePricingLock    sync.Mutex
+	modelCatalog         atomic.Pointer[modelCatalogSnapshot]
 
 	// 缓存映射：模型名 -> 启用分组 / 计费类型
 	modelEnableGroups     = make(map[string][]string)
@@ -61,22 +64,23 @@ var (
 	modelEnableGroupsLock = sync.RWMutex{}
 )
 
+type modelCatalogSnapshot struct {
+	loadedAt time.Time
+	exact    map[string]struct{}
+	rules    []Model
+	pricing  map[string][]string
+	err      error
+}
+
 var (
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
 	modelSupportEndpointsLock = sync.RWMutex{}
 )
 
 func GetPricing() []Pricing {
-	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		updatePricingLock.Lock()
-		defer updatePricingLock.Unlock()
-		// Double check after acquiring the lock
-		if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-			modelSupportEndpointsLock.Lock()
-			defer modelSupportEndpointsLock.Unlock()
-			updatePricing()
-		}
-	}
+	updatePricingLock.Lock()
+	defer updatePricingLock.Unlock()
+	refreshPricingIfStale()
 	return pricingMap
 }
 
@@ -87,14 +91,64 @@ func InvalidatePricingCache() {
 	pricingMap = nil
 	vendorsList = nil
 	lastGetPricingTime = time.Time{}
+	modelCatalog.Store(nil)
+}
+
+func refreshPricingIfStale() {
+	if time.Since(lastGetPricingTime) > time.Minute {
+		modelSupportEndpointsLock.Lock()
+		defer modelSupportEndpointsLock.Unlock()
+		updatePricing()
+	}
+}
+
+func IsModelInCatalog(name string) (bool, error) {
+	catalog := modelCatalog.Load()
+	if catalog == nil || time.Since(catalog.loadedAt) > time.Minute {
+		updatePricingLock.Lock()
+		refreshPricingIfStale()
+		catalog = modelCatalog.Load()
+		updatePricingLock.Unlock()
+	}
+	if catalog.err != nil {
+		return false, catalog.err
+	}
+	matchingName := ratio_setting.FormatMatchingModelName(name)
+	for _, candidate := range [...]string{matchingName, name} {
+		if _, exists := catalog.exact[candidate]; exists {
+			return true, nil
+		}
+		if groups := catalog.pricing[candidate]; len(groups) > 0 && setting.HasPublicUsableGroup(groups) {
+			return true, nil
+		}
+		for _, rule := range catalog.rules {
+			switch rule.NameRule {
+			case NameRulePrefix:
+				if strings.HasPrefix(candidate, rule.ModelName) {
+					return true, nil
+				}
+			case NameRuleSuffix:
+				if strings.HasSuffix(candidate, rule.ModelName) {
+					return true, nil
+				}
+			case NameRuleContains:
+				if strings.Contains(candidate, rule.ModelName) {
+					return true, nil
+				}
+			}
+		}
+		if matchingName == name {
+			break
+		}
+	}
+	return false, nil
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
 func GetVendors() []PricingVendor {
-	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		// 保证先刷新一次
-		GetPricing()
-	}
+	updatePricingLock.Lock()
+	defer updatePricingLock.Unlock()
+	refreshPricingIfStale()
 	return vendorsList
 }
 
@@ -251,11 +305,19 @@ func updatePricing() {
 	enableAbilities, err := GetAllEnableAbilityWithChannels()
 	if err != nil {
 		common.SysLog(fmt.Sprintf("GetAllEnableAbilityWithChannels error: %v", err))
+		lastGetPricingTime = time.Now()
+		modelCatalog.Store(&modelCatalogSnapshot{loadedAt: lastGetPricingTime, err: err})
 		return
 	}
 	// 预加载模型元数据与供应商一次，避免循环查询
 	var allMeta []Model
-	_ = DB.Find(&allMeta).Error
+	if err := DB.Find(&allMeta).Error; err != nil {
+		lastGetPricingTime = time.Now()
+		modelCatalog.Store(&modelCatalogSnapshot{loadedAt: lastGetPricingTime, err: err})
+		return
+	}
+	catalogNames := make(map[string]struct{}, len(allMeta))
+	catalogRules := make([]Model, 0)
 	metaMap := make(map[string]*Model)
 	prefixList := make([]*Model, 0)
 	suffixList := make([]*Model, 0)
@@ -264,7 +326,11 @@ func updatePricing() {
 		m := &allMeta[i]
 		if m.NameRule == NameRuleExact {
 			metaMap[m.ModelName] = m
+			catalogNames[m.ModelName] = struct{}{}
 		} else {
+			if m.ModelName != "" {
+				catalogRules = append(catalogRules, Model{ModelName: m.ModelName, NameRule: m.NameRule})
+			}
 			switch m.NameRule {
 			case NameRulePrefix:
 				prefixList = append(prefixList, m)
@@ -505,9 +571,12 @@ func updatePricing() {
 	modelEnableGroupsLock.Unlock()
 
 	lastGetPricingTime = time.Now()
+	modelCatalog.Store(&modelCatalogSnapshot{loadedAt: lastGetPricingTime, exact: catalogNames, rules: catalogRules, pricing: modelEnableGroups})
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射
 func GetSupportedEndpointMap() map[string]common.EndpointInfo {
+	modelSupportEndpointsLock.RLock()
+	defer modelSupportEndpointsLock.RUnlock()
 	return supportedEndpointMap
 }

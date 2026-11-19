@@ -61,6 +61,7 @@ import NotificationCenter from './pages/NotificationCenter';
 
 const Home = lazy(() => import('./pages/Home'));
 const TaskPlugins = lazy(() => import('./pages/TaskPlugins'));
+const MCPManagement = lazy(() => import('./pages/MCPManagement'));
 const Tickets = lazy(() => import('./pages/Tickets'));
 const PromptCenter = lazy(() => import('./pages/PromptCenter'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -212,6 +213,16 @@ function App() {
             <AdminRoute>
               <Suspense fallback={<Loading />}>
                 <TaskPlugins />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/mcp'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <MCPManagement />
               </Suspense>
             </AdminRoute>
           }

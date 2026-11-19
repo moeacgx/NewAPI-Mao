@@ -59,6 +59,9 @@ func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code
 		},
 	})
 	c.Abort()
+	if statusCode == http.StatusNotFound && codeStr == string(types.ErrorCodeModelNotFound) {
+		return
+	}
 	logger.LogError(c.Request.Context(), fmt.Sprintf("user %d | %s", userId, message))
 }
 

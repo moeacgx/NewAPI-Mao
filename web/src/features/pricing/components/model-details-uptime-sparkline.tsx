@@ -30,6 +30,7 @@ import {
   getSuccessRateDotClass,
   getSuccessRateTextClass,
 } from '@/features/performance-metrics/lib/format'
+import { getAvailabilityStatusLevel } from '@/features/performance-metrics/lib/status-segments'
 import { cn } from '@/lib/utils'
 
 import { aggregateUptime, type UptimeDayPoint } from '../lib/mock-stats'
@@ -46,14 +47,54 @@ import { aggregateUptime, type UptimeDayPoint } from '../lib/mock-stats'
 // Useful as a header strip ("at-a-glance" status) and as a per-row visual
 // inside the per-group performance table.
 
-type SparklineSize = 'sm' | 'md'
+type SparklineSize = 'sm' | 'md' | 'fill'
+
+const SPARKLINE_SIZE_CLASSES: Record<
+  SparklineSize,
+  { container: string; bar: string; gap: string; track: string }
+> = {
+  sm: { container: 'h-3.5', bar: 'w-[3px]', gap: 'gap-px', track: '' },
+  md: { container: 'h-5', bar: 'w-1', gap: 'gap-[2px]', track: '' },
+  fill: {
+    container: 'h-5',
+    bar: 'min-w-0 flex-1',
+    gap: 'gap-px',
+    track: 'min-w-0 flex-1',
+  },
+}
+
+export type UptimeSparklinePoint = Omit<UptimeDayPoint, 'uptime_pct'> & {
+  /** null 表示该时段没有请求，渲染为空闲空位而不是成功或失败 */
+  uptime_pct: number | null
+}
+
+type UptimeSparklineTone = 'success-rate' | 'availability'
 
 type UptimeSparklineProps = {
-  series: UptimeDayPoint[]
+  series: UptimeSparklinePoint[]
+  /** 详情页按成功率分级；卡片沿用原可用性分级：仅 0% 为故障，95% 以上为健康 */
+  tone?: UptimeSparklineTone
+  /** 卡片沿用原分级时，柱高同样按可用性分级 */
+  /** 无障碍播报的统计窗口，详情页默认 30 天，卡片传入 24 小时 */
+  windowLabel?: string
   size?: SparklineSize
   showOverall?: boolean
   emptyLabel?: string
   className?: string
+}
+
+function availabilityDotClass(uptime: number): string {
+  const level = getAvailabilityStatusLevel(uptime)
+  if (level === 'healthy') return 'bg-success'
+  if (level === 'degraded') return 'bg-warning'
+  return 'bg-destructive'
+}
+
+function availabilityHeight(uptime: number): string {
+  const level = getAvailabilityStatusLevel(uptime)
+  if (level === 'healthy') return 'h-full'
+  if (level === 'degraded') return 'h-[72%]'
+  return 'h-[40%]'
 }
 
 function heightFor(uptime: number): string {
@@ -76,19 +117,30 @@ export function UptimeSparkline(props: UptimeSparklineProps) {
     )
   }
 
+  const measured = props.series.flatMap((p) =>
+    p.uptime_pct == null ? [] : [p.uptime_pct]
+  )
   const overall =
-    props.series.reduce((s, p) => s + p.uptime_pct, 0) / props.series.length
+    measured.length > 0
+      ? measured.reduce((s, value) => s + value, 0) / measured.length
+      : 0
 
-  const containerHeight = size === 'sm' ? 'h-3.5' : 'h-5'
-  const barWidth = size === 'sm' ? 'w-[3px]' : 'w-1'
-  const gap = size === 'sm' ? 'gap-px' : 'gap-[2px]'
+  const sizeClasses = SPARKLINE_SIZE_CLASSES[size]
+  const containerHeight = sizeClasses.container
+  const barWidth = sizeClasses.bar
+  const gap = sizeClasses.gap
 
   return (
     <div className={cn('flex items-center gap-2', props.className)}>
       <div
-        className={cn('flex items-end', containerHeight, gap)}
+        className={cn(
+          'flex items-end',
+          containerHeight,
+          gap,
+          sizeClasses.track
+        )}
         role='img'
-        aria-label={`30 day uptime ${overall.toFixed(2)}%`}
+        aria-label={`${props.windowLabel ?? '30 day uptime'} ${overall.toFixed(2)}%`}
       >
         {props.series.map((day) => (
           <Tooltip key={day.date}>
@@ -107,15 +159,26 @@ export function UptimeSparkline(props: UptimeSparklineProps) {
               <div
                 className={cn(
                   'w-full rounded-sm',
-                  getSuccessRateDotClass(day.uptime_pct),
-                  heightFor(day.uptime_pct)
+                  day.uptime_pct == null
+                    ? 'bg-muted-foreground/15 h-[30%]'
+                    : props.tone === 'availability'
+                      ? [
+                          availabilityDotClass(day.uptime_pct),
+                          availabilityHeight(day.uptime_pct),
+                        ]
+                      : [
+                          getSuccessRateDotClass(day.uptime_pct),
+                          heightFor(day.uptime_pct),
+                        ]
                 )}
                 aria-hidden
               />
             </TooltipTrigger>
             <TooltipContent side='top' className='font-mono text-xs'>
               <div className='font-medium'>{day.date}</div>
-              <div>{day.uptime_pct.toFixed(2)}%</div>
+              <div>
+                {day.uptime_pct == null ? '—' : `${day.uptime_pct.toFixed(2)}%`}
+              </div>
               {day.outage_minutes > 0 && (
                 <div className='text-muted-foreground'>
                   {day.outage_minutes} min outage

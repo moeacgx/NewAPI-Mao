@@ -315,6 +315,21 @@ func ListModels(c *gin.Context, modelType int) {
 }
 
 func ChannelListModels(c *gin.Context) {
+	// 内置目录可能超过 MCP 响应上限；仅私有桥接调用使用分页，不改变后台完整数组契约。
+	if c.Request != nil {
+		if _, internal := service.MCPInternalKeyID(c.Request.Context()); internal {
+			page := common.GetPageQuery(c)
+			if c.Query("page_size") == "" {
+				page.PageSize = 20
+			}
+			start := min(page.GetStartIdx(), len(openAIModels))
+			end := min(start+page.GetPageSize(), len(openAIModels))
+			page.SetTotal(len(openAIModels))
+			page.SetItems(openAIModels[start:end])
+			common.ApiSuccess(c, page)
+			return
+		}
+	}
 	c.JSON(200, gin.H{
 		"success": true,
 		"data":    openAIModels,
