@@ -151,13 +151,9 @@ const PricingTemplateHeader = ({
       <header
         className={`classic-pricing-template-header${
           isConsoleMode ? ' is-console' : ''
-        }`}
+        }${scrolled ? ' is-scrolled' : ''}`}
       >
-        <div
-          className={`classic-pricing-template-header-frame${
-            scrolled ? ' is-scrolled' : ''
-          }`}
-        >
+        <div className='classic-pricing-template-header-frame'>
           <nav className='classic-pricing-template-nav'>
             <div className='classic-pricing-template-brand-area'>
               {isConsoleMode && consoleSidebarToggle && (

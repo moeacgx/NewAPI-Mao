@@ -280,7 +280,10 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
   )
 }
 
-function CatalogPillList(props: { items: string[] }) {
+function CatalogPillList(props: {
+  items: string[]
+  getLabel?: (item: string) => string
+}) {
   return (
     <div className='flex min-w-0 flex-wrap gap-1.5'>
       {props.items.map((item) => (
@@ -288,7 +291,7 @@ function CatalogPillList(props: { items: string[] }) {
           key={item}
           className='bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs font-medium'
         >
-          {item}
+          {props.getLabel ? props.getLabel(item) : item}
         </span>
       ))}
     </div>
@@ -493,7 +496,10 @@ function ModelBackendSignalsSection(props: { model: PricingModel }) {
   )
 }
 
-function ModelBackendProviderSection(props: { model: PricingModel }) {
+function ModelBackendProviderSection(props: {
+  model: PricingModel
+  groupNames: GroupNameMap
+}) {
   const { t } = useTranslation()
   const model = props.model
   const groups = normalizeCatalogItems(model.enable_groups)
@@ -517,7 +523,10 @@ function ModelBackendProviderSection(props: { model: PricingModel }) {
   if (groups.length > 0) {
     cells.push(
       <CatalogInfoCell key='groups' label={t('Groups')}>
-        <CatalogPillList items={groups} />
+        <CatalogPillList
+          items={groups}
+          getLabel={(group) => getGroupDisplayName(group, props.groupNames)}
+        />
       </CatalogInfoCell>
     )
   }
@@ -550,12 +559,18 @@ function ModelBackendProviderSection(props: { model: PricingModel }) {
   )
 }
 
-function ModelBackendDetailsSection(props: { model: PricingModel }) {
+function ModelBackendDetailsSection(props: {
+  model: PricingModel
+  groupNames: GroupNameMap
+}) {
   return (
     <>
       <ModelBackendQuickStats model={props.model} />
       <ModelBackendSignalsSection model={props.model} />
-      <ModelBackendProviderSection model={props.model} />
+      <ModelBackendProviderSection
+        model={props.model}
+        groupNames={props.groupNames}
+      />
     </>
   )
 }
@@ -1382,7 +1397,10 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             />
           </section>
 
-          <ModelBackendDetailsSection model={props.model} />
+          <ModelBackendDetailsSection
+            model={props.model}
+            groupNames={props.groupNames}
+          />
         </TabsContent>
 
         <TabsContent value='performance' className='outline-none'>
