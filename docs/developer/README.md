@@ -1,6 +1,7 @@
 # NewAPI-Mao 开发文档
 
 - [网关模型准入（#417）](model-admission.md)：模型广场和模型管理目录、路由前拒绝及日志契约。
+- [模型详情按分组定价显示分组倍率](../workflows/2026-11/21_pricing_detail_group_ratio.md)：Default 分档卡片标题右侧与常规定价「Multiplier」列显示 `getConfiguredGroupRatio` 倍率（0、1 照常显示，缺失为 1），折扣与价格不变；Classic 已有同等展示，只补回归测试；未做浏览器验证。
 - [令牌分组标签大卡片与普通多选优先级列表](../workflows/2026-11/18_token_auto_group_cards.md)：Default 令牌创建/编辑在选择器上方显示分组标签大卡片（手机 2 列、`sm` 起 3 列，品牌图标、名称、可选分组数、选中态），两套模板在普通选择器选中 2 个及以上具体分组时显示“Custom Auto”有序优先级列表（序号、拖拽、上移/下移、移除，首项最先尝试）；线路格式保持显式 `group`/`group_ids`/`group_mode=explicit`，不转为 `auto`，不改后端、计费、鉴权；显式 Auto 的 `auto_groups` 行为不变；已跑 Default 32 项与 Classic 33 项聚焦测试、lint、typecheck，真实浏览器、构建与部署未验。
 - [返佣规则内嵌与推广页提示](../workflows/2026-11/18_affiliate_promotion_notice.md)：Default `/affiliate-management` 新增 Root 可编辑“返佣规则”标签并复用同一规则表单；双模板新增推广页提示开关（默认关）、标题与纯文本正文，进入或刷新推广页时弹出一次（先提示后协议、一次一个弹窗、乱序响应保护）；保存走 `PUT /api/option/affiliate-batch` 原子批量写入，服务端校验开关与 100/2000 字限制；协议与结算不变；已用隔离 SQLite 与真实 Chromium 验证，未部署。
 - [Default 令牌技能弹窗计数归零卸载修复](../workflows/2026-11/18_default_token_skill_dialog_count_zero.md)：已打开的技能安装弹窗不再因令牌列表快照 `prompt_count=0` 被卸载，关闭后徽标仍隐藏；另含刷新在途不重挂载单元格、Default 手机端入口与 Classic 手机端刷新保留卡片；并补充关闭后的键盘焦点（Default `finalFocus`、Classic 关闭后聚焦）；真实浏览器复验由独立验收负责，构建未验。
