@@ -34,82 +34,77 @@ function buildHourlySeries(count: number, successRate: number) {
 }
 
 function getStatusBars() {
-  const strip = screen.getByRole('img', { name: /24 hours/i })
+  const strip = screen.getByRole('img', { name: /^Status:/ })
   return strip.children
 }
 
-describe('模型广场 Default 卡片状态条', () => {
-  it('24 小时逐桶数据渲染为与详情页一致的多根长条，并保留延迟与吞吐量', () => {
-    render(
-      <ModelPerfBadge
-        perf={{
-          avg_latency_ms: 1200,
-          success_rate: 100,
-          status_rate: 100,
-          avg_tps: 42,
-          series: buildHourlySeries(20, 100),
-        }}
-      />
-    )
+function renderBadge(series: ReturnType<typeof buildHourlySeries>, rate = 100) {
+  return render(
+    <ModelPerfBadge
+      perf={{
+        avg_latency_ms: 1200,
+        success_rate: rate,
+        status_rate: rate,
+        avg_tps: 42,
+        series,
+      }}
+    />
+  )
+}
 
-    expect(getStatusBars().length).toBeGreaterThan(3)
+describe('模型广场 Default 卡片状态信号', () => {
+  it('24 小时逐桶数据压缩为三格信号，并保留延迟与吞吐量', () => {
+    renderBadge(buildHourlySeries(20, 100))
+
+    const bars = getStatusBars()
+    expect(bars).toHaveLength(3)
+    expect(bars[0]).toHaveClass('h-2', 'rounded-full')
+    expect(bars[1]).toHaveClass('h-2.5')
+    expect(bars[2]).toHaveClass('h-3')
     expect(screen.getByTitle('Average latency')).toHaveTextContent('1.20s')
     expect(screen.getByTitle('Throughput')).toHaveTextContent('42.0t')
   })
 
-  it('没有请求的小时保留为空位，状态条固定为 24 根并播报 24 小时窗口', () => {
+  it('某个 8 小时时段没有请求时该格保留为空位，其余格按样本着色', () => {
     const series = buildHourlySeries(24, 100).filter(
-      (_, index) => index % 4 !== 1
+      (_, index) => index < 8 || index >= 16
     )
-    render(
-      <ModelPerfBadge
-        perf={{
-          avg_latency_ms: 1200,
-          success_rate: 100,
-          status_rate: 100,
-          avg_tps: 42,
-          series,
-        }}
-      />
-    )
+    renderBadge(series)
 
-    const strip = screen.getByRole('img', { name: /24 hours/i })
-    expect(strip.children).toHaveLength(24)
-    expect(
-      strip.querySelectorAll('.bg-muted-foreground\\/15').length
-    ).toBeGreaterThan(0)
-    expect(
-      screen.queryByRole('img', { name: /30 day/i })
-    ).not.toBeInTheDocument()
+    const bars = getStatusBars()
+    expect(bars).toHaveLength(3)
+    expect(bars[0]).toHaveClass('bg-success')
+    expect(bars[1]).toHaveClass('bg-muted-foreground/15')
+    expect(bars[2]).toHaveClass('bg-success')
+  })
+
+  it('同一格内按样本平均可用率着色', () => {
+    const series = buildHourlySeries(24, 100).map((point, index) =>
+      index >= 16 && index % 2 === 0 ? { ...point, success_rate: 0 } : point
+    )
+    renderBadge(series)
+
+    const bars = getStatusBars()
+    expect(bars[0]).toHaveClass('bg-success')
+    expect(bars[2]).toHaveClass('bg-warning')
   })
 
   it.each([
     [0, 'bg-destructive'],
     [50, 'bg-warning'],
     [95, 'bg-success'],
-  ])('桶可用率 %s%% 沿用原卡片分级，只有 0%% 显示为故障', (rate, expected) => {
-    render(
-      <ModelPerfBadge
-        perf={{
-          avg_latency_ms: 1200,
-          success_rate: rate,
-          status_rate: rate,
-          avg_tps: 42,
-          series: buildHourlySeries(24, rate),
-        }}
-      />
-    )
+  ])(
+    '时段可用率 %s%% 沿用原卡片分级，只有 0%% 显示为故障',
+    (rate, expected) => {
+      renderBadge(buildHourlySeries(24, rate), rate)
 
-    const strip = screen.getByRole('img', { name: /24 hours/i })
-    const bar = strip.querySelector(`.${expected}`)
-    expect(bar).not.toBeNull()
-    for (const other of ['bg-destructive', 'bg-warning', 'bg-success']) {
-      if (other === expected) continue
-      expect(strip.querySelector(`.${other}`)).toBeNull()
+      for (const bar of getStatusBars()) {
+        expect(bar).toHaveClass(expected)
+      }
     }
-  })
+  )
 
-  it('只有聚合状态率时仍显示状态条而不是空占位', () => {
+  it('只有聚合状态率时仍显示三格信号而不是空占位', () => {
     render(
       <ModelPerfBadge
         perf={{
@@ -122,7 +117,11 @@ describe('模型广场 Default 卡片状态条', () => {
       />
     )
 
-    expect(getStatusBars().length).toBeGreaterThan(0)
+    const bars = getStatusBars()
+    expect(bars).toHaveLength(3)
+    for (const bar of bars) {
+      expect(bar).toHaveClass('bg-success')
+    }
     expect(screen.getByTitle('Average latency')).toHaveTextContent('—')
   })
 

@@ -19,21 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { StatusSegments } from '@/features/performance-metrics/components/status-segments'
 import {
   formatLatency,
   formatThroughput,
 } from '@/features/performance-metrics/lib/format'
-import { buildStatusSegments } from '@/features/performance-metrics/lib/status-segments'
 import type {
   PerfModelSummary,
   PerformanceSeriesPoint,
 } from '@/features/performance-metrics/types'
 import { cn } from '@/lib/utils'
-
-import {
-  UptimeSparkline,
-  type UptimeSparklinePoint,
-} from './model-details-uptime-sparkline'
 
 export type ModelPerfBadgeData = Pick<
   PerfModelSummary,
@@ -44,9 +39,8 @@ export interface ModelPerfBadgeProps extends React.HTMLAttributes<HTMLDivElement
   perf: ModelPerfBadgeData | undefined
 }
 
-// 卡片与详情页同为最近 24 小时：每小时一根长条，分钟级分桶会压缩到同样的 24 根。
-const MODEL_PERF_STATUS_BAR_COUNT = 24
-const AGGREGATE_STATUS_SEGMENT_COUNT = 3
+// 卡片把最近 24 小时压缩为三格信号（每格 8 小时）；详情页仍保留逐小时状态条。
+const MODEL_PERF_STATUS_SEGMENT_COUNT = 3
 
 function buildAggregateStatusSeries(
   successRate: number
@@ -54,11 +48,11 @@ function buildAggregateStatusSeries(
   if (!Number.isFinite(successRate)) return []
   const now = Math.trunc(Date.now() / 1000)
   const segmentSeconds = Math.trunc(
-    (24 * 60 * 60) / AGGREGATE_STATUS_SEGMENT_COUNT
+    (24 * 60 * 60) / MODEL_PERF_STATUS_SEGMENT_COUNT
   )
   const segmentMidpointSeconds = Math.trunc(segmentSeconds / 2)
-  return Array.from({ length: AGGREGATE_STATUS_SEGMENT_COUNT }, (_, index) => {
-    const offset = AGGREGATE_STATUS_SEGMENT_COUNT - index - 1
+  return Array.from({ length: MODEL_PERF_STATUS_SEGMENT_COUNT }, (_, index) => {
+    const offset = MODEL_PERF_STATUS_SEGMENT_COUNT - index - 1
     return {
       ts: now - offset * segmentSeconds - segmentMidpointSeconds,
       avg_ttft_ms: 0,
@@ -92,21 +86,11 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
             : point.success_rate,
         }))
       : buildAggregateStatusSeries(statusRate)
-  const uptimeSeries = buildStatusSegments(
-    statusSeries,
-    Math.trunc(Date.now() / 1000),
-    MODEL_PERF_STATUS_BAR_COUNT
-  ).map<UptimeSparklinePoint>((segment) => ({
-    date: new Date(segment.startTs * 1000).toISOString(),
-    uptime_pct: segment.successRate,
-    incidents: segment.successRate != null && segment.successRate < 100 ? 1 : 0,
-    outage_minutes: 0,
-  }))
 
   return (
     <div
       className={cn(
-        'grid w-full grid-cols-[auto_auto_minmax(0,6rem)] items-end justify-end gap-x-1.5 text-left tabular-nums min-[460px]:grid-cols-[auto_auto_minmax(0,7.5rem)] min-[460px]:gap-x-2',
+        'grid w-full grid-cols-[auto_auto_auto] items-end justify-end gap-x-1.5 text-left tabular-nums min-[460px]:gap-x-2',
         props.className
       )}
     >
@@ -130,13 +114,15 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         <div className='text-muted-foreground/55 truncate text-[10px] leading-4'>
           {t('Status short')}
         </div>
-        <UptimeSparkline
-          series={uptimeSeries}
-          windowLabel={t('Last 24 hours status')}
-          tone='availability'
-          size='fill'
+        <StatusSegments
+          series={statusSeries}
+          overallRate={statusRate}
+          size='sm'
           showOverall={false}
-          className='w-full'
+          tone='availability'
+          shape='signal'
+          segmentCount={MODEL_PERF_STATUS_SEGMENT_COUNT}
+          className='h-4 justify-start'
         />
       </div>
     </div>
