@@ -98,7 +98,7 @@ describe('模型广场 Default 卡片状态信号', () => {
     (rate, expected) => {
       renderBadge(buildHourlySeries(24, rate), rate)
 
-      for (const bar of Array.from(getStatusBars())) {
+      for (const bar of getStatusBars()) {
         expect(bar).toHaveClass(expected)
       }
     }
@@ -119,7 +119,7 @@ describe('模型广场 Default 卡片状态信号', () => {
 
     const bars = getStatusBars()
     expect(bars).toHaveLength(3)
-    for (const bar of Array.from(bars)) {
+    for (const bar of bars) {
       expect(bar).toHaveClass('bg-success')
     }
     expect(screen.getByTitle('Average latency')).toHaveTextContent('—')
