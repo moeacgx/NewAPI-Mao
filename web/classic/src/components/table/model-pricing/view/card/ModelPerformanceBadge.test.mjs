@@ -26,10 +26,12 @@ test('Classic 模型卡片把性能摘要放在右侧并隐藏时间与百分比
   assert.match(source, /classic-pricing-model-performance-status-label/);
   assert.match(source, /performance\.status_rate/);
   assert.match(source, /showOverall=\{false\}/);
-  assert.match(source, /maxPoints=\{24\}/);
+  assert.match(source, /maxPoints=\{3\}/);
+  assert.doesNotMatch(source, /maxPoints=\{24\}/);
   assert.match(source, /availabilityTone/);
   assert.match(source, /aggregateWindow/);
-  assert.doesNotMatch(source, /signalStyle/);
+  assert.match(source, /signalStyle/);
+  assert.doesNotMatch(source, /^\s+compact$/m);
   assert.match(source, /replace\(' t\/s', 't'\)/);
   assert.match(stylesheet, /\.classic-pricing-model-performance-badge/);
   assert.match(stylesheet, /flex:\s*1 1 220px/);

@@ -2052,7 +2052,7 @@ html.dark .with-pastel-balls::before {
   width: 100%;
   min-width: 0;
   flex: 1 1 220px;
-  grid-template-columns: auto auto minmax(0, 120px);
+  grid-template-columns: auto auto auto;
   justify-content: end;
   align-items: end;
   column-gap: 8px;
@@ -2127,26 +2127,9 @@ html.dark .with-pastel-balls::before {
   height: 12px;
 }
 
-/* 卡片状态条收紧为固定上限并随卡片宽度收缩，保证计费、延迟、吞吐量与状态同处一行。 */
-.classic-pricing-model-performance-signal {
-  width: 100%;
-  min-width: 0;
-}
-
-.classic-pricing-model-performance-signal > [role='img'] {
-  width: 100%;
-  min-width: 0;
-}
-
-.classic-pricing-model-performance-signal > [role='img'] > span {
-  flex: 1 1 0;
-  width: auto;
-  min-width: 0;
-}
-
 @media (max-width: 459px) {
   .classic-pricing-model-performance-badge {
-    grid-template-columns: auto auto minmax(0, 96px);
+    grid-template-columns: auto auto auto;
     column-gap: 6px;
     background: transparent;
   }

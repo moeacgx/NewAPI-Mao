@@ -78,10 +78,10 @@ const ModelPerformanceBadge = ({ performance, t }) => {
           <SuccessRateSparkline
             series={statusSeries}
             overall={statusRate}
-            maxPoints={24}
+            maxPoints={3}
             showOverall={false}
-            compact
             availabilityTone
+            signalStyle
             aggregateWindow
             className='classic-pricing-model-performance-signal'
           />
