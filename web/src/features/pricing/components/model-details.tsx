@@ -1062,6 +1062,8 @@ function GroupPricingSection(props: {
 
   const thClass =
     'text-muted-foreground py-2 text-[10px] font-medium tracking-wider uppercase'
+  const ratioClass =
+    'text-muted-foreground shrink-0 font-mono text-xs font-medium whitespace-nowrap tabular-nums'
 
   if (isDynamicPricingModel(props.model)) {
     const dynamicTiers = getDynamicPricingTiers(props.model)
@@ -1137,7 +1139,7 @@ function GroupPricingSection(props: {
 
             return (
               <div key={group} className='overflow-hidden rounded-lg border'>
-                <div className='bg-muted/20 flex items-start gap-3 border-b px-3 py-2'>
+                <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
                   <span className='inline-flex max-w-full min-w-0 items-center gap-2'>
                     <GroupBadge
                       group={group}
@@ -1150,6 +1152,7 @@ function GroupPricingSection(props: {
                       usdExchangeRate={props.usdExchangeRate}
                     />
                   </span>
+                  <span className={ratioClass}>{ratio}x</span>
                 </div>
                 <StaticDataTable
                   className='rounded-none border-0'
@@ -1262,6 +1265,17 @@ function GroupPricingSection(props: {
                 </span>
               )
             },
+          },
+          {
+            id: 'ratio',
+            header: t('Multiplier'),
+            className: `${thClass} text-right whitespace-nowrap`,
+            cellClassName: 'py-2.5 text-right',
+            cell: (group: string) => (
+              <span className={ratioClass}>
+                {getConfiguredGroupRatio(props.groupRatio, group)}x
+              </span>
+            ),
           },
           ...(isTokenBased
             ? [
