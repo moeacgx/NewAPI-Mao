@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"slices"
 	"sort"
 
 	"gorm.io/gorm"
@@ -88,26 +89,37 @@ func loadBenefitActivityGroups(db *gorm.DB, activities ...*BenefitActivity) erro
 		a.GroupIDs = []int{a.GroupId}
 		a.GroupNames = []string{a.GroupNameSnapshot}
 	}
-	var bindings []BenefitActivityGroup
-	if err := db.Where("activity_id IN ?", ids).Order("group_id ASC").Find(&bindings).Error; err != nil {
-		return err
+	// Both activity and group lists can grow beyond the SQLite parameter limit.
+	const lookupBatchSize = 500
+	for batch := range slices.Chunk(ids, lookupBatchSize) {
+		var bindings []BenefitActivityGroup
+		if err := db.Where("activity_id IN ?", batch).Order("group_id ASC").Find(&bindings).Error; err != nil {
+			return err
+		}
+		for _, b := range bindings {
+			a := byID[b.ActivityID]
+			a.GroupIDs = append(a.GroupIDs, b.GroupID)
+			a.GroupNames = append(a.GroupNames, b.NameSnapshot)
+		}
 	}
-	groupIDs := make([]int, 0, len(activities)+len(bindings))
-	for _, b := range bindings {
-		a := byID[b.ActivityID]
-		a.GroupIDs = append(a.GroupIDs, b.GroupID)
-		a.GroupNames = append(a.GroupNames, b.NameSnapshot)
-	}
+	groupIDs := make([]int, 0, len(activities))
+	names := make(map[int]string)
 	for _, a := range activities {
-		groupIDs = append(groupIDs, a.GroupIDs...)
+		for _, id := range a.GroupIDs {
+			if _, seen := names[id]; id > 0 && !seen {
+				groupIDs = append(groupIDs, id)
+				names[id] = ""
+			}
+		}
 	}
-	var groups []Group
-	if err := db.Select("id", "name").Where("id IN ?", groupIDs).Find(&groups).Error; err != nil {
-		return err
-	}
-	names := make(map[int]string, len(groups))
-	for _, group := range groups {
-		names[group.Id] = group.Name
+	for batch := range slices.Chunk(groupIDs, lookupBatchSize) {
+		var groups []Group
+		if err := db.Select("id", "name").Where("id IN ?", batch).Find(&groups).Error; err != nil {
+			return err
+		}
+		for _, group := range groups {
+			names[group.Id] = group.Name
+		}
 	}
 	for _, a := range activities {
 		for i, id := range a.GroupIDs {
