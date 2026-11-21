@@ -347,6 +347,11 @@ func InitResources() error {
 		common.FatalLog("failed to initialize database: " + err.Error())
 		return err
 	}
+	if !common.IsMasterNode {
+		if err := model.CheckBenefitVoucherSchema(model.DB); err != nil {
+			return err
+		}
+	}
 	if err = authz.Init(model.DB); err != nil {
 		common.FatalLog("failed to initialize authorization: " + err.Error())
 		return err

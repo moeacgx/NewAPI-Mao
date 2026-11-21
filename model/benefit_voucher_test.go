@@ -549,14 +549,14 @@ func TestBenefitMultiGroupSharesInventoryAndBalance(t *testing.T) {
 func TestBenefitVoucherSchemaRequiresBothMultiGroupMigrations(t *testing.T) {
 	setupBenefitVoucherTestDB(t)
 	migrator := DB.Migrator()
-	require.NoError(t, checkBenefitVoucherSchema(DB))
+	require.NoError(t, CheckBenefitVoucherSchema(DB))
 	require.NoError(t, migrator.DropTable(&BenefitActivityGroup{}))
-	require.ErrorContains(t, checkBenefitVoucherSchema(DB), "schema is not ready")
+	require.ErrorContains(t, CheckBenefitVoucherSchema(DB), "schema is not ready")
 	require.NoError(t, migrator.CreateTable(&BenefitActivityGroup{}))
 	require.NoError(t, migrator.DropColumn(&BenefitVoucherLedger{}, "RequestGroupID"))
-	require.ErrorContains(t, checkBenefitVoucherSchema(DB), "schema is not ready")
+	require.ErrorContains(t, CheckBenefitVoucherSchema(DB), "schema is not ready")
 	require.NoError(t, DB.AutoMigrate(&BenefitVoucherLedger{}))
-	require.NoError(t, checkBenefitVoucherSchema(DB))
+	require.NoError(t, CheckBenefitVoucherSchema(DB))
 }
 
 func TestSettleBenefitVoucherQuotaPositiveDeltaUsesNextVoucher(t *testing.T) {

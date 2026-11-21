@@ -18,7 +18,9 @@ type BenefitActivityGroup struct {
 
 func (BenefitActivityGroup) TableName() string { return "benefit_activity_groups" }
 
-func checkBenefitVoucherSchema(db *gorm.DB) error {
+// CheckBenefitVoucherSchema verifies that the master has migrated the shared
+// database before a replica starts accepting requests.
+func CheckBenefitVoucherSchema(db *gorm.DB) error {
 	migrator := db.Migrator()
 	if !migrator.HasTable(&BenefitActivityGroup{}) || !migrator.HasColumn(&BenefitVoucherLedger{}, "RequestGroupID") {
 		return errors.New("benefit voucher schema is not ready: upgrade the database migration node before starting replicas")
