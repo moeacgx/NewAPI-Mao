@@ -15,6 +15,7 @@
     "Quote": "引用",
     "Replaces the current template only when clicked.": "クリックした場合のみ現在のテンプレートを置き換えます。",
     "Sample data only. No message is sent. Uses the first recipient mention.": "サンプルデータのみで送信しません。最初の宛先のメンションを使用します。",
+    "Selected groups share the activity stock and each voucher balance.": "選択したグループ間で、配布枠と各バウチャーの残高を共有します。",
     "Spoiler": "ネタバレ",
     "Strikethrough": "取り消し線",
     "Telegram formatting": "Telegram 書式設定",
@@ -5686,7 +5687,7 @@
     "Memory": "メモリ",
     "Messages": "メッセージ",
     "Midjourney 任务记录": "Midjourneyタスク履歴",
-    "Minimum historical paid amount required; 0 means no threshold.": "必要な過去の最低支払額です。0 はしきい値なしを意味します。",
+    "Minimum historical paid amount required; 0 means no threshold.": "これまでの累計支払額の下限です。0 にすると支払額の条件のみがなくなります。",
     "Minimum host: {{version}}": "最小ホストバージョン：{{version}}",
     "MIT许可证": "MITライセンス",
     "Model": "モデル",
@@ -6078,8 +6079,8 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URLは、http://またはhttps://で始まることが必須です",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "グループとユーザーの両方を設定した場合、リクエストは両方のフィルターに一致する必要があります。フィルターが空の場合はすべてに一致します。",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "取得受付の終了時刻です。取得済みバウチャーは個別の有効期間を維持します。",
-    "When claiming opens, Beijing time.": "When claiming opens, Beijing time. (ja)",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "受け取り終了時刻（UTC+8）。受け取り済みの券の有効期限は変わりません。",
+    "When claiming opens, Beijing time.": "受け取り開始時刻（UTC+8）。",
     "Where the budget went": "Where budget went",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "whsec_xxx のWebhook署名シークレット。機密情報は表示されません",
     "Worker 数量": "Worker 個",
@@ -6532,6 +6533,10 @@
     "Tools and execution rules": "ツールと実行ルール",
     "View permissions": "権限を表示",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "書き込みツールには request_id が必要です。同じ ID と引数で再試行する前に、結果を確認してください。",
-    "{{count}} authorized tools": "許可済みツール：{{count}} 件"
+    "{{count}} authorized tools": "許可済みツール：{{count}} 件",
+    "The smallest amount a single voucher can receive.": "バウチャー1枚に付与される最小金額です。",
+    "The largest amount a single voucher can receive.": "バウチャー1枚に付与される最大金額です。",
+    "Minimum amount": "最小金額",
+    "Maximum amount": "最大金額"
   }
 }

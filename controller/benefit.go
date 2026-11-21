@@ -19,6 +19,7 @@ type benefitActivityRequest struct {
 	Name                 string           `json:"name"`
 	Description          string           `json:"description"`
 	GroupID              int              `json:"group_id"`
+	GroupIDs             []int            `json:"group_ids"`
 	AmountMode           string           `json:"amount_mode"`
 	AmountDisplayType    string           `json:"amount_display_type"`
 	TotalAmount          decimal.Decimal  `json:"total_amount"`
@@ -278,7 +279,7 @@ func (request *benefitActivityRequest) toModel() (*model.BenefitActivity, error)
 		return nil, fmt.Errorf("个人券有效期无效：%w", err)
 	}
 	activity := &model.BenefitActivity{
-		Name: request.Name, Description: request.Description, GroupId: request.GroupID,
+		Name: request.Name, Description: request.Description, GroupId: request.GroupID, GroupIDs: request.GroupIDs,
 		AmountMode: request.AmountMode, TotalAmountCents: totalAmount,
 		TotalQuota: totalQuota, TotalCount: request.TotalCount,
 		FixedAmountCents: fixedAmount, MinAmountCents: minAmount,

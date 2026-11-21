@@ -39,7 +39,7 @@ test('UserVoucherCard prefers the voucher-embedded activity/group name over the 
   );
   assert.match(
     source,
-    /const groupName =\s*voucher\.group_name_snapshot \|\| activity\?\.group_name_snapshot/,
+    /const groupName =\s*voucher\.group_names\?\.join[^\n]+\|\|\s*activity\?\.group_names\?\.join[^\n]+\|\|\s*voucher\.group_name_snapshot \|\|\s*activity\?\.group_name_snapshot/,
   );
   assert.match(source, /\{activityName \|\| t\('Benefit voucher'\)\}/);
   assert.match(source, /\{groupName \|\| t\('Unknown'\)\}/);

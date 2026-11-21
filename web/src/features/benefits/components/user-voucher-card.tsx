@@ -91,7 +91,9 @@ export function UserVoucherCard(props: UserVoucherCardProps) {
         <div className='text-muted-foreground grid gap-1 text-xs'>
           <span>
             {t('Bound group')}:{' '}
-            {voucher.group_name_snapshot ||
+            {voucher.group_names?.join(' · ') ||
+              props.activity?.group_names?.join(' · ') ||
+              voucher.group_name_snapshot ||
               props.activity?.group_name_snapshot ||
               t('Unknown')}
           </span>

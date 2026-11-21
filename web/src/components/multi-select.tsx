@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/combobox'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { cn } from '@/lib/utils'
+
 import { resolveSelectAllSelection } from './multi-select-selection'
 
 export type Option = {
@@ -61,6 +62,8 @@ interface MultiSelectProps {
   emptyText?: string
   /** Optional `id` to wire labels/aria-describedby to the input. */
   id?: string
+  'aria-labelledby'?: string
+  searchByLabel?: boolean
   /** Disable the entire control. */
   disabled?: boolean
   /**
@@ -163,7 +166,7 @@ export function MultiSelect(props: MultiSelectProps) {
     !inputMatchesExisting
 
   const selectAllValues = React.useMemo(
-    () => Array.from(new Set(props.selectAllValues ?? [])).filter(Boolean),
+    () => [...new Set(props.selectAllValues ?? [])].filter(Boolean),
     [props.selectAllValues]
   )
   const allSelectableValuesSelected =
@@ -187,7 +190,7 @@ export function MultiSelect(props: MultiSelectProps) {
     if (canCreate) {
       set.add(trimmedInput)
     }
-    return Array.from(set)
+    return [...set]
   }, [props.options, props.selected, canCreate, trimmedInput, selectAllValues])
 
   const addValues = React.useCallback(
@@ -277,6 +280,11 @@ export function MultiSelect(props: MultiSelectProps) {
     <Combobox
       multiple
       items={items}
+      itemToStringLabel={
+        props.searchByLabel
+          ? (item: string) => labelMap.get(item) ?? item
+          : undefined
+      }
       value={props.selected}
       onValueChange={handleValueChange}
       inputValue={inputValue}
@@ -374,7 +382,8 @@ export function MultiSelect(props: MultiSelectProps) {
               : undefined
           }
           onKeyDown={handleKeyDown}
-          aria-label={placeholder}
+          aria-labelledby={props['aria-labelledby']}
+          aria-label={props['aria-labelledby'] ? undefined : placeholder}
         />
       </ComboboxChips>
 

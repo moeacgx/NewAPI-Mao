@@ -92,7 +92,10 @@ export default function BenefitActivityReport({ activity, report }) {
   const distributedCount = Number(report.distributed_count || 0);
   const usedCount = Number(report.used_count || 0);
   const expiredCount = Number(report.expired_count || 0);
-  const activityGroup = activity?.group_name_snapshot || t('Unknown group');
+  const activityGroup =
+    activity?.group_names?.join(' · ') ||
+    activity?.group_name_snapshot ||
+    t('Unknown group');
   // claim_paid_threshold is already expressed in the site's current
   // quota_display_type by the backend (CNYCentsToDisplayAmount), the same
   // as every other amount field here — it is never run through

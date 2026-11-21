@@ -32,6 +32,8 @@ export type BenefitActivity = {
   name: string
   description: string
   group_id: number
+  group_ids?: number[]
+  group_names?: string[]
   group_code_snapshot: string
   group_name_snapshot: string
   status: BenefitActivityStatus
@@ -68,6 +70,7 @@ export type BenefitVoucher = {
    * an ended or deleted activity stays readable.
    */
   activity_name: string
+  group_names?: string[]
   group_name_snapshot: string
   original_quota: number
   remaining_quota: number

@@ -113,13 +113,13 @@ test('Classic benefit activity selects an active group by name and submits its s
   assert.match(source, /group\.name/);
   assert.match(source, /group\.code/);
   assert.doesNotMatch(source, /group\.description/);
-  assert.match(source, /field='group_id'/);
-  assert.match(source, /<Form\.Select[\s\S]*field='group_id'/);
+  assert.match(source, /<Form\.Select\s+field='group_ids'[\s\S]*?\bmultiple\b/);
+  assert.match(source, /group_ids: groupIds/);
   assert.match(source, /optionList=\{editorGroupOptions\}/);
   assert.doesNotMatch(source, /<Form\.InputNumber[\s\S]*field='group_id'/);
   assert.doesNotMatch(source, /绑定分组 ID/);
   assert.match(source, /loading=\{groupLoading\}/);
-  assert.match(source, /nameCounts/);
+  assert.match(source, /label: name/);
   assert.doesNotMatch(source, /group\.description,\s*\]/);
 });
 
@@ -135,6 +135,25 @@ test('Classic benefit activity separates fixed and random budget inputs', () => 
     source,
     /amountMode === 'random'\s*\? Number\(values\.min_amount/,
   );
+});
+
+test('Classic random-mode bounds explain that they apply to each voucher', () => {
+  const source = readSource(
+    '../../../components/table/benefits/BenefitActivitiesPanel.jsx',
+  );
+  for (const [field, bound] of [
+    ['min_amount', 'smallest'],
+    ['max_amount', 'largest'],
+  ]) {
+    const input = source.match(
+      new RegExp(`<Form\\.InputNumber\\s+field='${field}'[\\s\\S]*?/>`),
+    );
+    assert.ok(input, `Missing ${field} input`);
+    assert.ok(
+      input[0].includes(`The ${bound} amount a single voucher can receive.`),
+      `Missing per-voucher explanation for ${field}`,
+    );
+  }
 });
 
 test('Classic benefit activity table only allows deleting draft/ended/terminated rows', () => {
