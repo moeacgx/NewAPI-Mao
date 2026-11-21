@@ -49,7 +49,10 @@ export default function UserVoucherCard(props) {
   // activity (e.g. the per-user concurrency limit).
   const activityName = voucher.activity_name || activity?.name;
   const groupName =
-    voucher.group_name_snapshot || activity?.group_name_snapshot;
+    voucher.group_names?.join(' · ') ||
+    activity?.group_names?.join(' · ') ||
+    voucher.group_name_snapshot ||
+    activity?.group_name_snapshot;
 
   return (
     <Card
@@ -111,15 +114,16 @@ export default function UserVoucherCard(props) {
           <Text type='tertiary'>{t('Bound group')}</Text>
           <span className='truncate'>{groupName || t('Unknown')}</span>
         </div>
-        {Number(activity?.single_user_concurrency_limit || 0) > 0 && (
-          <div className='flex items-center justify-between gap-3'>
-            <Text type='tertiary' className='inline-flex items-center gap-1'>
-              <Users size={12} />
-              {t('Per-user concurrency limit')}
-            </Text>
-            <span>{activity.single_user_concurrency_limit}</span>
-          </div>
-        )}
+        {(activity?.group_ids?.length ?? 0) < 2 &&
+          Number(activity?.single_user_concurrency_limit || 0) > 0 && (
+            <div className='flex items-center justify-between gap-3'>
+              <Text type='tertiary' className='inline-flex items-center gap-1'>
+                <Users size={12} />
+                {t('Per-user concurrency limit')}
+              </Text>
+              <span>{activity.single_user_concurrency_limit}</span>
+            </div>
+          )}
         {voucher.status === 'voided' && voucher.void_reason && (
           <div className='flex items-start justify-between gap-3'>
             <Text type='tertiary'>{t('Void reason')}</Text>

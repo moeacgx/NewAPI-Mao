@@ -15,6 +15,7 @@
     "Quote": "Citation",
     "Replaces the current template only when clicked.": "Remplace le modèle actuel uniquement au clic.",
     "Sample data only. No message is sent. Uses the first recipient mention.": "Données fictives, aucun envoi. Mention du premier destinataire.",
+    "Selected groups share the activity stock and each voucher balance.": "Les groupes sélectionnés partagent le stock de l’activité et le solde de chaque bon.",
     "Spoiler": "Texte masqué",
     "Strikethrough": "Barré",
     "Telegram formatting": "Mise en forme Telegram",
@@ -5742,7 +5743,7 @@
     "Memory": "Memoire",
     "Messages": "Messages",
     "Midjourney 任务记录": "Tâches Midjourney",
-    "Minimum historical paid amount required; 0 means no threshold.": "Montant historique minimum payé requis ; 0 signifie aucun seuil.",
+    "Minimum historical paid amount required; 0 means no threshold.": "Montant total payé à ce jour. Saisissez 0 pour supprimer uniquement la condition de paiement.",
     "Minimum host: {{version}}": "Hôte minimum : {{version}}",
     "MIT许可证": "Licence MIT",
     "Model": "Modèle",
@@ -6136,8 +6137,8 @@
     "Well-Known URL": "URL bien connue",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "L'URL bien connue doit commencer par http:// ou https://",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "Lorsque des groupes et des utilisateurs sont définis, une demande doit correspondre aux deux filtres. Des filtres vides correspondent à tout.",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Fermeture des réclamations ; les bons déjà réclamés gardent leur validité personnelle.",
-    "When claiming opens, Beijing time.": "When claiming opens, Beijing time. (fr)",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Fin de la distribution (UTC+8). Les bons déjà obtenus conservent leur date d’expiration.",
+    "When claiming opens, Beijing time.": "Début de la distribution (UTC+8).",
     "Where the budget went": "Where le budget went",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Clé de signature Webhook whsec_xxx, les informations sensibles ne sont pas affichées",
     "Worker 数量": "quantité de Worker",
@@ -6590,6 +6591,10 @@
     "Tools and execution rules": "Outils et règles d’exécution",
     "View permissions": "Voir les permissions",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "Les outils d’écriture exigent un request_id. Vérifiez le résultat avant de réessayer avec le même ID et les mêmes arguments.",
-    "{{count}} authorized tools": "Outils autorisés : {{count}}"
+    "{{count}} authorized tools": "Outils autorisés : {{count}}",
+    "The smallest amount a single voucher can receive.": "Le montant minimal d’un bon.",
+    "The largest amount a single voucher can receive.": "Le montant maximal d’un bon.",
+    "Minimum amount": "Montant minimal",
+    "Maximum amount": "Montant maximal"
   }
 }

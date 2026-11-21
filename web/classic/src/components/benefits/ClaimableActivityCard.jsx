@@ -62,7 +62,7 @@ export default function ClaimableActivityCard(props) {
             {activity.name}
           </Title>
           <Text type='tertiary' size='small' className='truncate'>
-            {activity.group_name_snapshot}
+            {activity.group_names?.join(' · ') || activity.group_name_snapshot}
           </Text>
         </div>
         {activity.has_claimed ? (

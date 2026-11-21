@@ -15,6 +15,7 @@
     "Quote": "Quote",
     "Replaces the current template only when clicked.": "Replaces the current template only when clicked.",
     "Sample data only. No message is sent. Uses the first recipient mention.": "Sample data only. No message is sent. Uses the first recipient mention.",
+    "Selected groups share the activity stock and each voucher balance.": "Selected groups share the activity stock and each voucher balance.",
     "Spoiler": "Spoiler",
     "Strikethrough": "Strikethrough",
     "Telegram formatting": "Telegram formatting",
@@ -5940,7 +5941,7 @@
     "Memory": "Memory",
     "Messages": "Messages",
     "Midjourney 任务记录": "Midjourney Task Records",
-    "Minimum historical paid amount required; 0 means no threshold.": "Minimum historical paid amount required; 0 means no threshold.",
+    "Minimum historical paid amount required; 0 means no threshold.": "Minimum total paid to date. Set to 0 to waive only the payment requirement.",
     "Minimum host: {{version}}": "Minimum host: {{version}}",
     "MIT许可证": "MIT License",
     "Model": "Model",
@@ -6340,8 +6341,8 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL must start with http:// or https://",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "When both groups and users are set, a request must match both filters. Empty filters match all.",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "When claiming closes; already-claimed vouchers keep their own personal validity.",
-    "When claiming opens, Beijing time.": "When claiming opens, Beijing time.",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Claiming closes at this time (UTC+8). Vouchers already claimed keep their own expiry dates.",
+    "When claiming opens, Beijing time.": "Claiming opens at this time (UTC+8).",
     "Where the budget went": "Where the budget went",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Webhook signature key for whsec_xxx, sensitive information not displayed",
     "Worker 数量": "Worker quantity",
@@ -6794,6 +6795,10 @@
     "Tools and execution rules": "Tools and execution rules",
     "View permissions": "View permissions",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "Write tools require request_id. Check the result before retrying with the same ID and arguments.",
-    "{{count}} authorized tools": "{{count}} authorized tools"
+    "{{count}} authorized tools": "{{count}} authorized tools",
+    "The smallest amount a single voucher can receive.": "The smallest amount a single voucher can receive.",
+    "The largest amount a single voucher can receive.": "The largest amount a single voucher can receive.",
+    "Minimum amount": "Minimum amount",
+    "Maximum amount": "Maximum amount"
   }
 }

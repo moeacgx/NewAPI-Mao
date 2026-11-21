@@ -143,7 +143,9 @@ export function BenefitActivitiesPanel() {
       if (!normalizedKeyword) return true
       return (
         activity.name.toLowerCase().includes(normalizedKeyword) ||
-        activity.group_name_snapshot.toLowerCase().includes(normalizedKeyword)
+        (activity.group_names?.join(' ') || activity.group_name_snapshot)
+          .toLowerCase()
+          .includes(normalizedKeyword)
       )
     })
   }, [activities, keyword, statusFilter])
@@ -409,7 +411,8 @@ export function BenefitActivitiesPanel() {
                 <div>
                   <div className='font-medium'>{activity.name}</div>
                   <div className='text-muted-foreground text-xs'>
-                    {activity.group_name_snapshot}
+                    {activity.group_names?.join(' · ') ||
+                      activity.group_name_snapshot}
                   </div>
                 </div>
               ),

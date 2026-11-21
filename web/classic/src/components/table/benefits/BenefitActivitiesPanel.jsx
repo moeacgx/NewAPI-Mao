@@ -74,7 +74,7 @@ const { Text, Title } = Typography;
 const defaultFormValues = {
   name: '',
   description: '',
-  group_id: 0,
+  group_ids: [],
   amount_mode: 'fixed',
   total_amount: 10,
   total_count: 10,
@@ -153,6 +153,9 @@ const toFormValues = (activity, currency) => {
   return {
     ...defaultFormValues,
     ...activity,
+    group_ids: activity.group_ids?.length
+      ? activity.group_ids
+      : [activity.group_id],
     fixed_amount:
       activity.amount_mode === 'fixed'
         ? roundDisplayAmount(
@@ -245,20 +248,12 @@ export default function BenefitActivitiesPanel() {
           Number.isInteger(Number(group.id)) &&
           group.id > 0,
       );
-      const nameCounts = activeGroups.reduce((counts, group) => {
-        const name = String(group.name || group.code || '').trim();
-        counts.set(name, (counts.get(name) || 0) + 1);
-        return counts;
-      }, new Map());
       setGroupOptions(
         activeGroups.map((group) => {
           const name = String(group.name || group.code || '').trim();
-          const code = String(group.code || '').trim();
           return {
             value: group.id,
-            label:
-              nameCounts.get(name) > 1 && code ? `${name} · ${code}` : name,
-            code,
+            label: name,
             name,
             ratio: group.ratio,
           };
@@ -294,21 +289,28 @@ export default function BenefitActivitiesPanel() {
   };
 
   const editorGroupOptions = useMemo(() => {
-    const groupId = Number(editing?.group_id || 0);
-    if (groupId <= 0) return groupOptions;
-    if (groupOptions.some((option) => option.value === groupId)) {
-      return groupOptions;
-    }
-    return [
-      {
-        value: groupId,
-        label: editing.group_name_snapshot || `#${groupId}`,
-      },
-      ...groupOptions,
-    ];
+    if (!editing) return groupOptions;
+    const ids = editing.group_ids?.length
+      ? editing.group_ids
+      : [editing.group_id];
+    const missing = ids.flatMap((id, index) => {
+      if (id <= 0 || groupOptions.some((option) => option.value === id))
+        return [];
+      return [
+        {
+          value: id,
+          label:
+            editing.group_names?.[index] ||
+            (index === 0 && editing.group_name_snapshot) ||
+            `#${id}`,
+        },
+      ];
+    });
+    return [...missing, ...groupOptions];
   }, [editing, groupOptions]);
 
   const saveForm = async (values) => {
+    const groupIds = (values.group_ids || []).map(Number);
     const amountMode = values.amount_mode;
     const totalCount = Number(values.total_count || 0);
     const fixedAmount = Number(values.fixed_amount || 0);
@@ -319,7 +321,8 @@ export default function BenefitActivitiesPanel() {
     const payload = {
       name: values.name,
       description: values.description,
-      group_id: Number(values.group_id || 0),
+      group_id: groupIds[0],
+      group_ids: groupIds,
       amount_mode: amountMode,
       total_amount: totalAmount,
       total_count: totalCount,
@@ -334,7 +337,7 @@ export default function BenefitActivitiesPanel() {
     };
     if (
       !payload.name?.trim() ||
-      payload.group_id <= 0 ||
+      groupIds.length === 0 ||
       payload.total_count <= 0
     ) {
       Toast.error(
@@ -497,14 +500,8 @@ export default function BenefitActivitiesPanel() {
         title: t('Bound group'),
         dataIndex: 'group_name_snapshot',
         width: 160,
-        render: (name, record) => (
-          <div>
-            <div>{name || `#${record.group_id}`}</div>
-            <Text type='tertiary' size='small'>
-              ID: {record.group_id}
-            </Text>
-          </div>
-        ),
+        render: (name, record) =>
+          record.group_names?.join(' · ') || name || t('Unknown group'),
       },
       {
         title: t('Total budget'),
@@ -807,18 +804,19 @@ export default function BenefitActivitiesPanel() {
                 extraText={t('Optional; shown in the activity list.')}
               />
               <Form.Select
-                field='group_id'
+                field='group_ids'
                 label={t('Bound group')}
-                placeholder={t('Select a group')}
+                placeholder={t('Select groups...')}
                 optionList={editorGroupOptions}
                 loading={groupLoading}
                 search
+                multiple
                 style={{ width: '100%' }}
                 rules={[
                   { required: true, message: t('Please select a group') },
                 ]}
                 extraText={t(
-                  'The benefit voucher is only used when the user explicitly selects this group.',
+                  'Selected groups share the activity stock and each voucher balance.',
                 )}
               />
               <Form.Select
@@ -905,6 +903,9 @@ export default function BenefitActivitiesPanel() {
                     step={amountStep}
                     precision={amountPrecision}
                     style={{ width: '100%' }}
+                    extraText={t(
+                      'The smallest amount a single voucher can receive.',
+                    )}
                   />
                   <Form.InputNumber
                     field='max_amount'
@@ -913,6 +914,9 @@ export default function BenefitActivitiesPanel() {
                     step={amountStep}
                     precision={amountPrecision}
                     style={{ width: '100%' }}
+                    extraText={t(
+                      'The largest amount a single voucher can receive.',
+                    )}
                   />
                   <Form.Slot label={t('Feasible total budget range')}>
                     <div className='rounded-md border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] px-3 py-2'>

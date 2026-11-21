@@ -72,14 +72,16 @@ const (
 
 // BenefitActivity 保存福利活动配置和发布时的分组快照。
 type BenefitActivity struct {
-	Id                int    `json:"id"`
-	Name              string `json:"name" gorm:"size:128;not null"`
-	Description       string `json:"description" gorm:"type:text"`
-	GroupId           int    `json:"group_id" gorm:"index:idx_benefit_activity_group_status_time,priority:1"`
-	GroupCodeSnapshot string `json:"group_code_snapshot" gorm:"size:64;not null"`
-	GroupNameSnapshot string `json:"group_name_snapshot" gorm:"size:128;not null"`
-	Status            string `json:"status" gorm:"size:24;index:idx_benefit_activity_group_status_time,priority:2"`
-	AmountMode        string `json:"amount_mode" gorm:"size:16;not null"`
+	Id                int      `json:"id"`
+	Name              string   `json:"name" gorm:"size:128;not null"`
+	Description       string   `json:"description" gorm:"type:text"`
+	GroupId           int      `json:"group_id" gorm:"index:idx_benefit_activity_group_status_time,priority:1"`
+	GroupIDs          []int    `json:"group_ids" gorm:"-"`
+	GroupNames        []string `json:"group_names" gorm:"-"`
+	GroupCodeSnapshot string   `json:"group_code_snapshot" gorm:"size:64;not null"`
+	GroupNameSnapshot string   `json:"group_name_snapshot" gorm:"size:128;not null"`
+	Status            string   `json:"status" gorm:"size:24;index:idx_benefit_activity_group_status_time,priority:2"`
+	AmountMode        string   `json:"amount_mode" gorm:"size:16;not null"`
 	// *_Cents 仅是内部 0.01 元精度存储，管理接口统一暴露元金额。
 	TotalAmountCents          int64  `json:"total_amount_cents"`
 	TotalQuota                int64  `json:"total_quota"`
@@ -130,40 +132,43 @@ func (BenefitActivityShare) TableName() string { return "benefit_activity_shares
 
 // BenefitUserVoucher 保存用户领取后的独立福利余额。
 type BenefitUserVoucher struct {
-	Id                  int    `json:"id"`
-	ActivityId          int    `json:"activity_id" gorm:"uniqueIndex:idx_benefit_voucher_activity_user,priority:1;index"`
-	ShareId             int    `json:"share_id" gorm:"uniqueIndex"`
-	UserId              int    `json:"user_id" gorm:"uniqueIndex:idx_benefit_voucher_activity_user,priority:2;index"`
-	OriginalAmountCents int64  `json:"original_amount_cents"`
-	OriginalQuota       int64  `json:"original_quota"`
-	RemainingQuota      int64  `json:"remaining_quota"`
-	UsedQuota           int64  `json:"used_quota"`
-	Status              string `json:"status" gorm:"size:24;index"`
-	ClaimedAt           int64  `json:"claimed_at"`
-	ExpiresAt           int64  `json:"expires_at" gorm:"index"`
-	VoidedAt            int64  `json:"voided_at"`
-	VoidReason          string `json:"void_reason" gorm:"type:text"`
-	CreatedAt           int64  `json:"created_at"`
-	UpdatedAt           int64  `json:"updated_at"`
-	ActivityName        string `json:"activity_name" gorm:"-:all"`
-	GroupNameSnapshot   string `json:"group_name_snapshot" gorm:"-:all"`
+	Id                  int      `json:"id"`
+	ActivityId          int      `json:"activity_id" gorm:"uniqueIndex:idx_benefit_voucher_activity_user,priority:1;index"`
+	ShareId             int      `json:"share_id" gorm:"uniqueIndex"`
+	UserId              int      `json:"user_id" gorm:"uniqueIndex:idx_benefit_voucher_activity_user,priority:2;index"`
+	OriginalAmountCents int64    `json:"original_amount_cents"`
+	OriginalQuota       int64    `json:"original_quota"`
+	RemainingQuota      int64    `json:"remaining_quota"`
+	UsedQuota           int64    `json:"used_quota"`
+	Status              string   `json:"status" gorm:"size:24;index"`
+	ClaimedAt           int64    `json:"claimed_at"`
+	ExpiresAt           int64    `json:"expires_at" gorm:"index"`
+	VoidedAt            int64    `json:"voided_at"`
+	VoidReason          string   `json:"void_reason" gorm:"type:text"`
+	CreatedAt           int64    `json:"created_at"`
+	UpdatedAt           int64    `json:"updated_at"`
+	ActivityName        string   `json:"activity_name" gorm:"-:all"`
+	GroupNameSnapshot   string   `json:"group_name_snapshot" gorm:"-:all"`
+	GroupID             int      `json:"-" gorm:"-:all"`
+	GroupNames          []string `json:"group_names,omitempty" gorm:"-"`
 }
 
 func (BenefitUserVoucher) TableName() string { return "benefit_user_vouchers" }
 
 // BenefitVoucherLedger 保存券余额变化及请求/使用日志关联。
 type BenefitVoucherLedger struct {
-	Id           int    `json:"id"`
-	ActivityId   int    `json:"activity_id" gorm:"index"`
-	VoucherId    int    `json:"voucher_id" gorm:"uniqueIndex:idx_benefit_ledger_request_type,priority:1;index"`
-	UserId       int    `json:"user_id" gorm:"index"`
-	RequestId    string `json:"request_id" gorm:"size:64;uniqueIndex:idx_benefit_ledger_request_type,priority:2"`
-	LogId        int    `json:"log_id" gorm:"index"`
-	Type         string `json:"type" gorm:"size:24;uniqueIndex:idx_benefit_ledger_request_type,priority:3"`
-	QuotaDelta   int64  `json:"quota_delta"`
-	BalanceAfter int64  `json:"balance_after"`
-	Metadata     string `json:"metadata" gorm:"type:text"`
-	CreatedAt    int64  `json:"created_at"`
+	Id             int    `json:"id"`
+	ActivityId     int    `json:"activity_id" gorm:"index"`
+	VoucherId      int    `json:"voucher_id" gorm:"uniqueIndex:idx_benefit_ledger_request_type,priority:1;index"`
+	UserId         int    `json:"user_id" gorm:"index"`
+	RequestGroupID int    `json:"-"`
+	RequestId      string `json:"request_id" gorm:"size:64;uniqueIndex:idx_benefit_ledger_request_type,priority:2"`
+	LogId          int    `json:"log_id" gorm:"index"`
+	Type           string `json:"type" gorm:"size:24;uniqueIndex:idx_benefit_ledger_request_type,priority:3"`
+	QuotaDelta     int64  `json:"quota_delta"`
+	BalanceAfter   int64  `json:"balance_after"`
+	Metadata       string `json:"metadata" gorm:"type:text"`
+	CreatedAt      int64  `json:"created_at"`
 }
 
 func (BenefitVoucherLedger) TableName() string { return "benefit_voucher_ledger" }
@@ -469,7 +474,8 @@ func GetBenefitVoucherAvailableQuota(userID, groupID int, now int64) (int64, err
 	var available int64
 	err := DB.Table("benefit_user_vouchers AS v").
 		Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
-		Where("v.user_id = ? AND a.group_id = ?", userID, groupID).
+		Scopes(func(db *gorm.DB) *gorm.DB { return benefitActivitiesInGroups(db, "a", []int{groupID}) }).
+		Where("v.user_id = ?", userID).
 		Where("v.status = ? AND v.remaining_quota > ? AND v.expires_at > ?", BenefitVoucherStatusActive, 0, now).
 		Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
 		Select("COALESCE(SUM(v.remaining_quota), 0)").Scan(&available).Error
@@ -516,6 +522,9 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 		}
 		reservedTotal := int64(0)
 		for _, ledger := range existing {
+			if ledger.RequestGroupID != 0 && ledger.RequestGroupID != groupID {
+				return errors.New("福利券请求分组与原预扣不一致")
+			}
 			reservedTotal += -ledger.QuotaDelta
 		}
 		var terminalRefund BenefitVoucherLedger
@@ -548,7 +557,8 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 		var vouchers []BenefitUserVoucher
 		query := lockForUpdate(tx).Table("benefit_user_vouchers AS v").
 			Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
-			Where("v.user_id = ? AND a.group_id = ?", userID, groupID).
+			Scopes(func(db *gorm.DB) *gorm.DB { return benefitActivitiesInGroups(db, "a", []int{groupID}) }).
+			Where("v.user_id = ?", userID).
 			Where("v.status = ? AND v.remaining_quota > ? AND v.expires_at > ?", BenefitVoucherStatusActive, 0, now).
 			Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
 			Order("v.expires_at ASC, v.id ASC").Find(&vouchers)
@@ -585,7 +595,7 @@ func ReserveBenefitVoucherQuota(requestID string, userID, groupID int, amount in
 				if err := tx.Model(pre).Updates(map[string]interface{}{"quota_delta": pre.QuotaDelta - reserved, "balance_after": balanceAfter}).Error; err != nil {
 					return err
 				}
-			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: userID, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: -reserved, BalanceAfter: balanceAfter, CreatedAt: now}).Error; err != nil {
+			} else if err := tx.Create(&BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: userID, RequestGroupID: groupID, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: -reserved, BalanceAfter: balanceAfter, CreatedAt: now}).Error; err != nil {
 				return err
 			}
 			if first == nil {
@@ -786,14 +796,19 @@ func SettleBenefitVoucherQuota(requestID string, delta int64, now int64) error {
 		if delta > 0 {
 			// 正差额可以落到尚未参与初次预扣的同组券；写入零预扣流水，
 			// 让后续结算、回滚和历史单券唯一键保持一致。
-			var activity BenefitActivity
-			if err := tx.Where("id = ?", pres[0].ActivityId).First(&activity).Error; err != nil {
-				return err
+			groupID := pres[0].RequestGroupID
+			if groupID == 0 {
+				var activity BenefitActivity
+				if err := tx.Where("id = ?", pres[0].ActivityId).First(&activity).Error; err != nil {
+					return err
+				}
+				groupID = activity.GroupId
 			}
 			var candidates []BenefitUserVoucher
 			if err := lockForUpdate(tx).Table("benefit_user_vouchers AS v").
 				Joins("JOIN benefit_activities AS a ON a.id = v.activity_id").
-				Where("v.user_id = ? AND a.group_id = ? AND v.remaining_quota > ? AND v.status = ? AND v.expires_at > ?", pres[0].UserId, activity.GroupId, 0, BenefitVoucherStatusActive, now).
+				Scopes(func(db *gorm.DB) *gorm.DB { return benefitActivitiesInGroups(db, "a", []int{groupID}) }).
+				Where("v.user_id = ? AND v.remaining_quota > ? AND v.status = ? AND v.expires_at > ?", pres[0].UserId, 0, BenefitVoucherStatusActive, now).
 				Where(benefitVoucherActivityAvailableCondition(), now, now, now, now).
 				Order("v.expires_at ASC, v.id ASC").Find(&candidates).Error; err != nil {
 				return err
@@ -802,7 +817,7 @@ func SettleBenefitVoucherQuota(requestID string, delta int64, now int64) error {
 				if _, exists := preByVoucher[voucher.Id]; exists {
 					continue
 				}
-				pre := &BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: voucher.UserId, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now}
+				pre := &BenefitVoucherLedger{ActivityId: voucher.ActivityId, VoucherId: voucher.Id, UserId: voucher.UserId, RequestGroupID: groupID, RequestId: requestID, Type: BenefitLedgerTypePreConsume, QuotaDelta: 0, BalanceAfter: voucher.RemainingQuota, CreatedAt: now}
 				if err := tx.Create(pre).Error; err != nil {
 					return err
 				}
@@ -1038,6 +1053,9 @@ func ListBenefitActivitiesForAdmin(offset, limit int) ([]BenefitActivity, int64,
 	}
 	var activities []BenefitActivity
 	err := DB.Order("id DESC").Offset(offset).Limit(limit).Find(&activities).Error
+	if err == nil {
+		err = loadBenefitActivityGroups(DB, benefitActivityPointers(activities)...)
+	}
 	return activities, total, err
 }
 
@@ -1046,7 +1064,7 @@ func GetBenefitActivityForAdmin(activityID int) (*BenefitActivity, error) {
 	if err := DB.Where("id = ?", activityID).First(&activity).Error; err != nil {
 		return nil, err
 	}
-	return &activity, nil
+	return &activity, loadBenefitActivityGroups(DB, &activity)
 }
 
 // DeleteBenefitActivitiesByIDs 软删除已结束/已终止的历史活动，保留关联券、份额和流水。
@@ -1142,6 +1160,9 @@ func ListBenefitActivitiesForUser(userID int, now int64) ([]BenefitActivityUserV
 	}
 	var activities []BenefitActivity
 	if err := DB.Where("status IN ?", []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused, BenefitActivityStatusEnded, BenefitActivityStatusTerminated}).Order("starts_at DESC, id DESC").Find(&activities).Error; err != nil {
+		return nil, err
+	}
+	if err := loadBenefitActivityGroups(DB, benefitActivityPointers(activities)...); err != nil {
 		return nil, err
 	}
 	for index := range activities {
@@ -1245,19 +1266,26 @@ func ListBenefitVouchersForUser(userID int, now int64) ([]BenefitUserVoucher, er
 	}
 	type voucherViewRow struct {
 		BenefitUserVoucher
+		PrimaryGroupID    int    `gorm:"column:primary_group_id"`
 		ActivityName      string `gorm:"column:activity_name"`
 		GroupNameSnapshot string `gorm:"column:group_name_snapshot"`
 	}
 	var rows []voucherViewRow
 	err := DB.Unscoped().Table("benefit_user_vouchers AS v").
-		Select("v.*, a.name AS activity_name, a.group_name_snapshot AS group_name_snapshot").
+		Select("v.*, a.name AS activity_name, a.group_id AS primary_group_id, a.group_name_snapshot AS group_name_snapshot").
 		Joins("LEFT JOIN benefit_activities AS a ON a.id = v.activity_id").
 		Where("v.user_id = ?", userID).Order("v.id DESC").Scan(&rows).Error
 	vouchers := make([]BenefitUserVoucher, len(rows))
+	refs := make([]*BenefitUserVoucher, len(rows))
 	for i := range rows {
+		refs[i] = &vouchers[i]
 		vouchers[i] = rows[i].BenefitUserVoucher
+		vouchers[i].GroupID = rows[i].PrimaryGroupID
 		vouchers[i].ActivityName = rows[i].ActivityName
 		vouchers[i].GroupNameSnapshot = rows[i].GroupNameSnapshot
+	}
+	if err == nil {
+		err = benefitVoucherGroupNames(DB, refs)
 	}
 	return vouchers, err
 }
@@ -1269,6 +1297,7 @@ type BenefitVoucherListFilter struct {
 
 type BenefitVoucherAdminView struct {
 	BenefitUserVoucher
+	PrimaryGroupID    int    `json:"-" gorm:"column:primary_group_id"`
 	ActivityName      string `json:"activity_name"`
 	GroupNameSnapshot string `json:"group_name_snapshot"`
 	Username          string `json:"username"`
@@ -1299,8 +1328,17 @@ func ListBenefitVouchersForAdmin(activityID int, filter BenefitVoucherListFilter
 		return nil, 0, err
 	}
 	views := make([]BenefitVoucherAdminView, 0)
-	err := base.Select("v.*, a.name AS activity_name, a.group_name_snapshot AS group_name_snapshot, u.username AS username").
+	err := base.Select("v.*, a.name AS activity_name, a.group_id AS primary_group_id, a.group_name_snapshot AS group_name_snapshot, u.username AS username").
 		Order("v.id DESC").Offset(offset).Limit(limit).Scan(&views).Error
+	if err == nil {
+		refs := make([]*BenefitUserVoucher, len(views))
+		for i := range views {
+			views[i].BenefitUserVoucher.GroupID = views[i].PrimaryGroupID
+			views[i].BenefitUserVoucher.GroupNameSnapshot = views[i].GroupNameSnapshot
+			refs[i] = &views[i].BenefitUserVoucher
+		}
+		err = benefitVoucherGroupNames(DB, refs)
+	}
 	return views, total, err
 }
 
@@ -1644,10 +1682,10 @@ func prepareBenefitAllocations(activity *BenefitActivity) ([]BenefitShareAllocat
 	return allocations, nil
 }
 
-func benefitActivityOverlapTx(tx *gorm.DB, activity *BenefitActivity) (bool, error) {
+func benefitActivityOverlapTx(tx *gorm.DB, activity *BenefitActivity, ids []int) (bool, error) {
 	var count int64
-	err := tx.Model(&BenefitActivity{}).
-		Where("group_id = ? AND id <> ?", activity.GroupId, activity.Id).
+	err := benefitActivitiesInGroups(tx.Model(&BenefitActivity{}), "benefit_activities", ids).
+		Where("id <> ?", activity.Id).
 		Where("status IN ?", []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}).
 		Where("starts_at < ? AND ends_at > ?", activity.EndsAt, activity.StartsAt).
 		Count(&count).Error
@@ -1669,21 +1707,27 @@ func lockBenefitActivityGroupTx(tx *gorm.DB, groupID int) error {
 }
 
 func CreateBenefitActivity(activity *BenefitActivity, operatorID int, now int64) error {
-	if err := validateBenefitActivity(activity); err != nil {
-		return err
+	if activity == nil {
+		return errors.New("福利活动不能为空")
 	}
-	var group Group
-	if err := DB.Where("id = ? AND status = ?", activity.GroupId, GroupStatusActive).First(&group).Error; err != nil {
-		return err
-	}
-	activity.Status = BenefitActivityStatusDraft
-	activity.GroupCodeSnapshot = group.Code
-	activity.GroupNameSnapshot = group.Name
-	activity.CreatedBy = operatorID
-	activity.UpdatedBy = operatorID
-	activity.CreatedAt = now
-	activity.UpdatedAt = now
-	return DB.Create(activity).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		bindings, err := benefitGroupBindings(tx, activity)
+		if err != nil {
+			return err
+		}
+		if err := validateBenefitActivity(activity); err != nil {
+			return err
+		}
+		activity.Status = BenefitActivityStatusDraft
+		activity.CreatedBy = operatorID
+		activity.UpdatedBy = operatorID
+		activity.CreatedAt = now
+		activity.UpdatedAt = now
+		if err := tx.Create(activity).Error; err != nil {
+			return err
+		}
+		return saveBenefitGroupBindings(tx, activity.Id, bindings)
+	})
 }
 
 func UpdateBenefitActivityDraft(activity *BenefitActivity, operatorID int, now int64) error {
@@ -1704,16 +1748,28 @@ func UpdateBenefitActivityDraft(activity *BenefitActivity, operatorID int, now i
 		candidate.CreatedAt = stored.CreatedAt
 		candidate.UpdatedBy = operatorID
 		candidate.UpdatedAt = now
+		if candidate.GroupIDs == nil {
+			if err := loadBenefitActivityGroups(tx, &stored); err != nil {
+				return err
+			}
+			if len(stored.GroupIDs) > 1 {
+				if candidate.GroupId != stored.GroupId {
+					return errors.New("多分组福利活动须使用 group_ids 修改分组")
+				}
+				candidate.GroupIDs = stored.GroupIDs
+			}
+		}
+		bindings, err := benefitGroupBindings(tx, &candidate)
+		if err != nil {
+			return err
+		}
 		if err := validateBenefitActivity(&candidate); err != nil {
 			return err
 		}
-		var group Group
-		if err := tx.Where("id = ? AND status = ?", candidate.GroupId, GroupStatusActive).First(&group).Error; err != nil {
+		if err := tx.Save(&candidate).Error; err != nil {
 			return err
 		}
-		candidate.GroupCodeSnapshot = group.Code
-		candidate.GroupNameSnapshot = group.Name
-		if err := tx.Save(&candidate).Error; err != nil {
+		if err := saveBenefitGroupBindings(tx, candidate.Id, bindings); err != nil {
 			return err
 		}
 		*activity = candidate
@@ -1740,6 +1796,9 @@ func UpdateBenefitActivityMetadata(activityID int, name, description string, ope
 		activity.UpdatedAt = now
 		return tx.Save(&activity).Error
 	})
+	if err == nil {
+		err = loadBenefitActivityGroups(DB, &activity)
+	}
 	return &activity, err
 }
 
@@ -1755,10 +1814,11 @@ func PublishBenefitActivity(activityID, operatorID int, now int64) (*BenefitActi
 		if err := validateBenefitActivity(&published); err != nil {
 			return err
 		}
-		if err := lockBenefitActivityGroupTx(tx, published.GroupId); err != nil {
+		ids, err := lockBenefitActivityGroups(tx, &published)
+		if err != nil {
 			return err
 		}
-		overlap, err := benefitActivityOverlapTx(tx, &published)
+		overlap, err := benefitActivityOverlapTx(tx, &published, ids)
 		if err != nil {
 			return err
 		}
@@ -1785,6 +1845,9 @@ func PublishBenefitActivity(activityID, operatorID int, now int64) (*BenefitActi
 		published.UpdatedAt = now
 		return tx.Save(&published).Error
 	})
+	if err == nil {
+		err = loadBenefitActivityGroups(DB, &published)
+	}
 	return &published, err
 }
 
@@ -1803,10 +1866,11 @@ func TransitionBenefitActivity(activityID, operatorID int, targetStatus string, 
 			if activity.Status != BenefitActivityStatusPaused {
 				return ErrBenefitActivityTransition
 			}
-			if err := lockBenefitActivityGroupTx(tx, activity.GroupId); err != nil {
+			ids, err := lockBenefitActivityGroups(tx, &activity)
+			if err != nil {
 				return err
 			}
-			overlap, err := benefitActivityOverlapTx(tx, &activity)
+			overlap, err := benefitActivityOverlapTx(tx, &activity, ids)
 			if err != nil {
 				return err
 			}
@@ -1833,6 +1897,9 @@ func TransitionBenefitActivity(activityID, operatorID int, targetStatus string, 
 		}
 		return nil
 	})
+	if err == nil {
+		err = loadBenefitActivityGroups(DB, &activity)
+	}
 	return &activity, err
 }
 

@@ -58,7 +58,7 @@ func TestNewBillingSessionSkipsBenefitVoucherForInheritedGroup(t *testing.T) {
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "benefit", Name: "活动福利", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	user := &model.User{Id: 4321, Username: "benefit-session-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
@@ -118,7 +118,7 @@ func TestNewBillingSessionRealFactoryMultiVoucherBreakdown(t *testing.T) {
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.GroupAlias{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "real-multi", Name: "真实多券", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	user := &model.User{Id: 7654, Username: "real-multi-user", Group: group.Code, GroupId: group.Id, Quota: 1000, CreatedAt: 1}
@@ -257,7 +257,7 @@ func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnPositiveDelta(t *te
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "real-benefit", Name: "真实福利", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-44"}).Error)
@@ -290,7 +290,7 @@ func TestCompositeFundingRealVoucherClosesUnadjustedVoucherOnNegativeDelta(t *te
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "real-benefit-negative", Name: "真实福利负差额", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	require.NoError(t, db.Create(&model.User{Id: 44, Username: "real-benefit-negative-user", Group: group.Code, GroupId: group.Id, AffCode: "real-benefit-negative-44"}).Error)
@@ -339,7 +339,7 @@ func TestCompositeFundingRollbackRestoresRealVoucherLedgerAfterLaterSourceFailur
 			_ = sqlDB.Close()
 		}
 	})
-	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
+	require.NoError(t, db.AutoMigrate(&model.Group{}, &model.User{}, &model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{}))
 	group := &model.Group{Code: "rollback-group", Name: "回滚分组", Ratio: 1, Status: model.GroupStatusActive}
 	require.NoError(t, db.Create(group).Error)
 	require.NoError(t, db.Create(&model.User{Id: 44, Username: "rollback-benefit-user", Group: group.Code, GroupId: group.Id, AffCode: "rollback-benefit-44"}).Error)

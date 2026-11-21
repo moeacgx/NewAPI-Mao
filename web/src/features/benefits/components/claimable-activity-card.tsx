@@ -49,7 +49,7 @@ export function ClaimableActivityCard(props: ClaimableActivityCardProps) {
       <CardHeader>
         <CardTitle className='truncate'>{activity.name}</CardTitle>
         <span className='text-muted-foreground text-sm'>
-          {activity.group_name_snapshot}
+          {activity.group_names?.join(' · ') || activity.group_name_snapshot}
         </span>
       </CardHeader>
       <CardContent className='grid gap-3'>

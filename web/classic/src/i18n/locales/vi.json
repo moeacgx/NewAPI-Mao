@@ -15,6 +15,7 @@
     "Quote": "Trích dẫn",
     "Replaces the current template only when clicked.": "Chỉ thay mẫu hiện tại khi bấm.",
     "Sample data only. No message is sent. Uses the first recipient mention.": "Chỉ dùng dữ liệu mẫu, không gửi tin. Nhắc đến người nhận đầu tiên.",
+    "Selected groups share the activity stock and each voucher balance.": "Các nhóm đã chọn dùng chung số lượng phiếu và số dư của từng phiếu.",
     "Spoiler": "Nội dung ẩn",
     "Strikethrough": "Gạch ngang",
     "Telegram formatting": "Định dạng Telegram",
@@ -6227,7 +6228,7 @@
     "Memory": "Bộ nhớ",
     "Messages": "Tin nhắn",
     "Midjourney 任务记录": "Hồ sơ tác vụ Midjourney",
-    "Minimum historical paid amount required; 0 means no threshold.": "Số tiền đã thanh toán tối thiểu trong lịch sử; 0 nghĩa là không yêu cầu.",
+    "Minimum historical paid amount required; 0 means no threshold.": "Tổng số tiền đã thanh toán tối thiểu. Nhập 0 để chỉ bỏ điều kiện thanh toán.",
     "Minimum host: {{version}}": "Phiên bản máy chủ tối thiểu: {{version}}",
     "MIT许可证": "Giấy phép MIT",
     "Model": "Mô hình",
@@ -6620,8 +6621,8 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL phải bắt đầu bằng http:// hoặc https://",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "Khi cả nhóm và người dùng được đặt, yêu cầu phải khớp cả hai bộ lọc. Bộ lọc trống khớp tất cả.",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Thời điểm đóng nhận phiếu; phiếu đã nhận vẫn giữ thời hạn cá nhân.",
-    "When claiming opens, Beijing time.": "When claiming opens, Beijing time. (vi)",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Kết thúc nhận phiếu (UTC+8). Phiếu đã nhận vẫn giữ nguyên ngày hết hạn.",
+    "When claiming opens, Beijing time.": "Bắt đầu nhận phiếu (UTC+8).",
     "Where the budget went": "Where budget went",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Khóa chữ ký Webhook cho whsec_xxx, thông tin nhạy cảm không được hiển thị",
     "Worker 数量": "Worker số lượng",
@@ -7074,6 +7075,10 @@
     "Tools and execution rules": "Công cụ và quy tắc thực thi",
     "View permissions": "Xem quyền",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "Công cụ ghi yêu cầu request_id. Hãy kiểm tra kết quả trước khi thử lại với cùng ID và đối số.",
-    "{{count}} authorized tools": "Đã cấp quyền cho {{count}} công cụ"
+    "{{count}} authorized tools": "Đã cấp quyền cho {{count}} công cụ",
+    "The smallest amount a single voucher can receive.": "Giá trị thấp nhất của một phiếu.",
+    "The largest amount a single voucher can receive.": "Giá trị cao nhất của một phiếu.",
+    "Minimum amount": "Giá trị tối thiểu",
+    "Maximum amount": "Giá trị tối đa"
   }
 }

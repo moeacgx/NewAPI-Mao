@@ -15,6 +15,7 @@
     "Quote": "引用",
     "Replaces the current template only when clicked.": "仅点击后替换当前模板。",
     "Sample data only. No message is sent. Uses the first recipient mention.": "仅使用示例数据，不发送消息；提及使用首个接收目标。",
+    "Selected groups share the activity stock and each voucher balance.": "所选分组共用活动总份数，同一张券在各分组间共用余额。",
     "Spoiler": "剧透",
     "Strikethrough": "删除线",
     "Telegram formatting": "Telegram 格式工具栏",
@@ -5813,7 +5814,7 @@
     "Memory": "内存",
     "Messages": "消息数",
     "Midjourney 任务记录": "Midjourney 任务记录",
-    "Minimum historical paid amount required; 0 means no threshold.": "要求的历史最低实付金额；0 表示无门槛。",
+    "Minimum historical paid amount required; 0 means no threshold.": "按用户累计历史实付金额判断；填 0 仅表示不限制实付金额。",
     "Minimum host: {{version}}": "最低宿主版本：{{version}}",
     "MIT许可证": "MIT许可证",
     "Model": "模型",
@@ -6212,8 +6213,8 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL 必须以 http:// 或 https:// 开头",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "同时设置分组和用户时，请求必须同时匹配。筛选为空则匹配全部。",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "领取结束时间；已领取的福利券仍按各自的个人有效期使用。",
-    "When claiming opens, Beijing time.": "开始领取时间（北京时间）。",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "停止领取时间（北京时间，UTC+8）。已领取的券仍按各自的有效期使用。",
+    "When claiming opens, Beijing time.": "开放领取时间（北京时间，UTC+8）。",
     "Where the budget went": "额度去向",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示",
     "Worker 数量": "Worker 数量",
@@ -6666,6 +6667,10 @@
     "Tools and execution rules": "工具与执行规则",
     "View permissions": "查看权限",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "写入工具必须提供 request_id。请先核查结果，再使用相同 ID 和参数重试。",
-    "{{count}} authorized tools": "已授权 {{count}} 个工具"
+    "{{count}} authorized tools": "已授权 {{count}} 个工具",
+    "The smallest amount a single voucher can receive.": "每张券可获得的最低额度。",
+    "The largest amount a single voucher can receive.": "每张券可获得的最高额度。",
+    "Minimum amount": "最小额度",
+    "Maximum amount": "最大额度"
   }
 }

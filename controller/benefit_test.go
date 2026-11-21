@@ -259,7 +259,7 @@ func openBenefitControllerTestDB(t *testing.T) *gorm.DB {
 	model.DB, model.LOG_DB = db, db
 	require.NoError(t, db.AutoMigrate(
 		&model.Group{}, &model.GroupAlias{}, &model.AutoGroupMember{},
-		&model.BenefitActivity{}, &model.BenefitActivityShare{},
+		&model.BenefitActivity{}, &model.BenefitActivityGroup{}, &model.BenefitActivityShare{},
 		&model.BenefitUserVoucher{}, &model.BenefitVoucherLedger{},
 		&model.User{}, &model.TopUp{},
 	))
@@ -350,6 +350,53 @@ func TestGetBenefitActivitiesReturnsUserEligibilityState(t *testing.T) {
 	require.Len(t, response.Data, 1)
 	assert.True(t, response.Data[0].Eligible)
 	assert.Equal(t, 3, response.Data[0].RemainingCount)
+}
+
+func TestBenefitAdminDraftAcceptsGroupIDsAndPreservesThemOnLegacyEdit(t *testing.T) {
+	oldRedisEnabled := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = oldRedisEnabled })
+	db := openBenefitControllerTestDB(t)
+	user := newBenefitControllerUser(t, db, 20)
+	secondary := model.Group{Code: "second-benefit", Name: "第二福利分组", Status: model.GroupStatusActive}
+	require.NoError(t, db.Create(&secondary).Error)
+	ids := []int{user.GroupId, secondary.Id}
+	now := common.GetTimestamp()
+	fields := map[string]any{
+		"name": "多分组福利", "group_ids": ids, "amount_mode": "fixed",
+		"amount_display_type": model.CurrentBenefitAmountDisplayContext().DisplayType,
+		"total_amount":        5, "fixed_amount": 5, "total_count": 1,
+		"personal_valid_hours": 24, "starts_at": now, "ends_at": now + 3600,
+	}
+	body, err := common.Marshal(fields)
+	require.NoError(t, err)
+	ctx, recorder := newBenefitControllerContext(t, http.MethodPost, "/api/benefit/admin/activities", body, user.Id)
+	CreateBenefitAdminActivity(ctx)
+	var response struct {
+		Success bool                  `json:"success"`
+		Data    model.BenefitActivity `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success, recorder.Body.String())
+	assert.Equal(t, ids, response.Data.GroupIDs)
+	require.Len(t, response.Data.GroupNames, 2)
+	assert.Equal(t, secondary.Name, response.Data.GroupNames[1])
+
+	delete(fields, "group_ids")
+	fields["group_id"] = user.GroupId
+	fields["name"] = "旧客户端修改草稿"
+	body, err = common.Marshal(fields)
+	require.NoError(t, err)
+	id := strconv.Itoa(response.Data.Id)
+	ctx, recorder = newBenefitControllerContext(t, http.MethodPut, "/api/benefit/admin/activities/"+id, body, user.Id)
+	ctx.Params = gin.Params{{Key: "id", Value: id}}
+	UpdateBenefitAdminActivity(ctx)
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success, recorder.Body.String())
+	stored, err := model.GetBenefitActivityForAdmin(response.Data.Id)
+	require.NoError(t, err)
+	assert.Equal(t, ids, stored.GroupIDs)
+	assert.Equal(t, fields["name"], stored.Name)
 }
 
 func TestClaimBenefitActivityReturnsGenericIneligibleMessage(t *testing.T) {

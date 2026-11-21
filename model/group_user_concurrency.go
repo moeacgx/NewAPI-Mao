@@ -69,8 +69,8 @@ func HasActiveBenefitActivityForGroup(groupID int) bool {
 	}
 	now := time.Now().Unix()
 	var count int64
-	if err := DB.Model(&BenefitActivity{}).
-		Where("group_id = ? AND status IN ? AND starts_at <= ? AND ends_at > ?", groupID, []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}, now, now).
+	if err := benefitActivitiesInGroups(DB.Model(&BenefitActivity{}), "benefit_activities", []int{groupID}).
+		Where("status IN ? AND starts_at <= ? AND ends_at > ?", []string{BenefitActivityStatusPublished, BenefitActivityStatusPaused}, now, now).
 		Count(&count).Error; err != nil {
 		return false
 	}

@@ -15,6 +15,7 @@
     "Quote": "Цитата",
     "Replaces the current template only when clicked.": "Текущий шаблон заменяется только по нажатию.",
     "Sample data only. No message is sent. Uses the first recipient mention.": "Только пример, без отправки. Упоминание первого получателя.",
+    "Selected groups share the activity stock and each voucher balance.": "Выбранные группы используют общий запас акции и общий остаток каждого купона.",
     "Spoiler": "Спойлер",
     "Strikethrough": "Зачёркнутый",
     "Telegram formatting": "Форматирование Telegram",
@@ -5773,7 +5774,7 @@
     "Memory": "Память",
     "Messages": "Сообщения",
     "Midjourney 任务记录": "Записи задач Midjourney",
-    "Minimum historical paid amount required; 0 means no threshold.": "Минимальная историческая сумма оплаты; 0 означает отсутствие порога.",
+    "Minimum historical paid amount required; 0 means no threshold.": "Минимальная сумма всех предыдущих платежей. Значение 0 отменяет только требование к оплате.",
     "Minimum host: {{version}}": "Минимальная версия хоста: {{version}}",
     "MIT许可证": "Лицензия MIT",
     "Model": "Модель",
@@ -6168,8 +6169,8 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL должен начинаться с http:// или https://",
     "When both groups and users are set, a request must match both filters. Empty filters match all.": "Если заданы и группы, и пользователи, запрос должен соответствовать обоим фильтрам. Пустые фильтры соответствуют всем.",
-    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Время закрытия выдачи; уже полученные купоны сохраняют свой срок действия.",
-    "When claiming opens, Beijing time.": "When claiming opens, Beijing time. (ru)",
+    "When claiming closes; already-claimed vouchers keep their own personal validity.": "Окончание выдачи купонов (UTC+8). Срок действия полученных купонов не меняется.",
+    "When claiming opens, Beijing time.": "Начало выдачи купонов (UTC+8).",
     "Where the budget went": "Where budget went",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Ключ подписи Webhook whsec_xxx, конфиденциальная информация не отображается",
     "Worker 数量": "Worker количество",
@@ -6622,6 +6623,10 @@
     "Tools and execution rules": "Инструменты и правила выполнения",
     "View permissions": "Просмотр прав",
     "Write tools require request_id. Check the result before retrying with the same ID and arguments.": "Для инструментов записи требуется request_id. Проверьте результат перед повтором с тем же ID и аргументами.",
-    "{{count}} authorized tools": "Разрешено инструментов: {{count}}"
+    "{{count}} authorized tools": "Разрешено инструментов: {{count}}",
+    "The smallest amount a single voucher can receive.": "Минимальный номинал одного купона.",
+    "The largest amount a single voucher can receive.": "Максимальный номинал одного купона.",
+    "Minimum amount": "Минимальная сумма",
+    "Maximum amount": "Максимальная сумма"
   }
 }

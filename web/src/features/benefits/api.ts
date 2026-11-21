@@ -56,6 +56,7 @@ export type BenefitActivityInput = Omit<
   | 'status'
   | 'group_code_snapshot'
   | 'group_name_snapshot'
+  | 'group_names'
   | 'published_at'
   | 'total_quota'
   | 'fixed_quota'
@@ -75,22 +76,13 @@ export async function getBenefitGroupOptions(): Promise<BenefitGroupOption[]> {
       Number(group.id) > 0 &&
       Number(group.status) === 1
   )
-  const nameCounts = new Map<string, number>()
-  groups.forEach((group) => {
-    const name =
-      String(group.name ?? '').trim() || String(group.code ?? '').trim()
-    nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1)
-  })
   return groups.map((group) => {
     const id = Number(group.id)
     const name =
       String(group.name ?? '').trim() || String(group.code ?? '').trim()
-    const code = String(group.code ?? '').trim()
-    const count = nameCounts.get(name) ?? 0
-    const label = count > 1 && code ? `${name} · ${code}` : name
     return {
       value: String(id),
-      label,
+      label: name,
       ratio: group.ratio,
       id,
     }

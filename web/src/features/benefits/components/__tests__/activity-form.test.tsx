@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getCurrencyLabel } from '@/lib/currency'
@@ -36,11 +43,82 @@ function setCurrencyConfig(overrides: Partial<CurrencyConfig>) {
 }
 
 afterEach(() => {
+  cleanup()
   setCurrencyConfig(DEFAULT_CURRENCY_CONFIG)
 })
 
 describe('benefit activity form', () => {
   const groupOptions = [{ value: '7', label: 'Codex-Hack', id: 7 }]
+
+  it('selects multiple display names and saves their stable IDs in one draft', async () => {
+    const user = userEvent.setup()
+    const submit = vi.fn().mockResolvedValue(undefined)
+    render(
+      <BenefitActivityForm
+        onSubmit={submit}
+        onCancel={vi.fn()}
+        initial={{ name: 'Weekend', group_id: 7 }}
+        groupOptions={[
+          ...groupOptions,
+          { value: '12', label: 'DeepSeek 福利', id: 12 },
+        ]}
+      />
+    )
+    const picker = screen.getByRole('combobox', { name: 'Benefit group' })
+    await user.click(picker)
+    await user.type(picker, 'DeepSeek')
+    await user.click(
+      await screen.findByRole('option', { name: 'DeepSeek 福利' })
+    )
+    await waitFor(() => {
+      expect(picker).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('DeepSeek 福利')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft' }))
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({ group_id: 7, group_ids: [7, 12] })
+    )
+  })
+
+  it('keeps fixed-mode field labels visible after values are entered', () => {
+    render(
+      <BenefitActivityForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        groupOptions={groupOptions}
+        initial={{ name: 'Weekend', group_id: 7, total_count: 20 }}
+      />
+    )
+
+    for (const name of [
+      'Fixed amount (USD)',
+      'Total count',
+      'Paid threshold (USD)',
+      'Personal validity in hours',
+    ]) {
+      expect(screen.getByText(name)).toBeVisible()
+      expect(screen.getByRole('spinbutton', { name })).toBeVisible()
+    }
+    expect(screen.getByRole('spinbutton', { name: 'Total count' })).toHaveValue(
+      20
+    )
+  })
+
+  it('explains the zero threshold and when voucher validity starts', () => {
+    render(<BenefitActivityForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(
+      screen.getByRole('spinbutton', { name: 'Paid threshold (USD)' })
+    ).toHaveAccessibleDescription(
+      'Minimum historical paid amount required; 0 means no threshold.'
+    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'Personal validity in hours' })
+    ).toHaveAccessibleDescription(
+      'How long a claimed voucher stays usable, in hours.'
+    )
+  })
 
   it('derives the fixed total budget from amount and count', async () => {
     const submit = vi.fn().mockResolvedValue(undefined)
@@ -87,7 +165,15 @@ describe('benefit activity form', () => {
       target: { value: 'random' },
     })
     expect(screen.queryByLabelText('Fixed amount (USD)')).toBeNull()
-    expect(screen.getByLabelText('Total budget (USD)')).toBeTruthy()
+    for (const name of [
+      'Total budget (USD)',
+      'Total count',
+      'Minimum amount (USD)',
+      'Maximum amount (USD)',
+    ]) {
+      expect(screen.getByText(name)).toBeVisible()
+      expect(screen.getByRole('spinbutton', { name })).toBeVisible()
+    }
     expect(screen.getByText('Possible total budget range')).toBeTruthy()
     expect(
       screen.getByText(

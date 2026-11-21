@@ -164,7 +164,7 @@ func setupBenefitVoucherTestDB(t *testing.T) *Group {
 	t.Helper()
 	db := openGroupIdentityTestDB(t)
 	require.NoError(t, db.AutoMigrate(
-		&Group{}, &BenefitActivity{}, &BenefitActivityShare{},
+		&Group{}, &BenefitActivity{}, &BenefitActivityGroup{}, &BenefitActivityShare{},
 		&BenefitUserVoucher{}, &BenefitVoucherLedger{}, &User{}, &TopUp{},
 	))
 	group := &Group{Code: "benefit", Name: "活动福利", Ratio: 1, Status: GroupStatusActive}
@@ -494,6 +494,71 @@ func TestReserveBenefitVoucherQuotaCombinesEndedActivityVouchersInOneGroup(t *te
 	assert.Equal(t, int64(30), mustBenefitVoucherByID(t, vouchers[1].Id).UsedQuota)
 }
 
+func TestBenefitMultiGroupSharesInventoryAndBalance(t *testing.T) {
+	a := setupBenefitVoucherTestDB(t)
+	b := Group{Code: "secondary", Name: "Secondary display name", Status: GroupStatusActive}
+	require.NoError(t, DB.Create(&b).Error)
+	activity := &BenefitActivity{Name: "Shared voucher", GroupId: a.Id, GroupIDs: []int{a.Id, b.Id},
+		AmountMode: BenefitAmountModeFixed, FixedQuota: 100, TotalQuota: 100, TotalCount: 1,
+		StartsAt: 2000, EndsAt: 3000, PersonalValidSeconds: 3600}
+	require.NoError(t, CreateBenefitActivity(activity, 1, 1999))
+	_, err := PublishBenefitActivity(activity.Id, 1, 2000)
+	require.NoError(t, err)
+	stored, err := GetBenefitActivityForAdmin(activity.Id)
+	require.NoError(t, err)
+	require.Equal(t, []int{a.Id, b.Id}, stored.GroupIDs)
+	require.Equal(t, []string{a.Name, b.Name}, stored.GroupNames)
+	overlap := &BenefitActivity{Name: "Secondary group overlap", GroupId: b.Id,
+		AmountMode: BenefitAmountModeFixed, FixedQuota: 100, TotalQuota: 100, TotalCount: 1,
+		StartsAt: 2200, EndsAt: 3200, PersonalValidSeconds: 3600}
+	require.NoError(t, CreateBenefitActivity(overlap, 1, 2000))
+	_, err = PublishBenefitActivity(overlap.Id, 1, 2000)
+	require.ErrorIs(t, err, ErrBenefitActivityOverlap)
+	var stock int64
+	require.NoError(t, DB.Model(&BenefitActivityShare{}).Where("activity_id = ?", activity.Id).Count(&stock).Error)
+	require.EqualValues(t, 1, stock)
+	user := User{Username: "shared-benefit-user", AffCode: "shared-benefit", CreatedAt: 1, Group: a.Code, GroupId: a.Id}
+	require.NoError(t, DB.Create(&user).Error)
+	voucher, err := ClaimBenefitActivity(activity.Id, user.Id, 2100)
+	require.NoError(t, err)
+	_, err = ClaimBenefitActivity(activity.Id, user.Id, 2100)
+	require.Error(t, err)
+	first, err := ReserveBenefitVoucherQuota("shared-first", user.Id, a.Id, 30, 2101)
+	require.NoError(t, err)
+	require.Equal(t, voucher.Id, first.VoucherID)
+	require.NoError(t, SettleBenefitVoucherQuota("shared-first", 0, 2102))
+	second, err := ReserveBenefitVoucherQuota("shared-second", user.Id, b.Id, 40, 2103)
+	require.NoError(t, err)
+	require.Equal(t, voucher.Id, second.VoucherID)
+	require.NoError(t, SettleBenefitVoucherQuota("shared-second", 10, 2104))
+	for _, id := range []int{a.Id, b.Id} {
+		balance, err := GetBenefitVoucherAvailableQuota(user.Id, id, 2105)
+		require.NoError(t, err)
+		require.EqualValues(t, 20, balance)
+	}
+	_, err = ReserveBenefitVoucherQuota("shared-outside", user.Id, b.Id+1, 1, 2105)
+	require.ErrorIs(t, err, ErrBenefitVoucherUnavailable)
+	_, err = ReserveBenefitVoucherQuota("shared-refund", user.Id, b.Id, 5, 2106)
+	require.NoError(t, err)
+	require.NoError(t, RefundBenefitVoucherQuota("shared-refund", 2107))
+	balance, err := GetBenefitVoucherAvailableQuota(user.Id, a.Id, 2108)
+	require.NoError(t, err)
+	require.EqualValues(t, 20, balance)
+}
+
+func TestBenefitVoucherSchemaRequiresBothMultiGroupMigrations(t *testing.T) {
+	setupBenefitVoucherTestDB(t)
+	migrator := DB.Migrator()
+	require.NoError(t, CheckBenefitVoucherSchema(DB))
+	require.NoError(t, migrator.DropTable(&BenefitActivityGroup{}))
+	require.ErrorContains(t, CheckBenefitVoucherSchema(DB), "schema is not ready")
+	require.NoError(t, migrator.CreateTable(&BenefitActivityGroup{}))
+	require.NoError(t, migrator.DropColumn(&BenefitVoucherLedger{}, "RequestGroupID"))
+	require.ErrorContains(t, CheckBenefitVoucherSchema(DB), "schema is not ready")
+	require.NoError(t, DB.AutoMigrate(&BenefitVoucherLedger{}))
+	require.NoError(t, CheckBenefitVoucherSchema(DB))
+}
+
 func TestSettleBenefitVoucherQuotaPositiveDeltaUsesNextVoucher(t *testing.T) {
 	group := setupBenefitVoucherTestDB(t)
 	now := int64(1000)
@@ -519,6 +584,40 @@ func TestSettleBenefitVoucherQuotaPositiveDeltaUsesNextVoucher(t *testing.T) {
 	var secondSettle BenefitVoucherLedger
 	require.NoError(t, DB.Where("request_id = ? AND voucher_id = ? AND type = ?", "positive-cross-voucher", second.Id, BenefitLedgerTypeSettleDelta).First(&secondSettle).Error)
 	assert.Equal(t, int64(-30), secondSettle.QuotaDelta)
+}
+
+func TestBenefitMultiGroupSettlementUsesRequestGroupForAdditionalVoucher(t *testing.T) {
+	primary := setupBenefitVoucherTestDB(t)
+	secondary := Group{Code: "delta-secondary", Name: "Secondary display", Status: GroupStatusActive}
+	require.NoError(t, DB.Create(&secondary).Error)
+	const now int64 = 2000
+	activities := []BenefitActivity{
+		{Name: "Shared", GroupId: primary.Id},
+		{Name: "Primary only", GroupId: primary.Id},
+		{Name: "Secondary only", GroupId: secondary.Id},
+	}
+	for i := range activities {
+		activities[i].Status = BenefitActivityStatusEnded
+		activities[i].EndsAt = now - 1
+	}
+	require.NoError(t, DB.Create(&activities).Error)
+	require.NoError(t, DB.Create(&BenefitActivityGroup{
+		ActivityID: activities[0].Id, GroupID: secondary.Id, NameSnapshot: secondary.Name,
+	}).Error)
+	vouchers := make([]BenefitUserVoucher, len(activities))
+	for i, activity := range activities {
+		vouchers[i] = BenefitUserVoucher{
+			ActivityId: activity.Id, ShareId: i + 1, UserId: 44, OriginalQuota: 50,
+			RemainingQuota: 50, Status: BenefitVoucherStatusActive, ExpiresAt: now + 100 + int64(i),
+		}
+	}
+	require.NoError(t, DB.Create(&vouchers).Error)
+	reservation, err := ReserveBenefitVoucherQuota("delta-secondary", 44, secondary.Id, 50, now)
+	require.NoError(t, err)
+	require.Equal(t, vouchers[0].Id, reservation.VoucherID)
+	require.NoError(t, SettleBenefitVoucherQuota("delta-secondary", 30, now+1))
+	assert.EqualValues(t, 50, mustBenefitVoucherByID(t, vouchers[1].Id).RemainingQuota)
+	assert.EqualValues(t, 20, mustBenefitVoucherByID(t, vouchers[2].Id).RemainingQuota)
 }
 
 func TestSettleBenefitVoucherQuotaRejectsAfterFullRefund(t *testing.T) {

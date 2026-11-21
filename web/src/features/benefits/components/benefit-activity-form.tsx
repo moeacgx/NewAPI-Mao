@@ -16,13 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ApiKeyGroupCombobox } from '@/features/keys/components/api-key-group-combobox'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import {
   formatQuota,
@@ -40,7 +41,10 @@ import {
 type BenefitActivityFormProps = {
   onSubmit: (input: BenefitActivityInput) => Promise<void>
   onCancel: () => void
-  initial?: Partial<BenefitActivityInput>
+  initial?: Partial<BenefitActivityInput> & {
+    group_names?: string[]
+    group_name_snapshot?: string
+  }
   groupOptions?: readonly BenefitGroupOption[]
 }
 
@@ -61,10 +65,13 @@ const defaultForm: BenefitActivityInput = {
   ends_at: Math.floor(Date.now() / 1000) + 86400,
 }
 
-function normalizeInitial(initial?: Partial<BenefitActivityInput>) {
+function normalizeInitial(initial?: BenefitActivityFormProps['initial']) {
   return {
     ...defaultForm,
     ...initial,
+    group_ids: initial?.group_ids?.length
+      ? initial.group_ids
+      : [initial?.group_id ?? 0].filter((id) => id > 0),
     amount_display_type:
       initial?.amount_display_type ?? getCurrentAmountDisplayType(),
   }
@@ -106,8 +113,33 @@ function fromDateTimeLocal(value: string) {
   return Number.isFinite(timestamp) ? timestamp : 0
 }
 
+function ActivityInput({
+  label,
+  description,
+  ...inputProps
+}: ComponentProps<typeof Input> & { label: string; description?: string }) {
+  const id = useId()
+  return (
+    <Field className='min-w-0 gap-1'>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
+        {...inputProps}
+        id={id}
+        aria-describedby={description ? `${id}-description` : undefined}
+      />
+      {description && (
+        <FieldDescription id={`${id}-description`} className='text-xs'>
+          {description}
+        </FieldDescription>
+      )}
+    </Field>
+  )
+}
+
 export function BenefitActivityForm(props: BenefitActivityFormProps) {
   const { t } = useTranslation()
+  const descriptionId = useId()
+  const groupsId = useId()
   const [form, setForm] = useState(() => normalizeInitial(props.initial))
   const [error, setError] = useState('')
   const currency = useSystemConfigStore((state) => state.config.currency)
@@ -134,9 +166,40 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
   const computedRangeMin = multipliedAmount(form.min_amount, form.total_count)
   const computedRangeMax = multipliedAmount(form.max_amount, form.total_count)
   const hasComputedRange = computedRangeMin > 0 && computedRangeMax > 0
+  const groupOptions = [...(props.groupOptions ?? [])]
+  const initialGroupIds = props.initial?.group_ids ?? [props.initial?.group_id]
+  for (const id of form.group_ids) {
+    if (!groupOptions.some((option) => option.value === String(id))) {
+      const initialIndex = initialGroupIds.indexOf(id)
+      groupOptions.push({
+        id,
+        value: String(id),
+        label:
+          props.initial?.group_names?.[initialIndex] ||
+          (initialIndex === 0
+            ? props.initial?.group_name_snapshot
+            : undefined) ||
+          `#${id}`,
+      })
+    }
+  }
+  const countInput = (
+    <ActivityInput
+      label={t('Total count')}
+      description={t('How many vouchers to issue.')}
+      type='number'
+      min={1}
+      value={form.total_count}
+      onChange={(event) => update('total_count', Number(event.target.value))}
+    />
+  )
 
   const submit = async () => {
-    if (!form.name.trim() || form.group_id <= 0 || form.total_count <= 0) {
+    if (
+      !form.name.trim() ||
+      form.group_ids.length === 0 ||
+      form.total_count <= 0
+    ) {
       setError(t('Please complete the required benefit activity fields'))
       return
     }
@@ -185,7 +248,8 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
       id: form.id,
       name: form.name,
       description: form.description,
-      group_id: form.group_id,
+      group_id: form.group_ids[0],
+      group_ids: form.group_ids,
       amount_mode: form.amount_mode,
       amount_display_type: getCurrentAmountDisplayType(),
       total_amount: computedTotalAmount,
@@ -202,28 +266,46 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
 
   return (
     <div className='border-border grid gap-3 border-b pb-4 md:grid-cols-2'>
-      <Input
-        aria-label={t('Activity name')}
-        placeholder={t('Activity name')}
+      <ActivityInput
+        label={t('Activity name')}
         value={form.name}
         onChange={(event) => update('name', event.target.value)}
       />
-      <Textarea
-        aria-label={t('Activity description')}
-        placeholder={t('Activity description')}
-        value={form.description}
-        onChange={(event) => update('description', event.target.value)}
-      />
-      <label className='grid gap-1 text-sm'>
-        <span>{t('Benefit group')}</span>
-        <ApiKeyGroupCombobox
-          options={props.groupOptions ? [...props.groupOptions] : []}
-          value={form.group_id > 0 ? String(form.group_id) : undefined}
-          onValueChange={(value) => update('group_id', Number(value ?? 0))}
-          placeholder={t('Select a group')}
-          disabled={!props.groupOptions?.length}
+      <Field className='min-w-0 gap-1'>
+        <FieldLabel htmlFor={descriptionId}>
+          {t('Activity description')}
+        </FieldLabel>
+        <Textarea
+          id={descriptionId}
+          value={form.description}
+          onChange={(event) => update('description', event.target.value)}
         />
-      </label>
+      </Field>
+      <Field className='min-w-0 gap-1'>
+        <FieldLabel id={`${groupsId}-label`} htmlFor={groupsId}>
+          {t('Benefit group')}
+        </FieldLabel>
+        <MultiSelect
+          id={groupsId}
+          aria-labelledby={`${groupsId}-label`}
+          searchByLabel
+          options={groupOptions}
+          selected={form.group_ids.map(String)}
+          onChange={(values) =>
+            setForm((current) => ({
+              ...current,
+              group_ids: values.map(Number),
+            }))
+          }
+          placeholder={t('Select groups...')}
+          disabled={groupOptions.length === 0}
+        />
+        <FieldDescription className='text-xs'>
+          {t(
+            'Selected groups share the activity stock and each voucher balance.'
+          )}
+        </FieldDescription>
+      </Field>
       <label className='grid gap-1 text-sm'>
         <span>{t('Amount mode')}</span>
         <select
@@ -242,10 +324,11 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
       </label>
       {form.amount_mode === 'fixed' ? (
         <>
-          <Input
-            aria-label={t('Fixed amount ({{currency}})', {
+          <ActivityInput
+            label={t('Fixed amount ({{currency}})', {
               currency: amountUnit.currencyLabel,
             })}
+            description={t('The amount each voucher is worth.')}
             type='number'
             min={amountUnit.tokensOnly ? 1 : 0.01}
             step={amountUnit.step}
@@ -254,15 +337,7 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
               update('fixed_amount', Number(event.target.value))
             }
           />
-          <Input
-            aria-label={t('Total count')}
-            type='number'
-            min={1}
-            value={form.total_count}
-            onChange={(event) =>
-              update('total_count', Number(event.target.value))
-            }
-          />
+          {countInput}
           <div className='bg-muted/40 border-border grid gap-1 rounded-md border p-3 md:col-span-2'>
             <span className='text-sm font-medium'>
               {t('Calculated total budget ({{currency}})', {
@@ -279,10 +354,13 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
         </>
       ) : (
         <>
-          <Input
-            aria-label={t('Total budget ({{currency}})', {
+          <ActivityInput
+            label={t('Total budget ({{currency}})', {
               currency: amountUnit.currencyLabel,
             })}
+            description={t(
+              'The total amount every voucher in this activity shares.'
+            )}
             type='number'
             min={amountUnit.tokensOnly ? 1 : 0.01}
             step={amountUnit.step}
@@ -291,19 +369,12 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
               update('total_amount', Number(event.target.value))
             }
           />
-          <Input
-            aria-label={t('Total count')}
-            type='number'
-            min={1}
-            value={form.total_count}
-            onChange={(event) =>
-              update('total_count', Number(event.target.value))
-            }
-          />
-          <Input
-            aria-label={t('Minimum amount ({{currency}})', {
+          {countInput}
+          <ActivityInput
+            label={t('Minimum amount ({{currency}})', {
               currency: amountUnit.currencyLabel,
             })}
+            description={t('The smallest amount a single voucher can receive.')}
             type='number'
             min={amountUnit.tokensOnly ? 1 : 0.01}
             step={amountUnit.step}
@@ -312,10 +383,11 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
               update('min_amount', Number(event.target.value))
             }
           />
-          <Input
-            aria-label={t('Maximum amount ({{currency}})', {
+          <ActivityInput
+            label={t('Maximum amount ({{currency}})', {
               currency: amountUnit.currencyLabel,
             })}
+            description={t('The largest amount a single voucher can receive.')}
             type='number'
             min={amountUnit.tokensOnly ? 1 : 0.01}
             step={amountUnit.step}
@@ -344,10 +416,13 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
           </div>
         </>
       )}
-      <Input
-        aria-label={t('Paid threshold ({{currency}})', {
+      <ActivityInput
+        label={t('Paid threshold ({{currency}})', {
           currency: amountUnit.currencyLabel,
         })}
+        description={t(
+          'Minimum historical paid amount required; 0 means no threshold.'
+        )}
         type='number'
         min={0}
         step={amountUnit.step}
@@ -356,8 +431,9 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
           update('claim_paid_threshold', Number(event.target.value))
         }
       />
-      <Input
-        aria-label={t('Personal validity in hours')}
+      <ActivityInput
+        label={t('Personal validity in hours')}
+        description={t('How long a claimed voucher stays usable, in hours.')}
         type='number'
         min={1}
         value={form.personal_valid_hours}
@@ -365,26 +441,26 @@ export function BenefitActivityForm(props: BenefitActivityFormProps) {
           update('personal_valid_hours', Number(event.target.value))
         }
       />
-      <label className='grid gap-1 text-sm'>
-        <span>{t('Activity starts')}</span>
-        <Input
-          type='datetime-local'
-          value={toDateTimeLocal(form.starts_at)}
-          onChange={(event) =>
-            update('starts_at', fromDateTimeLocal(event.target.value))
-          }
-        />
-      </label>
-      <label className='grid gap-1 text-sm'>
-        <span>{t('Activity ends')}</span>
-        <Input
-          type='datetime-local'
-          value={toDateTimeLocal(form.ends_at)}
-          onChange={(event) =>
-            update('ends_at', fromDateTimeLocal(event.target.value))
-          }
-        />
-      </label>
+      <ActivityInput
+        label={t('Activity starts')}
+        description={t('When claiming opens, Beijing time.')}
+        type='datetime-local'
+        value={toDateTimeLocal(form.starts_at)}
+        onChange={(event) =>
+          update('starts_at', fromDateTimeLocal(event.target.value))
+        }
+      />
+      <ActivityInput
+        label={t('Activity ends')}
+        description={t(
+          'When claiming closes; already-claimed vouchers keep their own personal validity.'
+        )}
+        type='datetime-local'
+        value={toDateTimeLocal(form.ends_at)}
+        onChange={(event) =>
+          update('ends_at', fromDateTimeLocal(event.target.value))
+        }
+      />
       {error ? (
         <p className='text-destructive text-sm md:col-span-2'>{error}</p>
       ) : null}
