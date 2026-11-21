@@ -14,7 +14,7 @@ var upstreamCapacityErrorCodes = map[string]struct{}{
 	"upstream_capacity_exhausted":     {},
 }
 
-const UpstreamCapacityClientMessage = "已触发 OpenAI 官方限流，请重试"
+const UpstreamCapacityClientMessage = "已触发官方限流，请稍后再试。"
 
 func IsUpstreamCapacityError(err *NewAPIError) bool {
 	if err == nil || !err.upstreamCapacityClassification {

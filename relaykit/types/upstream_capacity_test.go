@@ -18,7 +18,7 @@ func TestOfficialCapacityErrorFromSuccessfulHTTPStreamBecomesRetryableRateLimit(
 
 	require.Equal(t, http.StatusTooManyRequests, relayErr.StatusCode)
 	assert.Equal(t, http.StatusOK, relayErr.OriginalStatusCode)
-	assert.Equal(t, "已触发 OpenAI 官方限流，请重试", relayErr.ToOpenAIError().Message)
+	assert.Equal(t, "已触发官方限流，请稍后再试。", relayErr.ToOpenAIError().Message)
 }
 
 func TestUpstreamRateLimitMessageFromSuccessfulHTTPStreamBecomesRetryable(t *testing.T) {
