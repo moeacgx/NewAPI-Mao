@@ -117,6 +117,17 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     }),
     [t, groups, groupRatios, shouldReduceMotion]
   )
+  // 操作列同理：打开「更多」菜单会读取密钥并更新上下文，活动轮询与时钟也会重建列；
+  // 若 cell 每次都是新函数，行菜单会被重新挂载并自行关闭。
+  const actionsColumn = useMemo<ColumnDef<ApiKey>>(
+    () => ({
+      id: 'actions',
+      header: () => t('Actions'),
+      cell: ({ row }) => <DataTableRowActions row={row} />,
+      meta: { pinned: 'right' as const },
+    }),
+    [t]
+  )
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
   return [
     {
@@ -312,11 +323,6 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       size: 180,
       meta: { mobileHidden: true },
     },
-    {
-      id: 'actions',
-      header: () => t('Actions'),
-      cell: ({ row }) => <DataTableRowActions row={row} />,
-      meta: { pinned: 'right' as const },
-    },
+    actionsColumn,
   ]
 }
