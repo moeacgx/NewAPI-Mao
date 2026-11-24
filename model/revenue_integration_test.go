@@ -89,9 +89,9 @@ func TestRevenueStatsCurrencySplit(t *testing.T) {
 	assert.Equal(t, 30.0, cashByCurrency["USD"].Amount, "USD amount should be 30")
 	assert.Equal(t, 2, cashByCurrency["USD"].Count, "USD count should be 2")
 
-	// CNY: epay (50) + bepusdt (72) = 122 CNY, 2 payments
-	assert.Equal(t, 122.0, cashByCurrency["CNY"].Amount, "CNY amount should be 122")
-	assert.Equal(t, 2, cashByCurrency["CNY"].Count, "CNY count should be 2")
+	// CNY: Legacy epay/bepusdt without snapshot are now unresolved, so CNY should be 0
+	_, hasCNY := cashByCurrency["CNY"]
+	assert.False(t, hasCNY, "CNY should not be present without snapshots")
 
 	// USDT: okpay (6.5) = 6.5 USDT, 1 payment
 	assert.Equal(t, 6.5, cashByCurrency["USDT"].Amount, "USDT amount should be 6.5")
@@ -101,8 +101,8 @@ func TestRevenueStatsCurrencySplit(t *testing.T) {
 	assert.Equal(t, 8.0, cashByCurrency["EUR"].Amount, "EUR amount should be 8")
 	assert.Equal(t, 1, cashByCurrency["EUR"].Count, "EUR count should be 1")
 
-	// Unresolved: waffo (1)
-	assert.Equal(t, 1, summary.UnresolvedCashCount, "Unresolved count should be 1")
+	// Unresolved: waffo (1) + epay (1) + bepusdt (1) + free (1) = 4
+	assert.Equal(t, 4, summary.UnresolvedCashCount, "Unresolved count should be 4")
 
 	// Redemption: 500000 quota, 1 count
 	assert.Equal(t, int64(500000), summary.TotalRedemptionQuota, "Redemption quota should be 500000")
@@ -119,5 +119,5 @@ func TestRevenueStatsCurrencySplit(t *testing.T) {
 		pointCashByCurrency[c.Currency] = c
 	}
 	assert.Equal(t, 30.0, pointCashByCurrency["USD"].Amount, "Data point USD should match summary")
-	assert.Equal(t, 1, firstPoint.UnresolvedCashCount, "Data point unresolved should match summary")
+	assert.Equal(t, 4, firstPoint.UnresolvedCashCount, "Data point unresolved should match summary")
 }

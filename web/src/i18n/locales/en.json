@@ -7801,9 +7801,9 @@
     "View permissions": "View permissions",
     "Write access": "Write access",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Write calls require a unique request_id. Reuse it only when retrying the same operation.",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Write tools can change data or trigger external actions. No tools are authorized by default."
-  },
-  "Cash": "Cash",
-  "{{count}} payments": "{{count}} payments",
-  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Write tools can change data or trigger external actions. No tools are authorized by default.",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+  }
 }

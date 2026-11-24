@@ -7801,9 +7801,9 @@
     "View permissions": "查看权限",
     "Write access": "写入权限",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "写入调用需提供唯一 request_id，仅在重试同一操作时复用。",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "写工具可能修改数据或触发外部操作。默认不授权任何工具。"
-  },
-  "Cash": "现金",
-  "{{count}} payments": "{{count}} 笔",
-  "{{count}} orders with unverifiable currency": "有 {{count}} 笔订单币种待核验"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "写工具可能修改数据或触发外部操作。默认不授权任何工具。",
+    "Cash": "现金",
+    "{{count}} payments": "{{count}} 笔",
+    "{{count}} orders with unverifiable currency": "有 {{count}} 笔订单币种待核验"
+  }
 }

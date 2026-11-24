@@ -7801,9 +7801,9 @@
     "View permissions": "Xem quyền",
     "Write access": "Quyền ghi",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Lệnh ghi cần request_id duy nhất. Chỉ dùng lại khi thử lại cùng một thao tác.",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Công cụ ghi có thể thay đổi dữ liệu hoặc kích hoạt thao tác bên ngoài. Mặc định không cấp quyền cho công cụ nào."
-  },
-  "Cash": "Cash",
-  "{{count}} payments": "{{count}} payments",
-  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Công cụ ghi có thể thay đổi dữ liệu hoặc kích hoạt thao tác bên ngoài. Mặc định không cấp quyền cho công cụ nào.",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+  }
 }

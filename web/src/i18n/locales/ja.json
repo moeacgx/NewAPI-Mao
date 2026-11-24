@@ -7801,9 +7801,9 @@
     "View permissions": "権限を表示",
     "Write access": "書き込み権限",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "書き込み呼び出しには一意の request_id が必要です。同じ操作を再試行する場合のみ再利用してください。",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "書き込みツールはデータの変更や外部操作を行う場合があります。既定ではツールは許可されません。"
-  },
-  "Cash": "Cash",
-  "{{count}} payments": "{{count}} payments",
-  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "書き込みツールはデータの変更や外部操作を行う場合があります。既定ではツールは許可されません。",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+  }
 }

@@ -22,7 +22,42 @@ import { TrendingUp, DollarSign, Ticket } from 'lucide-react';
 import { VChart } from '@visactor/react-vchart';
 import { useTranslation } from 'react-i18next';
 import { API, isAdmin, showError } from '../../helpers';
-import { renderQuota, renderQuotaWithAmount } from '../../helpers/render';
+import { renderQuota, renderQuotaWithAmount, renderNumber } from '../../helpers/render';
+
+// Convert quota to display value based on current display mode
+function convertQuotaToDisplayValue(quota) {
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  if (quotaDisplayType === 'TOKENS') {
+    return quota; // Return raw tokens
+  }
+
+  const quotaPerUnit = parseFloat(localStorage.getItem('quota_per_unit')) || 500000;
+  const resultUSD = quota / quotaPerUnit;
+
+  if (quotaDisplayType === 'CNY') {
+    const statusStr = localStorage.getItem('status');
+    let usdRate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        usdRate = s?.usd_exchange_rate || 1;
+      }
+    } catch (e) {}
+    return resultUSD * usdRate;
+  } else if (quotaDisplayType === 'CUSTOM') {
+    const statusStr = localStorage.getItem('status');
+    let rate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        rate = s?.custom_currency_exchange_rate || rate;
+      }
+    } catch (e) {}
+    return resultUSD * rate;
+  }
+
+  return resultUSD; // USD
+}
 
 const TIME_RANGE_OPTIONS = [
   { label: '1天', days: 1, granularity: 'hour' },
@@ -43,9 +78,16 @@ function quotaToLocalCurrency(quota) {
   let quotaPerUnit = parseFloat(localStorage.getItem('quota_per_unit')) || 500000;
   const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
   const usdRate = parseFloat(localStorage.getItem('usd_exchange_rate')) || 1;
+  const customRate = parseFloat(localStorage.getItem('custom_currency_exchange_rate')) || 1;
   const amountUSD = quota / quotaPerUnit;
   if (quotaDisplayType === 'CNY') {
     return amountUSD * usdRate;
+  }
+  if (quotaDisplayType === 'CUSTOM') {
+    return amountUSD * customRate;
+  }
+  if (quotaDisplayType === 'TOKENS') {
+    return quota; // Return raw quota for TOKENS mode
   }
   return amountUSD;
 }
@@ -215,30 +257,34 @@ const RevenuePanel = ({ CARD_PROPS, CHART_CONFIG }) => {
 
 const RevenueChart = ({ dataPoints, granularity, CHART_CONFIG, t }) => {
   const spec = useMemo(() => {
-    const chartData = [];
+    const allData = [];
+
     for (const point of dataPoints) {
       const timeLabel = formatTimeLabel(point.timestamp, granularity);
 
       // Add cash by currency (do not stack with redemption)
       for (const cashTotal of point.cash) {
-        chartData.push({
+        allData.push({
           time: timeLabel,
           value: cashTotal.amount,
           type: `${t('现金')} (${cashTotal.currency})`,
+          category: 'cash',
         });
       }
 
-      // Add redemption as quota display (not converted)
-      chartData.push({
+      // Add redemption as converted amount
+      const convertedQuotaValue = convertQuotaToDisplayValue(point.redemption_quota);
+      allData.push({
         time: timeLabel,
-        value: quotaToLocalCurrency(point.redemption_quota),
+        value: convertedQuotaValue,
         type: t('兑换码（额度）'),
+        category: 'quota',
       });
     }
 
     return {
       type: 'line',
-      data: [{ id: 'revenue', values: chartData }],
+      data: [{ id: 'revenue', values: allData }],
       xField: 'time',
       yField: 'value',
       seriesField: 'type',
@@ -256,11 +302,11 @@ const RevenueChart = ({ dataPoints, granularity, CHART_CONFIG, t }) => {
             {
               key: (d) => d.type,
               value: (d) => {
-                const isCash = d.type.startsWith(t('现金'));
-                if (isCash) {
+                if (d.category === 'cash') {
                   return d.value.toFixed(2);
                 }
-                return renderQuota(d.value / quotaToLocalCurrency(1));
+                // d.value is already converted display value
+                return renderQuotaWithAmount(d.value);
               },
             },
           ],
@@ -275,13 +321,30 @@ const RevenueChart = ({ dataPoints, granularity, CHART_CONFIG, t }) => {
         {
           orient: 'left',
           label: {
-            formatMethod: (val) => renderQuotaWithAmount(Number(val)),
+            formatMethod: (val) => Number(val).toFixed(2),
             style: { fontSize: 10 },
           },
           grid: {
             visible: true,
             style: { lineDash: [3, 3] },
           },
+        },
+        {
+          orient: 'right',
+          label: {
+            formatMethod: (val) => {
+              const amount = Number(val);
+              if (amount === 0) return '0';
+              // Format without symbol for axis
+              const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+              if (quotaDisplayType === 'TOKENS') {
+                return renderNumber(amount);
+              }
+              return amount.toFixed(2);
+            },
+            style: { fontSize: 10 },
+          },
+          grid: { visible: false },
         },
       ],
       color: ['#3b82f6', '#f59e0b'],

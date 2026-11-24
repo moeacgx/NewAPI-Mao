@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatQuotaWithCurrency } from '@/lib/currency'
+import { formatQuotaWithCurrency, formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
@@ -103,7 +103,7 @@ export function RevenuePanel() {
         <RevenueStat
           icon={Ticket}
           label={t('Redemption Code')}
-          value={formatQuotaWithCurrency(quotaToLocalCurrency(redemptionQuota))}
+          value={formatQuotaWithCurrency(redemptionQuota)}
           sub={t('{{count}} redemptions', {
             count: formatNumber(summary?.total_redemption_count ?? 0, 0),
           })}
@@ -181,9 +181,10 @@ function RevenueChart(props: {
       }),
     [props.points, props.granularity, t]
   )
+
   const spec = useMemo(
     () => ({
-      type: 'area' as const,
+      type: 'line' as const,
       data: [{ id: 'revenue', values: chartData }],
       xField: 'time',
       yField: 'value',
@@ -202,14 +203,12 @@ function RevenueChart(props: {
           content: [
             {
               key: (datum: { type: string }) => datum.type,
-              value: (datum: { value: number; type: string }) => {
-                const isCash = datum.type.startsWith(
-                  t('Cash').substring(0, Math.min(t('Cash').length, 4))
-                )
-                if (isCash) {
+              value: (datum: { value: number; category: 'cash' | 'quota' }) => {
+                if (datum.category === 'cash') {
                   return formatNumber(datum.value, 2)
                 }
-                return formatQuotaWithCurrency(datum.value)
+                // datum.value is USD amount from quotaToLocalCurrency
+                return formatCurrencyFromUSD(datum.value)
               },
             },
           ],
@@ -232,10 +231,24 @@ function RevenueChart(props: {
             style: { lineDash: [3, 3], stroke: gridColor },
           },
         },
+        {
+          orient: 'right' as const,
+          label: {
+            formatMethod: (value: number | string) => {
+              const usdAmount = Number(value)
+              if (usdAmount === 0) return '0'
+              return formatCurrencyFromUSD(usdAmount, { showSymbol: false })
+            },
+            style: { fill: textColor, fontSize: 10 },
+          },
+          grid: { visible: false },
+        },
       ],
       color: ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'],
+      theme: props.resolvedTheme,
+      background: 'transparent',
     }),
-    [chartData, gridColor, textColor, t]
+    [chartData, gridColor, textColor, t, props.resolvedTheme]
   )
 
   if (props.loading || !props.themeReady) {

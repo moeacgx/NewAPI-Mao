@@ -38,19 +38,28 @@ export function formatNumber(
 
   let actualLocales: Intl.LocalesArgument | undefined
   let fractionDigits: number | undefined
+  let explicitFractionDigits = false
 
   if (typeof localesOrFractionDigits === 'number') {
     fractionDigits = localesOrFractionDigits
     actualLocales = locales
+    explicitFractionDigits = true
   } else {
     actualLocales = localesOrFractionDigits
     fractionDigits = 2
+    explicitFractionDigits = false
   }
 
-  return Intl.NumberFormat(actualLocales, {
+  const options: Intl.NumberFormatOptions = {
     maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: fractionDigits,
-  }).format(value as number)
+  }
+
+  // Only set minimumFractionDigits when explicitly requested
+  if (explicitFractionDigits) {
+    options.minimumFractionDigits = fractionDigits
+  }
+
+  return Intl.NumberFormat(actualLocales, options).format(value as number)
 }
 
 export function formatCompactNumber(

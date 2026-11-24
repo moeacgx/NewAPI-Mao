@@ -7801,9 +7801,9 @@
     "View permissions": "Просмотреть права",
     "Write access": "Запись",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Для записи нужен уникальный request_id. Используйте его повторно только при повторе той же операции.",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Инструменты записи могут изменять данные или запускать внешние действия. По умолчанию ни один инструмент не разрешён."
-  },
-  "Cash": "Cash",
-  "{{count}} payments": "{{count}} payments",
-  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Инструменты записи могут изменять данные или запускать внешние действия. По умолчанию ни один инструмент не разрешён.",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+  }
 }

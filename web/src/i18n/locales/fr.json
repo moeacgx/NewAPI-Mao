@@ -7801,9 +7801,9 @@
     "View permissions": "Voir les droits",
     "Write access": "Écriture",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Les appels en écriture exigent un request_id unique. Réutilisez-le uniquement pour réessayer la même opération.",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Les outils d’écriture peuvent modifier des données ou lancer des actions externes. Aucun outil n’est autorisé par défaut."
-  },
-  "Cash": "Cash",
-  "{{count}} payments": "{{count}} payments",
-  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Les outils d’écriture peuvent modifier des données ou lancer des actions externes. Aucun outil n’est autorisé par défaut.",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+  }
 }

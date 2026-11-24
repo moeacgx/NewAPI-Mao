@@ -41,7 +41,7 @@ export function buildRevenueRequest(
 export function quotaToLocalCurrency(quota: number): number {
   const { quotaPerUnit } = getCurrencyDisplay().config
   if (!Number.isFinite(quota) || quotaPerUnit <= 0) return 0
-  // Do not multiply by usdExchangeRate for display - keep quota in USD
+  // Convert quota to USD amount
   return quota / quotaPerUnit
 }
 
@@ -49,8 +49,8 @@ export function buildRevenueChartData(
   points: RevenueDataPoint[],
   granularity: RevenueGranularity,
   labels: { cash: (currency: string) => string; redemption: string }
-): Array<{ time: string; value: number; type: string }> {
-  const result: Array<{ time: string; value: number; type: string }> = []
+): Array<{ time: string; value: number; type: string; category: 'cash' | 'quota' }> {
+  const result: Array<{ time: string; value: number; type: string; category: 'cash' | 'quota' }> = []
   for (const point of points) {
     const date = new Date(point.timestamp * 1000)
     const time =
@@ -62,12 +62,14 @@ export function buildRevenueChartData(
         time,
         value: cashTotal.amount,
         type: labels.cash(cashTotal.currency),
+        category: 'cash',
       })
     }
     result.push({
       time,
       value: quotaToLocalCurrency(point.redemption_quota),
       type: labels.redemption,
+      category: 'quota',
     })
   }
   return result

@@ -273,6 +273,10 @@ function formatNumberWithSuffix(
   abbreviate: boolean
 ): string {
   const abs = Math.abs(value)
+  if (abbreviate && abs >= 1_000_000) {
+    const result = value / 1_000_000
+    return `${removeTrailingZeros(result.toFixed(1))}M`
+  }
   if (abbreviate && abs >= 1000) {
     const result = value / 1000
     return `${removeTrailingZeros(result.toFixed(1))}k`
@@ -350,7 +354,7 @@ function formatCurrencyValue(
     maximumFractionDigits: options.compact ? 1 : digits,
   }).format(adjustedValue)
 
-  return options.showSymbol ? `${meta.symbol} ${decimal}` : decimal
+  return options.showSymbol ? `${meta.symbol}${decimal}` : decimal
 }
 
 /**
