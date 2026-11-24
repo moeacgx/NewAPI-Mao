@@ -63,6 +63,7 @@ export function RevenuePanel() {
   const summary = stats?.summary
   const cash = summary?.cash ?? []
   const redemptionQuota = summary?.total_redemption_quota ?? 0
+  const unresolvedCashCount = summary?.unresolved_cash_count ?? 0
 
   return (
     <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
@@ -94,7 +95,7 @@ export function RevenuePanel() {
             label={`${t('Cash')} (${c.currency})`}
             value={`${c.currency === 'CNY' ? '¥' : c.currency === 'USD' ? '$' : ''}${formatNumber(c.amount, 2)}`}
             sub={t('{{count}} payments', {
-              count: formatNumber(c.count),
+              count: formatNumber(c.count, 0),
             })}
             loading={query.isLoading}
           />
@@ -102,13 +103,19 @@ export function RevenuePanel() {
         <RevenueStat
           icon={Ticket}
           label={t('Redemption Code')}
-          value={formatQuotaWithCurrency(redemptionQuota)}
+          value={formatQuotaWithCurrency(quotaToLocalCurrency(redemptionQuota))}
           sub={t('{{count}} redemptions', {
-            count: formatNumber(summary?.total_redemption_count ?? 0),
+            count: formatNumber(summary?.total_redemption_count ?? 0, 0),
           })}
           loading={query.isLoading}
         />
       </div>
+
+      {unresolvedCashCount > 0 && (
+        <div className='border-b px-4 py-2 text-xs text-yellow-600 dark:text-yellow-500'>
+          {t('{{count}} orders with unverifiable currency', { count: unresolvedCashCount })}
+        </div>
+      )}
 
       <div className='h-56 px-3 py-2 sm:h-64 sm:px-4'>
         <RevenueChart
@@ -181,10 +188,9 @@ function RevenueChart(props: {
       xField: 'time',
       yField: 'value',
       seriesField: 'type',
-      stack: true,
+      stack: false,
       line: { style: { lineWidth: 2, curveType: 'monotone' as const } },
-      area: { style: { fillOpacity: 0.15 } },
-      point: { visible: false },
+      point: { visible: true, style: { size: 3 } },
       legends: {
         visible: true,
         orient: 'bottom' as const,
@@ -203,7 +209,7 @@ function RevenueChart(props: {
                 if (isCash) {
                   return formatNumber(datum.value, 2)
                 }
-                return formatQuotaWithCurrency(datum.value / quotaToLocalCurrency(1))
+                return formatQuotaWithCurrency(datum.value)
               },
             },
           ],

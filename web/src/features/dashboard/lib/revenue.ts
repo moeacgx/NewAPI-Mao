@@ -39,9 +39,10 @@ export function buildRevenueRequest(
 }
 
 export function quotaToLocalCurrency(quota: number): number {
-  const { quotaPerUnit, usdExchangeRate } = getCurrencyDisplay().config
+  const { quotaPerUnit } = getCurrencyDisplay().config
   if (!Number.isFinite(quota) || quotaPerUnit <= 0) return 0
-  return (quota / quotaPerUnit) * usdExchangeRate
+  // Do not multiply by usdExchangeRate for display - keep quota in USD
+  return quota / quotaPerUnit
 }
 
 export function buildRevenueChartData(

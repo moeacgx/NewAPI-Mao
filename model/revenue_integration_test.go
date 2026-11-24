@@ -1,22 +1,21 @@
 package model
 
 import (
-	"os"
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func TestRevenueStatsCurrencySplit(t *testing.T) {
-	dbPath := "test_revenue_split.db"
-	defer os.Remove(dbPath)
+	oldDB := DB
+	defer func() { DB = oldDB }()
 
 	var err error
-	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	DB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 
 	err = DB.AutoMigrate(&User{}, &TopUp{}, &SubscriptionOrder{}, &Redemption{}, &RedemptionUsage{})

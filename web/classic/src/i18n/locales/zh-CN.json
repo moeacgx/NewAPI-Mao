@@ -6672,5 +6672,9 @@
     "The largest amount a single voucher can receive.": "每张券可获得的最高额度。",
     "Minimum amount": "最小额度",
     "Maximum amount": "最大额度"
-  }
+  },
+  "现金": "现金",
+  "笔": "笔",
+  "次": "次",
+  "有 {{count}} 笔订单币种待核验": "有 {{count}} 笔订单币种待核验"
 }

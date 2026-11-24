@@ -31,12 +31,24 @@ import {
 
 export function formatNumber(
   value: number | null | undefined,
-  fractionDigits?: number,
+  localesOrFractionDigits?: Intl.LocalesArgument | number,
   locales?: Intl.LocalesArgument
 ): string {
   if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(locales, {
-    maximumFractionDigits: fractionDigits ?? 2,
+
+  let actualLocales: Intl.LocalesArgument | undefined
+  let fractionDigits: number | undefined
+
+  if (typeof localesOrFractionDigits === 'number') {
+    fractionDigits = localesOrFractionDigits
+    actualLocales = locales
+  } else {
+    actualLocales = localesOrFractionDigits
+    fractionDigits = 2
+  }
+
+  return Intl.NumberFormat(actualLocales, {
+    maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
   }).format(value as number)
 }

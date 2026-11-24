@@ -115,19 +115,9 @@ func resolveRevenueCash(row revenueTopUpRow) (string, decimal.Decimal, revenueCa
 		return currency, amount, revenueCashResolved
 	}
 
-	paid := invoiceOrderPaidAmount(row.Money, row.ActualMoney, row.PromoCodeId)
-	if paid <= 0 {
-		// 全额优惠或免费订单没有外部收款。
-		return "", decimal.Zero, revenueCashSkip
-	}
-	switch provider {
-	case PaymentProviderEpay, PaymentProviderBepusdt:
-		return "CNY", decimal.NewFromFloat(paid), revenueCashResolved
-	case PaymentProviderStripe:
-		return "USD", decimal.NewFromFloat(paid), revenueCashResolved
-	default:
-		return "", decimal.Zero, revenueCashUnresolved
-	}
+	// No snapshot: cannot reliably verify currency or actual paid amount
+	// Do not use money fallback or default provider assumptions
+	return "", decimal.Zero, revenueCashUnresolved
 }
 
 type revenueCashAccumulator map[string]*struct {

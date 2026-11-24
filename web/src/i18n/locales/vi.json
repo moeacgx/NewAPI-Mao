@@ -2937,7 +2937,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "Với AtlasCloud gpt-image-2/edit, áp dụng cấu hình đặt sẵn AtlasCloud và cập nhật currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For example, 3 means the third returned order": "Ví dụ: 3 nghĩa là thứ tự trả về thứ ba",
@@ -7802,5 +7802,8 @@
     "Write access": "Quyền ghi",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Lệnh ghi cần request_id duy nhất. Chỉ dùng lại khi thử lại cùng một thao tác.",
     "Write tools can change data or trigger external actions. No tools are authorized by default.": "Công cụ ghi có thể thay đổi dữ liệu hoặc kích hoạt thao tác bên ngoài. Mặc định không cấp quyền cho công cụ nào."
-  }
+  },
+  "Cash": "Cash",
+  "{{count}} payments": "{{count}} payments",
+  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
 }

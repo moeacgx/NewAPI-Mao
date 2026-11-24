@@ -116,10 +116,16 @@ const RevenuePanel = ({ CARD_PROPS, CHART_CONFIG }) => {
   const summary = stats?.summary;
   const dataPoints = stats?.data_points || [];
 
-  const totalOnline = summary?.total_online_money ?? 0;
+  const cashTotals = summary?.cash || [];
   const totalRedemptionQuota = summary?.total_redemption_quota ?? 0;
-  const redemptionEquivalent = quotaToLocalCurrency(totalRedemptionQuota);
-  const totalRevenue = totalOnline + redemptionEquivalent;
+  const unresolvedCashCount = summary?.unresolved_cash_count ?? 0;
+
+  // Sum all cash amounts (do not convert, just display by currency)
+  const totalCashByCurrency = cashTotals.reduce((acc, c) => {
+    acc[c.currency] = (acc[c.currency] || 0) + c.amount;
+    return acc;
+  }, {});
+  const totalCashCount = cashTotals.reduce((sum, c) => sum + c.count, 0);
 
   if (!isAdmin()) return null;
 
@@ -153,20 +159,21 @@ const RevenuePanel = ({ CARD_PROPS, CHART_CONFIG }) => {
       bodyStyle={{ padding: 0 }}
     >
       {/* Stats row */}
-      <div className='grid grid-cols-1 sm:grid-cols-3 border-b'>
-        <StatMiniCard
-          icon={TrendingUp}
-          label={t('总收入')}
-          value={renderQuotaWithAmount(totalRevenue)}
-          loading={loading}
-        />
-        <StatMiniCard
-          icon={DollarSign}
-          label={t('在线充值')}
-          value={renderQuotaWithAmount(totalOnline)}
-          sub={`${summary?.total_online_count ?? 0} ${t('笔')}`}
-          loading={loading}
-        />
+      <div className='grid grid-cols-1 sm:grid-cols-2 border-b'>
+        {cashTotals.map((cash) => {
+          const symbol = cash.currency === 'CNY' ? '¥' : cash.currency === 'USD' ? '$' : '';
+          const displayValue = `${symbol}${cash.amount.toFixed(2)}`;
+          return (
+            <StatMiniCard
+              key={cash.currency}
+              icon={DollarSign}
+              label={`${t('现金')} (${cash.currency})`}
+              value={displayValue}
+              sub={`${cash.count} ${t('笔')}`}
+              loading={loading}
+            />
+          );
+        })}
         <StatMiniCard
           icon={Ticket}
           label={t('兑换码')}
@@ -174,6 +181,11 @@ const RevenuePanel = ({ CARD_PROPS, CHART_CONFIG }) => {
           sub={`${summary?.total_redemption_count ?? 0} ${t('次')}`}
           loading={loading}
         />
+        {unresolvedCashCount > 0 && (
+          <div className='col-span-full px-4 py-2 text-xs text-yellow-600 dark:text-yellow-400'>
+            {t('有 {{count}} 笔订单币种待核验', { count: unresolvedCashCount })}
+          </div>
+        )}
       </div>
 
       {/* Chart */}
@@ -206,28 +218,33 @@ const RevenueChart = ({ dataPoints, granularity, CHART_CONFIG, t }) => {
     const chartData = [];
     for (const point of dataPoints) {
       const timeLabel = formatTimeLabel(point.timestamp, granularity);
-      chartData.push({
-        time: timeLabel,
-        value: point.online_money,
-        type: t('在线充值'),
-      });
+
+      // Add cash by currency (do not stack with redemption)
+      for (const cashTotal of point.cash) {
+        chartData.push({
+          time: timeLabel,
+          value: cashTotal.amount,
+          type: `${t('现金')} (${cashTotal.currency})`,
+        });
+      }
+
+      // Add redemption as quota display (not converted)
       chartData.push({
         time: timeLabel,
         value: quotaToLocalCurrency(point.redemption_quota),
-        type: t('兑换码'),
+        type: t('兑换码（额度）'),
       });
     }
 
     return {
-      type: 'area',
+      type: 'line',
       data: [{ id: 'revenue', values: chartData }],
       xField: 'time',
       yField: 'value',
       seriesField: 'type',
-      stack: true,
+      stack: false,
       line: { style: { lineWidth: 2, curveType: 'monotone' } },
-      area: { style: { fillOpacity: 0.15 } },
-      point: { visible: false },
+      point: { visible: true, style: { size: 3 } },
       legends: {
         visible: true,
         orient: 'bottom',
@@ -238,7 +255,13 @@ const RevenueChart = ({ dataPoints, granularity, CHART_CONFIG, t }) => {
           content: [
             {
               key: (d) => d.type,
-              value: (d) => renderQuotaWithAmount(d.value),
+              value: (d) => {
+                const isCash = d.type.startsWith(t('现金'));
+                if (isCash) {
+                  return d.value.toFixed(2);
+                }
+                return renderQuota(d.value / quotaToLocalCurrency(1));
+              },
             },
           ],
         },

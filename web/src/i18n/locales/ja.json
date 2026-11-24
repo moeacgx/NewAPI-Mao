@@ -2937,7 +2937,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "AtlasCloud gpt-image-2/edit では、AtlasCloud プリセットを適用して currency_rate を更新してください。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For example, 3 means the third returned order": "例：3 は返された順序の3番目を意味します",
@@ -7802,5 +7802,8 @@
     "Write access": "書き込み権限",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "書き込み呼び出しには一意の request_id が必要です。同じ操作を再試行する場合のみ再利用してください。",
     "Write tools can change data or trigger external actions. No tools are authorized by default.": "書き込みツールはデータの変更や外部操作を行う場合があります。既定ではツールは許可されません。"
-  }
+  },
+  "Cash": "Cash",
+  "{{count}} payments": "{{count}} payments",
+  "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
 }
