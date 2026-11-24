@@ -83,7 +83,7 @@ func TestMCPMoneyFieldUnits(t *testing.T) {
 		{"newapi_channel_get", `{"data":{"balance":123.45}}`, "", `"balance":123.45`},
 		{"newapi_topups_list", `{"data":{"amount":10,"money":72,"credited_quota":5000000}}`, `"credited_quota":"$10.00"`, `"money":72`},
 		{"newapi_benefit_voucher_ledger", `{"data":{"balance_after":500000}}`, `"balance_after":"$1.00"`, `"balance_after":500000`},
-		{"newapi_revenue", `{"data":{"redemption_quota":500000,"online_money":72}}`, `"redemption_quota":"$1.00"`, `"online_money":72`},
+		{"newapi_revenue", `{"data":{"summary":{"cash":[{"currency":"USD","amount":72}],"total_redemption_quota":500000}}}`, `"total_redemption_quota":"$1.00"`, `"amount":72`},
 		{"newapi_ratio_fetch", `{"data":{"differences":{"model":{"ratio":{"upstreams":{"quota":12.50,"money_display":1.5}}}}}}`, "", `"quota":12.50`},
 	} {
 		t.Run(tc.tool, func(t *testing.T) {
