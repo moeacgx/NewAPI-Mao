@@ -202,7 +202,7 @@ func normalizeTokenQuotaRequest(c *gin.Context, token *model.Token, existing *mo
 	}
 	if existing != nil && strings.TrimSpace(token.QuotaPeriod) == "" {
 		token.QuotaPeriod, token.QuotaPeriodLimit = existing.QuotaPeriod, existing.QuotaPeriodLimit
-		token.ResetQuotaPeriodLedger = false
+		token.ApplyQuotaPeriodConfig = false
 		return true
 	}
 	period, ok := model.NormalizeTokenQuotaPeriod(token.QuotaPeriod)
@@ -211,10 +211,8 @@ func normalizeTokenQuotaRequest(c *gin.Context, token *model.Token, existing *mo
 		return false
 	}
 	token.QuotaPeriod = period
-	if existing != nil {
-		storedPeriod, _ := model.NormalizeTokenQuotaPeriod(existing.QuotaPeriod)
-		token.ResetQuotaPeriodLedger = storedPeriod != period
-	}
+	// 更新时周期设置由模型层在事务内原子写入，账本重置依据数据库当前值而非此处加载的快照。
+	token.ApplyQuotaPeriodConfig = existing != nil
 	if period == model.TokenQuotaPeriodNone {
 		token.QuotaPeriodLimit = 0
 		return true
@@ -574,7 +572,7 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.GroupRatioLimits = token.GroupRatioLimits
 		cleanToken.QuotaPeriod = token.QuotaPeriod
 		cleanToken.QuotaPeriodLimit = token.QuotaPeriodLimit
-		cleanToken.ResetQuotaPeriodLedger = token.ResetQuotaPeriodLedger
+		cleanToken.ApplyQuotaPeriodConfig = token.ApplyQuotaPeriodConfig
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
 		if !setTokenGroupChannels(c, cleanToken, token.GroupChannelIds) {
 			return

@@ -226,8 +226,9 @@ func RefundImageTaskMoney(ctx context.Context, taskID int64, expectedQuota int, 
 		locked.PrivateData.RefundReconciliation = &TaskRefundReconciliation{
 			Amount: locked.Quota, Reason: reason, UserId: locked.UserId,
 			ChannelId: locked.ChannelId, TokenId: locked.PrivateData.TokenId,
-			BillingSource:  locked.PrivateData.BillingSource,
-			SubscriptionId: locked.PrivateData.SubscriptionId, Group: locked.Group,
+			TokenPeriodStamp: locked.PrivateData.TokenPeriodStamp,
+			BillingSource:    locked.PrivateData.BillingSource,
+			SubscriptionId:   locked.PrivateData.SubscriptionId, Group: locked.Group,
 			ModelName: modelName, NodeName: locked.PrivateData.NodeName,
 			BillingContext:     locked.PrivateData.BillingContext,
 			OriginModelName:    locked.Properties.OriginModelName,
@@ -281,6 +282,10 @@ func ReconcileImageTaskRefundAccounting(ctx context.Context, taskID int64) (*Tas
 		}
 		if marker.TokenId > 0 {
 			if err := IncreaseTokenQuotaWithTx(tx, marker.TokenId, marker.Amount); err != nil && !errors.Is(err, ErrTokenNotFound) {
+				return err
+			}
+			// 周期额度账本在同一事务内只回到原预扣所在窗口；旧任务无戳则不动账本。
+			if _, err := RefundTokenPeriodQuota(tx, marker.TokenId, ParseTokenPeriodStamp(marker.TokenPeriodStamp), marker.Amount); err != nil {
 				return err
 			}
 		}

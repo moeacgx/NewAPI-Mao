@@ -39,12 +39,14 @@ type Token struct {
 	AutoGroups         string           `json:"-" gorm:"type:text"`
 	// 周期额度（每日/每周，窗口切换后自动恢复），与不随周期重置的总额度相互独立。
 	// QuotaPeriodUsed/Window 是服务端账本，客户端请求不能写入；QuotaPeriodResetAt 仅用于响应。
-	QuotaPeriod            string         `json:"quota_period" gorm:"type:varchar(16);default:'none'"`
-	QuotaPeriodLimit       int64          `json:"quota_period_limit" gorm:"type:bigint;default:0"`
-	QuotaPeriodUsed        int64          `json:"quota_period_used" gorm:"type:bigint;default:0"`
-	QuotaPeriodWindow      int64          `json:"-" gorm:"type:bigint;default:0"`
-	QuotaPeriodResetAt     int64          `json:"quota_period_reset_at" gorm:"-"`
-	ResetQuotaPeriodLedger bool           `json:"-" gorm:"-"`
+	QuotaPeriod        string `json:"quota_period" gorm:"type:varchar(16);default:'none'"`
+	QuotaPeriodLimit   int64  `json:"quota_period_limit" gorm:"type:bigint;default:0"`
+	QuotaPeriodUsed    int64  `json:"quota_period_used" gorm:"type:bigint;default:0"`
+	QuotaPeriodWindow  int64  `json:"-" gorm:"type:bigint;default:0"`
+	QuotaPeriodResetAt int64  `json:"quota_period_reset_at" gorm:"-"`
+	// ApplyQuotaPeriodConfig 只由控制器在请求明确携带周期设置时置位：此时 Update 在同一事务内
+	// 原子写入周期与周期额度，并在周期种类变化时由数据库按当前存储值重置账本。
+	ApplyQuotaPeriodConfig bool           `json:"-" gorm:"-"`
 	DeletedAt              gorm.DeletedAt `gorm:"index"`
 }
 
@@ -384,12 +386,16 @@ func (token *Token) Update() (err error) {
 		if err := PrepareTokenGroupBindingsForUpdate(tx, token); err != nil {
 			return err
 		}
-		columns := []string{"name", "status", "expired_time", "remain_quota", "unlimited_quota", "model_limits_enabled", "model_limits", "allow_ips", "group", "group_mode", "group_ratio_limits", "cross_group_retry", "auto_groups", "quota_period", "quota_period_limit"}
-		if token.ResetQuotaPeriodLedger {
-			columns = append(columns, "quota_period_used", "quota_period_window")
-		}
+		// 周期设置与账本列不在此列表：加载快照里的 used/window 可能早已被并发预扣推进，
+		// 写回会丢失用量或复活旧窗口。它们只经 applyTokenQuotaPeriodConfig 原子更新。
+		columns := []string{"name", "status", "expired_time", "remain_quota", "unlimited_quota", "model_limits_enabled", "model_limits", "allow_ips", "group", "group_mode", "group_ratio_limits", "cross_group_retry", "auto_groups"}
 		if err := tx.Model(token).Select(columns).Updates(token).Error; err != nil {
 			return err
+		}
+		if token.ApplyQuotaPeriodConfig {
+			if err := applyTokenQuotaPeriodConfig(tx, token.Id, token.QuotaPeriod, token.QuotaPeriodLimit); err != nil {
+				return err
+			}
 		}
 		if err := ValidateTokenExclusiveGroupBinding(tx, token); err != nil {
 			return err
@@ -557,8 +563,7 @@ func IncreaseTokenQuotaWithTx(tx *gorm.DB, id int, quota int) error {
 	if result.RowsAffected != 1 {
 		return fmt.Errorf("%w: %d", ErrTokenNotFound, id)
 	}
-	// 退还同时恢复周期额度账本（令牌未启用周期时不产生任何更新）。
-	return AdjustTokenPeriodUsageWithTx(tx, id, "", -quota)
+	return nil
 }
 
 // InvalidateTokenQuotaCache drops a possibly stale post-refund cache entry.

@@ -257,7 +257,7 @@ func submitImageTask(c *gin.Context, action string, platform constant.TaskPlatfo
 		SubmitTime:  now,
 		UpdatedAt:   now,
 		Properties:  model.Properties{OriginModelName: modelName},
-		PrivateData: model.TaskPrivateData{TokenId: c.GetInt("token_id")},
+		PrivateData: model.TaskPrivateData{TokenId: c.GetInt("token_id"), TokenPeriodStamp: canvasTokenPeriodStamp(c, now)},
 	}
 	if task.UserId <= 0 || task.Group == "" {
 		_ = body.Close()
@@ -897,4 +897,16 @@ func mapImageTaskStatus(status model.TaskStatus) string {
 	default:
 		return "processing"
 	}
+}
+
+// canvasTokenPeriodStamp records the period-ledger window the request is admitted
+// under, so a later image-task refund credits only that window. Tokens without a
+// period ledger get no stamp and never touch it.
+func canvasTokenPeriodStamp(c *gin.Context, now int64) string {
+	period := common.GetContextKeyString(c, constant.ContextKeyTokenQuotaPeriod)
+	window, _, ok := model.TokenQuotaPeriodWindow(period, time.Unix(now, 0))
+	if !ok {
+		return ""
+	}
+	return model.TokenPeriodStamp{Period: period, Window: window}.String()
 }

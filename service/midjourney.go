@@ -84,8 +84,10 @@ func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.M
 	}
 
 	task.TokenId = 0
+	task.TokenPeriodStamp = ""
 	if result.TokenApplied {
 		task.TokenId = relayInfo.TokenId
+		task.TokenPeriodStamp = result.PeriodStamp
 	}
 	if updateErr := task.UpdateBillingState(); updateErr != nil {
 		return true, errors.Join(billingErr, fmt.Errorf("update Midjourney billing state: %w", updateErr))
@@ -118,11 +120,10 @@ func RefundMidjourneyQuota(ctx context.Context, task *model.Midjourney, reason s
 	}
 
 	if tokenKey != "" {
-		if periodErr := model.AdjustTokenPeriodUsage(task.TokenId, "", -quota); periodErr != nil {
-			logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌周期额度失败 task %s: %s", task.MjId, periodErr.Error()))
-		}
 		if err := model.IncreaseTokenQuota(task.TokenId, tokenKey, quota); err != nil {
 			logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌额度失败 task %s: %s", task.MjId, err.Error()))
+		} else if periodErr := refundTokenPeriodQuota(task.TokenId, model.ParseTokenPeriodStamp(task.TokenPeriodStamp), quota); periodErr != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌周期额度失败 task %s: %s", task.MjId, periodErr.Error()))
 		}
 	}
 

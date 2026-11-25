@@ -421,23 +421,24 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 	}
 	// 原子预扣：检查与扣减在同一操作中完成，并发请求不可能同时通过检查后超扣。
 	// 周期额度（每日/每周）先于总额度预扣；无限总额度的令牌同样受周期限制。
-	periodReserved := false
-	if relayInfo.TokenQuotaPeriod != "" && relayInfo.TokenQuotaPeriod != model.TokenQuotaPeriodNone && quota > 0 {
-		allowed, periodErr := model.TryReserveTokenPeriodQuota(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, quota)
+	var periodStamp model.TokenPeriodStamp
+	if quota > 0 {
+		stamp, allowed, periodErr := model.TryReserveTokenPeriodQuota(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, quota)
 		if periodErr != nil {
 			return periodErr
 		}
 		if !allowed {
 			return fmt.Errorf("token period quota is not enough (%s), need quota: %s", relayInfo.TokenQuotaPeriod, logger.FormatQuota(quota))
 		}
-		periodReserved = true
+		periodStamp = stamp
+		if !stamp.IsZero() {
+			relayInfo.TokenPeriodStamp = stamp.String()
+		}
 	}
 	reserved, err := model.TryReserveTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota, relayInfo.TokenUnlimited)
 	if err != nil || !reserved {
-		if periodReserved {
-			if rollbackErr := model.AdjustTokenPeriodUsage(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, -quota); rollbackErr != nil {
-				common.SysLog("failed to roll back token period quota: " + rollbackErr.Error())
-			}
+		if rollbackErr := refundTokenPeriodQuota(relayInfo.TokenId, periodStamp, quota); rollbackErr != nil {
+			common.SysLog("failed to roll back token period quota: " + rollbackErr.Error())
 		}
 	}
 	if err != nil {
@@ -453,20 +454,52 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 	return nil
 }
 
-// adjustTokenPeriodUsage keeps the token's daily/weekly ledger in step with a token quota change
-// (delta > 0 spend, delta < 0 refund). Tokens without a period are skipped.
-func adjustTokenPeriodUsage(tokenID int, period string, delta int) {
-	if period == "" || period == model.TokenQuotaPeriodNone || delta == 0 {
-		return
+// refundTokenPeriodQuota credits quota back to the ledger window it was reserved in.
+// A zero stamp (no period ledger) or a window that has since rolled over applies nothing.
+func refundTokenPeriodQuota(tokenID int, stamp model.TokenPeriodStamp, quota int) error {
+	if stamp.IsZero() || quota <= 0 {
+		return nil
 	}
-	if err := model.AdjustTokenPeriodUsage(tokenID, period, delta); err != nil {
-		common.SysLog(fmt.Sprintf("failed to adjust token period quota (tokenId=%d, delta=%d): %s", tokenID, delta, err.Error()))
+	if _, err := model.RefundTokenPeriodQuota(nil, tokenID, stamp, quota); err != nil {
+		return fmt.Errorf("refund token period quota (tokenId=%d, quota=%d): %w", tokenID, quota, err)
 	}
+	return nil
+}
+
+// chargeTokenPeriodQuota records a settlement top-up in the current window with the same
+// atomic statement used by admission. Usage that already happened is recorded in full even
+// when it passes the limit; that overage is reported (never dropped) and the next admission
+// is refused by the ledger.
+func chargeTokenPeriodQuota(tokenID int, period string, quota int) (model.TokenPeriodStamp, error) {
+	stamp, over, err := model.ChargeTokenPeriodQuota(nil, tokenID, period, quota)
+	if err != nil {
+		return model.TokenPeriodStamp{}, fmt.Errorf("charge token period quota (tokenId=%d, quota=%d): %w", tokenID, quota, err)
+	}
+	if over {
+		common.SysLog(fmt.Sprintf("token period quota exceeded by settlement top-up (tokenId=%d, period=%s, quota=%d)", tokenID, period, quota))
+	}
+	return stamp, nil
+}
+
+// settleTokenPeriodQuota mirrors a token quota change that already succeeded:
+// delta > 0 is charged to the current window, delta < 0 is refunded to the
+// window recorded in stamp. It returns the stamp the spend landed in.
+func settleTokenPeriodQuota(tokenID int, period string, stamp string, delta int) (string, error) {
+	switch {
+	case delta > 0:
+		charged, err := chargeTokenPeriodQuota(tokenID, period, delta)
+		return charged.String(), err
+	case delta < 0:
+		return "", refundTokenPeriodQuota(tokenID, model.ParseTokenPeriodStamp(stamp), -delta)
+	}
+	return "", nil
 }
 
 type postConsumeQuotaResult struct {
 	FundingApplied bool
 	TokenApplied   bool
+	// PeriodStamp is the ledger window a positive charge landed in ("" when none).
+	PeriodStamp string
 }
 
 func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) error {
@@ -511,7 +544,15 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 			return result, err
 		}
 		result.TokenApplied = true
-		adjustTokenPeriodUsage(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, quota)
+		// 总额度成功后才记周期账本，二者要么都应用要么都不应用。
+		periodStamp, periodErr := settleTokenPeriodQuota(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, relayInfo.TokenPeriodStamp, quota)
+		result.PeriodStamp = periodStamp
+		if periodStamp != "" && relayInfo.TokenPeriodStamp == "" {
+			relayInfo.TokenPeriodStamp = periodStamp
+		}
+		if periodErr != nil {
+			err = periodErr
+		}
 	}
 
 	if sendEmail {
@@ -520,7 +561,7 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		}
 	}
 
-	return result, nil
+	return result, err
 }
 
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {

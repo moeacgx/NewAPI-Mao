@@ -89,7 +89,9 @@ type RelayInfo struct {
 	UserGroup      string // 用户所在分组
 	TokenUnlimited bool
 	// TokenQuotaPeriod is the token's period mode (none/daily/weekly); the period ledger is enforced even for unlimited tokens.
-	TokenQuotaPeriod  string
+	TokenQuotaPeriod string
+	// TokenPeriodStamp is the ledger window of this request's period reservation (model.TokenPeriodStamp.String); settlement refunds and async tasks only credit back to that window.
+	TokenPeriodStamp  string
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool

@@ -24,8 +24,10 @@ type Midjourney struct {
 	Buttons     string `json:"buttons"`
 	Properties  string `json:"properties"`
 
-	TokenId          int `json:"-" gorm:"default:0"`
-	BillingChannelId int `json:"-" gorm:"default:0"`
+	TokenId int `json:"-" gorm:"default:0"`
+	// TokenPeriodStamp 记录预扣所在周期额度窗口，退款只回到同一窗口。
+	TokenPeriodStamp string `json:"-" gorm:"type:varchar(48);default:''"`
+	BillingChannelId int    `json:"-" gorm:"default:0"`
 }
 
 // TaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
@@ -175,7 +177,7 @@ func (midjourney *Midjourney) Update() error {
 
 func (midjourney *Midjourney) UpdateBillingState() error {
 	return DB.Model(midjourney).
-		Select("quota", "token_id", "billing_channel_id").
+		Select("quota", "token_id", "token_period_stamp", "billing_channel_id").
 		Updates(midjourney).Error
 }
 

@@ -179,10 +179,6 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	if lookupErr != nil || tokenKey == "" {
 		return
 	}
-	// 异步任务不持有令牌周期信息：ledger 只会更新该令牌实际启用的周期。
-	if periodErr := model.AdjustTokenPeriodUsage(task.PrivateData.TokenId, "", delta); periodErr != nil {
-		logger.LogWarn(ctx, fmt.Sprintf("调整令牌周期额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, periodErr.Error()))
-	}
 	var err error
 	if delta > 0 {
 		err = model.DecreaseTokenQuota(task.PrivateData.TokenId, tokenKey, delta)
@@ -191,6 +187,16 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	}
 	if err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("调整令牌额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, err.Error()))
+		return
+	}
+	// 周期账本只跟随提交时记录过周期预扣的任务（有戳）：补扣记入当前窗口，
+	// 退款只回到原预扣窗口，窗口已切换或周期已变更则不会碰新账本。
+	stamp := model.ParseTokenPeriodStamp(task.PrivateData.TokenPeriodStamp)
+	if stamp.IsZero() {
+		return
+	}
+	if _, periodErr := settleTokenPeriodQuota(task.PrivateData.TokenId, stamp.Period, stamp.String(), delta); periodErr != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("调整令牌周期额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, periodErr.Error()))
 	}
 }
 
