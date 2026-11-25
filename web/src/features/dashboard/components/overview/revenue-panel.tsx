@@ -23,7 +23,6 @@ import { getRevenueStats, type RevenueDataPoint } from '../../api'
 import {
   buildRevenueChartData,
   buildRevenueRequest,
-  quotaToLocalCurrency,
   type RevenueGranularity,
 } from '../../lib/revenue'
 
