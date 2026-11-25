@@ -2937,7 +2937,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For example, 3 means the third returned order": "For example, 3 means the third returned order",
@@ -7801,6 +7801,9 @@
     "View permissions": "View permissions",
     "Write access": "Write access",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "Write calls require a unique request_id. Reuse it only when retrying the same operation.",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Write tools can change data or trigger external actions. No tools are authorized by default."
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "Write tools can change data or trigger external actions. No tools are authorized by default.",
+    "Cash": "Cash",
+    "{{count}} payments": "{{count}} payments",
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
   }
 }

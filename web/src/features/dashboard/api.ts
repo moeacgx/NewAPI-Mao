@@ -92,20 +92,29 @@ export async function getUptimeStatus() {
   return res.data
 }
 
+export interface RevenueCashTotal {
+  currency: string
+  amount: number
+  count: number
+}
+
 export interface RevenueDataPoint {
   timestamp: number
-  /** Local-currency amount recorded by the online payment provider. */
-  online_money: number
+  /** Actual external payments grouped by currency. */
+  cash: RevenueCashTotal[]
+  /** Number of external orders with unresolvable currency or amount. */
+  unresolved_cash_count: number
   /** Internal quota units issued through redemption codes. */
   redemption_quota: number
-  online_count: number
   redemption_count: number
 }
 
 export interface RevenueSummary {
-  total_online_money: number
+  /** Actual external payments grouped by currency. */
+  cash: RevenueCashTotal[]
+  /** Total number of external orders with unresolvable currency or amount. */
+  unresolved_cash_count: number
   total_redemption_quota: number
-  total_online_count: number
   total_redemption_count: number
 }
 

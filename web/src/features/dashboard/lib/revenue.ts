@@ -39,28 +39,37 @@ export function buildRevenueRequest(
 }
 
 export function quotaToLocalCurrency(quota: number): number {
-  const { quotaPerUnit, usdExchangeRate } = getCurrencyDisplay().config
+  const { quotaPerUnit } = getCurrencyDisplay().config
   if (!Number.isFinite(quota) || quotaPerUnit <= 0) return 0
-  return (quota / quotaPerUnit) * usdExchangeRate
+  // Convert quota to USD amount
+  return quota / quotaPerUnit
 }
 
 export function buildRevenueChartData(
   points: RevenueDataPoint[],
   granularity: RevenueGranularity,
-  labels: { online: string; redemption: string }
-): Array<{ time: string; value: number; type: string }> {
-  const result: Array<{ time: string; value: number; type: string }> = []
+  labels: { cash: (currency: string) => string; redemption: string }
+): Array<{ time: string; value: number; type: string; category: 'cash' | 'quota' }> {
+  const result: Array<{ time: string; value: number; type: string; category: 'cash' | 'quota' }> = []
   for (const point of points) {
     const date = new Date(point.timestamp * 1000)
     const time =
       granularity === 'hour'
         ? `${String(date.getHours()).padStart(2, '0')}:00`
         : `${date.getMonth() + 1}/${date.getDate()}`
-    result.push({ time, value: point.online_money, type: labels.online })
+    for (const cashTotal of point.cash) {
+      result.push({
+        time,
+        value: cashTotal.amount,
+        type: labels.cash(cashTotal.currency),
+        category: 'cash',
+      })
+    }
     result.push({
       time,
       value: quotaToLocalCurrency(point.redemption_quota),
       type: labels.redemption,
+      category: 'quota',
     })
   }
   return result

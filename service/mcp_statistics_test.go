@@ -29,7 +29,21 @@ func TestMCPStatisticsPreserveAnalyticsMetricsAndCoverage(t *testing.T) {
 }
 
 func TestMCPStatisticsPreserveRevenueAmounts(t *testing.T) {
-	input := model.RevenueStatsResponse{Summary: model.RevenueSummary{TotalOnlineMoney: 18.5, TotalRedemptionQuota: 200, TotalOnlineCount: 2, TotalRedemptionCount: 1}, DataPoints: []model.RevenueDataPoint{{Timestamp: 123, OnlineMoney: 18.5, RedemptionQuota: 200, OnlineCount: 2, RedemptionCount: 1}}}
+	input := model.RevenueStatsResponse{
+		Summary: model.RevenueSummary{
+			Cash:                 []model.RevenueCashTotal{{Currency: "USD", Amount: 18.5, Count: 1}, {Currency: "CNY", Amount: 10, Count: 1}},
+			UnresolvedCashCount:  0,
+			TotalRedemptionQuota: 200,
+			TotalRedemptionCount: 1,
+		},
+		DataPoints: []model.RevenueDataPoint{{
+			Timestamp:           123,
+			Cash:                []model.RevenueCashTotal{{Currency: "USD", Amount: 18.5, Count: 1}, {Currency: "CNY", Amount: 10, Count: 1}},
+			UnresolvedCashCount: 0,
+			RedemptionQuota:     200,
+			RedemptionCount:     1,
+		}},
+	}
 	raw, err := common.Marshal(map[string]any{"success": true, "data": input})
 	require.NoError(t, err)
 	projected, ok, err := ProjectMCPResponse(MCPTool{Name: "newapi_revenue", Category: "usage"}, raw, 200)

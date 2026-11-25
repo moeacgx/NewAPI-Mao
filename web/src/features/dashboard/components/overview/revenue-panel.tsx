@@ -8,16 +8,13 @@ License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
-import { DollarSign, Ticket, TrendingUp } from 'lucide-react'
+import { Banknote, Ticket, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  formatLocalCurrencyAmount,
-  formatQuotaWithCurrency,
-} from '@/lib/currency'
+import { formatQuotaWithCurrency, formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
@@ -26,7 +23,6 @@ import { getRevenueStats, type RevenueDataPoint } from '../../api'
 import {
   buildRevenueChartData,
   buildRevenueRequest,
-  quotaToLocalCurrency,
   type RevenueGranularity,
 } from '../../lib/revenue'
 
@@ -64,9 +60,9 @@ export function RevenuePanel() {
   })
   const stats = query.data?.data
   const summary = stats?.summary
-  const onlineMoney = summary?.total_online_money ?? 0
+  const cash = summary?.cash ?? []
   const redemptionQuota = summary?.total_redemption_quota ?? 0
-  const totalRevenue = onlineMoney + quotaToLocalCurrency(redemptionQuota)
+  const unresolvedCashCount = summary?.unresolved_cash_count ?? 0
 
   return (
     <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
@@ -90,32 +86,35 @@ export function RevenuePanel() {
         </div>
       </div>
 
-      <div className='grid grid-cols-1 gap-px border-b sm:grid-cols-3'>
-        <RevenueStat
-          icon={TrendingUp}
-          label={t('Total Revenue')}
-          value={formatLocalCurrencyAmount(totalRevenue)}
-          loading={query.isLoading}
-        />
-        <RevenueStat
-          icon={DollarSign}
-          label={t('Online Recharge')}
-          value={formatLocalCurrencyAmount(onlineMoney)}
-          sub={t('{{count}} transactions', {
-            count: formatNumber(summary?.total_online_count ?? 0),
-          })}
-          loading={query.isLoading}
-        />
+      <div className='grid auto-cols-fr grid-flow-col gap-px border-b'>
+        {cash.map((c) => (
+          <RevenueStat
+            key={c.currency}
+            icon={Banknote}
+            label={`${t('Cash')} (${c.currency})`}
+            value={`${c.currency === 'CNY' ? '¥' : c.currency === 'USD' ? '$' : ''}${formatNumber(c.amount, 2)}`}
+            sub={t('{{count}} payments', {
+              count: formatNumber(c.count, 0),
+            })}
+            loading={query.isLoading}
+          />
+        ))}
         <RevenueStat
           icon={Ticket}
           label={t('Redemption Code')}
           value={formatQuotaWithCurrency(redemptionQuota)}
           sub={t('{{count}} redemptions', {
-            count: formatNumber(summary?.total_redemption_count ?? 0),
+            count: formatNumber(summary?.total_redemption_count ?? 0, 0),
           })}
           loading={query.isLoading}
         />
       </div>
+
+      {unresolvedCashCount > 0 && (
+        <div className='border-b px-4 py-2 text-xs text-yellow-600 dark:text-yellow-500'>
+          {t('{{count}} orders with unverifiable currency', { count: unresolvedCashCount })}
+        </div>
+      )}
 
       <div className='h-56 px-3 py-2 sm:h-64 sm:px-4'>
         <RevenueChart
@@ -176,22 +175,22 @@ function RevenueChart(props: {
   const chartData = useMemo(
     () =>
       buildRevenueChartData(props.points, props.granularity, {
-        online: t('Online Recharge'),
+        cash: (currency: string) => `${t('Cash')} (${currency})`,
         redemption: t('Redemption Code'),
       }),
     [props.points, props.granularity, t]
   )
+
   const spec = useMemo(
     () => ({
-      type: 'area' as const,
+      type: 'line' as const,
       data: [{ id: 'revenue', values: chartData }],
       xField: 'time',
       yField: 'value',
       seriesField: 'type',
-      stack: true,
+      stack: false,
       line: { style: { lineWidth: 2, curveType: 'monotone' as const } },
-      area: { style: { fillOpacity: 0.15 } },
-      point: { visible: false },
+      point: { visible: true, style: { size: 3 } },
       legends: {
         visible: true,
         orient: 'bottom' as const,
@@ -203,8 +202,13 @@ function RevenueChart(props: {
           content: [
             {
               key: (datum: { type: string }) => datum.type,
-              value: (datum: { value: number }) =>
-                formatLocalCurrencyAmount(datum.value),
+              value: (datum: { value: number; category: 'cash' | 'quota' }) => {
+                if (datum.category === 'cash') {
+                  return formatNumber(datum.value, 2)
+                }
+                // datum.value is USD amount from quotaToLocalCurrency
+                return formatCurrencyFromUSD(datum.value)
+              },
             },
           ],
         },
@@ -218,8 +222,7 @@ function RevenueChart(props: {
         {
           orient: 'left' as const,
           label: {
-            formatMethod: (value: number | string) =>
-              formatLocalCurrencyAmount(Number(value)),
+            formatMethod: (value: number | string) => formatNumber(Number(value), 2),
             style: { fill: textColor, fontSize: 10 },
           },
           grid: {
@@ -227,10 +230,24 @@ function RevenueChart(props: {
             style: { lineDash: [3, 3], stroke: gridColor },
           },
         },
+        {
+          orient: 'right' as const,
+          label: {
+            formatMethod: (value: number | string) => {
+              const usdAmount = Number(value)
+              if (usdAmount === 0) return '0'
+              return formatCurrencyFromUSD(usdAmount, { showSymbol: false })
+            },
+            style: { fill: textColor, fontSize: 10 },
+          },
+          grid: { visible: false },
+        },
       ],
-      color: ['hsl(var(--chart-1))', 'hsl(var(--chart-2))'],
+      color: ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'],
+      theme: props.resolvedTheme,
+      background: 'transparent',
     }),
-    [chartData, gridColor, textColor]
+    [chartData, gridColor, textColor, t, props.resolvedTheme]
   )
 
   if (props.loading || !props.themeReady) {

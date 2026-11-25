@@ -2937,7 +2937,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For AtlasCloud gpt-image-2/edit, apply the AtlasCloud preset and update currency_rate.": "对于 AtlasCloud gpt-image-2/edit，请应用 AtlasCloud 预设并更新 currency_rate。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For example, 3 means the third returned order": "例如，3 表示返回顺序中的第三个",
@@ -7801,6 +7801,9 @@
     "View permissions": "查看权限",
     "Write access": "写入权限",
     "Write calls require a unique request_id. Reuse it only when retrying the same operation.": "写入调用需提供唯一 request_id，仅在重试同一操作时复用。",
-    "Write tools can change data or trigger external actions. No tools are authorized by default.": "写工具可能修改数据或触发外部操作。默认不授权任何工具。"
+    "Write tools can change data or trigger external actions. No tools are authorized by default.": "写工具可能修改数据或触发外部操作。默认不授权任何工具。",
+    "Cash": "现金",
+    "{{count}} payments": "{{count}} 笔",
+    "{{count}} orders with unverifiable currency": "有 {{count}} 笔订单币种待核验"
   }
 }

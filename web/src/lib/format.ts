@@ -31,12 +31,35 @@ import {
 
 export function formatNumber(
   value: number | null | undefined,
+  localesOrFractionDigits?: Intl.LocalesArgument | number,
   locales?: Intl.LocalesArgument
 ): string {
   if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(
-    value as number
-  )
+
+  let actualLocales: Intl.LocalesArgument | undefined
+  let fractionDigits: number | undefined
+  let explicitFractionDigits = false
+
+  if (typeof localesOrFractionDigits === 'number') {
+    fractionDigits = localesOrFractionDigits
+    actualLocales = locales
+    explicitFractionDigits = true
+  } else {
+    actualLocales = localesOrFractionDigits
+    fractionDigits = 2
+    explicitFractionDigits = false
+  }
+
+  const options: Intl.NumberFormatOptions = {
+    maximumFractionDigits: fractionDigits,
+  }
+
+  // Only set minimumFractionDigits when explicitly requested
+  if (explicitFractionDigits) {
+    options.minimumFractionDigits = fractionDigits
+  }
+
+  return Intl.NumberFormat(actualLocales, options).format(value as number)
 }
 
 export function formatCompactNumber(
