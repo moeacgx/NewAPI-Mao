@@ -176,6 +176,24 @@ export function UnlimitedQuotaBadge(props: UnlimitedQuotaBadgeProps) {
   )
 }
 
+export function PeriodQuotaSummary({ apiKey }: { apiKey: ApiKey }) {
+  const { t } = useTranslation()
+  const limit = apiKey.quota_period_limit ?? 0
+  if (apiKey.quota_period === 'none' || limit <= 0) return null
+  const periodLabel =
+    apiKey.quota_period === 'weekly' ? t('Weekly') : t('Daily')
+
+  return (
+    <div
+      data-testid='period-quota-summary'
+      className='text-muted-foreground text-xs tabular-nums'
+    >
+      {t('Period quota')} · {periodLabel}:{' '}
+      {formatQuota(apiKey.quota_period_used ?? 0)} / {formatQuota(limit)}
+    </div>
+  )
+}
+
 export function ModelLimitsCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
 

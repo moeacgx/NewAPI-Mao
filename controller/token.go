@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -83,6 +84,7 @@ func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
 	}
 	maskedToken := *token
 	maskedToken.Key = token.GetMaskedKey()
+	maskedToken.FillQuotaPeriodState(time.Now())
 	autoGroups, err := token.GetAutoGroups()
 	if err != nil {
 		common.SysError(fmt.Sprintf("failed to parse auto groups for token %d: %v", token.Id, err))
@@ -179,6 +181,53 @@ func rejectTokenGroupsOverLimit(c *gin.Context, token *model.Token) bool {
 		return true
 	}
 	return false
+}
+
+// normalizeTokenQuotaRequest validates the total quota (remain_quota, never resets) and the
+// periodic quota (quota_period + quota_period_limit, restored on every reset) of a create or
+// update request. Both are bounded by common.MaxTokenQuota instead of the int32 per-request
+// charge boundary. On update (existing != nil) a request that omits quota_period keeps the
+// stored period, so older clients never silently clear it.
+func normalizeTokenQuotaRequest(c *gin.Context, token *model.Token, existing *model.Token) bool {
+	maxQuota := common.MaxTokenQuota()
+	if !token.UnlimitedQuota {
+		if token.RemainQuota < 0 {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
+			return false
+		}
+		if int64(token.RemainQuota) > maxQuota {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuota})
+			return false
+		}
+	}
+	if existing != nil && strings.TrimSpace(token.QuotaPeriod) == "" {
+		token.QuotaPeriod, token.QuotaPeriodLimit = existing.QuotaPeriod, existing.QuotaPeriodLimit
+		token.ResetQuotaPeriodLedger = false
+		return true
+	}
+	period, ok := model.NormalizeTokenQuotaPeriod(token.QuotaPeriod)
+	if !ok {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaPeriodInvalid)
+		return false
+	}
+	token.QuotaPeriod = period
+	if existing != nil {
+		storedPeriod, _ := model.NormalizeTokenQuotaPeriod(existing.QuotaPeriod)
+		token.ResetQuotaPeriodLedger = storedPeriod != period
+	}
+	if period == model.TokenQuotaPeriodNone {
+		token.QuotaPeriodLimit = 0
+		return true
+	}
+	if token.QuotaPeriodLimit <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaPeriodLimitRequired)
+		return false
+	}
+	if token.QuotaPeriodLimit > maxQuota {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuota})
+		return false
+	}
+	return true
 }
 
 func GetAllTokens(c *gin.Context) {
@@ -382,17 +431,8 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	// 非无限额度时，检查额度值是否超出有效范围
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
-			return
-		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
-			return
-		}
+	if !normalizeTokenQuotaRequest(c, &token, nil) {
+		return
 	}
 	// 检查用户令牌数量是否已达上限
 	maxTokens := operation_setting.GetMaxUserTokens()
@@ -441,6 +481,8 @@ func AddToken(c *gin.Context) {
 		GroupRatioLimits:   token.GroupRatioLimits,
 		CrossGroupRetry:    token.CrossGroupRetry,
 		AutoGroups:         token.AutoGroups,
+		QuotaPeriod:        token.QuotaPeriod,
+		QuotaPeriodLimit:   token.QuotaPeriodLimit,
 	}
 	if !setTokenGroupChannels(c, &cleanToken, token.GroupChannelIds) {
 		return
@@ -492,20 +534,12 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
-			return
-		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
-			return
-		}
-	}
 	cleanToken, err := model.GetTokenByIds(token.Id, userId)
 	if err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	if !normalizeTokenQuotaRequest(c, &token, cleanToken) {
 		return
 	}
 	if token.Status == common.TokenStatusEnabled {
@@ -538,6 +572,9 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.GroupIds = append([]int(nil), token.GroupIds...)
 		cleanToken.GroupDetails = append([]model.GroupReference(nil), token.GroupDetails...)
 		cleanToken.GroupRatioLimits = token.GroupRatioLimits
+		cleanToken.QuotaPeriod = token.QuotaPeriod
+		cleanToken.QuotaPeriodLimit = token.QuotaPeriodLimit
+		cleanToken.ResetQuotaPeriodLedger = token.ResetQuotaPeriodLedger
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
 		if !setTokenGroupChannels(c, cleanToken, token.GroupChannelIds) {
 			return

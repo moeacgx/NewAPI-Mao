@@ -68,6 +68,7 @@ func (s *BillingSession) Settle(actualQuota int) error {
 	// 2) 调整令牌额度
 	var tokenErr error
 	if s.usesTokenQuota() {
+		adjustTokenPeriodUsage(s.relayInfo.TokenId, s.relayInfo.TokenQuotaPeriod, delta)
 		if delta > 0 {
 			tokenErr = model.DecreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, delta)
 		} else {
@@ -112,6 +113,7 @@ func (s *BillingSession) Refund(c *gin.Context) {
 	isPlayground := s.relayInfo.IsPlayground
 	tokenQuotaExempt := s.relayInfo.TokenQuotaExempt
 	tokenConsumed := s.tokenConsumed
+	tokenPeriod := s.relayInfo.TokenQuotaPeriod
 	extraReserved := s.extraReserved
 	subscriptionId := s.relayInfo.SubscriptionId
 	funding := s.funding
@@ -128,6 +130,7 @@ func (s *BillingSession) Refund(c *gin.Context) {
 		}
 		// 2) 退还令牌额度
 		if tokenConsumed > 0 && !isPlayground && !tokenQuotaExempt {
+			adjustTokenPeriodUsage(tokenId, tokenPeriod, -tokenConsumed)
 			if err := model.IncreaseTokenQuota(tokenId, tokenKey, tokenConsumed); err != nil {
 				common.SysLog("error refunding token quota: " + err.Error())
 			}
@@ -261,6 +264,7 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		fundingErr := err
 		// 预扣费失败，回滚令牌额度
 		if s.tokenConsumed > 0 && s.usesTokenQuota() {
+			adjustTokenPeriodUsage(s.relayInfo.TokenId, s.relayInfo.TokenQuotaPeriod, -s.tokenConsumed)
 			if rollbackErr := model.IncreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, s.tokenConsumed); rollbackErr != nil {
 				common.SysLog(fmt.Sprintf("error rolling back token quota (userId=%d, tokenId=%d, amount=%d, fundingErr=%s): %s",
 					s.relayInfo.UserId, s.relayInfo.TokenId, s.tokenConsumed, err.Error(), rollbackErr.Error()))
@@ -371,6 +375,11 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 
 	trustQuota := common.GetTrustQuota()
 	if trustQuota <= 0 {
+		return false
+	}
+
+	// 带每日/每周周期额度的令牌必须逐次预扣，不能走信任旁路。
+	if s.relayInfo.TokenQuotaPeriod != "" && s.relayInfo.TokenQuotaPeriod != model.TokenQuotaPeriodNone {
 		return false
 	}
 

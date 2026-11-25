@@ -179,6 +179,10 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	if lookupErr != nil || tokenKey == "" {
 		return
 	}
+	// 异步任务不持有令牌周期信息：ledger 只会更新该令牌实际启用的周期。
+	if periodErr := model.AdjustTokenPeriodUsage(task.PrivateData.TokenId, "", delta); periodErr != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("调整令牌周期额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, periodErr.Error()))
+	}
 	var err error
 	if delta > 0 {
 		err = model.DecreaseTokenQuota(task.PrivateData.TokenId, tokenKey, delta)

@@ -7804,6 +7804,17 @@
     "Write tools can change data or trigger external actions. No tools are authorized by default.": "Инструменты записи могут изменять данные или запускать внешние действия. По умолчанию ни один инструмент не разрешён.",
     "Cash": "Cash",
     "{{count}} payments": "{{count}} payments",
-    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency",
+    "No period limit": "Без лимита по периоду",
+    "Total quota ({{currency}})": "Общая квота ({{currency}})",
+    "Period quota": "Квота за период",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "Дневной или недельный лимит расходов. После сброса периода израсходованная сумма восстанавливается.",
+    "Period quota cycle": "Цикл квоты за период",
+    "Period quota ({{currency}})": "Квота за период ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "Общая квота не сбрасывается с периодом. Если сделать её безлимитной, квота за период и баланс аккаунта не изменятся.",
+    "Unlimited total quota": "Безлимитная общая квота",
+    "Does not turn off the period quota above": "Не отключает квоту за период выше",
+    "Quota cannot exceed {{max}}": "Квота не может превышать {{max}}",
+    "Period quota must be greater than 0": "Квота за период должна быть больше 0"
   }
 }

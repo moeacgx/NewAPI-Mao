@@ -420,7 +420,26 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 		return nil
 	}
 	// 原子预扣：检查与扣减在同一操作中完成，并发请求不可能同时通过检查后超扣。
+	// 周期额度（每日/每周）先于总额度预扣；无限总额度的令牌同样受周期限制。
+	periodReserved := false
+	if relayInfo.TokenQuotaPeriod != "" && relayInfo.TokenQuotaPeriod != model.TokenQuotaPeriodNone && quota > 0 {
+		allowed, periodErr := model.TryReserveTokenPeriodQuota(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, quota)
+		if periodErr != nil {
+			return periodErr
+		}
+		if !allowed {
+			return fmt.Errorf("token period quota is not enough (%s), need quota: %s", relayInfo.TokenQuotaPeriod, logger.FormatQuota(quota))
+		}
+		periodReserved = true
+	}
 	reserved, err := model.TryReserveTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota, relayInfo.TokenUnlimited)
+	if err != nil || !reserved {
+		if periodReserved {
+			if rollbackErr := model.AdjustTokenPeriodUsage(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, -quota); rollbackErr != nil {
+				common.SysLog("failed to roll back token period quota: " + rollbackErr.Error())
+			}
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -432,6 +451,17 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 		return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(remainQuota), logger.FormatQuota(quota))
 	}
 	return nil
+}
+
+// adjustTokenPeriodUsage keeps the token's daily/weekly ledger in step with a token quota change
+// (delta > 0 spend, delta < 0 refund). Tokens without a period are skipped.
+func adjustTokenPeriodUsage(tokenID int, period string, delta int) {
+	if period == "" || period == model.TokenQuotaPeriodNone || delta == 0 {
+		return
+	}
+	if err := model.AdjustTokenPeriodUsage(tokenID, period, delta); err != nil {
+		common.SysLog(fmt.Sprintf("failed to adjust token period quota (tokenId=%d, delta=%d): %s", tokenID, delta, err.Error()))
+	}
 }
 
 type postConsumeQuotaResult struct {
@@ -481,6 +511,7 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 			return result, err
 		}
 		result.TokenApplied = true
+		adjustTokenPeriodUsage(relayInfo.TokenId, relayInfo.TokenQuotaPeriod, quota)
 	}
 
 	if sendEmail {

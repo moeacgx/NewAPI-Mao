@@ -7804,6 +7804,17 @@
     "Write tools can change data or trigger external actions. No tools are authorized by default.": "Write tools can change data or trigger external actions. No tools are authorized by default.",
     "Cash": "Cash",
     "{{count}} payments": "{{count}} payments",
-    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency"
+    "{{count}} orders with unverifiable currency": "{{count}} orders with unverifiable currency",
+    "No period limit": "No period limit",
+    "Total quota ({{currency}})": "Total quota ({{currency}})",
+    "Period quota": "Period quota",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "Daily or weekly spending cap. The used amount is restored when the period resets.",
+    "Period quota cycle": "Period quota cycle",
+    "Period quota ({{currency}})": "Period quota ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.",
+    "Unlimited total quota": "Unlimited total quota",
+    "Does not turn off the period quota above": "Does not turn off the period quota above",
+    "Quota cannot exceed {{max}}": "Quota cannot exceed {{max}}",
+    "Period quota must be greater than 0": "Period quota must be greater than 0"
   }
 }

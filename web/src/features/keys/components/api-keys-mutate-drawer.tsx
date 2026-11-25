@@ -422,13 +422,20 @@ export function ApiKeysMutateDrawer({
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
   const tokensOnly = currencyMeta.kind === 'tokens'
-  const quotaLabel = t('Quota ({{currency}})', { currency: currencyLabel })
+  const quotaLabel = t('Total quota ({{currency}})', {
+    currency: currencyLabel,
+  })
   const quotaPlaceholder = tokensOnly
     ? t('Enter quota in tokens')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
   const autoGroupsMode = form.watch('auto_groups_mode')
   const unlimitedQuota = form.watch('unlimited_quota')
   const quotaPeriod = form.watch('quota_period')
+  const quotaPeriodItems = [
+    { value: 'none', label: t('No period limit') },
+    { value: 'daily', label: t('Daily') },
+    { value: 'weekly', label: t('Weekly') },
+  ]
 
   return (
     <Sheet
@@ -923,8 +930,10 @@ export function ApiKeysMutateDrawer({
 
             <SideDrawerSection>
               <SideDrawerSectionHeader
-                title={t('Quota Settings')}
-                description={t('Set quota amount and limits')}
+                title={t('Period quota')}
+                description={t(
+                  'Daily or weekly spending cap. The used amount is restored when the period resets.'
+                )}
                 icon={<WalletCards className='size-4' />}
                 iconTone='success'
               />
@@ -933,8 +942,12 @@ export function ApiKeysMutateDrawer({
                 name='quota_period'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Token quota period')}</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <FormLabel>{t('Period quota cycle')}</FormLabel>
+                    <Select
+                      items={quotaPeriodItems}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
                       <FormControl>
                         <SelectTrigger className='w-full'>
                           <SelectValue />
@@ -942,7 +955,9 @@ export function ApiKeysMutateDrawer({
                       </FormControl>
                       <SelectContent alignItemWithTrigger={false}>
                         <SelectGroup>
-                          <SelectItem value='none'>{t('No Reset')}</SelectItem>
+                          <SelectItem value='none'>
+                            {t('No period limit')}
+                          </SelectItem>
                           <SelectItem value='daily'>{t('Daily')}</SelectItem>
                           <SelectItem value='weekly'>{t('Weekly')}</SelectItem>
                         </SelectGroup>
@@ -963,7 +978,7 @@ export function ApiKeysMutateDrawer({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {t('Token quota limit ({{currency}})', {
+                      {t('Period quota ({{currency}})', {
                         currency: currencyLabel,
                       })}
                     </FormLabel>
@@ -990,6 +1005,17 @@ export function ApiKeysMutateDrawer({
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+            </SideDrawerSection>
+
+            <SideDrawerSection>
+              <SideDrawerSectionHeader
+                title={t('Total quota')}
+                description={t(
+                  'Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.'
+                )}
+                icon={<WalletCards className='size-4' />}
+                iconTone='success'
               />
               {!unlimitedQuota && (
                 <FormField
@@ -1031,10 +1057,10 @@ export function ApiKeysMutateDrawer({
                   <FormItem className={sideDrawerSwitchItemClassName()}>
                     <div className='flex flex-col gap-0.5'>
                       <FormLabel className='text-sm'>
-                        {t('Unlimited Quota')}
+                        {t('Unlimited total quota')}
                       </FormLabel>
                       <FormDescription className='text-xs'>
-                        {t('Enable unlimited quota for this API key')}
+                        {t('Does not turn off the period quota above')}
                       </FormDescription>
                     </div>
                     <FormControl>
