@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [供货商申请与分组报价（#408）](supplier-applications.md)：Default 登录用户提交站点资料与 1–20 个分组报价，管理员分页搜索并记录处理状态、内部备注、处理人和处理时间；提交不可修改、内容去重、24 小时 20 次限额，个人视图不含内部字段；权限资源 `supplier_applications`；Classic 本期未提供入口，数据库仅 SQLite 实测。
 - [网关模型准入（#417）](model-admission.md)：模型广场和模型管理目录、路由前拒绝及日志契约。
 - [模型详情按分组定价显示分组倍率](../workflows/2026-11/21_pricing_detail_group_ratio.md)：Default 分档卡片标题右侧与常规定价「Multiplier」列显示 `getConfiguredGroupRatio` 倍率（0、1 照常显示，缺失为 1），折扣与价格不变；Classic 已有同等展示，只补回归测试；未做浏览器验证。
 - [令牌分组标签大卡片与普通多选优先级列表](../workflows/2026-11/18_token_auto_group_cards.md)：Default 令牌创建/编辑在选择器上方显示分组标签大卡片（手机 2 列、`sm` 起 3 列，品牌图标、名称、可选分组数、选中态），两套模板在普通选择器选中 2 个及以上具体分组时显示“Custom Auto”有序优先级列表（序号、拖拽、上移/下移、移除，首项最先尝试）；线路格式保持显式 `group`/`group_ids`/`group_mode=explicit`，不转为 `auto`，不改后端、计费、鉴权；显式 Auto 的 `auto_groups` 行为不变；已跑 Default 32 项与 Classic 33 项聚焦测试、lint、typecheck，真实浏览器、构建与部署未验。

@@ -68,6 +68,7 @@ export const HEADER_NAV_DEFAULT: HeaderNavModulesConfig = {
   },
   docs: true,
   about: true,
+  supplier_application: true,
   customItems: [],
 }
 
@@ -95,6 +96,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     topup: true,
     invoice: true,
     tickets: true,
+    supplier_application: true,
     affiliate: true,
     personal: true,
   },
@@ -110,6 +112,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     subscription: true,
     invoice_admin: true,
     ticket_management: true,
+    supplier_application_admin: true,
     notification_center: true,
     mcp: true,
     extension_admin: true,

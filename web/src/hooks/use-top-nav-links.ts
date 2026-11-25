@@ -96,6 +96,15 @@ export function useTopNavLinks(): TopNavLink[] {
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }
 
+  // Supplier application (login is required to submit; the route enforces it)
+  if (modules?.supplier_application !== false) {
+    links.push({
+      title: t('Supplier Application'),
+      href: '/supplier-applications',
+      requiresAuth: !isAuthed,
+    })
+  }
+
   // Docs (supports external links)
   if (modules?.docs !== false) {
     if (docsLink) {

@@ -29,6 +29,7 @@ import {
   Gift,
   Gamepad2,
   HandCoins,
+  Handshake,
   Key,
   LayoutDashboard,
   ListTodo,
@@ -187,6 +188,11 @@ export function useSidebarData(): SidebarData {
           { title: t('Invoice Center'), url: '/invoices', icon: ReceiptText },
           { title: t('Ticket Center'), url: '/tickets', icon: MessageSquare },
           {
+            title: t('Supplier Application'),
+            url: '/supplier-applications',
+            icon: Handshake,
+          },
+          {
             title: t('Affiliate Commission'),
             url: '/affiliate',
             icon: HandCoins,
@@ -207,6 +213,16 @@ export function useSidebarData(): SidebarData {
                   title: t('Ticket Management'),
                   url: '/ticket-management',
                   icon: MessageSquare,
+                  requiredRole: ROLE.ADMIN,
+                },
+              ]
+            : []),
+          ...(hasPermission(user, 'supplier_applications', 'read')
+            ? [
+                {
+                  title: t('Supplier Application Management'),
+                  url: '/supplier-application-management',
+                  icon: Handshake,
                   requiredRole: ROLE.ADMIN,
                 },
               ]

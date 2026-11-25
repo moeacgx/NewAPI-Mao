@@ -159,6 +159,10 @@ export function SidebarModulesSection({
           'Submit requests and follow replies from the support team.'
         ),
       },
+      supplier_application: {
+        title: t('Supplier Application'),
+        description: t('Submit your site and group quotes to cooperate.'),
+      },
       affiliate: {
         title: t('Affiliate Commission'),
         description: t('Referral commission and payout center.'),
@@ -210,6 +214,10 @@ export function SidebarModulesSection({
       ticket_management: {
         title: t('Ticket Management'),
         description: t('Review requests and reply to users.'),
+      },
+      supplier_application_admin: {
+        title: t('Supplier Application Management'),
+        description: t('Compare supplier quotes and record the outcome.'),
       },
       notification_center: {
         title: t('Notification Center'),

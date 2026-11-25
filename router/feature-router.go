@@ -13,6 +13,7 @@ func registerFeatureAPIRoutes(apiRouter *gin.RouterGroup) {
 	registerExtensionRoutes(apiRouter)
 	registerGameRoutes(apiRouter)
 	registerTicketRoutes(apiRouter)
+	registerSupplierApplicationRoutes(apiRouter)
 	registerNotificationRoutes(apiRouter)
 	registerChannelAnalyticsRoutes(apiRouter)
 }
