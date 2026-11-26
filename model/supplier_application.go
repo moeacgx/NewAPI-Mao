@@ -338,10 +338,13 @@ func CreateSupplierApplication(userID int, input SupplierApplicationInput) (*Sup
 		return tx.Create(&quotes).Error
 	})
 	if err != nil {
-		// 并发提交相同内容时，唯一索引冲突会让事务回滚；事务外复查后统一报告为重复。
-		var existing int64
-		if DB.Model(&SupplierApplication{}).Where("user_id = ? AND fingerprint = ?", userID, fingerprint).Count(&existing).Error == nil && existing > 0 && !errors.Is(err, ErrSupplierApplicationLimit) {
-			return nil, ErrSupplierApplicationDuplicate
+		// 并发提交相同内容时，唯一索引冲突或 SQLite 锁定会让事务回滚；事务外复查后统一报告为重复。
+		// SQLITE_BUSY (database is locked) 也可能是并发重复提交的信号。
+		if !errors.Is(err, ErrSupplierApplicationLimit) {
+			var existing int64
+			if checkErr := DB.Model(&SupplierApplication{}).Where("user_id = ? AND fingerprint = ?", userID, fingerprint).Count(&existing).Error; checkErr == nil && existing > 0 {
+				return nil, ErrSupplierApplicationDuplicate
+			}
 		}
 		return nil, err
 	}
