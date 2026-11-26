@@ -64,6 +64,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     invoice: true,
     tickets: true,
     personal: true,
+    supplier_application: true,
   },
   admin: {
     enabled: true,
@@ -83,6 +84,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     task_plugins: true,
     mcp: true,
     security_audit: true,
+    supplier_application_admin: true,
     setting: true,
   },
   customItems: [],

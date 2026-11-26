@@ -34,6 +34,7 @@ export const useNavigation = (
       pricing: true,
       docs: true,
       about: true,
+      supplier_application: true,
     };
 
     // 使用传入的配置或默认配置
@@ -54,6 +55,12 @@ export const useNavigation = (
         text: t('模型广场'),
         itemKey: 'pricing',
         to: '/pricing',
+      },
+      {
+        text: t('Supplier Application'),
+        itemKey: 'supplier_application',
+        to: '/console/supplier-applications',
+        requiresAuth: true,
       },
       ...(docsLink
         ? [

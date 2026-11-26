@@ -39,6 +39,8 @@ import TopUp from './pages/TopUp';
 import Affiliate from './pages/Affiliate';
 import AffiliateAdmin from './pages/AffiliateAdmin';
 import InvoiceCenter from './pages/Invoice';
+import SupplierApplication from './pages/SupplierApplication';
+import SupplierApplicationManagement from './pages/SupplierApplicationManagement';
 import Log from './pages/Log';
 import Chat from './pages/Chat';
 import Chat2Link from './pages/Chat2Link';
@@ -291,6 +293,22 @@ function App() {
             <PrivateRoute>
               <Benefits />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/supplier-applications'
+          element={
+            <PrivateRoute>
+              <SupplierApplication />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/supplier-application-management'
+          element={
+            <AdminRoute>
+              <SupplierApplicationManagement />
+            </AdminRoute>
           }
         />
         <Route
