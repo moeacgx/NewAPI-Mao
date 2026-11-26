@@ -25,11 +25,12 @@
 - 总额度与周期额度的上限改由 `common.MaxTokenQuota()` 提供（1e9 个货币单位 × `QuotaPerUnit`，不超过平台 int），不再使用 int32 单次计费边界；`MaxQuota`、`QuotaFromFloat` 及全局计费换算不变。超限、负数、周期额度非正数、未知周期由后端返回错误，不截断。
 - 更新请求省略 `quota_period` 时保持原周期（兼容 Classic 与旧客户端）；选择 `none` 清空周期额度并重置账本。
 - Default：周期下拉增加标签映射；表单拆成「周期额度」与「总额度」两节，总额度开关改为「总额度不限」且不影响周期额度；表单校验在显示单位下给出上限提示；列表与手机卡片在总额度不限和有限时都显示周期额度与已用。
+- Classic：`EditTokenModal` 新增独立「周期额度」卡片（额度周期下拉 + 周期额度金额输入）与「总额度」卡片，总额度开关不再关闭周期额度。提交时把周期金额换算为 `quota_period_limit`，`none` 时上限为 0；选择周期但金额不大于 0 时前端拦截。加载时把 `quota_period_limit` 回显为金额，并剔除只读账本字段 `quota_period_used`、`quota_period_reset_at`，不回传。列表额度列在总额度不限和有限时都追加周期额度已用/上限。
 
 ## 双模板评估
 
 - Default：见上，已改并有测试。
-- Classic：`EditTokenModal` 不发送 `quota_period`，不涉及周期字段；后端省略时保留原周期，不会清空。其总额度输入无 32 位限制，随共用后端上限放宽后可保存 10000 USD。Classic 未新增周期额度界面，仍可经 API 管理。
+- Classic：新增周期额度界面，见上。提交始终携带 `quota_period`，不再依赖后端「省略时保留原周期」的兼容分支；该兼容分支仍保留给旧客户端。Classic 词条已补齐 en/zh/zh-CN/zh-TW/fr/ja/ru/vi。
 
 ## 数据库兼容与回滚
 
@@ -41,6 +42,8 @@
 - `controller`：每周 500 + 总额度 10000 USD 创建与读取、每日/每周切换重开回显、总额度不限保留周期、列表读取、省略字段兼容、边界与非法输入、客户端不能写账本。
 - `service`：真实预扣/结算路径中周期上限阻断（含无限总额度）、总额度失败回滚周期、结算与退款调整账本、无周期令牌保持旧行为。
 - Default：表单载荷/回填/校验、抽屉标签与回填及提交载荷、列表周期行。
+- Classic：`token-period-quota.compat.test.jsx` 覆盖每周 500 + 总额度 10000 回显与提交、总额度不限保留周期、未设周期提交 `none`/0、周期额度 0 拒绝提交、列表周期行。
+- CI：PR #432 的 Frontend typecheck and test 失败于 `overview-dashboard.test.tsx` 第 205 行找不到 `Quick actions` 导航。该测试在 key 查询仍异步时同步断言导航，查询未返回时导航尚未渲染。改为 `findByRole` 等待导航出现后再断言引导消失，断言内容不变。
 - 本机 Go 工具链为 windows/386，测试需 `GOARCH=amd64`；Node 26 下前端测试需 `--localstorage-file`，均放在项目 `.tmp/`。
 
 ## 未覆盖

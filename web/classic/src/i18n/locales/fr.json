@@ -6595,6 +6595,12 @@
     "The smallest amount a single voucher can receive.": "Le montant minimal d’un bon.",
     "The largest amount a single voucher can receive.": "Le montant maximal d’un bon.",
     "Minimum amount": "Montant minimal",
-    "Maximum amount": "Montant maximal"
+    "Maximum amount": "Montant maximal",
+    "周期额度": "Quota périodique",
+    "每日或每周的消费上限，周期重置后已用额度恢复": "Plafond de dépenses quotidien ou hebdomadaire. Le montant utilisé est restauré à la réinitialisation de la période.",
+    "额度周期": "Cycle du quota périodique",
+    "不限周期": "Aucune limite périodique",
+    "周期额度必须大于 0": "Le quota périodique doit être supérieur à 0",
+    "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "Quota total qui ne se réinitialise pas avec la période. Le rendre illimité ne modifie ni le quota périodique ni le solde du compte."
   }
 }
