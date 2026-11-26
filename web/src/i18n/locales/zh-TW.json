@@ -7804,6 +7804,17 @@
     "Write tools can change data or trigger external actions. No tools are authorized by default.": "寫入工具可能修改資料或觸發外部操作。預設不授權任何工具。",
     "Cash": "現金",
     "{{count}} payments": "{{count}} 筆",
-    "{{count}} orders with unverifiable currency": "有 {{count}} 筆訂單幣種待核驗"
+    "{{count}} orders with unverifiable currency": "有 {{count}} 筆訂單幣種待核驗",
+    "No period limit": "不限週期",
+    "Total quota ({{currency}})": "總額度 ({{currency}})",
+    "Period quota": "週期額度",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "每日或每週的消費上限，週期重置後已用額度恢復。",
+    "Period quota cycle": "額度週期",
+    "Period quota ({{currency}})": "週期額度 ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "不隨週期重置的總額度。設為不限不會影響週期額度和帳戶餘額。",
+    "Unlimited total quota": "總額度不限",
+    "Does not turn off the period quota above": "不會關閉上方的週期額度",
+    "Quota cannot exceed {{max}}": "額度不能超過 {{max}}",
+    "Period quota must be greater than 0": "週期額度必須大於 0"
   }
 }

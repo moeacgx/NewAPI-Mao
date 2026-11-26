@@ -295,6 +295,7 @@ const renderQuotaUsage = (text, record, t, isMobile) => {
   const used = Number(record.used_quota) || 0,
     remain = Number(record.remain_quota) || 0,
     total = used + remain;
+  const periodLimit = Number(record.quota_period_limit) || 0;
   const { symbol, type } = getCurrencyConfig();
   const amount = (value) => {
     const formatted = renderQuota(value);
@@ -355,6 +356,15 @@ const renderQuotaUsage = (text, record, t, isMobile) => {
           stroke={getProgressColor(percent)}
           aria-label={t('剩余额度')}
         />
+      )}
+      {record.quota_period && record.quota_period !== 'none' && periodLimit > 0 && (
+        <div
+          data-testid='period-quota-summary'
+          className='tokens-quota-label'
+        >
+          {t('周期额度')} · {record.quota_period === 'weekly' ? t('每周') : t('每天')}:{' '}
+          {renderQuota(Number(record.quota_period_used) || 0)} / {renderQuota(periodLimit)}
+        </div>
       )}
     </div>
   );

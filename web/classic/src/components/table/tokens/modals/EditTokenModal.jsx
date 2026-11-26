@@ -620,6 +620,9 @@ const EditTokenModal = (props) => {
     remain_amount: 0,
     expired_time: null,
     unlimited_quota: true,
+    quota_period: 'none',
+    quota_period_limit: 0,
+    quota_period_amount: 0,
     model_limits_enabled: false,
     model_limits: [],
     allow_ips: '',
@@ -796,6 +799,10 @@ const EditTokenModal = (props) => {
         data.remain_amount = Number(
           quotaToDisplayAmount(data.remain_quota || 0).toFixed(6),
         );
+        data.quota_period = data.quota_period || 'none';
+        data.quota_period_amount = Number(
+          quotaToDisplayAmount(data.quota_period_limit || 0).toFixed(6),
+        );
         const resolvedGroups = resolveGroupCodes(data, availableGroups);
         const mergedGroupOptions = includeSelectedGroupOptions(
           availableGroups,
@@ -814,6 +821,9 @@ const EditTokenModal = (props) => {
         delete formData.group_details;
         delete formData.group_ratio_limits;
         delete formData.group_channel_ids;
+        // 周期已用额度与重置时间是服务端账本，只用于列表展示，不回传。
+        delete formData.quota_period_used;
+        delete formData.quota_period_reset_at;
         if (formApiRef.current) {
           formApiRef.current.setValues({ ...getInitValues(), ...formData });
         }
@@ -926,6 +936,15 @@ const EditTokenModal = (props) => {
       return;
     }
     setGroupSelectionError('');
+    const quotaPeriod = values.quota_period || 'none';
+    const quotaPeriodLimit =
+      quotaPeriod === 'none'
+        ? 0
+        : displayAmountToQuota(values.quota_period_amount || 0);
+    if (quotaPeriod !== 'none' && quotaPeriodLimit <= 0) {
+      showError(t('周期额度必须大于 0'));
+      return;
+    }
     setLoading(true);
     const groupSelection = buildGroupSelectionPayload(selectedGroups, groups);
     const isMultiGroup = selectedGroups.length > 1;
@@ -937,7 +956,15 @@ const EditTokenModal = (props) => {
         : '';
 
     if (isEdit) {
-      let { tokenCount: _tc, ...localInputs } = values;
+      let {
+        tokenCount: _tc,
+        quota_period_amount: _qpa,
+        quota_period_used: _qpu,
+        quota_period_reset_at: _qpr,
+        ...localInputs
+      } = values;
+      localInputs.quota_period = quotaPeriod;
+      localInputs.quota_period_limit = quotaPeriodLimit;
       Object.assign(localInputs, groupSelection);
       localInputs.group_ratio_limits = groupRatioLimitsJSON;
       if (canSetGroupChannels)
@@ -989,7 +1016,15 @@ const EditTokenModal = (props) => {
       const count = parseInt(values.tokenCount, 10) || 1;
       let successCount = 0;
       for (let i = 0; i < count; i++) {
-        let { tokenCount: _tc, ...localInputs } = values;
+        let {
+          tokenCount: _tc,
+          quota_period_amount: _qpa,
+          quota_period_used: _qpu,
+          quota_period_reset_at: _qpr,
+          ...localInputs
+        } = values;
+        localInputs.quota_period = quotaPeriod;
+        localInputs.quota_period_limit = quotaPeriodLimit;
         Object.assign(localInputs, groupSelection);
         localInputs.group_ratio_limits = groupRatioLimitsJSON;
         if (canSetGroupChannels)
@@ -1282,16 +1317,61 @@ const EditTokenModal = (props) => {
                 </Row>
               </Card>
 
-              {/* 额度设置 */}
+              {/* 周期额度 */}
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-2'>
+                  <Avatar size='small' color='cyan' className='mr-2 shadow-md'>
+                    <IconCreditCard size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('周期额度')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t('每日或每周的消费上限，周期重置后已用额度恢复')}
+                    </div>
+                  </div>
+                </div>
+                <Row gutter={12}>
+                  <Col span={24}>
+                    <Form.Select
+                      field='quota_period'
+                      label={t('额度周期')}
+                      optionList={[
+                        { value: 'none', label: t('不限周期') },
+                        { value: 'daily', label: t('每天') },
+                        { value: 'weekly', label: t('每周') },
+                      ]}
+                      style={{ width: '100%' }}
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.InputNumber
+                      field='quota_period_amount'
+                      label={t('周期额度')}
+                      prefix={getCurrencyConfig().symbol}
+                      placeholder={t('输入金额')}
+                      precision={6}
+                      disabled={values.quota_period === 'none'}
+                      min={0}
+                      step={0.000001}
+                      style={{ width: '100%' }}
+                      showClear
+                    />
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* 总额度 */}
               <Card className='!rounded-2xl shadow-sm border-0'>
                 <div className='flex items-center mb-2'>
                   <Avatar size='small' color='green' className='mr-2 shadow-md'>
                     <IconCreditCard size={16} />
                   </Avatar>
                   <div>
-                    <Text className='text-lg font-medium'>{t('额度设置')}</Text>
+                    <Text className='text-lg font-medium'>{t('总额度')}</Text>
                     <div className='text-xs text-gray-600'>
-                      {t('设置令牌可用额度和数量')}
+                      {t(
+                        '不随周期重置的总额度，设为不限不会影响周期额度和账户余额',
+                      )}
                     </div>
                   </div>
                 </div>

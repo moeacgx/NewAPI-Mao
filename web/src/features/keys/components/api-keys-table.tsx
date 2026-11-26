@@ -55,7 +55,11 @@ import { useTokenActivity } from '../hooks/use-token-activity'
 import type { ApiKey } from '../types'
 import { ApiKeyActivityContext } from './api-key-activity-context'
 import { ApiKeySearchInput } from './api-key-search-input'
-import { ApiKeyCell, UnlimitedQuotaBadge } from './api-keys-cells'
+import {
+  ApiKeyCell,
+  PeriodQuotaSummary,
+  UnlimitedQuotaBadge,
+} from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
 import { useApiKeys } from './api-keys-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
@@ -201,6 +205,7 @@ function ApiKeysMobileList({
                 </span>
               )}
             </div>
+            <PeriodQuotaSummary apiKey={apiKey} />
           </div>
         )
       })}

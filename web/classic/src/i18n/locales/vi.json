@@ -7079,6 +7079,12 @@
     "The smallest amount a single voucher can receive.": "Giá trị thấp nhất của một phiếu.",
     "The largest amount a single voucher can receive.": "Giá trị cao nhất của một phiếu.",
     "Minimum amount": "Giá trị tối thiểu",
-    "Maximum amount": "Giá trị tối đa"
+    "Maximum amount": "Giá trị tối đa",
+    "周期额度": "Hạn mức theo chu kỳ",
+    "每日或每周的消费上限，周期重置后已用额度恢复": "Giới hạn chi tiêu theo ngày hoặc tuần. Phần đã dùng được khôi phục khi chu kỳ đặt lại.",
+    "额度周期": "Chu kỳ hạn mức",
+    "不限周期": "Không giới hạn chu kỳ",
+    "周期额度必须大于 0": "Hạn mức theo chu kỳ phải lớn hơn 0",
+    "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "Tổng hạn mức không đặt lại theo chu kỳ. Đặt không giới hạn không ảnh hưởng hạn mức chu kỳ và số dư tài khoản."
   }
 }

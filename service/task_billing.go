@@ -187,6 +187,16 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	}
 	if err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("调整令牌额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, err.Error()))
+		return
+	}
+	// 周期账本只跟随提交时记录过周期预扣的任务（有戳）：补扣记入当前窗口，
+	// 退款只回到原预扣窗口，窗口已切换或周期已变更则不会碰新账本。
+	stamp := model.ParseTokenPeriodStamp(task.PrivateData.TokenPeriodStamp)
+	if stamp.IsZero() {
+		return
+	}
+	if _, periodErr := settleTokenPeriodQuota(task.PrivateData.TokenId, stamp.Period, stamp.String(), delta); periodErr != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("调整令牌周期额度失败 (delta=%d, task=%s): %s", delta, task.TaskID, periodErr.Error()))
 	}
 }
 

@@ -171,3 +171,19 @@ func WalletQuotaFromDecimalStrict(d decimal.Decimal) (int64, error) {
 	}
 	return rounded.IntPart(), nil
 }
+
+// MaxTokenQuota is the largest total or periodic quota an operator may set on
+// one token: 1e9 currency units at the configured QuotaPerUnit, capped by the
+// platform int because token quota columns are Go ints. It is deliberately not
+// saturated to MaxQuota (the per-request charge boundary), so a 10,000 USD token
+// is valid while a real overflow is still rejected.
+func MaxTokenQuota() int64 {
+	limit := math.Floor(1e9 * QuotaPerUnit)
+	if math.IsNaN(limit) || limit <= 0 {
+		return MaxQuota
+	}
+	if limit >= float64(math.MaxInt) {
+		return int64(math.MaxInt)
+	}
+	return int64(limit)
+}
