@@ -81,13 +81,17 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
-	TokenId           int
-	TokenKey          string
-	TokenGroup        string
-	UserId            int
-	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
-	UserGroup         string // 用户所在分组
-	TokenUnlimited    bool
+	TokenId        int
+	TokenKey       string
+	TokenGroup     string
+	UserId         int
+	UsingGroup     string // 使用的分组，当auto跨分组重试时，会变动
+	UserGroup      string // 用户所在分组
+	TokenUnlimited bool
+	// TokenQuotaPeriod is the token's period mode (none/daily/weekly); the period ledger is enforced even for unlimited tokens.
+	TokenQuotaPeriod string
+	// TokenPeriodStamp is the ledger window of this request's period reservation (model.TokenPeriodStamp.String); settlement refunds and async tasks only credit back to that window.
+	TokenPeriodStamp  string
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
@@ -582,6 +586,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		TokenId:          common.GetContextKeyInt(c, constant.ContextKeyTokenId),
 		TokenKey:         common.GetContextKeyString(c, constant.ContextKeyTokenKey),
 		TokenUnlimited:   common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
+		TokenQuotaPeriod: common.GetContextKeyString(c, constant.ContextKeyTokenQuotaPeriod),
 		TokenQuotaExempt: common.GetContextKeyBool(c, constant.ContextKeyTokenQuotaExempt),
 
 		TokenGroup: tokenGroup,

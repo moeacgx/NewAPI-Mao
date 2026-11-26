@@ -7897,6 +7897,17 @@
     "Read supplier applications": "檢視供貨商申請",
     "Process supplier applications": "處理供貨商申請",
     "View all supplier applications, contact details, group quotes, and internal notes.": "檢視全部供貨商申請、聯絡方式、分組報價和內部備註。",
-    "Update supplier application status and internal notes.": "更新供貨商申請的處理狀態和內部備註。"
+    "Update supplier application status and internal notes.": "更新供貨商申請的處理狀態和內部備註。",
+    "No period limit": "不限週期",
+    "Total quota ({{currency}})": "總額度 ({{currency}})",
+    "Period quota": "週期額度",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "每日或每週的消費上限，週期重置後已用額度恢復。",
+    "Period quota cycle": "額度週期",
+    "Period quota ({{currency}})": "週期額度 ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "不隨週期重置的總額度。設為不限不會影響週期額度和帳戶餘額。",
+    "Unlimited total quota": "總額度不限",
+    "Does not turn off the period quota above": "不會關閉上方的週期額度",
+    "Quota cannot exceed {{max}}": "額度不能超過 {{max}}",
+    "Period quota must be greater than 0": "週期額度必須大於 0"
   }
 }

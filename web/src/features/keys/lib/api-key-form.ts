@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { TFunction } from 'i18next'
 import { z } from 'zod'
 
+import { getCurrencyDisplay } from '@/lib/currency'
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
 import { DEFAULT_GROUP } from '../constants'
@@ -141,6 +142,33 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
         })
       }
 
+      // The backend validates the same bound (1e9 currency units at the configured
+      // quota per unit); the form shows it in the displayed currency unit.
+      const maxQuotaUnits = 1e9 * getCurrencyDisplay().config.quotaPerUnit
+      const maxQuotaMessage = t('Quota cannot exceed {{max}}', {
+        max: quotaUnitsToDollars(maxQuotaUnits).toLocaleString('en-US', {
+          maximumFractionDigits: 2,
+        }),
+      })
+
+      if (data.quota_period !== 'none') {
+        if (!(data.quota_period_limit_dollars > 0)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['quota_period_limit_dollars'],
+            message: t('Period quota must be greater than 0'),
+          })
+        } else if (
+          parseQuotaFromDollars(data.quota_period_limit_dollars) > maxQuotaUnits
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['quota_period_limit_dollars'],
+            message: maxQuotaMessage,
+          })
+        }
+      }
+
       if (data.unlimited_quota) {
         return
       }
@@ -153,6 +181,14 @@ export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 0) {
           code: 'custom',
           path: ['remain_quota_dollars'],
           message: t('Quota must be zero or greater'),
+        })
+      } else if (
+        parseQuotaFromDollars(data.remain_quota_dollars) > maxQuotaUnits
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['remain_quota_dollars'],
+          message: maxQuotaMessage,
         })
       }
     })

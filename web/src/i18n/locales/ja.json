@@ -7897,6 +7897,17 @@
     "Read supplier applications": "サプライヤー申請の閲覧",
     "Process supplier applications": "サプライヤー申請の処理",
     "View all supplier applications, contact details, group quotes, and internal notes.": "すべてのサプライヤー申請、連絡先、グループ別見積もり、内部メモを表示します。",
-    "Update supplier application status and internal notes.": "サプライヤー申請のステータスと内部メモを更新します。"
+    "Update supplier application status and internal notes.": "サプライヤー申請のステータスと内部メモを更新します。",
+    "No period limit": "期間制限なし",
+    "Total quota ({{currency}})": "総クォータ ({{currency}})",
+    "Period quota": "期間クォータ",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "毎日または毎週の利用上限です。期間がリセットされると使用済み分が復元されます。",
+    "Period quota cycle": "クォータの期間",
+    "Period quota ({{currency}})": "期間クォータ ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "期間でリセットされない通算のクォータです。無制限にしても、期間クォータとアカウント残高には影響しません。",
+    "Unlimited total quota": "総クォータを無制限にする",
+    "Does not turn off the period quota above": "上の期間クォータは無効になりません",
+    "Quota cannot exceed {{max}}": "クォータは {{max}} を超えられません",
+    "Period quota must be greater than 0": "期間クォータは 0 より大きくする必要があります"
   }
 }

@@ -7897,6 +7897,17 @@
     "Read supplier applications": "Xem đơn đăng ký nhà cung cấp",
     "Process supplier applications": "Xử lý đơn đăng ký nhà cung cấp",
     "View all supplier applications, contact details, group quotes, and internal notes.": "Xem tất cả đơn đăng ký nhà cung cấp, thông tin liên hệ, báo giá theo nhóm và ghi chú nội bộ.",
-    "Update supplier application status and internal notes.": "Cập nhật trạng thái đơn đăng ký nhà cung cấp và ghi chú nội bộ."
+    "Update supplier application status and internal notes.": "Cập nhật trạng thái đơn đăng ký nhà cung cấp và ghi chú nội bộ.",
+    "No period limit": "Không giới hạn theo chu kỳ",
+    "Total quota ({{currency}})": "Tổng hạn mức ({{currency}})",
+    "Period quota": "Hạn mức theo chu kỳ",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "Giới hạn chi tiêu theo ngày hoặc theo tuần. Số đã dùng được khôi phục khi chu kỳ đặt lại.",
+    "Period quota cycle": "Chu kỳ hạn mức",
+    "Period quota ({{currency}})": "Hạn mức theo chu kỳ ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "Hạn mức tổng không đặt lại theo chu kỳ. Đặt không giới hạn sẽ không ảnh hưởng đến hạn mức chu kỳ và số dư tài khoản.",
+    "Unlimited total quota": "Tổng hạn mức không giới hạn",
+    "Does not turn off the period quota above": "Không tắt hạn mức theo chu kỳ ở trên",
+    "Quota cannot exceed {{max}}": "Hạn mức không được vượt quá {{max}}",
+    "Period quota must be greater than 0": "Hạn mức theo chu kỳ phải lớn hơn 0"
   }
 }

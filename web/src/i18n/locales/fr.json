@@ -7897,6 +7897,17 @@
     "Read supplier applications": "Lire les candidatures fournisseurs",
     "Process supplier applications": "Traiter les candidatures fournisseurs",
     "View all supplier applications, contact details, group quotes, and internal notes.": "Consulter toutes les candidatures fournisseurs, coordonnées, offres par groupe et notes internes.",
-    "Update supplier application status and internal notes.": "Mettre à jour le statut des candidatures fournisseurs et les notes internes."
+    "Update supplier application status and internal notes.": "Mettre à jour le statut des candidatures fournisseurs et les notes internes.",
+    "No period limit": "Aucune limite de période",
+    "Total quota ({{currency}})": "Quota total ({{currency}})",
+    "Period quota": "Quota périodique",
+    "Daily or weekly spending cap. The used amount is restored when the period resets.": "Plafond de dépense quotidien ou hebdomadaire. Le montant utilisé est restauré à la réinitialisation de la période.",
+    "Period quota cycle": "Cycle du quota périodique",
+    "Period quota ({{currency}})": "Quota périodique ({{currency}})",
+    "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.": "Quota global qui n'est pas réinitialisé avec la période. Le rendre illimité ne modifie ni le quota périodique ni le solde du compte.",
+    "Unlimited total quota": "Quota total illimité",
+    "Does not turn off the period quota above": "Ne désactive pas le quota périodique ci-dessus",
+    "Quota cannot exceed {{max}}": "Le quota ne peut pas dépasser {{max}}",
+    "Period quota must be greater than 0": "Le quota périodique doit être supérieur à 0"
   }
 }

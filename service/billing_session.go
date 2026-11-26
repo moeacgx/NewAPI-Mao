@@ -77,6 +77,17 @@ func (s *BillingSession) Settle(actualQuota int) error {
 			// 资金来源已提交，令牌调整失败只能记录日志；标记 settled 防止 Refund 误退资金
 			common.SysLog(fmt.Sprintf("error adjusting token quota after funding settled (userId=%d, tokenId=%d, delta=%d): %s",
 				s.relayInfo.UserId, s.relayInfo.TokenId, delta, tokenErr.Error()))
+		} else {
+			// 总额度调整成功后才同步周期账本；结算补扣与预扣使用同一条原子条件语句，
+			// 超限不丢弃（用量已发生），由日志上报并拒绝后续预扣。
+			newStamp, periodErr := settleTokenPeriodQuota(s.relayInfo.TokenId, s.relayInfo.TokenQuotaPeriod, s.relayInfo.TokenPeriodStamp, delta)
+			if periodErr != nil {
+				common.SysLog(fmt.Sprintf("error adjusting token period quota after token settled (userId=%d, tokenId=%d, delta=%d): %s",
+					s.relayInfo.UserId, s.relayInfo.TokenId, delta, periodErr.Error()))
+				tokenErr = periodErr
+			} else if newStamp != "" && s.relayInfo.TokenPeriodStamp == "" {
+				s.relayInfo.TokenPeriodStamp = newStamp
+			}
 		}
 	}
 	// 3) 更新 relayInfo 上的订阅 PostDelta（用于日志）
@@ -112,6 +123,7 @@ func (s *BillingSession) Refund(c *gin.Context) {
 	isPlayground := s.relayInfo.IsPlayground
 	tokenQuotaExempt := s.relayInfo.TokenQuotaExempt
 	tokenConsumed := s.tokenConsumed
+	periodStamp := model.ParseTokenPeriodStamp(s.relayInfo.TokenPeriodStamp)
 	extraReserved := s.extraReserved
 	subscriptionId := s.relayInfo.SubscriptionId
 	funding := s.funding
@@ -130,6 +142,9 @@ func (s *BillingSession) Refund(c *gin.Context) {
 		if tokenConsumed > 0 && !isPlayground && !tokenQuotaExempt {
 			if err := model.IncreaseTokenQuota(tokenId, tokenKey, tokenConsumed); err != nil {
 				common.SysLog("error refunding token quota: " + err.Error())
+			}
+			if err := refundTokenPeriodQuota(tokenId, periodStamp, tokenConsumed); err != nil {
+				common.SysLog("error refunding token period quota: " + err.Error())
 			}
 		}
 	})
@@ -261,6 +276,10 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		fundingErr := err
 		// 预扣费失败，回滚令牌额度
 		if s.tokenConsumed > 0 && s.usesTokenQuota() {
+			if periodErr := refundTokenPeriodQuota(s.relayInfo.TokenId, model.ParseTokenPeriodStamp(s.relayInfo.TokenPeriodStamp), s.tokenConsumed); periodErr != nil {
+				common.SysLog("error rolling back token period quota: " + periodErr.Error())
+				fundingErr = errors.Join(fundingErr, periodErr)
+			}
 			if rollbackErr := model.IncreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, s.tokenConsumed); rollbackErr != nil {
 				common.SysLog(fmt.Sprintf("error rolling back token quota (userId=%d, tokenId=%d, amount=%d, fundingErr=%s): %s",
 					s.relayInfo.UserId, s.relayInfo.TokenId, s.tokenConsumed, err.Error(), rollbackErr.Error()))
@@ -371,6 +390,11 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 
 	trustQuota := common.GetTrustQuota()
 	if trustQuota <= 0 {
+		return false
+	}
+
+	// 带每日/每周周期额度的令牌必须逐次预扣，不能走信任旁路。
+	if s.relayInfo.TokenQuotaPeriod != "" && s.relayInfo.TokenQuotaPeriod != model.TokenQuotaPeriodNone {
 		return false
 	}
 

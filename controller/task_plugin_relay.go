@@ -141,6 +141,7 @@ func persistOfficialPluginTask(c *gin.Context, info *relaycommon.RelayInfo, resu
 	task.PrivateData.BillingSource = info.BillingSource
 	task.PrivateData.SubscriptionId = info.SubscriptionId
 	task.PrivateData.TokenId = info.TokenId
+	task.PrivateData.TokenPeriodStamp = info.TokenPeriodStamp
 	task.PrivateData.NodeName = common.NodeName
 	task.PrivateData.BillingContext = &model.TaskBillingContext{ModelPrice: info.PriceData.ModelPrice, GroupRatio: info.PriceData.GroupRatioInfo.GroupRatio, OriginModelName: info.OriginModelName, PerCallBilling: true}
 	task.Quota = result.Quota

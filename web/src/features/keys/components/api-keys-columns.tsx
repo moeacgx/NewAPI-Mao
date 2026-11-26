@@ -46,6 +46,7 @@ import {
   ApiKeyCell,
   IpRestrictionsCell,
   ModelLimitsCell,
+  PeriodQuotaSummary,
   UnlimitedQuotaBadge,
 } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
@@ -194,7 +195,12 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       cell: ({ row }) => {
         const apiKey = row.original
         if (apiKey.unlimited_quota) {
-          return <UnlimitedQuotaBadge used={apiKey.used_quota} />
+          return (
+            <div className='space-y-1'>
+              <UnlimitedQuotaBadge used={apiKey.used_quota} />
+              <PeriodQuotaSummary apiKey={apiKey} />
+            </div>
+          )
         }
 
         const used = apiKey.used_quota
@@ -203,36 +209,39 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         const percentage = total > 0 ? (remaining / total) * 100 : 0
 
         return (
-          <Tooltip>
-            <TooltipTrigger render={<div className='w-[150px] space-y-1' />}>
-              <div className='flex justify-between text-xs'>
-                <span className='font-medium tabular-nums'>
-                  {formatQuota(remaining)}
-                </span>
-                <span className='text-muted-foreground tabular-nums'>
-                  {formatQuota(total)}
-                </span>
-              </div>
-              <Progress
-                value={percentage}
-                className={cn('h-1.5', getQuotaProgressColor(percentage))}
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className='space-y-1 text-xs'>
-                <div>
-                  {t('Used:')} {formatQuota(used)}
+          <div className='space-y-1'>
+            <Tooltip>
+              <TooltipTrigger render={<div className='w-[150px] space-y-1' />}>
+                <div className='flex justify-between text-xs'>
+                  <span className='font-medium tabular-nums'>
+                    {formatQuota(remaining)}
+                  </span>
+                  <span className='text-muted-foreground tabular-nums'>
+                    {formatQuota(total)}
+                  </span>
                 </div>
-                <div>
-                  {t('Remaining:')} {formatQuota(remaining)} (
-                  {percentage.toFixed(1)}%)
+                <Progress
+                  value={percentage}
+                  className={cn('h-1.5', getQuotaProgressColor(percentage))}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className='space-y-1 text-xs'>
+                  <div>
+                    {t('Used:')} {formatQuota(used)}
+                  </div>
+                  <div>
+                    {t('Remaining:')} {formatQuota(remaining)} (
+                    {percentage.toFixed(1)}%)
+                  </div>
+                  <div>
+                    {t('Total:')} {formatQuota(total)}
+                  </div>
                 </div>
-                <div>
-                  {t('Total:')} {formatQuota(total)}
-                </div>
-              </div>
-            </TooltipContent>
-          </Tooltip>
+              </TooltipContent>
+            </Tooltip>
+            <PeriodQuotaSummary apiKey={apiKey} />
+          </div>
         )
       },
       size: 170,
