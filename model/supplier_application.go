@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -315,28 +316,47 @@ func CreateSupplierApplication(userID int, input SupplierApplicationInput) (*Sup
 			Ratio: *group.Ratio, ModelsJSON: string(modelsJSON), Description: group.Description,
 		}
 	}
-	err = DB.Transaction(func(tx *gorm.DB) error {
-		var recent, duplicate int64
-		if err := tx.Model(&SupplierApplication{}).Where("user_id = ? AND created_at > ?", userID, now-supplierApplicationDailyWindowSeconds).Count(&recent).Error; err != nil {
-			return err
+	// 并发相同指纹提交时，SQLite 可能在无 busy_timeout 的测试环境中立即返回
+	// SQLITE_BUSY；使用指数退避最多重试一次，给先到的事务时间提交。
+	const maxBusyRetries = 4
+	for attempt := 0; attempt <= maxBusyRetries; attempt++ {
+		if attempt > 0 {
+			application.Id = 0
+			for i := range quotes {
+				quotes[i].Id = 0
+				quotes[i].ApplicationId = 0
+			}
+			time.Sleep(time.Duration(5*(1<<attempt)) * time.Millisecond)
 		}
-		if recent >= SupplierApplicationDailyLimit {
-			return ErrSupplierApplicationLimit
+		err = DB.Transaction(func(tx *gorm.DB) error {
+			var recent, duplicate int64
+			if err := tx.Model(&SupplierApplication{}).Where("user_id = ? AND created_at > ?", userID, now-supplierApplicationDailyWindowSeconds).Count(&recent).Error; err != nil {
+				return err
+			}
+			if recent >= SupplierApplicationDailyLimit {
+				return ErrSupplierApplicationLimit
+			}
+			if err := tx.Model(&SupplierApplication{}).Where("user_id = ? AND fingerprint = ?", userID, fingerprint).Count(&duplicate).Error; err != nil {
+				return err
+			}
+			if duplicate > 0 {
+				return ErrSupplierApplicationDuplicate
+			}
+			if err := tx.Create(application).Error; err != nil {
+				return err
+			}
+			for index := range quotes {
+				quotes[index].ApplicationId = application.Id
+			}
+			return tx.Create(&quotes).Error
+		})
+		if err == nil {
+			break
 		}
-		if err := tx.Model(&SupplierApplication{}).Where("user_id = ? AND fingerprint = ?", userID, fingerprint).Count(&duplicate).Error; err != nil {
-			return err
+		if !strings.Contains(err.Error(), "SQLITE_BUSY") && !strings.Contains(err.Error(), "database is locked") {
+			break
 		}
-		if duplicate > 0 {
-			return ErrSupplierApplicationDuplicate
-		}
-		if err := tx.Create(application).Error; err != nil {
-			return err
-		}
-		for index := range quotes {
-			quotes[index].ApplicationId = application.Id
-		}
-		return tx.Create(&quotes).Error
-	})
+	}
 	if err != nil {
 		// 并发提交相同内容时，唯一索引冲突或 SQLite 锁定会让事务回滚；事务外复查后统一报告为重复。
 		// SQLITE_BUSY (database is locked) 也可能是并发重复提交的信号。
