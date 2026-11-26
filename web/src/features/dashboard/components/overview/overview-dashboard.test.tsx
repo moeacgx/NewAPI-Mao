@@ -193,8 +193,12 @@ describe('OverviewDashboard setup guide', () => {
     useAuthStore.getState().auth.setUser(doneUser)
     renderOverview()
 
-    await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    await act(async () => {})
+    // The quick entries only render after the key query resolves, so wait for
+    // them before asserting the guide is gone; otherwise the negative checks
+    // below could pass while the data is still loading.
+    const actions = await screen.findByRole('navigation', {
+      name: 'Quick actions',
+    })
     expect(guideVisible()).toBe(false)
     expect(screen.queryByText(/Setup progress/)).not.toBeInTheDocument()
     expect(screen.queryByText('Setup guide complete')).not.toBeInTheDocument()
@@ -202,7 +206,6 @@ describe('OverviewDashboard setup guide', () => {
 
     // The compact quick entries stay in the overview action area and still
     // navigate; Channels keeps its admin-only gate.
-    const actions = screen.getByRole('navigation', { name: 'Quick actions' })
     expect(
       Array.from(actions.querySelectorAll('a'), (link) =>
         link.getAttribute('href')
