@@ -25,6 +25,8 @@ export const SUPPLIER_MODEL_MAX_LENGTH = 100
 export const SUPPLIER_RATIO_MIN = 0.0001
 export const SUPPLIER_RATIO_MAX = 1000
 export const SUPPLIER_ADMIN_NOTE_MAX_LENGTH = 2000
+export const SUPPLIER_QUANTITY_MIN = 0.0001
+export const SUPPLIER_QUANTITY_MAX = 1000000000
 
 export const supplierContactTypes = [
   'wechat',
@@ -82,6 +84,17 @@ export function parseSupplierRatio(value: string): number | null {
   if (!Number.isFinite(ratio)) return null
   if (ratio < SUPPLIER_RATIO_MIN || ratio > SUPPLIER_RATIO_MAX) return null
   return ratio
+}
+
+export function parseSupplierQuantity(value: string): number | null {
+  const text = value.trim()
+  if (!/^\d+(\.\d{1,4})?$/.test(text)) return null
+  const quantity = Number(text)
+  if (!Number.isFinite(quantity)) return null
+  if (quantity < SUPPLIER_QUANTITY_MIN || quantity > SUPPLIER_QUANTITY_MAX) {
+    return null
+  }
+  return quantity
 }
 
 export const supplierQuoteSchema = z.object({

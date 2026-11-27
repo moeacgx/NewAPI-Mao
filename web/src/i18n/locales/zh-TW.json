@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "總額度不限",
     "Does not turn off the period quota above": "不會關閉上方的週期額度",
     "Quota cannot exceed {{max}}": "額度不能超過 {{max}}",
-    "Period quota must be greater than 0": "週期額度必須大於 0"
+    "Period quota must be greater than 0": "週期額度必須大於 0",
+    "Conversation": "對話",
+    "Plain message": "普通訊息",
+    "Negotiation": "議價",
+    "Offer": "優惠",
+    "Test quota": "測試額度",
+    "Not issued": "未發放",
+    "Message type": "訊息類型",
+    "Suggested ratio": "建議倍率",
+    "Issuance status": "發放狀態",
+    "Offer plan": "優惠方案",
+    "Negotiation notes": "議價說明",
+    "Test quota description": "測試額度說明",
+    "Message text": "訊息內容",
+    "Messages cannot be edited after sending.": "訊息送出後不能修改。",
+    "Do not include API keys or access credentials.": "不要包含 API 金鑰或接入憑據。",
+    "Send message": "傳送訊息",
+    "Message sent": "訊息已傳送",
+    "Could not send the message.": "訊息傳送失敗。",
+    "Update supplier application status and internal notes, and record conversation messages.": "更新供貨商申請的處理狀態和內部備註，並記錄對話訊息。"
   }
 }

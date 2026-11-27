@@ -29,6 +29,8 @@ import type {
   SupplierApplicationFilters,
   SupplierApplicationList,
   SupplierApplicationReviewInput,
+  SupplierMessage,
+  SupplierMessageInput,
 } from './types'
 
 interface SupplierResponse<T> {
@@ -47,6 +49,30 @@ export async function getSupplierApplications(
   const response = await api.get<
     SupplierResponse<SupplierApplicationList<SupplierApplication>>
   >(PERSONAL_PATH, { params: filters, signal })
+  return requireServerSuccess(response.data).data
+}
+
+export async function createSupplierApplicationMessage(
+  id: number,
+  input: SupplierMessageInput
+): Promise<SupplierMessage> {
+  const response = await api.post<SupplierResponse<SupplierMessage>>(
+    `${PERSONAL_PATH}/${id}/messages`,
+    input,
+    { skipErrorHandler: true }
+  )
+  return requireServerSuccess(response.data).data
+}
+
+export async function createAdminSupplierApplicationMessage(
+  id: number,
+  input: SupplierMessageInput
+): Promise<SupplierMessage> {
+  const response = await api.post<SupplierResponse<SupplierMessage>>(
+    `${ADMIN_PATH}/${id}/messages`,
+    input,
+    { skipErrorHandler: true }
+  )
   return requireServerSuccess(response.data).data
 }
 

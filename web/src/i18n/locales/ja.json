@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "総クォータを無制限にする",
     "Does not turn off the period quota above": "上の期間クォータは無効になりません",
     "Quota cannot exceed {{max}}": "クォータは {{max}} を超えられません",
-    "Period quota must be greater than 0": "期間クォータは 0 より大きくする必要があります"
+    "Period quota must be greater than 0": "期間クォータは 0 より大きくする必要があります",
+    "Conversation": "会話",
+    "Plain message": "通常メッセージ",
+    "Negotiation": "交渉",
+    "Offer": "優待",
+    "Test quota": "テスト枠",
+    "Not issued": "未付与",
+    "Message type": "メッセージ種別",
+    "Suggested ratio": "提案倍率",
+    "Issuance status": "付与状態",
+    "Offer plan": "優待内容",
+    "Negotiation notes": "交渉の説明",
+    "Test quota description": "テスト枠の説明",
+    "Message text": "メッセージ本文",
+    "Messages cannot be edited after sending.": "送信後のメッセージは変更できません。",
+    "Do not include API keys or access credentials.": "API キーや接続資格情報を含めないでください。",
+    "Send message": "メッセージを送信",
+    "Message sent": "メッセージを送信しました",
+    "Could not send the message.": "メッセージを送信できませんでした。",
+    "Update supplier application status and internal notes, and record conversation messages.": "サプライヤー申請のステータスと内部メモを更新し、会話メッセージを記録します。"
   }
 }

@@ -131,36 +131,38 @@ type SupplierQuoteView struct {
 
 // SupplierApplicationUserView 是申请人可见的唯一形态：不含内部备注、处理人和处理时间。
 type SupplierApplicationUserView struct {
-	Id          int                 `json:"id"`
-	SiteName    string              `json:"site_name"`
-	SiteUrl     string              `json:"site_url"`
-	ContactType string              `json:"contact_type"`
-	Contact     string              `json:"contact"`
-	Remark      string              `json:"remark"`
-	Status      string              `json:"status"`
-	CreatedAt   int64               `json:"created_at"`
-	Groups      []SupplierQuoteView `json:"groups"`
+	Id          int                              `json:"id"`
+	SiteName    string                           `json:"site_name"`
+	SiteUrl     string                           `json:"site_url"`
+	ContactType string                           `json:"contact_type"`
+	Contact     string                           `json:"contact"`
+	Remark      string                           `json:"remark"`
+	Status      string                           `json:"status"`
+	CreatedAt   int64                            `json:"created_at"`
+	Groups      []SupplierQuoteView              `json:"groups"`
+	Messages    []SupplierApplicationMessageView `json:"messages"`
 }
 
 // SupplierApplicationAdminView 面向有权限的管理员，包含完整资料和处理信息。
 type SupplierApplicationAdminView struct {
-	Id            int                 `json:"id"`
-	UserId        int                 `json:"user_id"`
-	Username      string              `json:"username"`
-	SiteName      string              `json:"site_name"`
-	SiteUrl       string              `json:"site_url"`
-	ContactType   string              `json:"contact_type"`
-	Contact       string              `json:"contact"`
-	Remark        string              `json:"remark"`
-	Status        string              `json:"status"`
-	AdminNote     string              `json:"admin_note"`
-	HandledBy     int                 `json:"handled_by"`
-	HandledByName string              `json:"handled_by_name"`
-	HandledAt     int64               `json:"handled_at"`
-	Version       int64               `json:"version"`
-	CreatedAt     int64               `json:"created_at"`
-	UpdatedAt     int64               `json:"updated_at"`
-	Groups        []SupplierQuoteView `json:"groups"`
+	Id            int                              `json:"id"`
+	UserId        int                              `json:"user_id"`
+	Username      string                           `json:"username"`
+	SiteName      string                           `json:"site_name"`
+	SiteUrl       string                           `json:"site_url"`
+	ContactType   string                           `json:"contact_type"`
+	Contact       string                           `json:"contact"`
+	Remark        string                           `json:"remark"`
+	Status        string                           `json:"status"`
+	AdminNote     string                           `json:"admin_note"`
+	HandledBy     int                              `json:"handled_by"`
+	HandledByName string                           `json:"handled_by_name"`
+	HandledAt     int64                            `json:"handled_at"`
+	Version       int64                            `json:"version"`
+	CreatedAt     int64                            `json:"created_at"`
+	UpdatedAt     int64                            `json:"updated_at"`
+	Groups        []SupplierQuoteView              `json:"groups"`
+	Messages      []SupplierApplicationMessageView `json:"messages"`
 }
 
 func ValidSupplierApplicationStatus(status string) bool {
@@ -391,6 +393,7 @@ func buildSupplierUserView(application *SupplierApplication, quotes []SupplierAp
 		Id: application.Id, SiteName: application.SiteName, SiteUrl: application.SiteUrl,
 		ContactType: application.ContactType, Contact: application.Contact, Remark: application.Remark,
 		Status: application.Status, CreatedAt: application.CreatedAt, Groups: buildSupplierQuoteViews(quotes),
+		Messages: []SupplierApplicationMessageView{},
 	}
 }
 
@@ -475,6 +478,9 @@ func ListSupplierApplicationsForUser(userID int, filter SupplierApplicationFilte
 	for index := range items {
 		views[index] = *buildSupplierUserView(&items[index], quotes[items[index].Id])
 	}
+	if err := attachUserSupplierMessages(views); err != nil {
+		return nil, 0, err
+	}
 	return views, total, nil
 }
 
@@ -490,7 +496,12 @@ func GetSupplierApplicationForUser(applicationID, userID int) (*SupplierApplicat
 	if err != nil {
 		return nil, err
 	}
-	return buildSupplierUserView(&application, quotes[application.Id]), nil
+	view := buildSupplierUserView(&application, quotes[application.Id])
+	views := []SupplierApplicationUserView{*view}
+	if err := attachUserSupplierMessages(views); err != nil {
+		return nil, err
+	}
+	return &views[0], nil
 }
 
 // buildSupplierAdminViews 批量解析申请人与处理人的用户名，避免逐行查询。
@@ -530,7 +541,11 @@ func buildSupplierAdminViews(applications []SupplierApplication) ([]SupplierAppl
 			AdminNote: application.AdminNote, HandledBy: application.HandledBy, HandledByName: usernames[application.HandledBy],
 			HandledAt: application.HandledAt, Version: application.Version, CreatedAt: application.CreatedAt,
 			UpdatedAt: application.UpdatedAt, Groups: buildSupplierQuoteViews(quotes[application.Id]),
+			Messages: []SupplierApplicationMessageView{},
 		}
+	}
+	if err := attachAdminSupplierMessages(views); err != nil {
+		return nil, err
 	}
 	return views, nil
 }

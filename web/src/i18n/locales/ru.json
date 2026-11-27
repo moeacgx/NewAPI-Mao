@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "Безлимитная общая квота",
     "Does not turn off the period quota above": "Не отключает квоту за период выше",
     "Quota cannot exceed {{max}}": "Квота не может превышать {{max}}",
-    "Period quota must be greater than 0": "Квота за период должна быть больше 0"
+    "Period quota must be greater than 0": "Квота за период должна быть больше 0",
+    "Conversation": "Переписка",
+    "Plain message": "Обычное сообщение",
+    "Negotiation": "Торг",
+    "Offer": "Предложение",
+    "Test quota": "Тестовая квота",
+    "Not issued": "Не выдано",
+    "Message type": "Тип сообщения",
+    "Suggested ratio": "Предлагаемый коэффициент",
+    "Issuance status": "Статус выдачи",
+    "Offer plan": "Описание предложения",
+    "Negotiation notes": "Пояснение к торгу",
+    "Test quota description": "Описание тестовой квоты",
+    "Message text": "Текст сообщения",
+    "Messages cannot be edited after sending.": "Сообщения нельзя изменить после отправки.",
+    "Do not include API keys or access credentials.": "Не указывайте ключи API и учетные данные доступа.",
+    "Send message": "Отправить сообщение",
+    "Message sent": "Сообщение отправлено",
+    "Could not send the message.": "Не удалось отправить сообщение.",
+    "Update supplier application status and internal notes, and record conversation messages.": "Обновлять статус заявок поставщиков, внутренние заметки и записывать сообщения."
   }
 }

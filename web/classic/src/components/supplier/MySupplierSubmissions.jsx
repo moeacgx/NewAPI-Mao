@@ -32,6 +32,7 @@ import {
 import { IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
+import SupplierConversation, { useSupplierSheetWidth } from './SupplierConversation';
 
 const { Text, Paragraph } = Typography;
 
@@ -74,6 +75,7 @@ const MySupplierSubmissions = () => {
   const [pagination, setPagination] = useState({ currentPage: 1, pageSize: 10, total: 0 });
   const [selectedApp, setSelectedApp] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const sheetWidth = useSupplierSheetWidth(600);
 
   const loadApplications = async (page = 1) => {
     setLoading(true);
@@ -181,7 +183,8 @@ const MySupplierSubmissions = () => {
         }
         visible={detailVisible}
         onCancel={() => setDetailVisible(false)}
-        width={600}
+        width={sheetWidth}
+        bodyStyle={{ overflowX: 'hidden' }}
       >
         {selectedApp && (
           <div className='space-y-4'>
@@ -267,6 +270,25 @@ const MySupplierSubmissions = () => {
               ) : (
                 <Empty description={t('No group quotes')} />
               )}
+            </Card>
+
+            <Card>
+              <SupplierConversation
+                applicationId={selectedApp.id}
+                messages={selectedApp.messages}
+                canSend
+                mode='personal'
+                onSent={(message) => {
+                  const append = (application) => {
+                    if (!application || application.id !== selectedApp.id) return application;
+                    const next = [...(application.messages || [])];
+                    if (!next.some((item) => item.id === message.id)) next.push(message);
+                    return { ...application, messages: next };
+                  };
+                  setSelectedApp((current) => append(current));
+                  setApplications((current) => current.map((item) => append(item)));
+                }}
+              />
             </Card>
           </div>
         )}

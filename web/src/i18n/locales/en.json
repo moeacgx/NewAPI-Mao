@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "Unlimited total quota",
     "Does not turn off the period quota above": "Does not turn off the period quota above",
     "Quota cannot exceed {{max}}": "Quota cannot exceed {{max}}",
-    "Period quota must be greater than 0": "Period quota must be greater than 0"
+    "Period quota must be greater than 0": "Period quota must be greater than 0",
+    "Conversation": "Conversation",
+    "Plain message": "Plain message",
+    "Negotiation": "Negotiation",
+    "Offer": "Offer",
+    "Test quota": "Test quota",
+    "Not issued": "Not issued",
+    "Message type": "Message type",
+    "Suggested ratio": "Suggested ratio",
+    "Issuance status": "Issuance status",
+    "Offer plan": "Offer plan",
+    "Negotiation notes": "Negotiation notes",
+    "Test quota description": "Test quota description",
+    "Message text": "Message text",
+    "Messages cannot be edited after sending.": "Messages cannot be edited after sending.",
+    "Do not include API keys or access credentials.": "Do not include API keys or access credentials.",
+    "Send message": "Send message",
+    "Message sent": "Message sent",
+    "Could not send the message.": "Could not send the message.",
+    "Update supplier application status and internal notes, and record conversation messages.": "Update supplier application status and internal notes, and record conversation messages."
   }
 }

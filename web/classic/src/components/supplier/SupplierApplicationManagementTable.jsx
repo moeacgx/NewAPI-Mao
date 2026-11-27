@@ -37,6 +37,7 @@ import {
 import { IconSearch, IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess, timestamp2string } from '../../helpers';
+import SupplierConversation, { useSupplierSheetWidth } from './SupplierConversation';
 
 const { Text, Paragraph } = Typography;
 
@@ -83,6 +84,7 @@ const SupplierApplicationManagementTable = () => {
   const [selectedApp, setSelectedApp] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const sheetWidth = useSupplierSheetWidth(700);
   const [hasWritePermission, setHasWritePermission] = useState(false);
 
   // Check permissions
@@ -322,7 +324,8 @@ const SupplierApplicationManagementTable = () => {
         }
         visible={detailVisible}
         onCancel={() => setDetailVisible(false)}
-        width={700}
+        width={sheetWidth}
+        bodyStyle={{ overflowX: 'hidden' }}
       >
         {selectedApp && (
           <div className='space-y-4'>
@@ -426,6 +429,25 @@ const SupplierApplicationManagementTable = () => {
               ) : (
                 <Empty description={t('No group quotes')} />
               )}
+            </Card>
+
+            <Card>
+              <SupplierConversation
+                applicationId={selectedApp.id}
+                messages={selectedApp.messages}
+                canSend={hasWritePermission}
+                mode='admin'
+                onSent={(message) => {
+                  const append = (application) => {
+                    if (!application || application.id !== selectedApp.id) return application;
+                    const next = [...(application.messages || [])];
+                    if (!next.some((item) => item.id === message.id)) next.push(message);
+                    return { ...application, messages: next };
+                  };
+                  setSelectedApp((current) => append(current));
+                  setApplications((current) => current.map((item) => append(item)));
+                }}
+              />
             </Card>
 
             {!hasWritePermission && (

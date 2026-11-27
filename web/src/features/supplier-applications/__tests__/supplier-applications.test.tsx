@@ -325,6 +325,66 @@ describe('my submissions', { timeout: 30_000 }, () => {
     expect(screen.queryByText(/Internal: price is high/)).toBeNull()
     expect(screen.queryByText(/supplier-user/)).toBeNull()
   })
+
+  it('records a negotiation in order and never shows the internal note', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockResolvedValue(
+      response({
+        page: 1,
+        page_size: 10,
+        total: 1,
+        items: [
+          {
+            ...adminApplication,
+            messages: [
+              {
+                id: 4,
+                author_id: 1,
+                author_role: 'admin',
+                author_name: 'reviewer',
+                type: 'offer',
+                body: 'Trial price for this month',
+                created_at: 1792634500,
+              },
+            ],
+          },
+        ],
+      })
+    )
+    vi.mocked(api.post).mockResolvedValue(
+      response({
+        id: 5,
+        author_id: 7,
+        author_role: 'applicant',
+        author_name: 'supplier-user',
+        type: 'negotiation',
+        body: 'Can do 0.8',
+        group_name: 'Discount group',
+        ratio: 0.8,
+        created_at: 1792634600,
+      })
+    )
+    render(<MySupplierSubmissions />, { wrapper: Wrapper })
+    await user.click(await screen.findByRole('button', { name: 'View details' }))
+    expect(screen.getByText('Trial price for this month')).toBeVisible()
+    expect(screen.queryByText('Internal: price is high')).toBeNull()
+    await user.selectOptions(screen.getByLabelText('Message type'), 'negotiation')
+    await user.type(screen.getByLabelText('Group name'), 'Discount group')
+    await user.type(screen.getByLabelText('Suggested ratio'), '0.8')
+    await user.type(screen.getByLabelText('Negotiation notes'), 'Can do 0.8')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(api.post).mock.calls[0]?.[0]).toBe(
+      '/api/supplier-applications/9/messages'
+    )
+    expect(vi.mocked(api.post).mock.calls[0]?.[1]).toEqual({
+      type: 'negotiation',
+      body: 'Can do 0.8',
+      group_name: 'Discount group',
+      ratio: 0.8,
+    })
+    expect(screen.getByText(/Discount group · Suggested ratio ×0.8/)).toBeVisible()
+  })
 })
 
 describe('supplier application management', { timeout: 30_000 }, () => {
@@ -411,5 +471,8 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     expect(await screen.findByText('Official direct')).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
     expect(screen.getByLabelText('Internal note')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull()
+    expect(screen.queryByLabelText('Message type')).toBeNull()
+    expect(screen.getByText('No messages yet')).toBeVisible()
   })
 })

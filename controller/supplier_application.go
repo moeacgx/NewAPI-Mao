@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -203,6 +204,38 @@ func (api SupplierApplicationAPI) Review(c *gin.Context) {
 			"id": id, "from": result.PreviousStatus, "to": result.View.Status,
 			"note_length": len([]rune(result.View.AdminNote)), "applicant_id": result.View.UserId,
 		})
+	}
+	common.ApiSuccess(c, result.View)
+}
+
+// CreateMessage 追加一条不可修改的对话。优惠和测试额度只记在消息里，不改余额、兑换码、渠道、分组或计费。
+func (api SupplierApplicationAPI) CreateMessage(c *gin.Context) {
+	if !api.authorized(c) {
+		return
+	}
+	id, ok := supplierApplicationPathID(c)
+	if !ok {
+		return
+	}
+	var input model.SupplierApplicationMessageInput
+	if !decodeSupplierApplicationRequest(c, &input) {
+		return
+	}
+	result, err := model.CreateSupplierApplicationMessage(id, c.GetInt("id"), api.Admin, input)
+	if err != nil {
+		writeSupplierApplicationError(c, err)
+		return
+	}
+	// 审计只保留类型、标识和正文长度，不写消息正文或联系方式。
+	params := map[string]interface{}{
+		"id": id, "message_id": result.View.Id, "type": result.View.Type,
+		"author_role": result.View.AuthorRole, "body_length": utf8.RuneCountInString(result.View.Body),
+		"applicant_id": result.ApplicantID,
+	}
+	if api.Admin {
+		recordManageAudit(c, "supplier_application.message", params)
+	} else {
+		recordUserSecurityAudit(c, c.GetInt("id"), "supplier_application.message", params)
 	}
 	common.ApiSuccess(c, result.View)
 }
