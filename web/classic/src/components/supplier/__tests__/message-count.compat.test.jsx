@@ -61,6 +61,39 @@ function page(items) {
   };
 }
 
+function expectComposerDock(root) {
+  const scroll = root.querySelector('[data-supplier-message-scroll]');
+  const composer = root.querySelector('[data-supplier-composer]');
+  expect(scroll).toBeTruthy();
+  expect(composer).toBeTruthy();
+  expect(scroll.contains(composer)).toBe(false);
+  expect(scroll.parentElement).toBe(composer.parentElement);
+  expect(scroll.parentElement.style.display).toBe('flex');
+  expect(scroll.parentElement.style.flexDirection).toBe('column');
+  expect(scroll.style.overflowY).toBe('auto');
+  expect(scroll.style.flex.startsWith('1 1')).toBe(true);
+  expect(scroll.style.minHeight).toBe('8rem');
+  expect(parseFloat(scroll.style.paddingBottom)).toBeGreaterThan(0);
+  expect(composer.style.flexShrink).toBe('0');
+  expect(
+    scroll.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const facts = root.querySelector('[data-supplier-detail-facts]');
+  expect(facts).toBeTruthy();
+  expect(facts.contains(composer)).toBe(false);
+  expect(facts.style.overflowY).toBe('auto');
+  expect(facts.style.minHeight === '0' || facts.style.minHeight === '0px').toBe(
+    true,
+  );
+  expect(
+    facts.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const detail = root.querySelector('[data-supplier-detail]');
+  expect(detail.style.display).toBe('flex');
+  expect(detail.style.flexDirection).toBe('column');
+  expect(detail.style.overflow).toBe('hidden');
+}
+
 beforeEach(() => {
   localStorage.setItem(
     'user',
@@ -88,6 +121,11 @@ test('我的申请只在有对话时显示消息数量，详情没有内部备�
   await user.click(within(row).getByRole('button', { name: /View details/ }));
   expect(screen.queryByText('Internal note')).toBeNull();
   expect(screen.queryByText('Processing')).toBeNull();
+  const dialog = await screen.findByRole('dialog');
+  expectComposerDock(dialog);
+  expect(
+    within(dialog).getByRole('button', { name: 'Send message' }),
+  ).toBeTruthy();
   expect(API.get).toHaveBeenCalledTimes(1);
 });
 
@@ -127,7 +165,26 @@ test('管理列表显示消息数量，处理块在对话之前', async () => {
     processing.compareDocumentPosition(within(dialog).getByText(/^User:/)) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  expect(within(dialog).getByText('Internal note')).toBeTruthy();
+  expect(within(dialog).queryByText('Internal note')).toBeNull();
+  const processingBlock = processing.closest('[data-supplier-processing]');
+  expect(processingBlock).toBeTruthy();
+  expect(within(processingBlock).getByText('Pending')).toBeTruthy();
+  expect(
+    within(processingBlock).queryByRole('button', { name: 'Save' }),
+  ).toBeNull();
+  await user.click(
+    within(processingBlock).getByRole('button', { name: 'Edit' }),
+  );
+  expect(within(processingBlock).getByText('Internal note')).toBeTruthy();
+  expect(
+    within(processingBlock).getByRole('button', { name: 'Save' }),
+  ).toBeTruthy();
+  expect(
+    processingBlock.compareDocumentPosition(
+      within(dialog).getByText('Conversation'),
+    ) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expectComposerDock(dialog);
   expect(
     API.get.mock.calls.some((call) => String(call[0]).includes('/messages')),
   ).toBe(false);

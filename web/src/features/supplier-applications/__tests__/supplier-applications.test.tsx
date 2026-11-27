@@ -45,6 +45,35 @@ function response<T>(data: T) {
   return { data: { success: true, message: '', data } }
 }
 
+function expectComposerDock(root: ParentNode) {
+  const scroll = root.querySelector('[data-supplier-message-scroll]')
+  const composer = root.querySelector('[data-supplier-composer]')
+  expect(scroll).toBeInstanceOf(HTMLElement)
+  expect(composer).toBeInstanceOf(HTMLElement)
+  if (!(scroll instanceof HTMLElement) || !(composer instanceof HTMLElement)) {
+    return
+  }
+  expect(scroll.contains(composer)).toBe(false)
+  expect(scroll.parentElement).toBe(composer.parentElement)
+  expect(scroll.parentElement?.style.display).toBe('flex')
+  expect(scroll.parentElement?.style.flexDirection).toBe('column')
+  expect(scroll.style.overflowY).toBe('auto')
+  expect(scroll.style.flex).toMatch(/^1 1/)
+  expect(scroll.style.minHeight).toBe('8rem')
+  expect(parseFloat(scroll.style.paddingBottom)).toBeGreaterThan(0)
+  expect(composer.style.flexShrink).toBe('0')
+  expect(
+    scroll.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  const facts = root.querySelector('[data-supplier-detail-facts]')
+  if (facts) {
+    expect(facts.contains(composer)).toBe(false)
+    expect(
+      facts.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  }
+}
+
 function Wrapper(props: { children: ReactNode }) {
   const [client] = useState(
     () =>
@@ -324,6 +353,15 @@ describe('my submissions', { timeout: 30_000 }, () => {
     expect(screen.getByText(/×0.35/)).toBeVisible()
     expect(screen.queryByText(/Internal: price is high/)).toBeNull()
     expect(screen.queryByText(/supplier-user/)).toBeNull()
+    const card = screen.getByText('#9 Long Supplier Site').closest('li')
+    if (!card) throw new Error('submission card not found')
+    expectComposerDock(card)
+    expect(card.querySelector('[data-supplier-conversation]')).toHaveStyle({
+      maxHeight: '32rem',
+    })
+    expect(
+      within(card).queryByRole('heading', { name: 'Processing' })
+    ).toBeNull()
   })
 
   it('records a negotiation in order and never shows the internal note', async () => {
@@ -485,6 +523,15 @@ describe('supplier application management', { timeout: 30_000 }, () => {
       await screen.findByRole('button', { name: '#9 Long Supplier Site' })
     )
     expect(await screen.findByText('Official direct')).toBeVisible()
+    const processing = screen
+      .getByRole('heading', { name: 'Processing' })
+      .closest('[data-supplier-processing]')
+    if (!(processing instanceof HTMLElement)) {
+      throw new Error('processing block not found')
+    }
+    expect(within(processing).queryByLabelText('Internal note')).toBeNull()
+    expect(within(processing).getByText('Pending')).toBeVisible()
+    await user.click(within(processing).getByRole('button', { name: 'Edit' }))
     expect(screen.getByDisplayValue('Internal: price is high')).toBeVisible()
     // The sheet's status select is the last "Status" control (the filter comes first).
     const statusSelect = screen.getAllByLabelText('Status').at(-1)
@@ -522,10 +569,19 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     await user.click(
       await screen.findByRole('button', { name: '#9 Long Supplier Site' })
     )
-    expect(await screen.findByText('Official direct')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
-    expect(screen.getByLabelText('Internal note')).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull()
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Official direct')).toBeVisible()
+    expect(within(dialog).queryByRole('button', { name: 'Save' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(within(dialog).queryByLabelText('Internal note')).toBeNull()
+    expect(
+      within(dialog).getByText('Pending', {
+        selector: '[data-supplier-processing-status]',
+      })
+    ).toBeVisible()
+    expect(
+      within(dialog).queryByRole('button', { name: 'Send message' })
+    ).toBeNull()
     expect(screen.queryByLabelText('Message type')).toBeNull()
     expect(screen.getByText('No messages yet')).toBeVisible()
   })
@@ -584,7 +640,26 @@ describe('supplier application management', { timeout: 30_000 }, () => {
       within(dialog).getByRole('heading', { name: /Group quotes/ })
     )
     before(processing, conversation)
-    expect(within(dialog).getByLabelText('Internal note')).toBeVisible()
+    expect(within(dialog).queryByLabelText('Internal note')).toBeNull()
+    expect(within(dialog).getByRole('button', { name: 'Edit' })).toBeVisible()
+    expect(
+      within(dialog).getByText('Pending', {
+        selector: '[data-supplier-processing-status]',
+      })
+    ).toBeVisible()
+    expectComposerDock(dialog)
+    const sheet = dialog.querySelector('[data-slot="sheet-content"]') ?? dialog
+    expect(sheet.className).not.toContain('overflow-y-auto')
+    expect(sheet.className).toContain('overflow-hidden')
+    const detail = dialog.querySelector('[data-supplier-detail]')
+    expect(detail).toHaveStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    })
+    expect(
+      dialog.querySelector('[data-supplier-detail-facts]')?.contains(processing)
+    ).toBe(true)
     const messageFetches = vi
       .mocked(api.get)
       .mock.calls.filter((call) => String(call[0]).includes('/messages'))

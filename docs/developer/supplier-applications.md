@@ -91,8 +91,8 @@
 
 - 路由：个人 `/supplier-applications`，管理 `/supplier-application-management`（`beforeLoad` 校验角色与 `supplier_applications:read`，否则 `/403`）。
 - 导航：顶部导航“供货商申请”（`HeaderNavModules.supplier_application`，默认开启，未登录时按现有“需要登录”逻辑提示）；个人侧栏 `personal.supplier_application`；管理侧栏 `admin.supplier_application_admin`（需 `read` 权限）。三个开关均出现在系统设置的导航与侧栏模块表单中，缺失的旧配置按默认开启补齐。
-- 申请页：流程说明、醒目提示“请勿在此填写 API 密钥”和“提交后无法修改”；表单含站点信息、1–20 个动态分组（数量/上限提示）、主要模型标签（回车添加、可移除，忽略输入法组合态）；“我的提交”展示时间、状态、站点与分组报价详情，空列表显示“暂无提交”。站点名称旁仅在 `message_count > 0` 时显示消息图标和数量。展开后按时间显示对话，并可发送普通消息、议价、优惠和测试额度。申请人详情没有状态编辑或内部备注。
-- 管理页：搜索、状态与用户 ID 筛选、分页表格；有对话的申请在站点名称旁显示同样的消息图标和数量，没有对话则不显示。详情抽屉最上方是处理块（状态下拉和内部备注），其后才是申请人、网站、分组报价和时间顺序的对话。无 `write` 权限时，处理表单和对话发送都只读。只调整了处理块的位置，状态流转、权限和字段含义不变。
+- 申请页：流程说明、醒目提示“请勿在此填写 API 密钥”和“提交后无法修改”；表单含站点信息、1–20 个动态分组（数量/上限提示）、主要模型标签（回车添加、可移除，忽略输入法组合态）；“我的提交”展示时间、状态、站点与分组报价详情，空列表显示“暂无提交”。站点名称旁仅在 `message_count > 0` 时显示消息图标和数量。展开后按时间显示对话，并可发送普通消息、议价、优惠和测试额度。对话列表在详情内单独滚动，发送区固定在该详情底部，不跟在消息后面把最后一条挡住或挤扁。申请人详情没有状态编辑或内部备注。
+- 管理页：搜索、状态与用户 ID 筛选、分页表格；有对话的申请在站点名称旁显示同样的消息图标和数量，没有对话则不显示。详情抽屉最上方仍是处理块，默认只显示当前状态和「编辑」；点击编辑才展开状态下拉和内部备注。无 `write` 权限时不显示编辑，也不能发送。申请人、网站和分组报价在处理块之后、对话之前。发送区固定在抽屉底部，对话列表在它上方单独滚动，并为发送区留出高度。状态流转、权限和字段含义不变。
 - 对话区域使用 `min-w-0` 与 `overflow-wrap:anywhere`，窄屏不把长分组名、说明或消息横向撑出页面。
 - 长分组名、长模型名使用 `overflow-wrap:anywhere` 换行，桌面与 390px 手机宽度下无横向溢出。
 - 七语翻译已写入 `web/src/i18n/locales/*.json` 的 `translation` 命名空间；写权限说明为 “Update supplier application status and internal notes, and record conversation messages.”。
@@ -100,7 +100,7 @@
 ## 模板范围
 
 - **Default**：本变更完整覆盖（入口、表单、我的提交、管理页、导航与设置、国际化）。
-- **Classic**（`web/classic`）：个人入口 `/console/supplier-applications`，管理入口 `/console/supplier-application-management`。详情使用 Semi `SideSheet`，窄屏宽度为 `100%`，桌面分别为 600 和 700。我的提交和管理详情都显示同一时间顺序的对话；只有具备 `supplier_applications:write` 的管理员看到发送表单。内部备注表单仍独立存在，不进入对话。文案写入 Classic 现有语言文件。侧栏设置合并仍保留未知配置键；该保留行为只做了源码核对，未在 Classic 浏览器中实测。
+- **Classic**（`web/classic`）：个人入口 `/console/supplier-applications`，管理入口 `/console/supplier-application-management`。详情使用 Semi `SideSheet`，窄屏宽度为 `100%`，桌面分别为 600 和 700。我的提交和管理详情都显示同一时间顺序的对话；发送区同样固定在详情底部，对话列表单独滚动。只有具备 `supplier_applications:write` 的管理员看到发送表单，处理状态也默认折叠，点击「编辑」才出现状态下拉和内部备注。内部备注仍不进入对话。文案写入 Classic 现有语言文件。侧栏设置合并仍保留未知配置键；该保留行为只做了源码核对，未在 Classic 浏览器中实测。
 
 ## 已知限制
 
@@ -115,6 +115,6 @@
 - 后端（`router/supplier_application_router_test.go`，真实路由与 SQLite）：个人隔离与 404；注入的归属/状态/备注被忽略；重复与并发只保存一份；24 小时限额按用户独立；30 项非法输入（缺失、超长、控制字符、协议、内嵌密码、凭据形态、分组数、平台、倍率边界与精度、模型数/重复/长度）均 400 且不落库；边界合法值（20 组、20 模型、倍率 0.0001/1000）通过；管理员完整视图、搜索、筛选；处理记录处理人与时间、审计不含备注与联系方式；版本冲突 409；个人响应不含任何内部字段；单独撤销读/写权限；不创建渠道、不改动分组。
 - 对话（`router/supplier_application_message_test.go`）：申请人只能写自己的申请；管理员写权限才能走管理接口；四类消息保存后按时间回读；明显凭据 400；内部备注不出现在对话；优惠和测试额度不改变用户 `quota`、`used_quota`、`aff_quota`，也不改分组。`TestSupplierApplicationListMessageCountIgnoresInternalNotes` 覆盖列表 `message_count`：只有内部备注时为 0，两条对话时为 2，个人列表和详情不含 `admin_note` 等管理字段。
 - 权限目录：`service/authz/authz_test.go` 的期望含新资源。
-- 前端（`web/src/features/supplier-applications/__tests__`）：原有表单、权限和只读覆盖之外，增加议价发送载荷，以及无写权限时不出现发送按钮。消息标记测试确认有数量时显示图标和数字、没有消息时不显示，并且管理详情的处理标题位于对话之前。Classic 对应覆盖在 `web/classic/src/components/supplier/__tests__/message-count.compat.test.jsx`。
-- 本次调整的问题、范围和未覆盖项见[消息数量与处理块位置](../workflows/2026-11/28_supplier_application_message_count.md)。
+- 前端（`web/src/features/supplier-applications/__tests__`）：原有表单、权限和只读覆盖之外，增加议价发送载荷，以及无写权限时不出现发送按钮。消息标记测试确认有数量时显示图标和数字、没有消息时不显示，并且管理详情的处理标题位于对话之前。同一套测试还确认处理状态初始折叠、点击编辑后才出现设置，以及发送区在滚动对话之外并为它留出高度。Classic 对应覆盖在 `web/classic/src/components/supplier/__tests__/message-count.compat.test.jsx`。
+- 本次调整的问题、范围和未覆盖项见[消息数量与处理块位置](../workflows/2026-11/28_supplier_application_message_count.md)和[发送区固定与处理状态折叠](../workflows/2026-11/28_supplier_application_composer_dock.md)。
 - 浏览器：隔离 SQLite 的真实服务加 Chromium，桌面 1280px 与手机 390px 走完 33 项真实路径检查，见[工作记录](../workflows/2026-11/26_supplier_applications.md)。

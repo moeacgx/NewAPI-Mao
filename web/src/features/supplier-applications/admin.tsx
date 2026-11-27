@@ -108,6 +108,7 @@ function ReviewForm(props: {
   const queryClient = useQueryClient()
   const labels = getSupplierLabels(t)
   const [serverError, setServerError] = useState('')
+  const [editing, setEditing] = useState(false)
   const submitting = useRef(false)
   const form = useForm<SupplierReviewFormValues>({
     resolver: zodResolver(supplierReviewSchema),
@@ -157,79 +158,102 @@ function ReviewForm(props: {
   })
 
   return (
-    <Form {...form}>
-      <form
-        className='space-y-4'
-        noValidate
-        onSubmit={form.handleSubmit((values) => {
-          if (submitting.current) return
-          submitting.current = true
-          setServerError('')
-          mutation.mutate(values)
-        })}
-      >
-        <FormField
-          control={form.control}
-          name='status'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('Status')}</FormLabel>
-              <FormControl>
-                <NativeSelect
-                  {...field}
-                  className='w-full'
-                  disabled={!props.canWrite || mutation.isPending}
-                >
-                  {supplierStatuses.map((value) => (
-                    <NativeSelectOption key={value} value={value}>
-                      {labels.status[value]}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='admin_note'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('Internal note')}</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  className='min-h-28 resize-y'
-                  disabled={!props.canWrite || mutation.isPending}
-                />
-              </FormControl>
-              <p className='text-muted-foreground text-xs'>
-                {t(
-                  'Only administrators can see this note. The applicant never does.'
-                )}
-              </p>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {serverError && (
-          <Alert variant='destructive'>
-            <AlertDescription>{t(serverError)}</AlertDescription>
-          </Alert>
-        )}
-        {props.canWrite && (
-          <Button type='submit' disabled={mutation.isPending}>
-            {mutation.isPending ? t('Saving...') : t('Save')}
+    <div className='space-y-3'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <h3 className='text-sm font-semibold'>{t('Processing')}</h3>
+        {props.canWrite && !editing && (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() => setEditing(true)}
+          >
+            {t('Edit')}
           </Button>
         )}
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Changing the status never creates channels or changes groups or billing.'
-          )}
-        </p>
-      </form>
-    </Form>
+      </div>
+      <p className='text-sm'>
+        <span className='text-muted-foreground'>{t('Status')}: </span>
+        <span data-supplier-processing-status>
+          {labels.status[props.application.status]}
+        </span>
+      </p>
+      {editing && props.canWrite && (
+        <Form {...form}>
+          <form
+            className='space-y-4'
+            noValidate
+            onSubmit={form.handleSubmit((values) => {
+              if (submitting.current) return
+              submitting.current = true
+              setServerError('')
+              mutation.mutate(values)
+            })}
+          >
+            <FormField
+              control={form.control}
+              name='status'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Status')}</FormLabel>
+                  <FormControl>
+                    <NativeSelect
+                      {...field}
+                      className='w-full'
+                      disabled={!props.canWrite || mutation.isPending}
+                    >
+                      {supplierStatuses.map((value) => (
+                        <NativeSelectOption key={value} value={value}>
+                          {labels.status[value]}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='admin_note'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Internal note')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      className='min-h-28 resize-y'
+                      disabled={!props.canWrite || mutation.isPending}
+                    />
+                  </FormControl>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Only administrators can see this note. The applicant never does.'
+                    )}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {serverError && (
+              <Alert variant='destructive'>
+                <AlertDescription>{t(serverError)}</AlertDescription>
+              </Alert>
+            )}
+            {props.canWrite && (
+              <Button type='submit' disabled={mutation.isPending}>
+                {mutation.isPending ? t('Saving...') : t('Save')}
+              </Button>
+            )}
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Changing the status never creates channels or changes groups or billing.'
+              )}
+            </p>
+          </form>
+        </Form>
+      )}
+    </div>
   )
 }
 
@@ -250,8 +274,8 @@ function SupplierApplicationSheet(props: {
 
   return (
     <Sheet open onOpenChange={(open) => !open && props.onClose()}>
-      <SheetContent className='w-full overflow-y-auto sm:max-w-2xl'>
-        <SheetHeader>
+      <SheetContent className='w-full overflow-hidden sm:max-w-2xl'>
+        <SheetHeader className='shrink-0'>
           <SheetTitle className='pr-8 [overflow-wrap:anywhere]'>
             {application
               ? `#${application.id} ${application.site_name}`
@@ -261,7 +285,18 @@ function SupplierApplicationSheet(props: {
             {t('Full details and processing for this application.')}
           </SheetDescription>
         </SheetHeader>
-        <div className='space-y-6 px-4 pb-6'>
+        <div
+          data-supplier-detail
+          className='px-4 pb-4'
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflow: 'hidden',
+            gap: 16,
+          }}
+        >
           {query.isPending && (
             <p role='status' className='text-muted-foreground text-sm'>
               {t('Loading...')}
@@ -284,100 +319,124 @@ function SupplierApplicationSheet(props: {
           )}
           {application && (
             <>
-              <section className='bg-muted/20 space-y-3 rounded-lg border p-4'>
-                <h3 className='text-sm font-semibold'>{t('Processing')}</h3>
-                <ReviewForm
-                  key={application.version}
-                  application={application}
-                  canWrite={props.canWrite}
-                />
-              </section>
-              <dl className='grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'>
-                <div className='min-w-0'>
-                  <dt className='text-muted-foreground'>{t('Applicant')}</dt>
-                  <dd className='[overflow-wrap:anywhere]'>
-                    {application.username || '-'} (ID {application.user_id})
-                  </dd>
-                </div>
-                <div className='min-w-0'>
-                  <dt className='text-muted-foreground'>{t('Submitted at')}</dt>
-                  <dd>{formatTimestampToDate(application.created_at)}</dd>
-                </div>
-                <div className='min-w-0'>
-                  <dt className='text-muted-foreground'>{t('Site URL')}</dt>
-                  <dd>
-                    {application.site_url ? (
-                      <SupplierSiteLink url={application.site_url} />
-                    ) : (
-                      '-'
-                    )}
-                  </dd>
-                </div>
-                <div className='min-w-0'>
-                  <dt className='text-muted-foreground'>
-                    {labels.contactType[application.contact_type]}
-                  </dt>
-                  <dd className='[overflow-wrap:anywhere]'>
-                    {application.contact}
-                  </dd>
-                </div>
-                <div className='min-w-0'>
-                  <dt className='text-muted-foreground'>{t('Handled by')}</dt>
-                  <dd className='[overflow-wrap:anywhere]'>
-                    {application.handled_by > 0
-                      ? `${application.handled_by_name || application.handled_by} · ${formatTimestampToDate(application.handled_at)}`
-                      : '-'}
-                  </dd>
-                </div>
-                {application.remark && (
-                  <div className='min-w-0 sm:col-span-2'>
-                    <dt className='text-muted-foreground'>{t('Remarks')}</dt>
-                    <dd className='[overflow-wrap:anywhere] whitespace-pre-wrap'>
-                      {application.remark}
+              <div
+                data-supplier-detail-facts
+                className='space-y-6'
+                style={{
+                  flex: '0 1 auto',
+                  minHeight: 0,
+                  maxHeight: '45%',
+                  overflowY: 'auto',
+                }}
+              >
+                <section
+                  data-supplier-processing
+                  className='bg-muted/20 rounded-lg border p-4'
+                >
+                  <ReviewForm
+                    key={`${application.id}-${application.version}`}
+                    application={application}
+                    canWrite={props.canWrite}
+                  />
+                </section>
+                <dl className='grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'>
+                  <div className='min-w-0'>
+                    <dt className='text-muted-foreground'>{t('Applicant')}</dt>
+                    <dd className='[overflow-wrap:anywhere]'>
+                      {application.username || '-'} (ID {application.user_id})
                     </dd>
                   </div>
-                )}
-              </dl>
-              <section className='space-y-2'>
-                <h3 className='text-sm font-semibold'>
-                  {t('Group quotes')} ({application.groups.length})
-                </h3>
-                <SupplierQuoteList quotes={application.groups} />
-              </section>
-              <SupplierConversation
-                applicationId={application.id}
-                messages={application.messages}
-                canSend={props.canWrite}
-                mode='admin'
-                onSent={() => {
-                  queryClient.setQueriesData<
-                    SupplierApplicationList<SupplierApplicationAdmin>
-                  >(
-                    {
-                      queryKey: [
-                        'supplier-applications',
-                        user?.id,
-                        'admin',
-                        'list',
-                      ],
-                    },
-                    (current) => {
-                      if (!current) return current
-                      return {
-                        ...current,
-                        items: current.items.map((item) =>
-                          item.id === application.id
-                            ? {
-                                ...item,
-                                message_count: (item.message_count ?? 0) + 1,
-                              }
-                            : item
-                        ),
-                      }
-                    }
-                  )
+                  <div className='min-w-0'>
+                    <dt className='text-muted-foreground'>
+                      {t('Submitted at')}
+                    </dt>
+                    <dd>{formatTimestampToDate(application.created_at)}</dd>
+                  </div>
+                  <div className='min-w-0'>
+                    <dt className='text-muted-foreground'>{t('Site URL')}</dt>
+                    <dd>
+                      {application.site_url ? (
+                        <SupplierSiteLink url={application.site_url} />
+                      ) : (
+                        '-'
+                      )}
+                    </dd>
+                  </div>
+                  <div className='min-w-0'>
+                    <dt className='text-muted-foreground'>
+                      {labels.contactType[application.contact_type]}
+                    </dt>
+                    <dd className='[overflow-wrap:anywhere]'>
+                      {application.contact}
+                    </dd>
+                  </div>
+                  <div className='min-w-0'>
+                    <dt className='text-muted-foreground'>{t('Handled by')}</dt>
+                    <dd className='[overflow-wrap:anywhere]'>
+                      {application.handled_by > 0
+                        ? `${application.handled_by_name || application.handled_by} · ${formatTimestampToDate(application.handled_at)}`
+                        : '-'}
+                    </dd>
+                  </div>
+                  {application.remark && (
+                    <div className='min-w-0 sm:col-span-2'>
+                      <dt className='text-muted-foreground'>{t('Remarks')}</dt>
+                      <dd className='[overflow-wrap:anywhere] whitespace-pre-wrap'>
+                        {application.remark}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <section className='space-y-2'>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Group quotes')} ({application.groups.length})
+                  </h3>
+                  <SupplierQuoteList quotes={application.groups} />
+                </section>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flex: '1 1 auto',
+                  minWidth: 0,
                 }}
-              />
+              >
+                <SupplierConversation
+                  applicationId={application.id}
+                  messages={application.messages}
+                  canSend={props.canWrite}
+                  mode='admin'
+                  dock='fill'
+                  onSent={() => {
+                    queryClient.setQueriesData<
+                      SupplierApplicationList<SupplierApplicationAdmin>
+                    >(
+                      {
+                        queryKey: [
+                          'supplier-applications',
+                          user?.id,
+                          'admin',
+                          'list',
+                        ],
+                      },
+                      (current) => {
+                        if (!current) return current
+                        return {
+                          ...current,
+                          items: current.items.map((item) =>
+                            item.id === application.id
+                              ? {
+                                  ...item,
+                                  message_count: (item.message_count ?? 0) + 1,
+                                }
+                              : item
+                          ),
+                        }
+                      }
+                    )
+                  }}
+                />
+              </div>
             </>
           )}
         </div>
