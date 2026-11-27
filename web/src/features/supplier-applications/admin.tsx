@@ -75,6 +75,7 @@ import {
 import { SupplierConversation } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
+import { SupplierMessageCount } from './message-count'
 import { SupplierSiteLink } from './my-submissions'
 import { SupplierQuoteList } from './quote-list'
 import {
@@ -85,6 +86,7 @@ import {
 import type {
   SupplierApplicationAdmin,
   SupplierApplicationFilters,
+  SupplierApplicationList,
   SupplierApplicationStatus,
 } from './types'
 
@@ -237,6 +239,7 @@ function SupplierApplicationSheet(props: {
   onClose: () => void
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.auth.user)
   const labels = getSupplierLabels(t)
   const query = useQuery({
@@ -281,6 +284,14 @@ function SupplierApplicationSheet(props: {
           )}
           {application && (
             <>
+              <section className='bg-muted/20 space-y-3 rounded-lg border p-4'>
+                <h3 className='text-sm font-semibold'>{t('Processing')}</h3>
+                <ReviewForm
+                  key={application.version}
+                  application={application}
+                  canWrite={props.canWrite}
+                />
+              </section>
               <dl className='grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'>
                 <div className='min-w-0'>
                   <dt className='text-muted-foreground'>{t('Applicant')}</dt>
@@ -338,15 +349,35 @@ function SupplierApplicationSheet(props: {
                 messages={application.messages}
                 canSend={props.canWrite}
                 mode='admin'
+                onSent={() => {
+                  queryClient.setQueriesData<
+                    SupplierApplicationList<SupplierApplicationAdmin>
+                  >(
+                    {
+                      queryKey: [
+                        'supplier-applications',
+                        user?.id,
+                        'admin',
+                        'list',
+                      ],
+                    },
+                    (current) => {
+                      if (!current) return current
+                      return {
+                        ...current,
+                        items: current.items.map((item) =>
+                          item.id === application.id
+                            ? {
+                                ...item,
+                                message_count: (item.message_count ?? 0) + 1,
+                              }
+                            : item
+                        ),
+                      }
+                    }
+                  )
+                }}
               />
-              <section className='bg-muted/20 space-y-3 rounded-lg border p-4'>
-                <h3 className='text-sm font-semibold'>{t('Processing')}</h3>
-                <ReviewForm
-                  key={application.version}
-                  application={application}
-                  canWrite={props.canWrite}
-                />
-              </section>
             </>
           )}
         </div>
@@ -542,13 +573,18 @@ export function SupplierApplicationManagement(props: {
                       {query.data.items.map((application) => (
                         <TableRow key={application.id}>
                           <TableCell className='max-w-64 min-w-40 whitespace-normal'>
-                            <button
-                              type='button'
-                              className='text-primary block max-w-60 text-left font-medium [overflow-wrap:anywhere] whitespace-normal underline-offset-4 hover:underline focus-visible:underline'
-                              onClick={() => setSelectedId(application.id)}
-                            >
-                              #{application.id} {application.site_name}
-                            </button>
+                            <div className='flex items-start gap-2'>
+                              <button
+                                type='button'
+                                className='text-primary block max-w-60 text-left font-medium [overflow-wrap:anywhere] whitespace-normal underline-offset-4 hover:underline focus-visible:underline'
+                                onClick={() => setSelectedId(application.id)}
+                              >
+                                #{application.id} {application.site_name}
+                              </button>
+                              <SupplierMessageCount
+                                count={application.message_count}
+                              />
+                            </div>
                           </TableCell>
                           <TableCell className='max-w-40 [overflow-wrap:anywhere] whitespace-normal'>
                             {application.username || '-'} ({application.user_id}

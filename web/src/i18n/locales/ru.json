@@ -61,6 +61,7 @@
     "{{count}} IP(s)": "{{count}} IP",
     "{{count}} log entries removed.": "Удалено {{count}} записей журнала.",
     "{{count}} matching connections": "Подходящих подключений: {{count}}",
+    "{{count}} messages": "Сообщений: {{count}}",
     "{{count}} minutes ago": "{{count}} минут назад",
     "{{count}} models": "моделей: {{count}}",
     "{{count}} months ago": "{{count}} месяцев назад",

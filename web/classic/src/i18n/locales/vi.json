@@ -7181,6 +7181,7 @@
     "Admin": "Quản trị viên",
     "Sending...": "Đang gửi...",
     "Some fields are invalid. Check the form and try again.": "Một số trường không hợp lệ. Hãy kiểm tra biểu mẫu rồi thử lại.",
-    "Update supplier application status and internal notes, and record conversation messages.": "Cập nhật trạng thái đơn nhà cung cấp, ghi chú nội bộ và ghi tin nhắn."
+    "Update supplier application status and internal notes, and record conversation messages.": "Cập nhật trạng thái đơn nhà cung cấp, ghi chú nội bộ và ghi tin nhắn.",
+    "{{count}} messages": "{{count}} tin nhắn"
   }
 }

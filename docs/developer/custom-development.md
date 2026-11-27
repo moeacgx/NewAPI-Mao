@@ -89,7 +89,8 @@
 - Default 新增登录用户的“供货商申请”：站点与联系信息、1–20 个分组报价（平台、倍率、主要模型标签、说明）、“我的提交”；管理员在“供货商申请管理”分页搜索、查看并更新处理状态与内部备注，记录处理人与处理时间。
 - 申请不可修改，更正需重新提交；相同内容重复提交返回 409，同一用户 24 小时最多 20 次；个人视图在类型上不含内部备注与处理信息；站点地址只保存、不请求；服务端拒绝明显的接入凭据形态文本；处理状态不创建渠道、不改分组与计费。
 - 权限资源 `supplier_applications`（read/write）。审计动作 `supplier_application.review` 与 `supplier_application.message` 不写入备注、消息正文或联系方式。申请对话只追加，议价、优惠和测试额度不改余额、兑换码、渠道、分组或计费。契约见[供货商申请专题](supplier-applications.md)，验证见[申请工作记录](../workflows/2026-11/26_supplier_applications.md)和[对话工作记录](../workflows/2026-11/27_supplier_application_messages.md)。
-- 稳定性：后端 SQLite 路由测试、Default 组件测试与真实 Chromium 桌面/手机验证通过；Classic 未提供入口，MySQL/PostgreSQL 与 Redis 限流路径未实测，未部署。
+- Default 与 Classic 的管理列表和「我的申请」都在站点名称旁显示对话数量；数量来自列表字段 `message_count`，只统计对话，不统计内部备注，没有消息时不显示。管理详情的处理块位于申请人、网站、分组报价和对话之前。见[消息数量与处理块位置](../workflows/2026-11/28_supplier_application_message_count.md)。
+- 稳定性：本轮用 SQLite 路由测试、Default 组件测试和 Classic 组件测试核对消息数量与处理块位置。此前 Chromium 验证只覆盖当时的申请流程，不能代替这次界面调整。MySQL/PostgreSQL 与 Redis 限流路径仍未实测，未部署。
 
 ## 工单中心
 

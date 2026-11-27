@@ -6729,6 +6729,7 @@
     "Admin": "Администратор",
     "Sending...": "Отправка...",
     "Some fields are invalid. Check the form and try again.": "Некоторые поля заполнены неверно. Проверьте форму и повторите попытку.",
-    "Update supplier application status and internal notes, and record conversation messages.": "Обновлять статус заявок поставщиков, внутренние заметки и записывать сообщения."
+    "Update supplier application status and internal notes, and record conversation messages.": "Обновлять статус заявок поставщиков, внутренние заметки и записывать сообщения.",
+    "{{count}} messages": "Сообщений: {{count}}"
   }
 }

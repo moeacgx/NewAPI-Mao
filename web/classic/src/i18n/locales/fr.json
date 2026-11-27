@@ -6697,6 +6697,7 @@
     "Admin": "Administrateur",
     "Sending...": "Envoi en cours...",
     "Some fields are invalid. Check the form and try again.": "Certains champs sont invalides. Vérifiez le formulaire et réessayez.",
-    "Update supplier application status and internal notes, and record conversation messages.": "Mettre à jour le statut des candidatures fournisseurs et les notes internes, et enregistrer les messages."
+    "Update supplier application status and internal notes, and record conversation messages.": "Mettre à jour le statut des candidatures fournisseurs et les notes internes, et enregistrer les messages.",
+    "{{count}} messages": "{{count}} messages"
   }
 }

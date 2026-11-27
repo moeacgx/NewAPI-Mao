@@ -6663,6 +6663,7 @@
     "Admin": "管理員",
     "Sending...": "發送中...",
     "Some fields are invalid. Check the form and try again.": "部分欄位無效，請檢查表單後重試。",
-    "Update supplier application status and internal notes, and record conversation messages.": "更新供貨商申請的處理狀態和內部備註，並記錄對話訊息。"
+    "Update supplier application status and internal notes, and record conversation messages.": "更新供貨商申請的處理狀態和內部備註，並記錄對話訊息。",
+    "{{count}} messages": "{{count}} 則訊息"
   }
 }

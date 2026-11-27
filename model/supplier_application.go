@@ -141,6 +141,8 @@ type SupplierApplicationUserView struct {
 	CreatedAt   int64                            `json:"created_at"`
 	Groups      []SupplierQuoteView              `json:"groups"`
 	Messages    []SupplierApplicationMessageView `json:"messages"`
+	// MessageCount 只统计对话记录，不含内部备注。列表直接带回，前端不必逐条再取对话。
+	MessageCount int `json:"message_count"`
 }
 
 // SupplierApplicationAdminView 面向有权限的管理员，包含完整资料和处理信息。
@@ -163,6 +165,8 @@ type SupplierApplicationAdminView struct {
 	UpdatedAt     int64                            `json:"updated_at"`
 	Groups        []SupplierQuoteView              `json:"groups"`
 	Messages      []SupplierApplicationMessageView `json:"messages"`
+	// MessageCount 与个人视图相同，只统计对话记录。
+	MessageCount int `json:"message_count"`
 }
 
 func ValidSupplierApplicationStatus(status string) bool {

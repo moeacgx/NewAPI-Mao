@@ -4158,6 +4158,7 @@
     "Admin": "管理员",
     "Sending...": "发送中...",
     "Some fields are invalid. Check the form and try again.": "部分字段无效，请检查表单后重试。",
-    "Update supplier application status and internal notes, and record conversation messages.": "更新供货商申请的处理状态和内部备注，并记录对话消息。"
+    "Update supplier application status and internal notes, and record conversation messages.": "更新供货商申请的处理状态和内部备注，并记录对话消息。",
+    "{{count}} messages": "{{count}} 条消息"
   }
 }
