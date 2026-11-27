@@ -42,7 +42,7 @@ func TestSupplierApplicationRoutesIsolatePersonalDataAndAdminProcessing(t *testi
 	wasMaster := common.IsMasterNode
 	common.IsMasterNode = true
 	t.Cleanup(func() { common.IsMasterNode = wasMaster })
-	require.NoError(t, fixture.db.AutoMigrate(&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.Log{}, &model.CasbinRule{}, &model.AuthzRole{}))
+	require.NoError(t, fixture.db.AutoMigrate(&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{}, &model.Log{}, &model.CasbinRule{}, &model.AuthzRole{}))
 	require.NoError(t, authz.Init(fixture.db))
 	oldLogDB := model.LOG_DB
 	model.LOG_DB = fixture.db

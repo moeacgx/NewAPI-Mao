@@ -26,6 +26,20 @@ export function getSupplierLabels(t: TFunction) {
       cooperating: t('Cooperating'),
       rejected: t('Not a fit'),
     },
+    messageType: {
+      message: t('Plain message'),
+      negotiation: t('Negotiation'),
+      offer: t('Offer'),
+      test_quota: t('Test quota'),
+    },
+    quotaStatus: {
+      pending: t('Not issued'),
+      issued: t('Issued'),
+    },
+    authorRole: {
+      applicant: t('Applicant'),
+      admin: t('Admin'),
+    },
     contactType: {
       wechat: t('WeChat'),
       qq: t('QQ'),

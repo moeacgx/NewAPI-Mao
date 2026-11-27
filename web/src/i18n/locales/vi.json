@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "Tổng hạn mức không giới hạn",
     "Does not turn off the period quota above": "Không tắt hạn mức theo chu kỳ ở trên",
     "Quota cannot exceed {{max}}": "Hạn mức không được vượt quá {{max}}",
-    "Period quota must be greater than 0": "Hạn mức theo chu kỳ phải lớn hơn 0"
+    "Period quota must be greater than 0": "Hạn mức theo chu kỳ phải lớn hơn 0",
+    "Conversation": "Hội thoại",
+    "Plain message": "Tin nhắn thường",
+    "Negotiation": "Thương lượng",
+    "Offer": "Ưu đãi",
+    "Test quota": "Hạn mức thử",
+    "Not issued": "Chưa cấp",
+    "Message type": "Loại tin nhắn",
+    "Suggested ratio": "Hệ số đề xuất",
+    "Issuance status": "Trạng thái cấp",
+    "Offer plan": "Phương án ưu đãi",
+    "Negotiation notes": "Ghi chú thương lượng",
+    "Test quota description": "Mô tả hạn mức thử",
+    "Message text": "Nội dung tin nhắn",
+    "Messages cannot be edited after sending.": "Không thể sửa tin nhắn sau khi gửi.",
+    "Do not include API keys or access credentials.": "Không đưa khóa API hoặc thông tin đăng nhập.",
+    "Send message": "Gửi tin nhắn",
+    "Message sent": "Đã gửi tin nhắn",
+    "Could not send the message.": "Không gửi được tin nhắn.",
+    "Update supplier application status and internal notes, and record conversation messages.": "Cập nhật trạng thái đơn nhà cung cấp, ghi chú nội bộ và ghi tin nhắn."
   }
 }

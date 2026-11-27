@@ -67,7 +67,8 @@ var auditContentTemplates = map[string]string{
 	"benefit.activity.terminate":    "Terminated benefit activity (ID: ${id}, mode ${mode}, reason ${reason})",
 	"benefit.voucher.void":          "Voided benefit voucher (ID: ${id}, reason ${reason})",
 
-	"supplier_application.review": "Reviewed supplier application ${id}: ${from} -> ${to} (internal note length ${note_length})",
+	"supplier_application.review":  "Reviewed supplier application ${id}: ${from} -> ${to} (internal note length ${note_length})",
+	"supplier_application.message": "Recorded ${type} message ${message_id} on supplier application ${id} (text length ${body_length})",
 
 	"subscription.plan_reset":      "Reset active subscriptions for plan ${plan_id}",
 	"subscription.user_plan_reset": "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",

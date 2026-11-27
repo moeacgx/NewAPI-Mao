@@ -7908,6 +7908,25 @@
     "Unlimited total quota": "Quota total illimité",
     "Does not turn off the period quota above": "Ne désactive pas le quota périodique ci-dessus",
     "Quota cannot exceed {{max}}": "Le quota ne peut pas dépasser {{max}}",
-    "Period quota must be greater than 0": "Le quota périodique doit être supérieur à 0"
+    "Period quota must be greater than 0": "Le quota périodique doit être supérieur à 0",
+    "Conversation": "Conversation",
+    "Plain message": "Message simple",
+    "Negotiation": "Négociation",
+    "Offer": "Offre",
+    "Test quota": "Quota d'essai",
+    "Not issued": "Non attribué",
+    "Message type": "Type de message",
+    "Suggested ratio": "Ratio suggéré",
+    "Issuance status": "État d'attribution",
+    "Offer plan": "Plan de l'offre",
+    "Negotiation notes": "Notes de négociation",
+    "Test quota description": "Description du quota d'essai",
+    "Message text": "Texte du message",
+    "Messages cannot be edited after sending.": "Les messages ne peuvent pas être modifiés après l'envoi.",
+    "Do not include API keys or access credentials.": "N'incluez pas de clés API ni d'identifiants d'accès.",
+    "Send message": "Envoyer le message",
+    "Message sent": "Message envoyé",
+    "Could not send the message.": "Impossible d'envoyer le message.",
+    "Update supplier application status and internal notes, and record conversation messages.": "Mettre à jour le statut des candidatures fournisseurs et les notes internes, et enregistrer les messages."
   }
 }

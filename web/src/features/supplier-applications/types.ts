@@ -47,6 +47,42 @@ export interface SupplierQuote {
   description: string
 }
 
+export type SupplierMessageType =
+  | 'message'
+  | 'negotiation'
+  | 'offer'
+  | 'test_quota'
+
+export type SupplierQuotaStatus = 'pending' | 'issued'
+
+export type SupplierMessageAuthorRole = 'applicant' | 'admin'
+
+// Conversation records never include internal notes or account changes.
+export interface SupplierMessage {
+  id: number
+  author_id: number
+  author_role: SupplierMessageAuthorRole
+  author_name: string
+  type: SupplierMessageType
+  body: string
+  group_name?: string
+  ratio?: number
+  quantity?: number
+  unit?: string
+  quota_status?: SupplierQuotaStatus
+  created_at: number
+}
+
+export interface SupplierMessageInput {
+  type: SupplierMessageType
+  body: string
+  group_name?: string
+  ratio?: number
+  quantity?: number
+  unit?: string
+  quota_status?: SupplierQuotaStatus
+}
+
 // Applicant-visible shape: never carries internal notes or handler data.
 export interface SupplierApplication {
   id: number
@@ -58,6 +94,7 @@ export interface SupplierApplication {
   status: SupplierApplicationStatus
   created_at: number
   groups: SupplierQuote[]
+  messages?: SupplierMessage[]
 }
 
 export interface SupplierApplicationAdmin extends SupplierApplication {

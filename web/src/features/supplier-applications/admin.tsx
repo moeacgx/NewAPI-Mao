@@ -72,6 +72,7 @@ import {
   getAdminSupplierApplications,
   reviewSupplierApplication,
 } from './api'
+import { SupplierConversation } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
 import { SupplierSiteLink } from './my-submissions'
@@ -332,6 +333,12 @@ function SupplierApplicationSheet(props: {
                 </h3>
                 <SupplierQuoteList quotes={application.groups} />
               </section>
+              <SupplierConversation
+                applicationId={application.id}
+                messages={application.messages}
+                canSend={props.canWrite}
+                mode='admin'
+              />
               <section className='bg-muted/20 space-y-3 rounded-lg border p-4'>
                 <h3 className='text-sm font-semibold'>{t('Processing')}</h3>
                 <ReviewForm

@@ -28,6 +28,7 @@ import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getSupplierApplications } from './api'
+import { SupplierConversation } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
 import { SupplierQuoteList } from './quote-list'
@@ -119,6 +120,12 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             )}
           </dl>
           <SupplierQuoteList quotes={application.groups} />
+          <SupplierConversation
+            applicationId={application.id}
+            messages={application.messages}
+            canSend
+            mode='personal'
+          />
         </div>
       )}
     </li>
