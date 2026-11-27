@@ -9,6 +9,7 @@ zzapi 上的供货商申请详情里，发送框跟在对话内容后面往下�
 - 只改 Default 与 Classic 的申请详情界面。管理端和申请人端的发送区都固定在详情底部。
 - 对话列表在发送区上方单独滚动，列表本身至少保留 8rem，并在底部留出间距。发送表单是滚动区域的同级，不进入滚动容器，高度不被压缩。
 - 详情其余内容（处理块、申请人、网站、分组报价）仍在对话上方。内容过高时这一段自己滚动，把高度让给对话和发送区。
+- Default 管理抽屉的对话外包层使用 `min-height: 0` 和 `overflow: hidden`。否则这一层的最小高度等于对话内容，720px 高的抽屉里长对话不会内部滚动，发送区会被裁到抽屉外面。
 - 管理端处理块留在详情顶部。默认只显示当前状态和「编辑」。点击编辑才出现状态下拉、内部备注和保存。没有写权限时不显示编辑，也不能发送。
 - 不改余额、渠道、兑换码、分组、计费，不改消息接口，不自动发送，也不自动改状态。
 
@@ -17,7 +18,7 @@ zzapi 上的供货商申请详情里，发送框跟在对话内容后面往下�
 - Default：`bun run test -- src/features/supplier-applications/__tests__/supplier-applications.test.tsx`
 - Classic：`bun run test:compat src/components/supplier/__tests__/message-count.compat.test.jsx`
 
-两条命令的超时都不超过 60 秒。断言覆盖处理状态初始折叠、点击编辑后才出现设置，以及发送区在滚动对话之外、对话区域为它留出空间。Default 与 Classic 都有对应断言。
+两条命令的超时都不超过 60 秒。断言覆盖处理状态初始折叠、点击编辑后才出现设置，以及发送区在滚动对话之外、对话区域为它留出空间。Default 管理详情另外断言对话外包层 `minHeight` 为 0 且 `overflow` 为 `hidden`。Default 与 Classic 都有对应断言。
 
 未覆盖：浏览器实播、MySQL/PostgreSQL、生产站 zzapi。没有合并、推送或部署。
 

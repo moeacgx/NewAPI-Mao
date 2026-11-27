@@ -648,6 +648,19 @@ describe('supplier application management', { timeout: 30_000 }, () => {
       })
     ).toBeVisible()
     expectComposerDock(dialog)
+    const conversationPanel = dialog.querySelector(
+      '[data-supplier-conversation]'
+    )
+    const conversationSlot = conversationPanel?.parentElement
+    expect(conversationSlot).toBeInstanceOf(HTMLElement)
+    if (conversationSlot instanceof HTMLElement) {
+      expect(conversationSlot.style.flex).toMatch(/^1 1/)
+      expect(
+        conversationSlot.style.minHeight === '0' ||
+          conversationSlot.style.minHeight === '0px'
+      ).toBe(true)
+      expect(conversationSlot.style.overflow).toBe('hidden')
+    }
     const sheet = dialog.querySelector('[data-slot="sheet-content"]') ?? dialog
     expect(sheet.className).not.toContain('overflow-y-auto')
     expect(sheet.className).toContain('overflow-hidden')

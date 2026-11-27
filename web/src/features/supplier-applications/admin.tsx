@@ -399,6 +399,8 @@ function SupplierApplicationSheet(props: {
                   display: 'flex',
                   flex: '1 1 auto',
                   minWidth: 0,
+                  minHeight: 0,
+                  overflow: 'hidden',
                 }}
               >
                 <SupplierConversation
