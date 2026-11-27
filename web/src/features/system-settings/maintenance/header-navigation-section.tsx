@@ -58,6 +58,7 @@ const headerNavSchema = z.object({
   rankingsRequireAuth: z.boolean(),
   docs: z.boolean(),
   about: z.boolean(),
+  supplierApplication: z.boolean(),
 })
 
 type HeaderNavFormValues = z.infer<typeof headerNavSchema>
@@ -96,6 +97,10 @@ const toFormValues = (config: HeaderNavModulesConfig): HeaderNavFormValues => ({
     config.about === undefined
       ? HEADER_NAV_DEFAULT.about
       : Boolean(config.about),
+  supplierApplication:
+    config.supplier_application === undefined
+      ? Boolean(HEADER_NAV_DEFAULT.supplier_application)
+      : Boolean(config.supplier_application),
 })
 
 export function HeaderNavigationSection({
@@ -124,6 +129,7 @@ export function HeaderNavigationSection({
       console: values.console,
       docs: values.docs,
       about: values.about,
+      supplier_application: values.supplierApplication,
       pricing: {
         ...(config.pricing ?? HEADER_NAV_DEFAULT.pricing),
         enabled: values.pricingEnabled,
@@ -177,6 +183,13 @@ export function HeaderNavigationSection({
       key: 'about',
       title: t('About'),
       description: t('Static page describing the platform.'),
+    },
+    {
+      key: 'supplierApplication',
+      title: t('Supplier Application'),
+      description: t(
+        'Page where logged-in users submit site and group quotes.'
+      ),
     },
   ]
 

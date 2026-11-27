@@ -59,6 +59,8 @@ import { Route as AuthenticatedPromptCenterIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
 import { Route as AuthenticatedSecurityAuditIndexRouteImport } from './routes/_authenticated/security-audit/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
+import { Route as AuthenticatedSupplierApplicationManagementIndexRouteImport } from './routes/_authenticated/supplier-application-management/index'
+import { Route as AuthenticatedSupplierApplicationsIndexRouteImport } from './routes/_authenticated/supplier-applications/index'
 import { Route as AuthenticatedSystemInfoIndexRouteImport } from './routes/_authenticated/system-info/index'
 import { Route as AuthenticatedSystemSettingsIndexRouteImport } from './routes/_authenticated/system-settings/index'
 import { Route as AuthenticatedTaskPluginsIndexRouteImport } from './routes/_authenticated/task-plugins/index'
@@ -359,6 +361,18 @@ const AuthenticatedSubscriptionsIndexRoute =
     path: '/subscriptions/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSupplierApplicationManagementIndexRoute =
+  AuthenticatedSupplierApplicationManagementIndexRouteImport.update({
+    id: '/supplier-application-management/',
+    path: '/supplier-application-management/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSupplierApplicationsIndexRoute =
+  AuthenticatedSupplierApplicationsIndexRouteImport.update({
+    id: '/supplier-applications/',
+    path: '/supplier-applications/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemInfoIndexRoute =
   AuthenticatedSystemInfoIndexRouteImport.update({
     id: '/system-info/',
@@ -570,6 +584,8 @@ export interface FileRoutesByFullPath {
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security-audit/': typeof AuthenticatedSecurityAuditIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
+  '/supplier-application-management/': typeof AuthenticatedSupplierApplicationManagementIndexRoute
+  '/supplier-applications/': typeof AuthenticatedSupplierApplicationsIndexRoute
   '/system-info/': typeof AuthenticatedSystemInfoIndexRoute
   '/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
   '/task-plugins/': typeof AuthenticatedTaskPluginsIndexRoute
@@ -646,6 +662,8 @@ export interface FileRoutesByTo {
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security-audit': typeof AuthenticatedSecurityAuditIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
+  '/supplier-application-management': typeof AuthenticatedSupplierApplicationManagementIndexRoute
+  '/supplier-applications': typeof AuthenticatedSupplierApplicationsIndexRoute
   '/system-info': typeof AuthenticatedSystemInfoIndexRoute
   '/system-settings': typeof AuthenticatedSystemSettingsIndexRoute
   '/task-plugins': typeof AuthenticatedTaskPluginsIndexRoute
@@ -726,6 +744,8 @@ export interface FileRoutesById {
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/security-audit/': typeof AuthenticatedSecurityAuditIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
+  '/_authenticated/supplier-application-management/': typeof AuthenticatedSupplierApplicationManagementIndexRoute
+  '/_authenticated/supplier-applications/': typeof AuthenticatedSupplierApplicationsIndexRoute
   '/_authenticated/system-info/': typeof AuthenticatedSystemInfoIndexRoute
   '/_authenticated/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
   '/_authenticated/task-plugins/': typeof AuthenticatedTaskPluginsIndexRoute
@@ -805,6 +825,8 @@ export interface FileRouteTypes {
     | '/redemption-codes/'
     | '/security-audit/'
     | '/subscriptions/'
+    | '/supplier-application-management/'
+    | '/supplier-applications/'
     | '/system-info/'
     | '/system-settings/'
     | '/task-plugins/'
@@ -881,6 +903,8 @@ export interface FileRouteTypes {
     | '/redemption-codes'
     | '/security-audit'
     | '/subscriptions'
+    | '/supplier-application-management'
+    | '/supplier-applications'
     | '/system-info'
     | '/system-settings'
     | '/task-plugins'
@@ -960,6 +984,8 @@ export interface FileRouteTypes {
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/security-audit/'
     | '/_authenticated/subscriptions/'
+    | '/_authenticated/supplier-application-management/'
+    | '/_authenticated/supplier-applications/'
     | '/_authenticated/system-info/'
     | '/_authenticated/system-settings/'
     | '/_authenticated/task-plugins/'
@@ -1359,6 +1385,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSubscriptionsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/supplier-application-management/': {
+      id: '/_authenticated/supplier-application-management/'
+      path: '/supplier-application-management'
+      fullPath: '/supplier-application-management/'
+      preLoaderRoute: typeof AuthenticatedSupplierApplicationManagementIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/supplier-applications/': {
+      id: '/_authenticated/supplier-applications/'
+      path: '/supplier-applications'
+      fullPath: '/supplier-applications/'
+      preLoaderRoute: typeof AuthenticatedSupplierApplicationsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system-info/': {
       id: '/_authenticated/system-info/'
       path: '/system-info'
@@ -1666,6 +1706,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSecurityAuditIndexRoute: typeof AuthenticatedSecurityAuditIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
+  AuthenticatedSupplierApplicationManagementIndexRoute: typeof AuthenticatedSupplierApplicationManagementIndexRoute
+  AuthenticatedSupplierApplicationsIndexRoute: typeof AuthenticatedSupplierApplicationsIndexRoute
   AuthenticatedSystemInfoIndexRoute: typeof AuthenticatedSystemInfoIndexRoute
   AuthenticatedTaskPluginsIndexRoute: typeof AuthenticatedTaskPluginsIndexRoute
   AuthenticatedTicketManagementIndexRoute: typeof AuthenticatedTicketManagementIndexRoute
@@ -1711,6 +1753,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSecurityAuditIndexRoute: AuthenticatedSecurityAuditIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,
+  AuthenticatedSupplierApplicationManagementIndexRoute:
+    AuthenticatedSupplierApplicationManagementIndexRoute,
+  AuthenticatedSupplierApplicationsIndexRoute:
+    AuthenticatedSupplierApplicationsIndexRoute,
   AuthenticatedSystemInfoIndexRoute: AuthenticatedSystemInfoIndexRoute,
   AuthenticatedTaskPluginsIndexRoute: AuthenticatedTaskPluginsIndexRoute,
   AuthenticatedTicketManagementIndexRoute:

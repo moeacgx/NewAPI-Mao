@@ -58,6 +58,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     topup: true,
     invoice: true,
     tickets: true,
+    supplier_application: true,
     affiliate: true,
     benefits: true,
     personal: true,
@@ -74,6 +75,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     subscription: true,
     invoice_admin: true,
     ticket_management: true,
+    supplier_application_admin: true,
     notification_center: true,
     mcp: true,
     extension_admin: true,
@@ -99,6 +101,10 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/wallet': { section: 'personal', module: 'topup' },
   '/invoices': { section: 'personal', module: 'invoice' },
   '/tickets': { section: 'personal', module: 'tickets' },
+  '/supplier-applications': {
+    section: 'personal',
+    module: 'supplier_application',
+  },
   '/affiliate': { section: 'personal', module: 'affiliate' },
   '/profile': { section: 'personal', module: 'personal' },
   '/channels': { section: 'admin', module: 'channel' },
@@ -113,6 +119,10 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/subscriptions': { section: 'admin', module: 'subscription' },
   '/invoice-management': { section: 'admin', module: 'invoice_admin' },
   '/ticket-management': { section: 'admin', module: 'ticket_management' },
+  '/supplier-application-management': {
+    section: 'admin',
+    module: 'supplier_application_admin',
+  },
   '/notification-center': {
     section: 'admin',
     module: 'notification_center',
