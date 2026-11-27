@@ -18,7 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, Input, Select, Tag, TextArea, Typography } from '@douyinfe/semi-ui';
+import {
+  Button,
+  Empty,
+  Input,
+  Select,
+  Tag,
+  TextArea,
+  Typography,
+} from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
 
@@ -65,14 +73,26 @@ function buildMessageInput(type, fields) {
   if (type === 'negotiation') {
     const groupName = fields.groupName.trim();
     const ratio = decimal(fields.ratio, 0.0001, 1000);
-    if (groupName === '' || textLength(groupName) > 64 || ratio === null || body === '' || textLength(body) > 1000) {
+    if (
+      groupName === '' ||
+      textLength(groupName) > 64 ||
+      ratio === null ||
+      body === '' ||
+      textLength(body) > 1000
+    ) {
       return null;
     }
     return { type, body, group_name: groupName, ratio };
   }
   const quantity = decimal(fields.quantity, 0.0001, 1000000000);
   const unit = fields.unit.trim();
-  if (quantity === null || unit === '' || textLength(unit) > 32 || body === '' || textLength(body) > 1000) {
+  if (
+    quantity === null ||
+    unit === '' ||
+    textLength(unit) > 32 ||
+    body === '' ||
+    textLength(body) > 1000
+  ) {
     return null;
   }
   return {
@@ -85,11 +105,38 @@ function buildMessageInput(type, fields) {
 }
 
 function publicError(message) {
-  if (typeof message === 'string' && message.startsWith('invalid supplier application input')) {
+  if (
+    typeof message === 'string' &&
+    message.startsWith('invalid supplier application input')
+  ) {
     return 'Some fields are invalid. Check the form and try again.';
   }
   return KNOWN_ERRORS.has(message) ? message : 'Could not send the message.';
 }
+
+export const supplierSheetBodyStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflow: 'hidden',
+};
+
+export const supplierDetailColumnStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflow: 'hidden',
+  gap: 16,
+};
+
+export const supplierDetailFactsStyle = {
+  flex: '0 1 auto',
+  minHeight: 0,
+  maxHeight: '45%',
+  overflowY: 'auto',
+};
 
 export function useSupplierSheetWidth(desktopWidth) {
   const query = '(max-width: 767px)';
@@ -106,7 +153,14 @@ export function useSupplierSheetWidth(desktopWidth) {
   return width;
 }
 
-const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onSent }) => {
+const SupplierConversation = ({
+  applicationId,
+  messages = [],
+  canSend,
+  mode,
+  onSent,
+  dock = 'cap',
+}) => {
   const { t } = useTranslation();
   const [type, setType] = useState('message');
   const [body, setBody] = useState('');
@@ -120,7 +174,8 @@ const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onS
   const [notice, setNotice] = useState('');
   const ordered = useMemo(() => {
     const merged = new Map();
-    for (const message of [...messages, ...sent]) merged.set(message.id, message);
+    for (const message of [...messages, ...sent])
+      merged.set(message.id, message);
     return [...merged.values()].sort(
       (left, right) => left.created_at - right.created_at || left.id - right.id,
     );
@@ -141,7 +196,14 @@ const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onS
 
   const submit = async () => {
     if (!canSend || pending) return;
-    const input = buildMessageInput(type, { body, groupName, ratio, quantity, unit, quotaStatus });
+    const input = buildMessageInput(type, {
+      body,
+      groupName,
+      ratio,
+      quantity,
+      unit,
+      quotaStatus,
+    });
     if (!input) {
       setNotice('');
       showError(t('Some fields are invalid. Check the form and try again.'));
@@ -176,56 +238,121 @@ const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onS
   };
 
   return (
-    <div style={{ minWidth: 0, maxWidth: '100%', overflowX: 'hidden' }}>
-      <Text strong>{t('Conversation')}</Text>
-      {ordered.length === 0 ? (
-        <Empty description={t('No messages yet')} style={{ padding: '24px 0' }} />
-      ) : (
-        <div className='mt-3' style={{ display: 'grid', gap: 12, minWidth: 0 }}>
-          {ordered.map((message) => (
-            <div
-              key={message.id}
-              style={{
-                minWidth: 0,
-                border: '1px solid var(--semi-color-border)',
-                borderRadius: 8,
-                padding: 12,
-                overflowWrap: 'anywhere',
-              }}
-            >
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                <Text strong style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                  {message.author_name || roleLabel[message.author_role]}
-                </Text>
-                <Tag>{roleLabel[message.author_role]}</Tag>
-                <Tag color='blue'>{typeLabel[message.type] || message.type}</Tag>
-                <Text type='tertiary' size='small'>
-                  {timestamp2string(message.created_at)}
-                </Text>
+    <div
+      data-supplier-conversation
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: dock === 'fill' ? '1 1 auto' : undefined,
+        minWidth: 0,
+        width: '100%',
+        maxWidth: '100%',
+        maxHeight: dock === 'fill' ? undefined : '32rem',
+        height: dock === 'fill' ? '100%' : undefined,
+        overflow: 'hidden',
+        gap: 12,
+      }}
+    >
+      <Text strong style={{ flexShrink: 0 }}>
+        {t('Conversation')}
+      </Text>
+      <div
+        data-supplier-message-scroll
+        style={{
+          flex: '1 1 auto',
+          minHeight: '8rem',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          paddingBottom: '12px',
+        }}
+      >
+        {ordered.length === 0 ? (
+          <Empty
+            description={t('No messages yet')}
+            style={{ padding: '24px 0' }}
+          />
+        ) : (
+          <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+            {ordered.map((message) => (
+              <div
+                key={message.id}
+                style={{
+                  minWidth: 0,
+                  border: '1px solid var(--semi-color-border)',
+                  borderRadius: 8,
+                  padding: 12,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text
+                    strong
+                    style={{ minWidth: 0, overflowWrap: 'anywhere' }}
+                  >
+                    {message.author_name || roleLabel[message.author_role]}
+                  </Text>
+                  <Tag>{roleLabel[message.author_role]}</Tag>
+                  <Tag color='blue'>
+                    {typeLabel[message.type] || message.type}
+                  </Tag>
+                  <Text type='tertiary' size='small'>
+                    {timestamp2string(message.created_at)}
+                  </Text>
+                </div>
+                {message.type === 'negotiation' && (
+                  <Paragraph style={{ overflowWrap: 'anywhere' }}>
+                    {t('Group name')}: {message.group_name} ·{' '}
+                    {t('Suggested ratio')} ×{message.ratio}
+                  </Paragraph>
+                )}
+                {message.type === 'test_quota' && (
+                  <Paragraph style={{ overflowWrap: 'anywhere' }}>
+                    {t('Test quota')}: {message.quantity} {message.unit}
+                    {message.quota_status
+                      ? ` · ${quotaLabel[message.quota_status] || message.quota_status}`
+                      : ''}
+                  </Paragraph>
+                )}
+                <Paragraph
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    marginBottom: 0,
+                  }}
+                >
+                  {message.body}
+                </Paragraph>
               </div>
-              {message.type === 'negotiation' && (
-                <Paragraph style={{ overflowWrap: 'anywhere' }}>
-                  {t('Group name')}: {message.group_name} · {t('Suggested ratio')} ×{message.ratio}
-                </Paragraph>
-              )}
-              {message.type === 'test_quota' && (
-                <Paragraph style={{ overflowWrap: 'anywhere' }}>
-                  {t('Test quota')}: {message.quantity} {message.unit}
-                  {message.quota_status ? ` · ${quotaLabel[message.quota_status] || message.quota_status}` : ''}
-                </Paragraph>
-              )}
-              <Paragraph style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginBottom: 0 }}>
-                {message.body}
-              </Paragraph>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
       {canSend && (
-        <div className='mt-4' style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+        <div
+          data-supplier-composer
+          style={{
+            display: 'grid',
+            gap: 12,
+            minWidth: 0,
+            flexShrink: 0,
+            borderTop: '1px solid var(--semi-color-border)',
+            paddingTop: 12,
+          }}
+        >
           <div>
             <Text type='tertiary'>{t('Message type')}</Text>
-            <Select value={type} onChange={(value) => setType(String(value))} style={{ width: '100%', marginTop: 4 }}>
+            <Select
+              value={type}
+              onChange={(value) => setType(String(value))}
+              style={{ width: '100%', marginTop: 4 }}
+            >
               {MESSAGE_TYPES.map(([value, label]) => (
                 <Select.Option key={value} value={value}>
                   {t(label)}
@@ -260,7 +387,13 @@ const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onS
                 aria-label={t('Quantity')}
                 onChange={setQuantity}
               />
-              <Input value={unit} maxLength={32} placeholder={t('Unit')} aria-label={t('Unit')} onChange={setUnit} />
+              <Input
+                value={unit}
+                maxLength={32}
+                placeholder={t('Unit')}
+                aria-label={t('Unit')}
+                onChange={setUnit}
+              />
               <Select
                 value={quotaStatus}
                 aria-label={t('Issuance status')}
@@ -280,11 +413,22 @@ const SupplierConversation = ({ applicationId, messages = [], canSend, mode, onS
             aria-label={bodyLabel}
             onChange={setBody}
           />
-          <Text type='tertiary' size='small' style={{ overflowWrap: 'anywhere' }}>
-            {t('Messages cannot be edited after sending.')} {t('Do not include API keys or access credentials.')}
+          <Text
+            type='tertiary'
+            size='small'
+            style={{ overflowWrap: 'anywhere' }}
+          >
+            {t('Messages cannot be edited after sending.')}{' '}
+            {t('Do not include API keys or access credentials.')}
           </Text>
           {notice && <Text role='status'>{t(notice)}</Text>}
-          <Button theme='solid' type='primary' loading={pending} onClick={submit} style={{ maxWidth: '100%' }}>
+          <Button
+            theme='solid'
+            type='primary'
+            loading={pending}
+            onClick={submit}
+            style={{ maxWidth: '100%' }}
+          >
             {pending ? t('Sending...') : t('Send message')}
           </Button>
         </div>

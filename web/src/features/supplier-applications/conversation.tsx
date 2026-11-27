@@ -122,6 +122,8 @@ export function SupplierConversation(props: {
   messages?: SupplierMessage[]
   canSend: boolean
   mode: 'personal' | 'admin'
+  /** fill: occupy the detail column so the composer sits on the sheet bottom. */
+  dock?: 'fill' | 'cap'
   onSent?: (message: SupplierMessage) => void
 }) {
   const { t } = useTranslation()
@@ -137,6 +139,7 @@ export function SupplierConversation(props: {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const dock = props.dock ?? 'cap'
   const baseId = `supplier-message-${props.mode}-${props.applicationId}`
   const merged = new Map<number, SupplierMessage>()
   for (const message of [...(props.messages ?? []), ...sent]) {
@@ -194,8 +197,22 @@ export function SupplierConversation(props: {
   }
 
   return (
-    <section className='bg-muted/20 min-w-0 space-y-3 overflow-x-hidden rounded-lg border p-4'>
-      <div className='min-w-0 space-y-1'>
+    <section
+      data-supplier-conversation
+      className='bg-muted/20 min-w-0 rounded-lg border p-4'
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: dock === 'fill' ? '1 1 auto' : undefined,
+        minWidth: 0,
+        width: '100%',
+        maxHeight: dock === 'fill' ? undefined : '32rem',
+        height: dock === 'fill' ? '100%' : undefined,
+        overflow: 'hidden',
+        gap: 12,
+      }}
+    >
+      <div className='min-w-0 space-y-1' style={{ flexShrink: 0 }}>
         <h3 className='text-sm font-semibold'>{t('Conversation')}</h3>
         <p className='text-muted-foreground text-xs [overflow-wrap:anywhere]'>
           {t(
@@ -203,45 +220,62 @@ export function SupplierConversation(props: {
           )}
         </p>
       </div>
-      {messages.length === 0 ? (
-        <p role='status' className='text-muted-foreground text-sm'>
-          {t('No messages yet')}
-        </p>
-      ) : (
-        <ol className='min-w-0 space-y-3' aria-live='polite'>
-          {messages.map((message) => (
-            <li
-              key={message.id}
-              className='bg-card min-w-0 space-y-2 rounded-md border p-3'
-            >
-              <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                <span className='text-sm font-medium [overflow-wrap:anywhere]'>
-                  {message.author_name ||
-                    labels.authorRole[message.author_role]}
-                </span>
-                <Badge
-                  variant='outline'
-                  className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
-                >
-                  {labels.authorRole[message.author_role]}
-                </Badge>
-                <Badge
-                  variant='secondary'
-                  className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
-                >
-                  {labels.messageType[message.type]}
-                </Badge>
-                <span className='text-muted-foreground text-xs'>
-                  {formatTimestampToDate(message.created_at)}
-                </span>
-              </div>
-              <MessageBody message={message} />
-            </li>
-          ))}
-        </ol>
-      )}
+      <div
+        data-supplier-message-scroll
+        style={{
+          flex: '1 1 auto',
+          minHeight: '8rem',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          paddingBottom: '12px',
+        }}
+      >
+        {messages.length === 0 ? (
+          <p role='status' className='text-muted-foreground text-sm'>
+            {t('No messages yet')}
+          </p>
+        ) : (
+          <ol className='min-w-0 space-y-3' aria-live='polite'>
+            {messages.map((message) => (
+              <li
+                key={message.id}
+                className='bg-card min-w-0 space-y-2 rounded-md border p-3'
+              >
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                  <span className='text-sm font-medium [overflow-wrap:anywhere]'>
+                    {message.author_name ||
+                      labels.authorRole[message.author_role]}
+                  </span>
+                  <Badge
+                    variant='outline'
+                    className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
+                  >
+                    {labels.authorRole[message.author_role]}
+                  </Badge>
+                  <Badge
+                    variant='secondary'
+                    className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
+                  >
+                    {labels.messageType[message.type]}
+                  </Badge>
+                  <span className='text-muted-foreground text-xs'>
+                    {formatTimestampToDate(message.created_at)}
+                  </span>
+                </div>
+                <MessageBody message={message} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
       {props.canSend && (
-        <form className='min-w-0 space-y-3' noValidate onSubmit={submit}>
+        <form
+          data-supplier-composer
+          className='min-w-0 space-y-3 border-t pt-3'
+          style={{ flexShrink: 0 }}
+          noValidate
+          onSubmit={submit}
+        >
           <div className='space-y-1'>
             <Label htmlFor={`${baseId}-type`}>{t('Message type')}</Label>
             <NativeSelect

@@ -32,7 +32,12 @@ import {
 import { IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
-import SupplierConversation, { useSupplierSheetWidth } from './SupplierConversation';
+import SupplierConversation, {
+  supplierDetailColumnStyle,
+  supplierDetailFactsStyle,
+  supplierSheetBodyStyle,
+  useSupplierSheetWidth,
+} from './SupplierConversation';
 import SupplierMessageCount from './SupplierMessageCount';
 
 const { Text, Paragraph } = Typography;
@@ -73,7 +78,11 @@ const MySupplierSubmissions = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [applications, setApplications] = useState([]);
-  const [pagination, setPagination] = useState({ currentPage: 1, pageSize: 10, total: 0 });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    total: 0,
+  });
   const [selectedApp, setSelectedApp] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const sheetWidth = useSupplierSheetWidth(600);
@@ -136,7 +145,9 @@ const MySupplierSubmissions = () => {
       dataIndex: 'status',
       width: 120,
       render: (status) => (
-        <Tag color={statusColors[status] || 'grey'}>{t(statusLabels[status] || status)}</Tag>
+        <Tag color={statusColors[status] || 'grey'}>
+          {t(statusLabels[status] || status)}
+        </Tag>
       ),
     },
     {
@@ -185,122 +196,154 @@ const MySupplierSubmissions = () => {
 
       <SideSheet
         title={
-          selectedApp ? `#${selectedApp.id} ${selectedApp.site_name}` : t('View details')
+          selectedApp
+            ? `#${selectedApp.id} ${selectedApp.site_name}`
+            : t('View details')
         }
         visible={detailVisible}
         onCancel={() => setDetailVisible(false)}
         width={sheetWidth}
-        bodyStyle={{ overflowX: 'hidden' }}
+        bodyStyle={supplierSheetBodyStyle}
       >
         {selectedApp && (
-          <div className='space-y-4'>
-            <Card>
-              <div className='mb-3'>
-                <Text strong>{t('Status')}: </Text>
-                <Tag color={statusColors[selectedApp.status] || 'grey'}>
-                  {t(statusLabels[selectedApp.status] || selectedApp.status)}
-                </Tag>
-              </div>
-              <div className='mb-3'>
-                <Text strong>{t('Submitted at')}: </Text>
-                <Text>{timestamp2string(selectedApp.created_at)}</Text>
-              </div>
-            </Card>
-
-            <Card title={t('Site information')}>
-              <div className='mb-3'>
-                <Text type='tertiary'>{t('Site name')}</Text>
-                <Paragraph>{selectedApp.site_name}</Paragraph>
-              </div>
-              {selectedApp.site_url && (
+          <div data-supplier-detail style={supplierDetailColumnStyle}>
+            <div
+              data-supplier-detail-facts
+              className='space-y-4'
+              style={supplierDetailFactsStyle}
+            >
+              <Card>
                 <div className='mb-3'>
-                  <Text type='tertiary'>{t('Site URL')}</Text>
-                  <Paragraph copyable>{selectedApp.site_url}</Paragraph>
+                  <Text strong>{t('Status')}: </Text>
+                  <Tag color={statusColors[selectedApp.status] || 'grey'}>
+                    {t(statusLabels[selectedApp.status] || selectedApp.status)}
+                  </Tag>
                 </div>
-              )}
-              <div className='mb-3'>
-                <Text type='tertiary'>{t('Contact type')}</Text>
-                <Paragraph>{t(contactTypeLabels[selectedApp.contact_type] || selectedApp.contact_type)}</Paragraph>
-              </div>
-              <div className='mb-3'>
-                <Text type='tertiary'>{t('Contact')}</Text>
-                <Paragraph copyable>{selectedApp.contact}</Paragraph>
-              </div>
-              {selectedApp.remark && (
                 <div className='mb-3'>
-                  <Text type='tertiary'>{t('Remarks')}</Text>
-                  <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{selectedApp.remark}</Paragraph>
+                  <Text strong>{t('Submitted at')}: </Text>
+                  <Text>{timestamp2string(selectedApp.created_at)}</Text>
                 </div>
-              )}
-            </Card>
+              </Card>
 
-            <Card title={t('Group quotes')}>
-              {selectedApp.groups && selectedApp.groups.length > 0 ? (
-                <Space vertical spacing='medium' style={{ width: '100%' }}>
-                  {selectedApp.groups.map((group, index) => (
-                    <Card key={group.id || index} bodyStyle={{ padding: 12 }}>
-                      <div className='mb-2'>
-                        <Text strong>{group.group_name}</Text>
-                      </div>
-                      <div className='mb-2'>
-                        <Tag color='blue'>{t(platformLabels[group.platform] || group.platform)}</Tag>
-                        <Tag color='cyan'>×{group.ratio}</Tag>
-                      </div>
-                      {group.models && group.models.length > 0 && (
+              <Card title={t('Site information')}>
+                <div className='mb-3'>
+                  <Text type='tertiary'>{t('Site name')}</Text>
+                  <Paragraph>{selectedApp.site_name}</Paragraph>
+                </div>
+                {selectedApp.site_url && (
+                  <div className='mb-3'>
+                    <Text type='tertiary'>{t('Site URL')}</Text>
+                    <Paragraph copyable>{selectedApp.site_url}</Paragraph>
+                  </div>
+                )}
+                <div className='mb-3'>
+                  <Text type='tertiary'>{t('Contact type')}</Text>
+                  <Paragraph>
+                    {t(
+                      contactTypeLabels[selectedApp.contact_type] ||
+                        selectedApp.contact_type,
+                    )}
+                  </Paragraph>
+                </div>
+                <div className='mb-3'>
+                  <Text type='tertiary'>{t('Contact')}</Text>
+                  <Paragraph copyable>{selectedApp.contact}</Paragraph>
+                </div>
+                {selectedApp.remark && (
+                  <div className='mb-3'>
+                    <Text type='tertiary'>{t('Remarks')}</Text>
+                    <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+                      {selectedApp.remark}
+                    </Paragraph>
+                  </div>
+                )}
+              </Card>
+
+              <Card title={t('Group quotes')}>
+                {selectedApp.groups && selectedApp.groups.length > 0 ? (
+                  <Space vertical spacing='medium' style={{ width: '100%' }}>
+                    {selectedApp.groups.map((group, index) => (
+                      <Card key={group.id || index} bodyStyle={{ padding: 12 }}>
                         <div className='mb-2'>
-                          <Text type='tertiary' size='small'>
-                            {t('Main models')}:
-                          </Text>
-                          <div className='mt-1 flex flex-wrap gap-1'>
-                            {group.models.map((model, idx) => (
-                              <Tag key={idx} size='small' style={{ maxWidth: '100%', wordBreak: 'break-word' }}>
-                                {model}
-                              </Tag>
-                            ))}
+                          <Text strong>{group.group_name}</Text>
+                        </div>
+                        <div className='mb-2'>
+                          <Tag color='blue'>
+                            {t(
+                              platformLabels[group.platform] || group.platform,
+                            )}
+                          </Tag>
+                          <Tag color='cyan'>×{group.ratio}</Tag>
+                        </div>
+                        {group.models && group.models.length > 0 && (
+                          <div className='mb-2'>
+                            <Text type='tertiary' size='small'>
+                              {t('Main models')}:
+                            </Text>
+                            <div className='mt-1 flex flex-wrap gap-1'>
+                              {group.models.map((model, idx) => (
+                                <Tag
+                                  key={idx}
+                                  size='small'
+                                  style={{
+                                    maxWidth: '100%',
+                                    wordBreak: 'break-word',
+                                  }}
+                                >
+                                  {model}
+                                </Tag>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {group.description && (
-                        <div>
-                          <Text type='tertiary' size='small'>
-                            {t('Notes')}:
-                          </Text>
-                          <Paragraph size='small' style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
-                            {group.description}
-                          </Paragraph>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </Space>
-              ) : (
-                <Empty description={t('No group quotes')} />
-              )}
-            </Card>
+                        )}
+                        {group.description && (
+                          <div>
+                            <Text type='tertiary' size='small'>
+                              {t('Notes')}:
+                            </Text>
+                            <Paragraph
+                              size='small'
+                              style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}
+                            >
+                              {group.description}
+                            </Paragraph>
+                          </div>
+                        )}
+                      </Card>
+                    ))}
+                  </Space>
+                ) : (
+                  <Empty description={t('No group quotes')} />
+                )}
+              </Card>
+            </div>
 
-            <Card>
-              <SupplierConversation
-                applicationId={selectedApp.id}
-                messages={selectedApp.messages}
-                canSend
-                mode='personal'
-                onSent={(message) => {
-                  const append = (application) => {
-                    if (!application || application.id !== selectedApp.id) return application;
-                    const next = [...(application.messages || [])];
-                    if (next.some((item) => item.id === message.id)) return application;
-                    next.push(message);
-                    return {
-                      ...application,
-                      messages: next,
-                      message_count: (application.message_count || 0) + 1,
-                    };
+            <SupplierConversation
+              applicationId={selectedApp.id}
+              messages={selectedApp.messages}
+              canSend
+              mode='personal'
+              dock='fill'
+              onSent={(message) => {
+                const append = (application) => {
+                  if (!application || application.id !== selectedApp.id)
+                    return application;
+                  const next = [...(application.messages || [])];
+                  if (next.some((item) => item.id === message.id))
+                    return application;
+                  next.push(message);
+                  return {
+                    ...application,
+                    messages: next,
+                    message_count: (application.message_count || 0) + 1,
                   };
-                  setSelectedApp((current) => append(current));
-                  setApplications((current) => current.map((item) => append(item)));
-                }}
-              />
-            </Card>
+                };
+                setSelectedApp((current) => append(current));
+                setApplications((current) =>
+                  current.map((item) => append(item)),
+                );
+              }}
+            />
           </div>
         )}
       </SideSheet>
