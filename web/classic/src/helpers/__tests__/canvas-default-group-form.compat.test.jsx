@@ -31,7 +31,9 @@ const formElement = (groups, saved) => (
   />
 );
 
-const comboboxText = () => screen.getByRole('combobox').textContent;
+const defaultCombobox = () => screen.getAllByRole('combobox')[0];
+
+const comboboxText = () => defaultCombobox().textContent;
 
 test('真实画布表单：已存停用分组显示当前名称而不是 code', async () => {
   const view = render(
@@ -73,7 +75,7 @@ test('真实画布表单：停用项不可新选，切换有效分组后不能�
   );
   try {
     await waitFor(() => expect(comboboxText()).toContain('停用当前名'));
-    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(defaultCombobox());
     const disabledOption = await screen.findByRole('option', {
       name: /停用当前名/,
     });

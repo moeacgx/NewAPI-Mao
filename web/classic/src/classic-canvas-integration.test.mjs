@@ -95,6 +95,11 @@ test('classic canvas launcher prefers the permitted configured default group', (
     source,
     /groupOptions\.find\([\s\S]*?group\.value === canvas_default_group/,
   );
+  assert.match(source, /canvas_text_default_group/);
+  assert.match(source, /canvas_image_default_group/);
+  assert.match(source, /canvas_audio_default_group/);
+  assert.match(source, /canvas_video_default_group/);
+  assert.match(source, /modalityPresetsApplied/);
 });
 
 test('classic canvas launcher puts auto group first in the group selector', () => {
@@ -107,6 +112,11 @@ test('classic model settings expose the canvas default group selector', () => {
   const source = readSource('pages/Setting/Model/SettingGlobalModel.jsx');
 
   assert.match(source, /global\.canvas_default_group/);
+  assert.match(source, /global\.canvas_text_default_group/);
+  assert.match(source, /global\.canvas_image_default_group/);
+  assert.match(source, /global\.canvas_audio_default_group/);
+  assert.match(source, /global\.canvas_video_default_group/);
+  assert.match(source, /t\('不预设'\)/);
   assert.match(
     source,
     /用户首次打开无限画布时会自动选中此分组，仍可手动切换。/,

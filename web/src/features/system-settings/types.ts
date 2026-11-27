@@ -322,6 +322,10 @@ export type ModelSettings = {
   "global.thinking_model_blacklist": string;
   "global.chat_completions_to_responses_policy": string;
   "global.canvas_default_group": string;
+  "global.canvas_text_default_group": string;
+  "global.canvas_image_default_group": string;
+  "global.canvas_audio_default_group": string;
+  "global.canvas_video_default_group": string;
   "general_setting.ping_interval_enabled": boolean;
   "general_setting.ping_interval_seconds": number;
   "gemini.safety_settings": string;

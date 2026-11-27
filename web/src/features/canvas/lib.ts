@@ -23,6 +23,10 @@ type CanvasLaunchUrlOptions = {
   canvasOrigin: string
   newApiOrigin: string
   group: string
+  textGroup?: string
+  imageGroup?: string
+  audioGroup?: string
+  videoGroup?: string
 }
 
 export function prioritizeCanvasAutoGroup(
@@ -43,6 +47,16 @@ export function buildCanvasLaunchUrl(options: CanvasLaunchUrlOptions): string {
   canvasUrl.searchParams.set('mode', 'newapi')
   canvasUrl.searchParams.set('baseUrl', `${newApiOrigin}/canvas`)
   canvasUrl.searchParams.set('group', options.group)
+  const modalityGroups = [
+    ['textGroup', options.textGroup],
+    ['imageGroup', options.imageGroup],
+    ['audioGroup', options.audioGroup],
+    ['videoGroup', options.videoGroup],
+  ] as const
+  for (const [key, value] of modalityGroups) {
+    const trimmed = value?.trim()
+    if (trimmed) canvasUrl.searchParams.set(key, trimmed)
+  }
 
   return canvasUrl.toString()
 }
@@ -61,4 +75,16 @@ export function resolveCanvasDefaultGroup(
     groups[0]?.value ??
     ''
   )
+}
+
+// 四类分组留空表示跟随当前默认分组，不回退到列表第一项。
+export function resolveCanvasCapabilityGroup(
+  groups: GroupOption[],
+  configuredGroup: string
+): string {
+  const configured = configuredGroup.trim()
+  if (configured && groups.some((group) => group.value === configured)) {
+    return configured
+  }
+  return ''
 }

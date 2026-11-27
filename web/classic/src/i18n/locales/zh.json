@@ -4158,6 +4158,12 @@
     "Admin": "管理员",
     "Sending...": "发送中...",
     "Some fields are invalid. Check the form and try again.": "部分字段无效，请检查表单后重试。",
-    "Update supplier application status and internal notes, and record conversation messages.": "更新供货商申请的处理状态和内部备注，并记录对话消息。"
+    "Update supplier application status and internal notes, and record conversation messages.": "更新供货商申请的处理状态和内部备注，并记录对话消息。",
+    "文本分组": "文本分组",
+    "生图分组": "生图分组",
+    "音频分组": "音频分组",
+    "视频分组": "视频分组",
+    "不预设": "不预设",
+    "留空表示不预设。用户有权使用该分组时，打开无限画布会选中它，仍可手动更改。": "留空表示不预设。用户有权使用该分组时，打开无限画布会选中它，仍可手动更改。"
   }
 }

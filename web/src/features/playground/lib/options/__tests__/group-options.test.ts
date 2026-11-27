@@ -18,7 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
-import { createPlaygroundGroupOptions } from '../group-options'
+import {
+  createPlaygroundGroupOptions,
+  readCanvasUserGroups,
+} from '../group-options'
 
 describe('playground group names', () => {
   test('shows the current name while retaining the group code as value', () => {
@@ -46,5 +49,55 @@ describe('playground group names', () => {
         default: { name: 'default', desc: 'default', ratio: 1 },
       })
     ).toEqual([{ label: 'default', value: 'default', ratio: 1 }])
+  })
+
+  test('keeps usable groups when one entry is empty and the name differs from the code', () => {
+    expect(
+      createPlaygroundGroupOptions({
+        'stable-code': {
+          name: '当前名称',
+          desc: '当前名称',
+          ratio: 1,
+        },
+        'blank-code': null as unknown as {
+          name?: string
+          desc?: string
+          ratio: number
+        },
+      })
+    ).toEqual([
+      { label: '当前名称', value: 'stable-code', ratio: 1 },
+      { label: 'blank-code', value: 'blank-code', ratio: undefined },
+    ])
+  })
+
+  test('reads canvas presets from the user group payload without inventing groups', () => {
+    expect(
+      readCanvasUserGroups({
+        success: true,
+        data: {
+          'stable-code': { name: '当前名称', desc: '说明', ratio: 1 },
+          auto: { name: '自动选择', desc: '自动', ratio: 1 },
+        },
+        canvas_default_group: ' stable-code ',
+        canvas_text_default_group: 'auto',
+        canvas_image_default_group: 'missing',
+        canvas_audio_default_group: '   ',
+        canvas_video_default_group: 12,
+      })
+    ).toMatchObject({
+      defaultGroup: 'stable-code',
+      textGroup: 'auto',
+      imageGroup: 'missing',
+      audioGroup: '',
+      videoGroup: '',
+      groups: [
+        { label: '当前名称', value: 'stable-code' },
+        { label: '自动选择', value: 'auto' },
+      ],
+    })
+    expect(readCanvasUserGroups({ success: false, data: {} }).groups).toEqual(
+      []
+    )
   })
 })
