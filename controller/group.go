@@ -325,9 +325,26 @@ func GetUserGroups(c *gin.Context) {
 			"desc":  desc,
 		}
 	}
+	settings := model_setting.GetGlobalSettings()
 	canvasDefaultGroup := canvasDefaultGroupForUsableGroups(
 		usableGroups,
-		model_setting.GetGlobalSettings().CanvasDefaultGroup,
+		settings.CanvasDefaultGroup,
+	)
+	canvasTextDefaultGroup := canvasDefaultGroupForUsableGroups(
+		usableGroups,
+		settings.CanvasTextDefaultGroup,
+	)
+	canvasImageDefaultGroup := canvasDefaultGroupForUsableGroups(
+		usableGroups,
+		settings.CanvasImageDefaultGroup,
+	)
+	canvasAudioDefaultGroup := canvasDefaultGroupForUsableGroups(
+		usableGroups,
+		settings.CanvasAudioDefaultGroup,
+	)
+	canvasVideoDefaultGroup := canvasDefaultGroupForUsableGroups(
+		usableGroups,
+		settings.CanvasVideoDefaultGroup,
 	)
 	groupIDs := make([]int, 0, len(usableGroups))
 	for _, group := range usableGroups {
@@ -348,6 +365,11 @@ func GetUserGroups(c *gin.Context) {
 		"group_tags": groupTags,
 		// 仅下发当前用户确实可用的预设分组；前端仍允许用户手动切换。
 		"canvas_default_group": canvasDefaultGroup,
+		// 空字符串表示不预设。画布页清空对应项时跟随默认分组。
+		"canvas_text_default_group":  canvasTextDefaultGroup,
+		"canvas_image_default_group": canvasImageDefaultGroup,
+		"canvas_audio_default_group": canvasAudioDefaultGroup,
+		"canvas_video_default_group": canvasVideoDefaultGroup,
 	}
 	if names, err := model.GetLogGroupNamesForIDs(groupIDs); err != nil {
 		common.SysError("读取用户分组展示名称失败: " + err.Error())

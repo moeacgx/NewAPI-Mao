@@ -1,5 +1,6 @@
 # NewAPI-Mao 开发文档
 
+- [无限画布四类分组（#434）](../workflows/2026-11/28_issue434_canvas_modality_groups.md)：新版与经典版可分别预设文本、生图、音频、视频分组；留空跟随默认分组，打开链接使用相同查询参数。不改余额、渠道、计费；未做浏览器与部署验收。
 - [供货商申请与分组报价（#408）](supplier-applications.md)：登录用户提交站点资料与 1–20 个分组报价，管理员分页搜索并记录处理状态、内部备注、处理人和处理时间；申请人和有写权限的管理员可追加不可修改的对话，记录议价、优惠和人工标记的测试额度，但不改余额、渠道、分组或计费。Default 与 Classic 都有入口。权限资源 `supplier_applications`；数据库对话隔离仅 SQLite 实测。
 - [网关模型准入（#417）](model-admission.md)：模型广场和模型管理目录、路由前拒绝及日志契约。
 - [令牌周期额度保存与总额度上限修复](../workflows/2026-11/26_token_quota_period_and_total.md)：周期额度补齐后端字段与原子账本，总额度上限改用 64 位令牌额度边界；Default 与 Classic 都拆分周期额度与总额度，总额度不限仍受周期限制；真实 MySQL/PostgreSQL、Redis 多实例与浏览器未验。
@@ -387,7 +388,7 @@
 
 - [Default 渠道供应商选择与保存恢复](../workflows/2026-09/03_channel_vendor_selection_restore.md)：恢复渠道抽屉供应商选择、`vendor_id` 保存和按供应商筛选的 Default 前端回归。
 
-- [无限画布默认分组](../workflows/2026-09/03_canvas_default_group.md)：管理员预设无限画布首次打开时的默认分组，用户仍可手动切换并按权限安全回退。
+- [无限画布默认分组](../workflows/2026-09/03_canvas_default_group.md)：管理员预设无限画布首次打开时的默认分组，以及文本、生图、音频、视频分组。分类留空表示不预设，打开时跟随默认分组；用户仍可手动切换，并按权限安全回退。
 - [内置扩展同版本资源刷新修复](../workflows/2026-09/03_builtin_extension_asset_refresh.md)：内置模块同版本时也校验嵌入资源，避免持久化旧原生入口与当前宿主 SDK 不匹配。
 - [上游错误内容状态码参与自动重试](../workflows/2026-09/03_upstream_embedded_status_retry.md)：窄匹配可信的 `Upstream returned HTTP NNN` 错误内容，恢复被中继改写为 200/400 的真实上游状态码并参与重试判断。
 - [使用日志 WebSocket 徽标](../workflows/2026-09/02_usage_log_ws_badge.md)：Default 与 Classic 使用日志依据 `other.ws` 显示明确的 `WS` 徽标，并保持普通流式请求不误标。

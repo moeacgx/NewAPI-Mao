@@ -55,6 +55,14 @@ const MODELS_SECTIONS = [
               '{}'
             ),
             canvas_default_group: settings['global.canvas_default_group'],
+            canvas_text_default_group:
+              settings['global.canvas_text_default_group'],
+            canvas_image_default_group:
+              settings['global.canvas_image_default_group'],
+            canvas_audio_default_group:
+              settings['global.canvas_audio_default_group'],
+            canvas_video_default_group:
+              settings['global.canvas_video_default_group'],
           },
           general_setting: {
             ping_interval_enabled:

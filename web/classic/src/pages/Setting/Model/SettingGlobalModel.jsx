@@ -73,6 +73,10 @@ const defaultGlobalSettingInputs = {
   'global.thinking_model_blacklist': '[]',
   'global.chat_completions_to_responses_policy': '{}',
   'global.canvas_default_group': '',
+  'global.canvas_text_default_group': '',
+  'global.canvas_image_default_group': '',
+  'global.canvas_audio_default_group': '',
+  'global.canvas_video_default_group': '',
   'general_setting.ping_interval_enabled': false,
   'general_setting.ping_interval_seconds': 60,
 };
@@ -86,6 +90,12 @@ export default function SettingGlobalModel(props) {
   const [inputsRow, setInputsRow] = useState(defaultGlobalSettingInputs);
   const chatCompletionsToResponsesPolicyKey =
     'global.chat_completions_to_responses_policy';
+  const canvasModalityFields = [
+    { key: 'global.canvas_text_default_group', label: '文本分组' },
+    { key: 'global.canvas_image_default_group', label: '生图分组' },
+    { key: 'global.canvas_audio_default_group', label: '音频分组' },
+    { key: 'global.canvas_video_default_group', label: '视频分组' },
+  ];
 
   const setChatCompletionsToResponsesPolicyValue = (value) => {
     setInputs((prev) => ({
@@ -229,6 +239,47 @@ export default function SettingGlobalModel(props) {
                   )}
                 />
               </Col>
+            </Row>
+            <Row gutter={12}>
+              {canvasModalityFields.map((field) => (
+                <Col key={field.key} xs={24} sm={12} md={12} lg={6} xl={6}>
+                  <Form.Select
+                    label={t(field.label)}
+                    allowEmptyString
+                    field={field.key}
+                    optionList={[
+                      { value: '', label: t('不预设') },
+                      ...buildCanvasDefaultGroupOptions(
+                        props.groups,
+                        props.autoGroup,
+                      ).map((group) => ({
+                        ...group,
+                        label:
+                          group.value === 'auto' ? t(group.label) : group.label,
+                      })),
+                      ...[
+                        buildCanvasDefaultGroupCurrentItem(
+                          props.groups,
+                          buildCanvasDefaultGroupOptions(
+                            props.groups,
+                            props.autoGroup,
+                          ),
+                          inputs[field.key],
+                        ),
+                      ].filter(Boolean),
+                    ]}
+                    onChange={(value) =>
+                      setInputs({
+                        ...inputs,
+                        [field.key]: value,
+                      })
+                    }
+                    extraText={t(
+                      '留空表示不预设。用户有权使用该分组时，打开无限画布会选中它，仍可手动更改。',
+                    )}
+                  />
+                </Col>
+              ))}
             </Row>
             <Row>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>

@@ -37,6 +37,11 @@ type GlobalSettings struct {
 	ThinkingModelBlacklist           []string                         `json:"thinking_model_blacklist"`
 	ChatCompletionsToResponsesPolicy ChatCompletionsToResponsesPolicy `json:"chat_completions_to_responses_policy"`
 	CanvasDefaultGroup               string                           `json:"canvas_default_group"`
+	// 空字符串表示不预设。用户仍可在画布页改选，清空后跟随默认分组。
+	CanvasTextDefaultGroup  string `json:"canvas_text_default_group"`
+	CanvasImageDefaultGroup string `json:"canvas_image_default_group"`
+	CanvasAudioDefaultGroup string `json:"canvas_audio_default_group"`
+	CanvasVideoDefaultGroup string `json:"canvas_video_default_group"`
 }
 
 // 默认配置
@@ -50,7 +55,11 @@ var defaultOpenaiSettings = GlobalSettings{
 		Enabled:     false,
 		AllChannels: true,
 	},
-	CanvasDefaultGroup: "",
+	CanvasDefaultGroup:      "",
+	CanvasTextDefaultGroup:  "",
+	CanvasImageDefaultGroup: "",
+	CanvasAudioDefaultGroup: "",
+	CanvasVideoDefaultGroup: "",
 }
 
 // 全局实例
