@@ -61,6 +61,7 @@
     "{{count}} IP(s)": "{{count}} IP",
     "{{count}} log entries removed.": "{{count}} 件のログエントリを削除しました。",
     "{{count}} matching connections": "一致する接続 {{count}} 件",
+    "{{count}} messages": "{{count}} 件のメッセージ",
     "{{count}} minutes ago": "{{count}} 分前",
     "{{count}} models": "{{count}} モデル",
     "{{count}} months ago": "{{count}} ヶ月前",

@@ -365,10 +365,15 @@ describe('my submissions', { timeout: 30_000 }, () => {
       })
     )
     render(<MySupplierSubmissions />, { wrapper: Wrapper })
-    await user.click(await screen.findByRole('button', { name: 'View details' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'View details' })
+    )
     expect(screen.getByText('Trial price for this month')).toBeVisible()
     expect(screen.queryByText('Internal: price is high')).toBeNull()
-    await user.selectOptions(screen.getByLabelText('Message type'), 'negotiation')
+    await user.selectOptions(
+      screen.getByLabelText('Message type'),
+      'negotiation'
+    )
     await user.type(screen.getByLabelText('Group name'), 'Discount group')
     await user.type(screen.getByLabelText('Suggested ratio'), '0.8')
     await user.type(screen.getByLabelText('Negotiation notes'), 'Can do 0.8')
@@ -383,7 +388,56 @@ describe('my submissions', { timeout: 30_000 }, () => {
       group_name: 'Discount group',
       ratio: 0.8,
     })
-    expect(screen.getByText(/Discount group · Suggested ratio ×0.8/)).toBeVisible()
+    expect(
+      screen.getByText(/Discount group · Suggested ratio ×0.8/)
+    ).toBeVisible()
+  })
+
+  it('shows the message count from the list and hides it when there are none', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockResolvedValue(
+      response({
+        page: 1,
+        page_size: 10,
+        total: 2,
+        items: [
+          {
+            ...adminApplication,
+            id: 9,
+            site_name: 'Quiet Site',
+            message_count: 0,
+            messages: [],
+          },
+          {
+            ...adminApplication,
+            id: 10,
+            site_name: 'Busy Site',
+            message_count: 2,
+            messages: [],
+          },
+        ],
+      })
+    )
+    render(<MySupplierSubmissions />, { wrapper: Wrapper })
+    expect(await screen.findByRole('img', { name: '2 messages' })).toBeVisible()
+    expect(screen.getByText('#10 Busy Site')).toBeVisible()
+    expect(screen.getByText('#9 Quiet Site')).toBeVisible()
+    expect(screen.queryByRole('img', { name: '0 messages' })).toBeNull()
+    expect(screen.queryByText('Internal: price is high')).toBeNull()
+    expect(api.get).toHaveBeenCalledTimes(1)
+    expect(String(vi.mocked(api.get).mock.calls[0]?.[0])).not.toContain(
+      '/messages'
+    )
+    const quiet = screen.getByText('#9 Quiet Site').closest('li')
+    if (!quiet) throw new Error('quiet submission not found')
+    await user.click(
+      within(quiet).getByRole('button', { name: 'View details' })
+    )
+    expect(within(quiet).queryByLabelText('Internal note')).toBeNull()
+    expect(
+      within(quiet).queryByRole('heading', { name: 'Processing' })
+    ).toBeNull()
+    expect(api.get).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -474,5 +528,66 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull()
     expect(screen.queryByLabelText('Message type')).toBeNull()
     expect(screen.getByText('No messages yet')).toBeVisible()
+  })
+
+  it('marks only applications with messages and puts processing before the conversation', async () => {
+    grant(true)
+    const user = userEvent.setup()
+    const quiet = {
+      ...adminApplication,
+      id: 9,
+      site_name: 'Quiet Site',
+      message_count: 0,
+    }
+    const busy = {
+      ...adminApplication,
+      id: 11,
+      site_name: 'Busy Site',
+      message_count: 3,
+    }
+    vi.mocked(api.get).mockImplementation(async (url) =>
+      String(url).endsWith('/11')
+        ? response(busy)
+        : response({
+            page: 1,
+            page_size: 20,
+            total: 2,
+            items: [quiet, busy],
+          })
+    )
+    render(<SupplierApplicationManagement />, { wrapper: Wrapper })
+    expect(await screen.findByRole('img', { name: '3 messages' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '#9 Quiet Site' })).toBeVisible()
+    expect(screen.queryByRole('img', { name: '0 messages' })).toBeNull()
+    expect(api.get).toHaveBeenCalledTimes(1)
+    expect(String(vi.mocked(api.get).mock.calls[0]?.[0])).not.toContain(
+      '/messages'
+    )
+    await user.click(screen.getByRole('button', { name: '#11 Busy Site' }))
+    const dialog = await screen.findByRole('dialog')
+    const processing = within(dialog).getByRole('heading', {
+      name: 'Processing',
+    })
+    const conversation = within(dialog).getByRole('heading', {
+      name: 'Conversation',
+    })
+    const before = (earlier: HTMLElement, later: HTMLElement) => {
+      expect(
+        earlier.compareDocumentPosition(later) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+    }
+    before(processing, within(dialog).getByText('Applicant'))
+    before(processing, within(dialog).getByText('Site URL'))
+    before(
+      processing,
+      within(dialog).getByRole('heading', { name: /Group quotes/ })
+    )
+    before(processing, conversation)
+    expect(within(dialog).getByLabelText('Internal note')).toBeVisible()
+    const messageFetches = vi
+      .mocked(api.get)
+      .mock.calls.filter((call) => String(call[0]).includes('/messages'))
+    expect(messageFetches).toEqual([])
   })
 })

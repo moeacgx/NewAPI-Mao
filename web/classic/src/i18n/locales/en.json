@@ -6901,6 +6901,7 @@
     "Admin": "Admin",
     "Sending...": "Sending...",
     "Some fields are invalid. Check the form and try again.": "Some fields are invalid. Check the form and try again.",
-    "Update supplier application status and internal notes, and record conversation messages.": "Update supplier application status and internal notes, and record conversation messages."
+    "Update supplier application status and internal notes, and record conversation messages.": "Update supplier application status and internal notes, and record conversation messages.",
+    "{{count}} messages": "{{count}} messages"
   }
 }

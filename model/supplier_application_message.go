@@ -230,6 +230,7 @@ func attachUserSupplierMessages(views []SupplierApplicationUserView) error {
 	}
 	for index := range views {
 		views[index].Messages = grouped[views[index].Id]
+		views[index].MessageCount = len(views[index].Messages)
 	}
 	return nil
 }
@@ -245,6 +246,7 @@ func attachAdminSupplierMessages(views []SupplierApplicationAdminView) error {
 	}
 	for index := range views {
 		views[index].Messages = grouped[views[index].Id]
+		views[index].MessageCount = len(views[index].Messages)
 	}
 	return nil
 }

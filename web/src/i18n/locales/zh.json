@@ -61,6 +61,7 @@
     "{{count}} IP(s)": "{{count}} 个 IP",
     "{{count}} log entries removed.": "已删除 {{count}} 条日志。",
     "{{count}} matching connections": "共 {{count}} 条匹配连接",
+    "{{count}} messages": "{{count}} 条消息",
     "{{count}} minutes ago": "{{count}} 分钟前",
     "{{count}} models": "{{count}} 个模型",
     "{{count}} months ago": "{{count}} 个月前",

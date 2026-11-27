@@ -33,6 +33,7 @@ import { IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
 import SupplierConversation, { useSupplierSheetWidth } from './SupplierConversation';
+import SupplierMessageCount from './SupplierMessageCount';
 
 const { Text, Paragraph } = Typography;
 
@@ -123,7 +124,12 @@ const MySupplierSubmissions = () => {
     {
       title: t('Site name'),
       dataIndex: 'site_name',
-      render: (text) => <Text strong>{text}</Text>,
+      render: (text, record) => (
+        <span className='inline-flex items-center gap-2'>
+          <Text strong>{text}</Text>
+          <SupplierMessageCount count={record.message_count} />
+        </span>
+      ),
     },
     {
       title: t('Status'),
@@ -282,8 +288,13 @@ const MySupplierSubmissions = () => {
                   const append = (application) => {
                     if (!application || application.id !== selectedApp.id) return application;
                     const next = [...(application.messages || [])];
-                    if (!next.some((item) => item.id === message.id)) next.push(message);
-                    return { ...application, messages: next };
+                    if (next.some((item) => item.id === message.id)) return application;
+                    next.push(message);
+                    return {
+                      ...application,
+                      messages: next,
+                      message_count: (application.message_count || 0) + 1,
+                    };
                   };
                   setSelectedApp((current) => append(current));
                   setApplications((current) => current.map((item) => append(item)));

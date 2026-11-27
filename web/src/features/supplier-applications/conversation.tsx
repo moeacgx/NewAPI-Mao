@@ -6,10 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { formatTimestampToDate } from '@/lib/format'
 
@@ -125,6 +122,7 @@ export function SupplierConversation(props: {
   messages?: SupplierMessage[]
   canSend: boolean
   mode: 'personal' | 'admin'
+  onSent?: (message: SupplierMessage) => void
 }) {
   const { t } = useTranslation()
   const labels = getSupplierLabels(t)
@@ -134,8 +132,7 @@ export function SupplierConversation(props: {
   const [ratio, setRatio] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('')
-  const [quotaStatus, setQuotaStatus] =
-    useState<SupplierQuotaStatus>('pending')
+  const [quotaStatus, setQuotaStatus] = useState<SupplierQuotaStatus>('pending')
   const [sent, setSent] = useState<SupplierMessage[]>([])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
@@ -181,6 +178,7 @@ export function SupplierConversation(props: {
             )
           : await createSupplierApplicationMessage(props.applicationId, input)
       setSent((current) => [...current, created])
+      props.onSent?.(created)
       setBody('')
       setGroupName('')
       setRatio('')
@@ -218,17 +216,18 @@ export function SupplierConversation(props: {
             >
               <div className='flex min-w-0 flex-wrap items-center gap-2'>
                 <span className='text-sm font-medium [overflow-wrap:anywhere]'>
-                  {message.author_name || labels.authorRole[message.author_role]}
+                  {message.author_name ||
+                    labels.authorRole[message.author_role]}
                 </span>
                 <Badge
                   variant='outline'
-                  className='max-w-full whitespace-normal [overflow-wrap:anywhere]'
+                  className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
                 >
                   {labels.authorRole[message.author_role]}
                 </Badge>
                 <Badge
                   variant='secondary'
-                  className='max-w-full whitespace-normal [overflow-wrap:anywhere]'
+                  className='max-w-full [overflow-wrap:anywhere] whitespace-normal'
                 >
                   {labels.messageType[message.type]}
                 </Badge>

@@ -38,6 +38,7 @@ import { IconSearch, IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess, timestamp2string } from '../../helpers';
 import SupplierConversation, { useSupplierSheetWidth } from './SupplierConversation';
+import SupplierMessageCount from './SupplierMessageCount';
 
 const { Text, Paragraph } = Typography;
 
@@ -207,7 +208,12 @@ const SupplierApplicationManagementTable = () => {
     {
       title: t('Site name'),
       dataIndex: 'site_name',
-      render: (text) => <Text strong>{text}</Text>,
+      render: (text, record) => (
+        <span className='inline-flex items-center gap-2'>
+          <Text strong>{text}</Text>
+          <SupplierMessageCount count={record.message_count} />
+        </span>
+      ),
     },
     {
       title: t('Contact'),
@@ -329,6 +335,48 @@ const SupplierApplicationManagementTable = () => {
       >
         {selectedApp && (
           <div className='space-y-4'>
+            <Card title={t('Processing')}>
+              <Form
+                initValues={{
+                  status: selectedApp.status,
+                  admin_note: selectedApp.admin_note || '',
+                }}
+                onSubmit={handleSave}
+                disabled={!hasWritePermission || saving}
+              >
+                <Form.Select
+                  field='status'
+                  label={t('Status')}
+                  optionList={[
+                    { value: 'pending', label: t('Pending') },
+                    { value: 'contacted', label: t('Contacted') },
+                    { value: 'cooperating', label: t('Cooperating') },
+                    { value: 'rejected', label: t('Rejected') },
+                  ]}
+                  rules={[{ required: true }]}
+                />
+                <Form.TextArea
+                  field='admin_note'
+                  label={t('Internal note')}
+                  placeholder={t('Internal notes (not shown to users)')}
+                  rows={4}
+                  maxLength={2000}
+                  showClear
+                />
+                {hasWritePermission && (
+                  <Button
+                    htmlType='submit'
+                    type='primary'
+                    theme='solid'
+                    loading={saving}
+                    block
+                  >
+                    {t('Save')}
+                  </Button>
+                )}
+              </Form>
+            </Card>
+
             <Card>
               <div className='mb-3'>
                 <Text strong>{t('Status')}: </Text>
@@ -441,8 +489,13 @@ const SupplierApplicationManagementTable = () => {
                   const append = (application) => {
                     if (!application || application.id !== selectedApp.id) return application;
                     const next = [...(application.messages || [])];
-                    if (!next.some((item) => item.id === message.id)) next.push(message);
-                    return { ...application, messages: next };
+                    if (next.some((item) => item.id === message.id)) return application;
+                    next.push(message);
+                    return {
+                      ...application,
+                      messages: next,
+                      message_count: (application.message_count || 0) + 1,
+                    };
                   };
                   setSelectedApp((current) => append(current));
                   setApplications((current) => current.map((item) => append(item)));
@@ -456,48 +509,6 @@ const SupplierApplicationManagementTable = () => {
                 description={t('You do not have permission to edit this application.')}
               />
             )}
-
-            <Card title={t('Processing')}>
-              <Form
-                initValues={{
-                  status: selectedApp.status,
-                  admin_note: selectedApp.admin_note || '',
-                }}
-                onSubmit={handleSave}
-                disabled={!hasWritePermission || saving}
-              >
-                <Form.Select
-                  field='status'
-                  label={t('Status')}
-                  optionList={[
-                    { value: 'pending', label: t('Pending') },
-                    { value: 'contacted', label: t('Contacted') },
-                    { value: 'cooperating', label: t('Cooperating') },
-                    { value: 'rejected', label: t('Rejected') },
-                  ]}
-                  rules={[{ required: true }]}
-                />
-                <Form.TextArea
-                  field='admin_note'
-                  label={t('Internal note')}
-                  placeholder={t('Internal notes (not shown to users)')}
-                  rows={4}
-                  maxLength={2000}
-                  showClear
-                />
-                {hasWritePermission && (
-                  <Button
-                    htmlType='submit'
-                    type='primary'
-                    theme='solid'
-                    loading={saving}
-                    block
-                  >
-                    {t('Save')}
-                  </Button>
-                )}
-              </Form>
-            </Card>
           </div>
         )}
       </SideSheet>

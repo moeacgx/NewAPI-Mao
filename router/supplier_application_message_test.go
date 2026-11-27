@@ -1,6 +1,7 @@
 package router
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -227,4 +228,137 @@ func TestSupplierApplicationMessagesAreIsolatedRecords(t *testing.T) {
 		}
 	}
 	assert.True(t, sawMessageAudit)
+}
+
+func TestSupplierApplicationListMessageCountIgnoresInternalNotes(t *testing.T) {
+	fixture := setupTokenKeyFixture(t, false, common.RoleAdminUser, 1)
+	common.GlobalApiRateLimitEnable = false
+	common.CriticalRateLimitEnable = false
+	wasMaster := common.IsMasterNode
+	common.IsMasterNode = true
+	t.Cleanup(func() { common.IsMasterNode = wasMaster })
+	require.NoError(t, fixture.db.AutoMigrate(
+		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{},
+		&model.Log{}, &model.CasbinRule{}, &model.AuthzRole{},
+	))
+	require.NoError(t, authz.Init(fixture.db))
+	oldLogDB := model.LOG_DB
+	model.LOG_DB = fixture.db
+	t.Cleanup(func() { model.LOG_DB = oldLogDB })
+	fixture.engine = newManagementRouter(t)
+	ip := "192.0.2.82"
+	quietNote := "内部备注只给管理员：无对话"
+	busyNote := "内部备注只给管理员：有对话"
+
+	quiet := managementRequest(fixture.engine, http.MethodPost, "/api/supplier-applications", fixture.peer.session, ip, supplierApplicationBody(t, func(payload map[string]any) {
+		payload["site_name"] = "无对话站点"
+		payload["contact"] = "wx-quiet-001"
+	}))
+	require.Equal(t, http.StatusOK, quiet.Code, quiet.Body.String())
+	busy := managementRequest(fixture.engine, http.MethodPost, "/api/supplier-applications", fixture.peer.session, ip, supplierApplicationBody(t, func(payload map[string]any) {
+		payload["site_name"] = "有对话站点"
+		payload["contact"] = "wx-busy-001"
+		payload["groups"] = []any{map[string]any{"group_name": "对话分组", "platform": "openai", "ratio": 0.5}}
+	}))
+	require.Equal(t, http.StatusOK, busy.Code, busy.Body.String())
+	var quietCreated, busyCreated struct {
+		Data model.SupplierApplicationUserView `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(quiet.Body.Bytes(), &quietCreated))
+	require.NoError(t, common.Unmarshal(busy.Body.Bytes(), &busyCreated))
+	assert.Equal(t, 0, quietCreated.Data.MessageCount)
+	assert.NotContains(t, quiet.Body.String(), "admin_note")
+
+	review := func(id int, note string) {
+		t.Helper()
+		path := fmt.Sprintf("/api/supplier-application-admin/%d", id)
+		response := managementRequest(fixture.engine, http.MethodPut, path, fixture.owner.session, ip, fmt.Sprintf(`{"status":"contacted","admin_note":%q,"version":1}`, note))
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+	review(quietCreated.Data.Id, quietNote)
+	review(busyCreated.Data.Id, busyNote)
+	for _, body := range []string{
+		`{"type":"message","body":"第一条对话"}`,
+		`{"type":"negotiation","group_name":"对话分组","ratio":0.8,"body":"第二条议价"}`,
+	} {
+		path := fmt.Sprintf("/api/supplier-applications/%d/messages", busyCreated.Data.Id)
+		response := managementRequest(fixture.engine, http.MethodPost, path, fixture.peer.session, ip, body)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+
+	type countedItem struct {
+		SiteName     string `json:"site_name"`
+		MessageCount int    `json:"message_count"`
+		raw          string
+	}
+	readItems := func(raw []byte) map[string]countedItem {
+		t.Helper()
+		var payload struct {
+			Data struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(raw, &payload))
+		items := make(map[string]countedItem, len(payload.Data.Items))
+		for _, itemRaw := range payload.Data.Items {
+			var item countedItem
+			require.NoError(t, common.Unmarshal(itemRaw, &item))
+			item.raw = string(itemRaw)
+			items[item.SiteName] = item
+		}
+		return items
+	}
+	assertPersonal := func(items map[string]countedItem, site string, count int, note string) {
+		t.Helper()
+		item, ok := items[site]
+		require.True(t, ok, site)
+		assert.Equal(t, count, item.MessageCount)
+		assert.Contains(t, item.raw, fmt.Sprintf(`"message_count":%d`, count))
+		for _, forbidden := range []string{"admin_note", "handled_by", "handled_at", "handled_by_name", "user_id", `"version"`} {
+			assert.NotContains(t, item.raw, forbidden)
+		}
+		assert.NotContains(t, item.raw, note)
+		var decoded model.SupplierApplicationUserView
+		require.NoError(t, common.Unmarshal([]byte(item.raw), &decoded))
+		assert.Equal(t, count, decoded.MessageCount)
+		assert.NotEqual(t, note, decoded.Remark)
+	}
+
+	personal := managementRequest(fixture.engine, http.MethodGet, "/api/supplier-applications?page_size=20", fixture.peer.session, ip, "")
+	require.Equal(t, http.StatusOK, personal.Code, personal.Body.String())
+	personalItems := readItems(personal.Body.Bytes())
+	assertPersonal(personalItems, "无对话站点", 0, quietNote)
+	assertPersonal(personalItems, "有对话站点", 2, busyNote)
+
+	personalDetail := managementRequest(fixture.engine, http.MethodGet, fmt.Sprintf("/api/supplier-applications/%d", quietCreated.Data.Id), fixture.peer.session, ip, "")
+	require.Equal(t, http.StatusOK, personalDetail.Code, personalDetail.Body.String())
+	assert.Contains(t, personalDetail.Body.String(), `"message_count":0`)
+	assert.NotContains(t, personalDetail.Body.String(), quietNote)
+	for _, forbidden := range []string{"admin_note", "handled_by", "handled_by_name", "handled_at"} {
+		assert.NotContains(t, personalDetail.Body.String(), forbidden)
+	}
+
+	adminList := managementRequest(fixture.engine, http.MethodGet, "/api/supplier-application-admin?page_size=20", fixture.owner.session, ip, "")
+	require.Equal(t, http.StatusOK, adminList.Code, adminList.Body.String())
+	adminItems := readItems(adminList.Body.Bytes())
+	require.Equal(t, 0, adminItems["无对话站点"].MessageCount)
+	require.Equal(t, 2, adminItems["有对话站点"].MessageCount)
+	var adminDecoded struct {
+		Data struct {
+			Items []model.SupplierApplicationAdminView `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(adminList.Body.Bytes(), &adminDecoded))
+	found := map[string]model.SupplierApplicationAdminView{}
+	for _, item := range adminDecoded.Data.Items {
+		found[item.SiteName] = item
+	}
+	require.Contains(t, found, "无对话站点")
+	require.Contains(t, found, "有对话站点")
+	assert.Equal(t, quietNote, found["无对话站点"].AdminNote)
+	assert.Equal(t, 0, found["无对话站点"].MessageCount)
+	assert.Equal(t, busyNote, found["有对话站点"].AdminNote)
+	assert.Equal(t, 2, found["有对话站点"].MessageCount)
+	assert.Len(t, found["有对话站点"].Messages, 2)
+	assert.Empty(t, found["无对话站点"].Messages)
 }
