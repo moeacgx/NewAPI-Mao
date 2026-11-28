@@ -95,6 +95,7 @@ export interface SupplierApplication {
   created_at: number
   groups: SupplierQuote[]
   messages?: SupplierMessage[]
+  message_count?: number
 }
 
 export interface SupplierApplicationAdmin extends SupplierApplication {

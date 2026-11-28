@@ -6639,6 +6639,7 @@
     "Admin": "管理者",
     "Sending...": "送信中...",
     "Some fields are invalid. Check the form and try again.": "無効な項目があります。フォームを確認して、もう一度お試しください。",
-    "Update supplier application status and internal notes, and record conversation messages.": "サプライヤー申請のステータスと内部メモを更新し、会話メッセージを記録します。"
+    "Update supplier application status and internal notes, and record conversation messages.": "サプライヤー申請のステータスと内部メモを更新し、会話メッセージを記録します。",
+    "{{count}} messages": "{{count}} 件のメッセージ"
   }
 }

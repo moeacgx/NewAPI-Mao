@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -31,8 +31,9 @@ import { getSupplierApplications } from './api'
 import { SupplierConversation } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
+import { SupplierMessageCount } from './message-count'
 import { SupplierQuoteList } from './quote-list'
-import type { SupplierApplication } from './types'
+import type { SupplierApplication, SupplierApplicationList } from './types'
 
 const PAGE_SIZE = 10
 
@@ -56,6 +57,8 @@ export function SupplierSiteLink(props: { url: string }) {
 function SubmissionCard(props: { application: SupplierApplication }) {
   const { t } = useTranslation()
   const labels = getSupplierLabels(t)
+  const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.auth.user)
   const [expanded, setExpanded] = useState(false)
   const { application } = props
   const panelId = `supplier-submission-${application.id}`
@@ -64,9 +67,12 @@ function SubmissionCard(props: { application: SupplierApplication }) {
     <li className='bg-card min-w-0 space-y-3 rounded-lg border p-4'>
       <div className='flex flex-wrap items-start justify-between gap-2'>
         <div className='min-w-0 space-y-1'>
-          <h3 className='font-medium [overflow-wrap:anywhere]'>
-            #{application.id} {application.site_name}
-          </h3>
+          <div className='flex flex-wrap items-center gap-2'>
+            <h3 className='font-medium [overflow-wrap:anywhere]'>
+              #{application.id} {application.site_name}
+            </h3>
+            <SupplierMessageCount count={application.message_count} />
+          </div>
           <p className='text-muted-foreground text-sm'>
             {t('Submitted at')} {formatTimestampToDate(application.created_at)}{' '}
             · {t('{{count}} groups', { count: application.groups.length })}
@@ -125,6 +131,27 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             messages={application.messages}
             canSend
             mode='personal'
+            onSent={() => {
+              queryClient.setQueriesData<
+                SupplierApplicationList<SupplierApplication>
+              >(
+                { queryKey: ['supplier-applications', user?.id, 'list'] },
+                (current) => {
+                  if (!current) return current
+                  return {
+                    ...current,
+                    items: current.items.map((item) =>
+                      item.id === application.id
+                        ? {
+                            ...item,
+                            message_count: (item.message_count ?? 0) + 1,
+                          }
+                        : item
+                    ),
+                  }
+                }
+              )
+            }}
           />
         </div>
       )}
