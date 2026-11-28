@@ -6641,6 +6641,8 @@
     "周期额度必须大于 0": "週期額度必須大於 0",
     "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "不隨週期重置的總額度，設為不限不會影響週期額度和帳戶餘額",
     "Conversation": "對話",
+  "Conversation with {{site}}": "與 {{site}} 的對話",
+  "{{count}} unread": "{{count}} 則未讀",
     "Plain message": "普通訊息",
     "Negotiation": "議價",
     "Offer": "優惠",

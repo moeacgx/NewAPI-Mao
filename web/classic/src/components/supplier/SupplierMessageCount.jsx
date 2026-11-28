@@ -21,7 +21,7 @@ import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-// 只展示列表接口带回的对话数量。没有消息时不渲染，内部备注不计数。
+// 只展示当前用户的未读数。没有未读时不渲染，自己的消息和内部备注不计数。
 const SupplierMessageCount = ({ count = 0 }) => {
   const { t } = useTranslation();
   const total = Number(count) || 0;
@@ -29,7 +29,7 @@ const SupplierMessageCount = ({ count = 0 }) => {
   return (
     <span
       role='img'
-      aria-label={t('{{count}} messages', { count: total })}
+      aria-label={t('{{count}} unread', { count: total })}
       className='inline-flex items-center gap-1'
       style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
     >

@@ -33,7 +33,8 @@ const quiet = {
   remark: '',
   status: 'pending',
   created_at: 1792634400,
-  message_count: 0,
+  message_count: 4,
+  unread_count: 0,
   messages: [],
   groups: [],
   admin_note: 'Internal: price is high',
@@ -47,6 +48,7 @@ const busy = {
   site_name: 'Busy Site',
   contact: 'wx-busy',
   message_count: 2,
+  unread_count: 2,
   admin_note: 'Internal: talked already',
   user_id: 8,
   username: 'busy-user',
@@ -78,20 +80,23 @@ function expectComposerDock(root) {
   expect(
     scroll.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  const facts = root.querySelector('[data-supplier-detail-facts]');
-  expect(facts).toBeTruthy();
-  expect(facts.contains(composer)).toBe(false);
-  expect(facts.style.overflowY).toBe('auto');
-  expect(facts.style.minHeight === '0' || facts.style.minHeight === '0px').toBe(
+  const panel = root.querySelector('[data-supplier-conversation-dialog]');
+  expect(panel).toBeTruthy();
+  expect(panel.style.width === '56rem' || panel.style.width === '100%').toBe(
     true,
   );
-  expect(
-    facts.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-  const detail = root.querySelector('[data-supplier-detail]');
-  expect(detail.style.display).toBe('flex');
-  expect(detail.style.flexDirection).toBe('column');
-  expect(detail.style.overflow).toBe('hidden');
+  expect(panel.style.maxWidth).toBe('100vw');
+  expect(panel.style.maxHeight).toBe('100dvh');
+  expect(panel.style.overflow).toBe('hidden');
+  expect(panel.style.minHeight === '0' || panel.style.minHeight === '0px').toBe(
+    true,
+  );
+  const slot = root.querySelector('[data-supplier-conversation-slot]');
+  expect(slot.style.flex.startsWith('1 1')).toBe(true);
+  expect(slot.style.overflow).toBe('hidden');
+  expect(slot.style.minHeight === '0' || slot.style.minHeight === '0px').toBe(
+    true,
+  );
 }
 
 beforeEach(() => {
@@ -103,6 +108,9 @@ beforeEach(() => {
       role: 100,
     }),
   );
+  vi.spyOn(API, 'post').mockResolvedValue({
+    data: { success: true, data: { unread_count: 0 } },
+  });
 });
 
 test('我的申请只在有对话时显示消息数量，详情没有内部备注', async () => {
@@ -112,9 +120,10 @@ test('我的申请只在有对话时显示消息数量，详情没有内部备�
     return page([quiet, busy]);
   });
   render(<MySupplierSubmissions />);
-  expect(await screen.findByRole('img', { name: '2 messages' })).toBeTruthy();
+  expect(await screen.findByRole('img', { name: '2 unread' })).toBeTruthy();
   expect(screen.getByText('Quiet Site')).toBeTruthy();
-  expect(screen.queryByRole('img', { name: '0 messages' })).toBeNull();
+  expect(screen.queryByRole('img', { name: '0 unread' })).toBeNull();
+  expect(screen.queryByRole('img', { name: '4 unread' })).toBeNull();
   expect(screen.queryByText('Internal: price is high')).toBeNull();
   expect(API.get).toHaveBeenCalledTimes(1);
   const row = screen.getByText('Quiet Site').closest('tr');
@@ -122,11 +131,22 @@ test('我的申请只在有对话时显示消息数量，详情没有内部备�
   expect(screen.queryByText('Internal note')).toBeNull();
   expect(screen.queryByText('Processing')).toBeNull();
   const dialog = await screen.findByRole('dialog');
-  expectComposerDock(dialog);
+  expect(dialog.querySelector('[data-supplier-conversation]')).toBeNull();
+  expect(dialog.querySelector('[data-supplier-composer]')).toBeNull();
+  expect(API.post).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole('button', { name: 'Conversation' }));
+  const conversation = screen.getByRole('dialog', {
+    name: /Conversation with Quiet Site/,
+  });
+  expect(within(conversation).getByText('No messages yet')).toBeTruthy();
+  expectComposerDock(conversation);
   expect(
-    within(dialog).getByRole('button', { name: 'Send message' }),
+    within(conversation).getByRole('button', { name: 'Send message' }),
   ).toBeTruthy();
   expect(API.get).toHaveBeenCalledTimes(1);
+  expect(
+    API.post.mock.calls.some((call) => String(call[0]).endsWith('/9/read')),
+  ).toBe(true);
 });
 
 test('管理列表显示消息数量，处理块在对话之前', async () => {
@@ -138,17 +158,22 @@ test('管理列表显示消息数量，处理块在对话之前', async () => {
     return page([quiet, busy]);
   });
   render(<SupplierApplicationManagementTable />);
-  expect(await screen.findByRole('img', { name: '2 messages' })).toBeTruthy();
+  expect(await screen.findByRole('img', { name: '2 unread' })).toBeTruthy();
   expect(screen.getByText('Quiet Site')).toBeTruthy();
-  expect(screen.queryByRole('img', { name: '0 messages' })).toBeNull();
+  expect(screen.queryByRole('img', { name: '0 unread' })).toBeNull();
+  expect(screen.queryByRole('img', { name: '4 unread' })).toBeNull();
   await waitFor(() => expect(API.get).toHaveBeenCalledTimes(1));
   const row = screen.getByText('Busy Site').closest('tr');
   await user.click(within(row).getByRole('button', { name: /View details/ }));
   const dialog = await screen.findByRole('dialog');
   const processing = within(dialog).getByText('Processing');
-  const conversation = within(dialog).getByText('Conversation');
+  expect(dialog.querySelector('[data-supplier-conversation]')).toBeNull();
+  expect(API.post).not.toHaveBeenCalled();
+  const conversationButton = within(dialog).getByRole('button', {
+    name: /Conversation/,
+  });
   expect(
-    processing.compareDocumentPosition(conversation) &
+    processing.compareDocumentPosition(conversationButton) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
   expect(
@@ -181,10 +206,32 @@ test('管理列表显示消息数量，处理块在对话之前', async () => {
   ).toBeTruthy();
   expect(
     processingBlock.compareDocumentPosition(
-      within(dialog).getByText('Conversation'),
+      within(dialog).getByRole('button', { name: /Conversation/ }),
     ) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  expectComposerDock(dialog);
+  const facts = dialog.querySelector('[data-supplier-detail-facts]');
+  expect(facts.style.overflowY).toBe('auto');
+  expect(facts.style.minHeight === '0' || facts.style.minHeight === '0px').toBe(
+    true,
+  );
+  expect(facts.contains(dialog.querySelector('[data-supplier-composer]'))).toBe(
+    false,
+  );
+  await user.click(
+    within(dialog).getByRole('button', { name: /Conversation/ }),
+  );
+  const conversation = screen.getByRole('dialog', {
+    name: /Conversation with Busy Site/,
+  });
+  expect(within(conversation).getByText('No messages yet')).toBeTruthy();
+  expectComposerDock(conversation);
+  expect(dialog.contains(conversation)).toBe(false);
+  await waitFor(() =>
+    expect(screen.queryByRole('img', { name: '2 unread' })).toBeNull(),
+  );
+  expect(
+    API.post.mock.calls.some((call) => String(call[0]).endsWith('/11/read')),
+  ).toBe(true);
   expect(
     API.get.mock.calls.some((call) => String(call[0]).includes('/messages')),
   ).toBe(false);

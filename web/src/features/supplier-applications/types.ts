@@ -96,6 +96,7 @@ export interface SupplierApplication {
   groups: SupplierQuote[]
   messages?: SupplierMessage[]
   message_count?: number
+  unread_count?: number
 }
 
 export interface SupplierApplicationAdmin extends SupplierApplication {

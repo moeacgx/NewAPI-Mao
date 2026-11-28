@@ -64,6 +64,28 @@ export async function createSupplierApplicationMessage(
   return requireServerSuccess(response.data).data
 }
 
+export async function markSupplierApplicationRead(
+  id: number
+): Promise<{ unread_count: number }> {
+  const response = await api.post<SupplierResponse<{ unread_count: number }>>(
+    `${PERSONAL_PATH}/${id}/read`,
+    {},
+    { skipErrorHandler: true }
+  )
+  return requireServerSuccess(response.data).data
+}
+
+export async function markAdminSupplierApplicationRead(
+  id: number
+): Promise<{ unread_count: number }> {
+  const response = await api.post<SupplierResponse<{ unread_count: number }>>(
+    `${ADMIN_PATH}/${id}/read`,
+    {},
+    { skipErrorHandler: true }
+  )
+  return requireServerSuccess(response.data).data
+}
+
 export async function createAdminSupplierApplicationMessage(
   id: number,
   input: SupplierMessageInput

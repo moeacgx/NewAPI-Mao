@@ -7911,6 +7911,8 @@
     "Quota cannot exceed {{max}}": "Hạn mức không được vượt quá {{max}}",
     "Period quota must be greater than 0": "Hạn mức theo chu kỳ phải lớn hơn 0",
     "Conversation": "Hội thoại",
+  "Conversation with {{site}}": "Hội thoại với {{site}}",
+  "{{count}} unread": "{{count}} chưa đọc",
     "Plain message": "Tin nhắn thường",
     "Negotiation": "Thương lượng",
     "Offer": "Ưu đãi",

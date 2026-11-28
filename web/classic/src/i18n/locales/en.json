@@ -6879,6 +6879,8 @@
     "周期额度必须大于 0": "Period quota must be greater than 0",
     "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "Lifetime quota that does not reset with the period. Making it unlimited keeps the period quota and your account balance unchanged.",
     "Conversation": "Conversation",
+  "Conversation with {{site}}": "Conversation with {{site}}",
+  "{{count}} unread": "{{count}} unread",
     "Plain message": "Plain message",
     "Negotiation": "Negotiation",
     "Offer": "Offer",

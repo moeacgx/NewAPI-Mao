@@ -28,7 +28,7 @@ import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getSupplierApplications } from './api'
-import { SupplierConversation } from './conversation'
+import { SupplierConversationDialog } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
 import { SupplierMessageCount } from './message-count'
@@ -71,7 +71,7 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             <h3 className='font-medium [overflow-wrap:anywhere]'>
               #{application.id} {application.site_name}
             </h3>
-            <SupplierMessageCount count={application.message_count} />
+            <SupplierMessageCount count={application.unread_count} />
           </div>
           <p className='text-muted-foreground text-sm'>
             {t('Submitted at')} {formatTimestampToDate(application.created_at)}{' '}
@@ -126,11 +126,31 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             )}
           </dl>
           <SupplierQuoteList quotes={application.groups} />
-          <SupplierConversation
+          <SupplierConversationDialog
             applicationId={application.id}
+            siteName={application.site_name}
             messages={application.messages}
             canSend
             mode='personal'
+            unreadCount={application.unread_count}
+            onRead={(unreadCount) => {
+              queryClient.setQueriesData<
+                SupplierApplicationList<SupplierApplication>
+              >(
+                { queryKey: ['supplier-applications', user?.id, 'list'] },
+                (current) => {
+                  if (!current) return current
+                  return {
+                    ...current,
+                    items: current.items.map((item) =>
+                      item.id === application.id
+                        ? { ...item, unread_count: unreadCount }
+                        : item
+                    ),
+                  }
+                }
+              )
+            }}
             onSent={() => {
               queryClient.setQueriesData<
                 SupplierApplicationList<SupplierApplication>

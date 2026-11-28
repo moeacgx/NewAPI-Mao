@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-// 只展示列表接口带回的对话数量。0 或缺失时不渲染，内部备注不在这里计数。
+// 只展示当前用户的未读数。0 或缺失时不渲染，自己的消息和内部备注不计数。
 export function SupplierMessageCount(props: { count?: number }) {
   const { t } = useTranslation()
   const count = props.count ?? 0
@@ -27,7 +27,7 @@ export function SupplierMessageCount(props: { count?: number }) {
   return (
     <span
       role='img'
-      aria-label={t('{{count}} messages', { count })}
+      aria-label={t('{{count}} unread', { count })}
       className='text-muted-foreground inline-flex shrink-0 items-center gap-1 text-xs tabular-nums'
     >
       <MessageSquare aria-hidden='true' className='size-3.5' />

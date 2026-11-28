@@ -1,5 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { X } from 'lucide-react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +15,8 @@ import { formatTimestampToDate } from '@/lib/format'
 import {
   createAdminSupplierApplicationMessage,
   createSupplierApplicationMessage,
+  markAdminSupplierApplicationRead,
+  markSupplierApplicationRead,
 } from './api'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
@@ -396,5 +400,164 @@ export function SupplierConversation(props: {
         </form>
       )}
     </section>
+  )
+}
+
+// 详情保持挂载时，弹窗只隐藏不卸载，未发送的草稿留在输入框里。
+export function SupplierConversationDialog(props: {
+  applicationId: number
+  siteName: string
+  messages?: SupplierMessage[]
+  canSend: boolean
+  mode: 'personal' | 'admin'
+  unreadCount?: number
+  onOpenChange?: (open: boolean) => void
+  onSent?: (message: SupplierMessage) => void
+  onRead?: (unreadCount: number) => void
+}) {
+  const { t } = useTranslation()
+  const titleId = useId()
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const onReadRef = useRef(props.onRead)
+  const onOpenChangeRef = useRef(props.onOpenChange)
+  onReadRef.current = props.onRead
+  onOpenChangeRef.current = props.onOpenChange
+  const unread = props.unreadCount ?? 0
+  const title = t('Conversation with {{site}}', { site: props.siteName })
+  const buttonLabel =
+    unread > 0
+      ? `${t('Conversation')}, ${t('{{count}} unread', { count: unread })}`
+      : t('Conversation')
+
+  function changeOpen(next: boolean) {
+    setOpen(next)
+    onOpenChangeRef.current?.(next)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    const mark =
+      props.mode === 'admin'
+        ? markAdminSupplierApplicationRead
+        : markSupplierApplicationRead
+    void mark(props.applicationId)
+      .then((result) => {
+        if (!cancelled) onReadRef.current?.(result.unread_count)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open, props.applicationId, props.mode])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      setOpen(false)
+      onOpenChangeRef.current?.(false)
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open])
+
+  return (
+    <>
+      <Button
+        type='button'
+        variant='outline'
+        aria-label={buttonLabel}
+        onClick={() => {
+          setMounted(true)
+          changeOpen(true)
+        }}
+      >
+        {t('Conversation')}
+        {unread > 0 ? <span className='tabular-nums'>{unread}</span> : null}
+      </Button>
+      {mounted &&
+        createPortal(
+          <div hidden={!open} style={{ position: 'fixed', inset: 0, zIndex: 80 }}>
+            <div
+              data-supplier-conversation-backdrop
+              onClick={() => changeOpen(false)}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.45)',
+              }}
+            />
+            <div
+              role='dialog'
+              aria-modal='true'
+              aria-labelledby={titleId}
+              data-supplier-conversation-dialog
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '56rem',
+                maxWidth: '100vw',
+                height: '48rem',
+                maxHeight: '100dvh',
+                minHeight: 0,
+                overflow: 'hidden',
+                background: 'var(--background, Canvas)',
+                borderRadius: 12,
+              }}
+            >
+              <div
+                className='flex items-center justify-between gap-3 p-4'
+                style={{ flexShrink: 0 }}
+              >
+                <h2
+                  id={titleId}
+                  className='min-w-0 text-base font-semibold [overflow-wrap:anywhere]'
+                >
+                  {title}
+                </h2>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  aria-label={t('Close')}
+                  onClick={() => changeOpen(false)}
+                >
+                  <X aria-hidden='true' />
+                </Button>
+              </div>
+              <div
+                data-supplier-conversation-slot
+                style={{
+                  display: 'flex',
+                  flex: '1 1 auto',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                  padding: 16,
+                  paddingTop: 0,
+                }}
+              >
+                <SupplierConversation
+                  applicationId={props.applicationId}
+                  messages={props.messages}
+                  canSend={props.canSend}
+                  mode={props.mode}
+                  dock='fill'
+                  onSent={props.onSent}
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   )
 }

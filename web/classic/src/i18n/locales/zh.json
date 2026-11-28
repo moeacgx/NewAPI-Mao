@@ -4136,6 +4136,8 @@
     "每天": "每天",
     "每周": "每周",
     "Conversation": "对话",
+  "Conversation with {{site}}": "与 {{site}} 的对话",
+  "{{count}} unread": "{{count}} 条未读",
     "Plain message": "普通消息",
     "Negotiation": "议价",
     "Offer": "优惠",
