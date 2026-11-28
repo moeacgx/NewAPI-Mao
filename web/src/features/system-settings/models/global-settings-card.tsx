@@ -106,6 +106,10 @@ const schema = z.object({
     thinking_model_blacklist: jsonString,
     chat_completions_to_responses_policy: jsonString,
     canvas_default_group: z.string(),
+    canvas_text_default_group: z.string(),
+    canvas_image_default_group: z.string(),
+    canvas_audio_default_group: z.string(),
+    canvas_video_default_group: z.string(),
   }),
   general_setting: z.object({
     ping_interval_enabled: z.boolean(),
@@ -121,6 +125,10 @@ type FlatGlobalModelSettings = {
   'global.thinking_model_blacklist': string
   'global.chat_completions_to_responses_policy': string
   'global.canvas_default_group': string
+  'global.canvas_text_default_group': string
+  'global.canvas_image_default_group': string
+  'global.canvas_audio_default_group': string
+  'global.canvas_video_default_group': string
   'general_setting.ping_interval_enabled': boolean
   'general_setting.ping_interval_seconds': number
 }
@@ -139,6 +147,14 @@ const flattenGlobalValues = (
     '{}'
   ),
   'global.canvas_default_group': values.global.canvas_default_group.trim(),
+  'global.canvas_text_default_group':
+    values.global.canvas_text_default_group.trim(),
+  'global.canvas_image_default_group':
+    values.global.canvas_image_default_group.trim(),
+  'global.canvas_audio_default_group':
+    values.global.canvas_audio_default_group.trim(),
+  'global.canvas_video_default_group':
+    values.global.canvas_video_default_group.trim(),
   'general_setting.ping_interval_enabled':
     values.general_setting.ping_interval_enabled,
   'general_setting.ping_interval_seconds':
@@ -153,6 +169,25 @@ function normalizeJsonText(value: string, fallback: string) {
 type GlobalSettingsCardProps = {
   defaultValues: GlobalModelSettingsFormValues
 }
+
+const canvasModalityFields = [
+  {
+    name: 'global.canvas_text_default_group',
+    label: 'Infinite Canvas Text Group',
+  },
+  {
+    name: 'global.canvas_image_default_group',
+    label: 'Infinite Canvas Image Group',
+  },
+  {
+    name: 'global.canvas_audio_default_group',
+    label: 'Infinite Canvas Audio Group',
+  },
+  {
+    name: 'global.canvas_video_default_group',
+    label: 'Infinite Canvas Video Group',
+  },
+] as const
 
 export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
   const { t } = useTranslation()
@@ -233,55 +268,118 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name='global.canvas_default_group'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Infinite Canvas Default Group')}</FormLabel>
-                <Select
-                  value={field.value || '__fallback__'}
-                  items={[
-                    { value: '__fallback__', label: t('Use system fallback') },
-                    ...buildCanvasDefaultGroupDisplayItems(
-                      canvasDefaultGroupOptions,
-                      groupDetails?.groups ?? [],
-                      field.value ?? ''
-                    ).map((group) => ({
-                      value: group.value,
-                      label:
-                        group.value === 'auto' ? t(group.label) : group.label,
-                    })),
-                  ]}
-                  onValueChange={(value) =>
-                    field.onChange(value === '__fallback__' ? '' : value)
-                  }
-                >
-                  <FormControl>
-                    <SelectTrigger className='w-full sm:w-80'>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value='__fallback__'>
-                      {t('Use system fallback')}
-                    </SelectItem>
-                    {canvasDefaultGroupOptions.map((group) => (
-                      <SelectItem key={group.value} value={group.value}>
-                        {group.value === 'auto' ? t(group.label) : group.label}
+          <div className='grid gap-4 md:grid-cols-2'>
+            <FormField
+              control={form.control}
+              name='global.canvas_default_group'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Infinite Canvas Default Group')}</FormLabel>
+                  <Select
+                    value={field.value || '__fallback__'}
+                    items={[
+                      {
+                        value: '__fallback__',
+                        label: t('Use system fallback'),
+                      },
+                      ...buildCanvasDefaultGroupDisplayItems(
+                        canvasDefaultGroupOptions,
+                        groupDetails?.groups ?? [],
+                        field.value ?? ''
+                      ).map((group) => ({
+                        value: group.value,
+                        label:
+                          group.value === 'auto' ? t(group.label) : group.label,
+                      })),
+                    ]}
+                    onValueChange={(value) =>
+                      field.onChange(value === '__fallback__' ? '' : value)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger className='w-full'>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='__fallback__'>
+                        {t('Use system fallback')}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  {t(
-                    'This group is selected when users first open Infinite Canvas. Users can still switch groups.'
-                  )}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                      {canvasDefaultGroupOptions.map((group) => (
+                        <SelectItem key={group.value} value={group.value}>
+                          {group.value === 'auto'
+                            ? t(group.label)
+                            : group.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {t(
+                      'This group is selected when users first open Infinite Canvas. Users can still switch groups.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {canvasModalityFields.map((modalityField) => (
+              <FormField
+                key={modalityField.name}
+                control={form.control}
+                name={modalityField.name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t(modalityField.label)}</FormLabel>
+                    <Select
+                      value={field.value || '__none__'}
+                      items={[
+                        { value: '__none__', label: t('No preset') },
+                        ...buildCanvasDefaultGroupDisplayItems(
+                          canvasDefaultGroupOptions,
+                          groupDetails?.groups ?? [],
+                          field.value ?? ''
+                        ).map((group) => ({
+                          value: group.value,
+                          label:
+                            group.value === 'auto'
+                              ? t(group.label)
+                              : group.label,
+                        })),
+                      ]}
+                      onValueChange={(value) =>
+                        field.onChange(value === '__none__' ? '' : value)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value='__none__'>
+                          {t('No preset')}
+                        </SelectItem>
+                        {canvasDefaultGroupOptions.map((group) => (
+                          <SelectItem key={group.value} value={group.value}>
+                            {group.value === 'auto'
+                              ? t(group.label)
+                              : group.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t(
+                        'Leave this blank to skip the preset. When the user can use the group, Infinite Canvas selects it on open and the user can still change it.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+          </div>
 
           <FormField
             control={form.control}

@@ -45,4 +45,22 @@ describe('buildCanvasLaunchUrl', () => {
       'https://canvas.example.com/?mode=newapi&baseUrl=https%3A%2F%2Fmaolaoapi.com%2Fcanvas&group=default'
     )
   })
+
+  test('adds modality groups with the classic query names and omits cleared ones', () => {
+    const url = buildCanvasLaunchUrl({
+      canvasOrigin: 'https://canvas.example.com',
+      newApiOrigin: 'https://maolaoapi.com',
+      group: 'default-code',
+      textGroup: 'text-code',
+      imageGroup: '  ',
+      audioGroup: '',
+      videoGroup: 'video code',
+    })
+
+    expect(url).toBe(
+      'https://canvas.example.com/?mode=newapi&baseUrl=https%3A%2F%2Fmaolaoapi.com%2Fcanvas&group=default-code&textGroup=text-code&videoGroup=video+code'
+    )
+    expect(url).not.toContain('imageGroup')
+    expect(url).not.toContain('audioGroup')
+  })
 })

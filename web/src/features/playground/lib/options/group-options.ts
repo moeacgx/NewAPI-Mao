@@ -29,9 +29,35 @@ export type UserGroupsResponse = {
   message?: string
   data?: PlaygroundUserGroupMap
   canvas_default_group?: string
+  canvas_text_default_group?: string
+  canvas_image_default_group?: string
+  canvas_audio_default_group?: string
+  canvas_video_default_group?: string
 }
 
 export type PlaygroundUserGroupMap = Record<string, PlaygroundUserGroupInfo>
+
+export type CanvasUserGroups = {
+  groups: GroupOption[]
+  defaultGroup: string
+  textGroup: string
+  imageGroup: string
+  audioGroup: string
+  videoGroup: string
+}
+
+const emptyCanvasUserGroups = (): CanvasUserGroups => ({
+  groups: [],
+  defaultGroup: '',
+  textGroup: '',
+  imageGroup: '',
+  audioGroup: '',
+  videoGroup: '',
+})
+
+function readOptionalText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
 
 function getGroupDescription(
   description: string | undefined,
@@ -49,12 +75,38 @@ export function createPlaygroundGroupOptions(
   groups: PlaygroundUserGroupMap
 ): GroupOption[] {
   return Object.entries(groups).map(([code, info]) => {
-    const name = info.name?.trim() || code
+    // 个别条目缺失时保留该分组 code，不能让一次空值把已返回的分组整表丢掉。
+    const record =
+      info && typeof info === 'object' ? info : ({} as PlaygroundUserGroupInfo)
+    const name = readOptionalText(record.name) || code
     return {
       label: name,
       value: code,
-      ratio: info.ratio,
-      desc: getGroupDescription(info.desc, code, name),
+      ratio: record.ratio,
+      desc: getGroupDescription(readOptionalText(record.desc), code, name),
     }
   })
+}
+
+// 画布页只消费用户分组接口里已经返回、且当前用户可用的分组。
+export function readCanvasUserGroups(payload: unknown): CanvasUserGroups {
+  if (!payload || typeof payload !== 'object') return emptyCanvasUserGroups()
+  const body = payload as UserGroupsResponse
+  if (
+    !body.success ||
+    !body.data ||
+    typeof body.data !== 'object' ||
+    Array.isArray(body.data)
+  ) {
+    return emptyCanvasUserGroups()
+  }
+
+  return {
+    groups: createPlaygroundGroupOptions(body.data),
+    defaultGroup: readOptionalText(body.canvas_default_group),
+    textGroup: readOptionalText(body.canvas_text_default_group),
+    imageGroup: readOptionalText(body.canvas_image_default_group),
+    audioGroup: readOptionalText(body.canvas_audio_default_group),
+    videoGroup: readOptionalText(body.canvas_video_default_group),
+  }
 }

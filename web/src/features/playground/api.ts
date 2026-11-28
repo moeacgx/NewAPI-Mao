@@ -21,11 +21,13 @@ import { api } from '@/lib/api'
 import { API_ENDPOINTS } from './constants'
 import {
   createPlaygroundGroupOptions,
+  readCanvasUserGroups,
   type PlaygroundUserGroupMap,
+  type CanvasUserGroups,
   type UserGroupsResponse,
 } from './lib/options/group-options'
-import { preparePlaygroundRequest } from './lib/streaming/token-request'
 import { parseGatewaySkillsHeader } from './lib/streaming/gateway-skills'
+import { preparePlaygroundRequest } from './lib/streaming/token-request'
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -110,18 +112,13 @@ export async function getUserGroups(): Promise<GroupOption[]> {
 }
 
 export async function getUserGroupsWithDefault(): Promise<{
-  groups: GroupOption[]
+  groups: CanvasUserGroups['groups']
   defaultGroup: string
+  textGroup: string
+  imageGroup: string
+  audioGroup: string
+  videoGroup: string
 }> {
   const res = await api.get<UserGroupsResponse>(API_ENDPOINTS.USER_GROUPS)
-  const { data } = res
-
-  if (!data.success || !data.data) {
-    return { groups: [], defaultGroup: '' }
-  }
-
-  return {
-    groups: createPlaygroundGroupOptions(data.data),
-    defaultGroup: data.canvas_default_group?.trim() ?? '',
-  }
+  return readCanvasUserGroups(res.data)
 }

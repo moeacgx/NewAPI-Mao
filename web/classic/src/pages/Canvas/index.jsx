@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, Select, Typography } from '@douyinfe/semi-ui';
 import { ArrowUpRight } from 'lucide-react';
@@ -57,6 +57,7 @@ const Canvas = () => {
   const [audioGroup, setAudioGroup] = useState('');
   const [videoGroup, setVideoGroup] = useState('');
   const [loading, setLoading] = useState(false);
+  const modalityPresetsApplied = useRef(false);
   const capabilityGroupState = {
     textGroup,
     setTextGroup,
@@ -81,7 +82,16 @@ const Canvas = () => {
       setLoading(true);
       try {
         const res = await API.get(API_ENDPOINTS.USER_GROUPS);
-        const { success, message, data, canvas_default_group } = res.data;
+        const {
+          success,
+          message,
+          data,
+          canvas_default_group,
+          canvas_text_default_group,
+          canvas_image_default_group,
+          canvas_audio_default_group,
+          canvas_video_default_group,
+        } = res.data;
         if (!success) {
           showError(t(message));
           return;
@@ -101,6 +111,25 @@ const Canvas = () => {
           groupOptions[0]?.value ||
           '';
         setDefaultGroup((current) => current || fallback);
+        // 只在首次成功加载时套用可用预设，避免用户清空后被刷新写回。
+        if (!modalityPresetsApplied.current) {
+          modalityPresetsApplied.current = true;
+          const presetFor = (configured) =>
+            groupOptions.find((group) => group.value === configured)?.value ||
+            '';
+          setTextGroup(
+            (current) => current || presetFor(canvas_text_default_group),
+          );
+          setImageGroup(
+            (current) => current || presetFor(canvas_image_default_group),
+          );
+          setAudioGroup(
+            (current) => current || presetFor(canvas_audio_default_group),
+          );
+          setVideoGroup(
+            (current) => current || presetFor(canvas_video_default_group),
+          );
+        }
       } catch (error) {
         showError(t('加载分组失败'));
       } finally {

@@ -50,6 +50,10 @@ test('画布默认组按名称选择保存 code，刷新当前名称不改变选
               thinking_model_blacklist: '[]',
               chat_completions_to_responses_policy: '{}',
               canvas_default_group: '',
+              canvas_text_default_group: '',
+              canvas_image_default_group: '',
+              canvas_audio_default_group: '',
+              canvas_video_default_group: '',
             },
             general_setting: {
               ping_interval_enabled: false,
@@ -114,6 +118,10 @@ test('停用的当前画布默认组显示当前名称，且不能被新选择',
               thinking_model_blacklist: '[]',
               chat_completions_to_responses_policy: '{}',
               canvas_default_group: 'disabled-code',
+              canvas_text_default_group: '',
+              canvas_image_default_group: '',
+              canvas_audio_default_group: '',
+              canvas_video_default_group: '',
             },
             general_setting: {
               ping_interval_enabled: false,
@@ -133,6 +141,99 @@ test('停用的当前画布默认组显示当前名称，且不能被新选择',
     await user.click(combobox)
     expect(await screen.findByRole('option', { name: '当前名称' })).toBeTruthy()
     expect(screen.queryByRole('option', { name: '停用当前名' })).toBeNull()
+  } finally {
+    view.unmount()
+    actions.remove()
+    client.clear()
+  }
+})
+
+test('四类画布分组留空不预设，可用项保存 code，停用项只回显名称', async () => {
+  const user = userEvent.setup()
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const actions = document.createElement('div')
+  document.body.appendChild(actions)
+  const groups = [
+    { id: 7, code: 'stable-code', name: '当前名称', status: 1 },
+    { id: 8, code: 'disabled-code', name: '停用当前名', status: 0 },
+  ]
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: groups },
+  })
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPageProvider actionsContainer={actions}>
+        <GlobalSettingsCard
+          defaultValues={{
+            global: {
+              pass_through_request_enabled: false,
+              thinking_model_blacklist: '[]',
+              chat_completions_to_responses_policy: '{}',
+              canvas_default_group: '',
+              canvas_text_default_group: '',
+              canvas_image_default_group: 'disabled-code',
+              canvas_audio_default_group: 'stable-code',
+              canvas_video_default_group: '',
+            },
+            general_setting: {
+              ping_interval_enabled: false,
+              ping_interval_seconds: 30,
+            },
+          }}
+        />
+      </SettingsPageProvider>
+    </QueryClientProvider>
+  )
+  try {
+    const imageGroup = screen.getByRole('combobox', {
+      name: 'Infinite Canvas Image Group',
+    })
+    await waitFor(() => expect(imageGroup).toHaveTextContent('停用当前名'))
+    expect(imageGroup).not.toHaveTextContent('disabled-code')
+    expect(
+      screen.getByRole('combobox', { name: 'Infinite Canvas Audio Group' })
+    ).toHaveTextContent('当前名称')
+    expect(
+      screen.getByRole('combobox', { name: 'Infinite Canvas Text Group' })
+    ).toHaveTextContent('No preset')
+
+    await user.click(imageGroup)
+    expect(screen.queryByRole('option', { name: '停用当前名' })).toBeNull()
+    expect(await screen.findByRole('option', { name: '当前名称' })).toBeTruthy()
+    await user.keyboard('{Escape}')
+
+    await user.click(
+      screen.getByRole('combobox', { name: 'Infinite Canvas Text Group' })
+    )
+    await user.click(await screen.findByRole('option', { name: '当前名称' }))
+    await user.click(
+      screen.getByRole('combobox', { name: 'Infinite Canvas Audio Group' })
+    )
+    await user.click(await screen.findByRole('option', { name: 'No preset' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(2))
+    expect(put).toHaveBeenCalledWith('/api/option/', {
+      key: 'global.canvas_text_default_group',
+      value: 'stable-code',
+    })
+    expect(put).toHaveBeenCalledWith('/api/option/', {
+      key: 'global.canvas_audio_default_group',
+      value: '',
+    })
+    expect(put).not.toHaveBeenCalledWith('/api/option/', {
+      key: 'global.canvas_default_group',
+      value: expect.anything(),
+    })
+    expect(put).not.toHaveBeenCalledWith('/api/option/', {
+      key: 'global.canvas_image_default_group',
+      value: expect.anything(),
+    })
   } finally {
     view.unmount()
     actions.remove()
