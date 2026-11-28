@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { MessageSquare, X } from 'lucide-react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -471,13 +471,16 @@ export function SupplierConversationDialog(props: {
       <Button
         type='button'
         variant='outline'
+        size='sm'
+        className='h-7 shrink-0 px-2'
         aria-label={buttonLabel}
+        title={t('Conversation')}
         onClick={() => {
           setMounted(true)
           changeOpen(true)
         }}
       >
-        {t('Conversation')}
+        <MessageSquare aria-hidden='true' />
         {unread > 0 ? <span className='tabular-nums'>{unread}</span> : null}
       </Button>
       {mounted &&

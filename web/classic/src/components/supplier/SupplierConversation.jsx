@@ -28,6 +28,7 @@ import {
   TextArea,
   Typography,
 } from '@douyinfe/semi-ui';
+import { MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
 
@@ -440,6 +441,23 @@ const SupplierConversation = ({
 export default SupplierConversation;
 
 // 第一次打开后保留 DOM，关闭弹窗不清空输入。详情关闭时父组件卸载，草稿可以丢掉。
+export function applySupplierUnread(application, applicationId, unread) {
+  if (!application || application.id !== applicationId) return application;
+  return { ...application, unread_count: unread };
+}
+
+export function appendSupplierMessage(application, applicationId, message) {
+  if (!application || application.id !== applicationId) return application;
+  const messages = [...(application.messages || [])];
+  if (messages.some((item) => item.id === message.id)) return application;
+  messages.push(message);
+  return {
+    ...application,
+    messages,
+    message_count: (application.message_count || 0) + 1,
+  };
+}
+
 export function SupplierConversationDialog({
   applicationId,
   siteName,
@@ -487,18 +505,20 @@ export function SupplierConversationDialog({
   return (
     <>
       <Button
+        size='small'
+        icon={<MessageSquare size={14} aria-hidden='true' />}
         aria-label={
           unread > 0
             ? `${t('Conversation')}, ${t('{{count}} unread', { count: unread })}`
             : t('Conversation')
         }
+        title={t('Conversation')}
         onClick={() => {
           setMounted(true);
           changeOpen(true);
         }}
       >
-        {t('Conversation')}
-        {unread > 0 ? ` ${unread}` : ''}
+        {unread > 0 ? unread : null}
       </Button>
       {mounted && (
         <Modal

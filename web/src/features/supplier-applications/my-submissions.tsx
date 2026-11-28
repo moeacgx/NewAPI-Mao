@@ -31,7 +31,6 @@ import { getSupplierApplications } from './api'
 import { SupplierConversationDialog } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
-import { SupplierMessageCount } from './message-count'
 import { SupplierQuoteList } from './quote-list'
 import type { SupplierApplication, SupplierApplicationList } from './types'
 
@@ -71,7 +70,58 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             <h3 className='font-medium [overflow-wrap:anywhere]'>
               #{application.id} {application.site_name}
             </h3>
-            <SupplierMessageCount count={application.unread_count} />
+            <SupplierConversationDialog
+              applicationId={application.id}
+              siteName={application.site_name}
+              messages={application.messages}
+              canSend
+              mode='personal'
+              unreadCount={application.unread_count}
+              onRead={(unreadCount) => {
+                queryClient.setQueriesData<
+                  SupplierApplicationList<SupplierApplication>
+                >(
+                  { queryKey: ['supplier-applications', user?.id, 'list'] },
+                  (current) => {
+                    if (!current) return current
+                    return {
+                      ...current,
+                      items: current.items.map((item) =>
+                        item.id === application.id
+                          ? { ...item, unread_count: unreadCount }
+                          : item
+                      ),
+                    }
+                  }
+                )
+              }}
+              onSent={(message) => {
+                queryClient.setQueriesData<
+                  SupplierApplicationList<SupplierApplication>
+                >(
+                  { queryKey: ['supplier-applications', user?.id, 'list'] },
+                  (current) => {
+                    if (!current) return current
+                    return {
+                      ...current,
+                      items: current.items.map((item) => {
+                        if (item.id !== application.id) return item
+                        const messages = [...(item.messages ?? [])]
+                        if (messages.some((entry) => entry.id === message.id)) {
+                          return item
+                        }
+                        messages.push(message)
+                        return {
+                          ...item,
+                          messages,
+                          message_count: (item.message_count ?? 0) + 1,
+                        }
+                      }),
+                    }
+                  }
+                )
+              }}
+            />
           </div>
           <p className='text-muted-foreground text-sm'>
             {t('Submitted at')} {formatTimestampToDate(application.created_at)}{' '}
@@ -126,53 +176,6 @@ function SubmissionCard(props: { application: SupplierApplication }) {
             )}
           </dl>
           <SupplierQuoteList quotes={application.groups} />
-          <SupplierConversationDialog
-            applicationId={application.id}
-            siteName={application.site_name}
-            messages={application.messages}
-            canSend
-            mode='personal'
-            unreadCount={application.unread_count}
-            onRead={(unreadCount) => {
-              queryClient.setQueriesData<
-                SupplierApplicationList<SupplierApplication>
-              >(
-                { queryKey: ['supplier-applications', user?.id, 'list'] },
-                (current) => {
-                  if (!current) return current
-                  return {
-                    ...current,
-                    items: current.items.map((item) =>
-                      item.id === application.id
-                        ? { ...item, unread_count: unreadCount }
-                        : item
-                    ),
-                  }
-                }
-              )
-            }}
-            onSent={() => {
-              queryClient.setQueriesData<
-                SupplierApplicationList<SupplierApplication>
-              >(
-                { queryKey: ['supplier-applications', user?.id, 'list'] },
-                (current) => {
-                  if (!current) return current
-                  return {
-                    ...current,
-                    items: current.items.map((item) =>
-                      item.id === application.id
-                        ? {
-                            ...item,
-                            message_count: (item.message_count ?? 0) + 1,
-                          }
-                        : item
-                    ),
-                  }
-                }
-              )
-            }}
-          />
         </div>
       )}
     </li>

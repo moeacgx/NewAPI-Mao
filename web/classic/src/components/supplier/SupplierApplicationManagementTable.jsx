@@ -39,12 +39,13 @@ import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess, timestamp2string } from '../../helpers';
 import {
   SupplierConversationDialog,
+  appendSupplierMessage,
+  applySupplierUnread,
   supplierDetailColumnStyle,
   supplierDetailFactsStyle,
   supplierSheetBodyStyle,
   useSupplierSheetWidth,
 } from './SupplierConversation';
-import SupplierMessageCount from './SupplierMessageCount';
 
 const { Text, Paragraph } = Typography;
 
@@ -159,6 +160,36 @@ const SupplierApplicationManagementTable = () => {
     loadApplications(page);
   };
 
+  const conversationFor = (record, lockSheet) => (
+    <SupplierConversationDialog
+      applicationId={record.id}
+      siteName={record.site_name}
+      messages={record.messages}
+      canSend={hasWritePermission}
+      mode='admin'
+      unreadCount={record.unread_count}
+      onOpenChange={lockSheet ? setConversationOpen : undefined}
+      onRead={(unread) => {
+        setSelectedApp((current) =>
+          applySupplierUnread(current, record.id, unread),
+        );
+        setApplications((current) =>
+          current.map((item) => applySupplierUnread(item, record.id, unread)),
+        );
+      }}
+      onSent={(message) => {
+        setSelectedApp((current) =>
+          appendSupplierMessage(current, record.id, message),
+        );
+        setApplications((current) =>
+          current.map((item) =>
+            appendSupplierMessage(item, record.id, message),
+          ),
+        );
+      }}
+    />
+  );
+
   const viewDetail = async (record) => {
     try {
       const res = await API.get(`/api/supplier-application-admin/${record.id}`);
@@ -233,7 +264,7 @@ const SupplierApplicationManagementTable = () => {
       render: (text, record) => (
         <span className='inline-flex items-center gap-2'>
           <Text strong>{text}</Text>
-          <SupplierMessageCount count={record.unread_count} />
+          {conversationFor(record, false)}
         </span>
       ),
     },
@@ -350,9 +381,16 @@ const SupplierApplicationManagementTable = () => {
 
       <SideSheet
         title={
-          selectedApp
-            ? `#${selectedApp.id} ${selectedApp.site_name}`
-            : t('View details')
+          selectedApp ? (
+            <span className='inline-flex max-w-full items-center gap-2'>
+              <span style={{ overflowWrap: 'anywhere' }}>
+                {`#${selectedApp.id} ${selectedApp.site_name}`}
+              </span>
+              {conversationFor(selectedApp, true)}
+            </span>
+          ) : (
+            t('View details')
+          )
         }
         visible={detailVisible}
         onCancel={() => setDetailVisible(false)}
@@ -569,45 +607,6 @@ const SupplierApplicationManagementTable = () => {
                   )}
                 />
               )}
-            </div>
-
-            <div style={{ flexShrink: 0 }}>
-            <SupplierConversationDialog
-              applicationId={selectedApp.id}
-              siteName={selectedApp.site_name}
-              messages={selectedApp.messages}
-              canSend={hasWritePermission}
-              mode='admin'
-              unreadCount={selectedApp.unread_count}
-              onOpenChange={setConversationOpen}
-              onRead={(unread) => {
-                const apply = (application) =>
-                  !application || application.id !== selectedApp.id
-                    ? application
-                    : { ...application, unread_count: unread };
-                setSelectedApp((current) => apply(current));
-                setApplications((current) => current.map((item) => apply(item)));
-              }}
-              onSent={(message) => {
-                const append = (application) => {
-                  if (!application || application.id !== selectedApp.id)
-                    return application;
-                  const next = [...(application.messages || [])];
-                  if (next.some((item) => item.id === message.id))
-                    return application;
-                  next.push(message);
-                  return {
-                    ...application,
-                    messages: next,
-                    message_count: (application.message_count || 0) + 1,
-                  };
-                };
-                setSelectedApp((current) => append(current));
-                setApplications((current) =>
-                  current.map((item) => append(item)),
-                );
-              }}
-            />
             </div>
           </div>
         )}

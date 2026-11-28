@@ -427,7 +427,11 @@ describe('my submissions', { timeout: 30_000 }, () => {
       })
     })
     render(<MySupplierSubmissions />, { wrapper: Wrapper })
-    expect(await screen.findByRole('img', { name: '1 unread' })).toBeVisible()
+    const unreadButton = await screen.findByRole('button', {
+      name: 'Conversation, 1 unread',
+    })
+    expect(unreadButton.querySelector('svg')).toBeTruthy()
+    expect(unreadButton).toHaveTextContent('1')
     await user.click(screen.getByRole('button', { name: 'View details' }))
     const card = screen.getByText('#9 Long Supplier Site').closest('li')
     if (!card) throw new Error('submission card not found')
@@ -437,7 +441,11 @@ describe('my submissions', { timeout: 30_000 }, () => {
     await user.click(within(card).getByRole('button', { name: /Conversation/ }))
     expect(screen.getByText('Trial price for this month')).toBeVisible()
     expect(screen.queryByText('Internal: price is high')).toBeNull()
-    await waitFor(() => expect(screen.queryByRole('img', { name: '1 unread' })).toBeNull())
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Conversation, 1 unread' })
+      ).toBeNull()
+    )
     await user.selectOptions(
       screen.getByLabelText('Message type'),
       'negotiation'
@@ -463,7 +471,7 @@ describe('my submissions', { timeout: 30_000 }, () => {
       group_name: 'Discount group',
       ratio: 0.8,
     })
-    expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /unread/ })).toBeNull()
     expect(
       screen.getByText(/Discount group · Suggested ratio ×0.8/)
     ).toBeVisible()
@@ -498,11 +506,19 @@ describe('my submissions', { timeout: 30_000 }, () => {
     )
     vi.mocked(api.post).mockResolvedValue(response({ unread_count: 0 }))
     render(<MySupplierSubmissions />, { wrapper: Wrapper })
-    expect(await screen.findByRole('img', { name: '2 unread' })).toBeVisible()
+    const busyButton = await screen.findByRole('button', {
+      name: 'Conversation, 2 unread',
+    })
+    expect(busyButton.querySelector('svg')).toBeTruthy()
+    expect(busyButton).toHaveTextContent('2')
+    expect(busyButton).not.toHaveTextContent('4')
+    const quietButton = screen.getByRole('button', { name: 'Conversation' })
+    expect(quietButton.querySelector('svg')).toBeTruthy()
+    expect(quietButton.textContent ?? '').not.toMatch(/\d/)
     expect(screen.getByText('#10 Busy Site')).toBeVisible()
     expect(screen.getByText('#9 Quiet Site')).toBeVisible()
-    expect(screen.queryByRole('img', { name: '0 unread' })).toBeNull()
-    expect(screen.queryByRole('img', { name: '4 unread' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /0 unread/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /4 unread/ })).toBeNull()
     expect(screen.queryByText('Internal: price is high')).toBeNull()
     expect(api.get).toHaveBeenCalledTimes(1)
     expect(String(vi.mocked(api.get).mock.calls[0]?.[0])).not.toContain(
@@ -529,7 +545,53 @@ describe('my submissions', { timeout: 30_000 }, () => {
         '/api/supplier-applications/10/read'
       )
     )
-    expect(screen.queryByRole('img', { name: '2 unread' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /2 unread/ })).toBeNull()
+  })
+
+  it('opens the conversation from the list without expanding details', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockResolvedValue(
+      response({
+        page: 1,
+        page_size: 10,
+        total: 1,
+        items: [
+          {
+            ...adminApplication,
+            id: 10,
+            site_name: 'Busy Site',
+            unread_count: 2,
+            messages: [
+              {
+                id: 4,
+                author_id: 1,
+                author_role: 'admin',
+                author_name: 'reviewer',
+                type: 'message',
+                body: 'Please check the quote',
+                created_at: 1792634500,
+              },
+            ],
+          },
+        ],
+      })
+    )
+    vi.mocked(api.post).mockResolvedValue(response({ unread_count: 0 }))
+    render(<MySupplierSubmissions />, { wrapper: Wrapper })
+    const card = (await screen.findByText('#10 Busy Site')).closest('li')
+    if (!card) throw new Error('busy submission not found')
+    expect(within(card).queryByText('Official direct')).toBeNull()
+    await user.click(
+      within(card).getByRole('button', { name: 'Conversation, 2 unread' })
+    )
+    expect(within(card).queryByText('Official direct')).toBeNull()
+    expect(screen.getByText('Please check the quote')).toBeVisible()
+    expect(api.get).toHaveBeenCalledTimes(1)
+    await waitFor(() =>
+      expect(vi.mocked(api.post).mock.calls.map((call) => String(call[0]))).toContain(
+        '/api/supplier-applications/10/read'
+      )
+    )
   })
 })
 
@@ -648,7 +710,7 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(2)
   })
 
-  it('marks only applications with messages and puts processing before the conversation', async () => {
+  it('shows a conversation button beside the site name and keeps it by the detail title', async () => {
     grant(true)
     const user = userEvent.setup()
     const quiet = {
@@ -677,11 +739,21 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     )
     render(<SupplierApplicationManagement />, { wrapper: Wrapper })
     vi.mocked(api.post).mockResolvedValue(response({ unread_count: 0 }))
-    expect(await screen.findByRole('img', { name: '3 unread' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '#9 Quiet Site' })).toBeVisible()
-    expect(screen.queryByRole('img', { name: '0 unread' })).toBeNull()
-    expect(screen.queryByRole('img', { name: '5 unread' })).toBeNull()
-    expect(screen.queryByRole('img', { name: '1 unread' })).toBeNull()
+    const busyListButton = await screen.findByRole('button', {
+      name: 'Conversation, 3 unread',
+    })
+    expect(busyListButton.querySelector('svg')).toBeTruthy()
+    expect(busyListButton).toHaveTextContent('3')
+    expect(busyListButton).not.toHaveTextContent('1')
+    const quietListButton = screen.getByRole('button', { name: 'Conversation' })
+    expect(quietListButton.querySelector('svg')).toBeTruthy()
+    expect(quietListButton.textContent ?? '').not.toMatch(/\d/)
+    expect(
+      screen.getByRole('button', { name: '#9 Quiet Site' }).closest('td')
+    ).toContainElement(quietListButton)
+    expect(screen.queryByRole('button', { name: /0 unread/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /5 unread/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /1 unread/ })).toBeNull()
     expect(api.get).toHaveBeenCalledTimes(1)
     expect(String(vi.mocked(api.get).mock.calls[0]?.[0])).not.toContain(
       '/messages'
@@ -709,7 +781,11 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     const openConversation = within(dialog).getByRole('button', {
       name: /Conversation/,
     })
-    before(processing, openConversation)
+    expect(openConversation.querySelector('svg')).toBeTruthy()
+    expect(
+      dialog.querySelector('[data-supplier-detail-facts]')?.contains(openConversation)
+    ).toBe(false)
+    before(openConversation, processing)
     expect(within(dialog).queryByLabelText('Internal note')).toBeNull()
     expect(within(dialog).getByRole('button', { name: 'Edit' })).toBeVisible()
     expect(
@@ -746,7 +822,7 @@ describe('supplier application management', { timeout: 30_000 }, () => {
     }
     expect(dialog.contains(conversation)).toBe(false)
     await waitFor(() =>
-      expect(screen.queryByRole('img', { name: '3 unread' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /3 unread/ })).toBeNull()
     )
     expect(
       vi.mocked(api.post).mock.calls.map((call) => String(call[0]))
@@ -767,5 +843,60 @@ describe('supplier application management', { timeout: 30_000 }, () => {
       .mocked(api.get)
       .mock.calls.filter((call) => String(call[0]).includes('/messages'))
     expect(messageFetches).toEqual([])
+  })
+
+  it('opens the conversation from the list without loading the detail', async () => {
+    grant(true)
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      const path = String(url)
+      if (path.includes('/messages') || path.endsWith('/11')) {
+        throw new Error(`unexpected ${path}`)
+      }
+      return response({
+        page: 1,
+        page_size: 20,
+        total: 1,
+        items: [
+          {
+            ...adminApplication,
+            id: 11,
+            site_name: 'Busy Site',
+            message_count: 4,
+            unread_count: 1,
+            messages: [
+              {
+                id: 8,
+                author_id: 7,
+                author_role: 'applicant',
+                author_name: 'supplier-user',
+                type: 'message',
+                body: 'Can you review this quote?',
+                created_at: 1792634500,
+              },
+            ],
+          },
+        ],
+      })
+    })
+    vi.mocked(api.post).mockResolvedValue(response({ unread_count: 0 }))
+    render(<SupplierApplicationManagement />, { wrapper: Wrapper })
+    const button = await screen.findByRole('button', {
+      name: 'Conversation, 1 unread',
+    })
+    expect(button).toHaveTextContent('1')
+    expect(button).not.toHaveTextContent('4')
+    await user.click(button)
+    const conversation = await screen.findByRole('dialog', {
+      name: 'Conversation with Busy Site',
+    })
+    expect(within(conversation).getByText('Can you review this quote?')).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Processing' })).toBeNull()
+    expect(api.get).toHaveBeenCalledTimes(1)
+    await waitFor(() =>
+      expect(vi.mocked(api.post).mock.calls.map((call) => String(call[0]))).toContain(
+        '/api/supplier-application-admin/11/read'
+      )
+    )
   })
 })
