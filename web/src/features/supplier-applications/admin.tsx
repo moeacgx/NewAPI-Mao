@@ -17,7 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -75,7 +80,6 @@ import {
 import { SupplierConversationDialog } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
-import { SupplierMessageCount } from './message-count'
 import { SupplierSiteLink } from './my-submissions'
 import { SupplierQuoteList } from './quote-list'
 import {
@@ -88,6 +92,7 @@ import type {
   SupplierApplicationFilters,
   SupplierApplicationList,
   SupplierApplicationStatus,
+  SupplierMessage,
 } from './types'
 
 const PAGE_SIZE = 20
@@ -98,6 +103,50 @@ function ratioSummary(application: SupplierApplicationAdmin): string {
   const min = Math.min(...ratios)
   const max = Math.max(...ratios)
   return min === max ? `×${min}` : `×${min} – ×${max}`
+}
+
+function patchAdminApplication(
+  queryClient: QueryClient,
+  userId: number | undefined,
+  applicationId: number,
+  patch: (item: SupplierApplicationAdmin) => SupplierApplicationAdmin,
+) {
+  queryClient.setQueryData<SupplierApplicationAdmin>(
+    ['supplier-applications', userId, 'admin', 'detail', applicationId],
+    (current) => (current ? patch(current) : current),
+  )
+  queryClient.setQueriesData<SupplierApplicationList<SupplierApplicationAdmin>>(
+    { queryKey: ['supplier-applications', userId, 'admin', 'list'] },
+    (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        items: current.items.map((item) =>
+          item.id === applicationId ? patch(item) : item,
+        ),
+      }
+    },
+  )
+}
+
+function withUnread(unreadCount: number) {
+  return (item: SupplierApplicationAdmin) => ({
+    ...item,
+    unread_count: unreadCount,
+  })
+}
+
+function withSentMessage(message: SupplierMessage) {
+  return (item: SupplierApplicationAdmin) => {
+    const messages = [...(item.messages ?? [])]
+    if (messages.some((entry) => entry.id === message.id)) return item
+    messages.push(message)
+    return {
+      ...item,
+      messages,
+      message_count: (item.message_count ?? 0) + 1,
+    }
+  }
 }
 
 function ReviewForm(props: {
@@ -274,21 +323,11 @@ function SupplierApplicationSheet(props: {
   const conversationOpen = useRef(false)
 
   function setUnread(unreadCount: number) {
-    queryClient.setQueryData<SupplierApplicationAdmin>(
-      ['supplier-applications', user?.id, 'admin', 'detail', props.id],
-      (current) => (current ? { ...current, unread_count: unreadCount } : current)
-    )
-    queryClient.setQueriesData<SupplierApplicationList<SupplierApplicationAdmin>>(
-      { queryKey: ['supplier-applications', user?.id, 'admin', 'list'] },
-      (current) => {
-        if (!current) return current
-        return {
-          ...current,
-          items: current.items.map((item) =>
-            item.id === props.id ? { ...item, unread_count: unreadCount } : item
-          ),
-        }
-      }
+    patchAdminApplication(
+      queryClient,
+      user?.id,
+      props.id,
+      withUnread(unreadCount),
     )
   }
 
@@ -302,11 +341,35 @@ function SupplierApplicationSheet(props: {
     >
       <SheetContent className='w-full overflow-hidden sm:max-w-2xl'>
         <SheetHeader className='shrink-0'>
-          <SheetTitle className='pr-8 [overflow-wrap:anywhere]'>
-            {application
-              ? `#${application.id} ${application.site_name}`
-              : t('Supplier Application')}
-          </SheetTitle>
+          <div className='flex min-w-0 items-start gap-2 pr-8'>
+            <SheetTitle className='min-w-0 [overflow-wrap:anywhere]'>
+              {application
+                ? `#${application.id} ${application.site_name}`
+                : t('Supplier Application')}
+            </SheetTitle>
+            {application ? (
+              <SupplierConversationDialog
+                applicationId={application.id}
+                siteName={application.site_name}
+                messages={application.messages}
+                canSend={props.canWrite}
+                mode='admin'
+                unreadCount={application.unread_count}
+                onOpenChange={(next) => {
+                  conversationOpen.current = next
+                }}
+                onRead={setUnread}
+                onSent={(message) =>
+                  patchAdminApplication(
+                    queryClient,
+                    user?.id,
+                    application.id,
+                    withSentMessage(message),
+                  )
+                }
+              />
+            ) : null}
+          </div>
           <SheetDescription>
             {t('Full details and processing for this application.')}
           </SheetDescription>
@@ -344,7 +407,6 @@ function SupplierApplicationSheet(props: {
             </Alert>
           )}
           {application && (
-            <>
               <div
                 data-supplier-detail-facts
                 className='space-y-6'
@@ -419,49 +481,6 @@ function SupplierApplicationSheet(props: {
                   <SupplierQuoteList quotes={application.groups} />
                 </section>
               </div>
-              <div style={{ flexShrink: 0 }}>
-                <SupplierConversationDialog
-                  applicationId={application.id}
-                  siteName={application.site_name}
-                  messages={application.messages}
-                  canSend={props.canWrite}
-                  mode='admin'
-                  unreadCount={application.unread_count}
-                  onOpenChange={(next) => {
-                    conversationOpen.current = next
-                  }}
-                  onRead={setUnread}
-                  onSent={() => {
-                    queryClient.setQueriesData<
-                      SupplierApplicationList<SupplierApplicationAdmin>
-                    >(
-                      {
-                        queryKey: [
-                          'supplier-applications',
-                          user?.id,
-                          'admin',
-                          'list',
-                        ],
-                      },
-                      (current) => {
-                        if (!current) return current
-                        return {
-                          ...current,
-                          items: current.items.map((item) =>
-                            item.id === application.id
-                              ? {
-                                  ...item,
-                                  message_count: (item.message_count ?? 0) + 1,
-                                }
-                              : item
-                          ),
-                        }
-                      }
-                    )
-                  }}
-                />
-              </div>
-            </>
           )}
         </div>
       </SheetContent>
@@ -499,6 +518,7 @@ export function SupplierApplicationManagement(props: {
   const [keyword, setKeyword] = useState('')
   const [userId, setUserId] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: ['supplier-applications', user?.id, 'admin', 'list', filters],
     queryFn: ({ signal }) => getAdminSupplierApplications(filters, signal),
@@ -664,8 +684,29 @@ export function SupplierApplicationManagement(props: {
                               >
                                 #{application.id} {application.site_name}
                               </button>
-                              <SupplierMessageCount
-                                count={application.unread_count}
+                              <SupplierConversationDialog
+                                applicationId={application.id}
+                                siteName={application.site_name}
+                                messages={application.messages}
+                                canSend={canWrite}
+                                mode='admin'
+                                unreadCount={application.unread_count}
+                                onRead={(unreadCount) =>
+                                  patchAdminApplication(
+                                    queryClient,
+                                    user?.id,
+                                    application.id,
+                                    withUnread(unreadCount),
+                                  )
+                                }
+                                onSent={(message) =>
+                                  patchAdminApplication(
+                                    queryClient,
+                                    user?.id,
+                                    application.id,
+                                    withSentMessage(message),
+                                  )
+                                }
                               />
                             </div>
                           </TableCell>
