@@ -143,6 +143,7 @@ type SupplierApplicationUserView struct {
 	Messages    []SupplierApplicationMessageView `json:"messages"`
 	// MessageCount 只统计对话记录，不含内部备注。列表直接带回，前端不必逐条再取对话。
 	MessageCount int `json:"message_count"`
+	UnreadCount  int `json:"unread_count"`
 }
 
 // SupplierApplicationAdminView 面向有权限的管理员，包含完整资料和处理信息。
@@ -167,6 +168,7 @@ type SupplierApplicationAdminView struct {
 	Messages      []SupplierApplicationMessageView `json:"messages"`
 	// MessageCount 与个人视图相同，只统计对话记录。
 	MessageCount int `json:"message_count"`
+	UnreadCount  int `json:"unread_count"`
 }
 
 func ValidSupplierApplicationStatus(status string) bool {
@@ -482,7 +484,7 @@ func ListSupplierApplicationsForUser(userID int, filter SupplierApplicationFilte
 	for index := range items {
 		views[index] = *buildSupplierUserView(&items[index], quotes[items[index].Id])
 	}
-	if err := attachUserSupplierMessages(views); err != nil {
+	if err := attachUserSupplierMessages(views, userID); err != nil {
 		return nil, 0, err
 	}
 	return views, total, nil
@@ -502,14 +504,14 @@ func GetSupplierApplicationForUser(applicationID, userID int) (*SupplierApplicat
 	}
 	view := buildSupplierUserView(&application, quotes[application.Id])
 	views := []SupplierApplicationUserView{*view}
-	if err := attachUserSupplierMessages(views); err != nil {
+	if err := attachUserSupplierMessages(views, userID); err != nil {
 		return nil, err
 	}
 	return &views[0], nil
 }
 
 // buildSupplierAdminViews 批量解析申请人与处理人的用户名，避免逐行查询。
-func buildSupplierAdminViews(applications []SupplierApplication) ([]SupplierApplicationAdminView, error) {
+func buildSupplierAdminViews(applications []SupplierApplication, viewerID int) ([]SupplierApplicationAdminView, error) {
 	ids := make([]int, len(applications))
 	userIDs := make([]int, 0, len(applications)*2)
 	for index, application := range applications {
@@ -548,7 +550,7 @@ func buildSupplierAdminViews(applications []SupplierApplication) ([]SupplierAppl
 			Messages: []SupplierApplicationMessageView{},
 		}
 	}
-	if err := attachAdminSupplierMessages(views); err != nil {
+	if err := attachAdminSupplierMessages(views, viewerID); err != nil {
 		return nil, err
 	}
 	return views, nil
@@ -559,19 +561,19 @@ func ListSupplierApplicationsForAdmin(adminID int, filter SupplierApplicationFil
 	if err != nil {
 		return nil, 0, err
 	}
-	views, err := buildSupplierAdminViews(items)
+	views, err := buildSupplierAdminViews(items, adminID)
 	return views, total, err
 }
 
-func GetSupplierApplicationForAdmin(applicationID int) (*SupplierApplicationAdminView, error) {
-	if applicationID <= 0 {
+func GetSupplierApplicationForAdmin(applicationID, viewerID int) (*SupplierApplicationAdminView, error) {
+	if applicationID <= 0 || viewerID <= 0 {
 		return nil, ErrSupplierApplicationInvalid
 	}
 	var application SupplierApplication
 	if err := DB.First(&application, applicationID).Error; err != nil {
 		return nil, err
 	}
-	views, err := buildSupplierAdminViews([]SupplierApplication{application})
+	views, err := buildSupplierAdminViews([]SupplierApplication{application}, viewerID)
 	if err != nil {
 		return nil, err
 	}
@@ -625,6 +627,6 @@ func ReviewSupplierApplication(applicationID, adminID int, review SupplierApplic
 	if err != nil {
 		return nil, err
 	}
-	result.View, err = GetSupplierApplicationForAdmin(applicationID)
+	result.View, err = GetSupplierApplicationForAdmin(applicationID, adminID)
 	return result, err
 }

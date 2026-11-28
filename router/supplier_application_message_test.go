@@ -22,7 +22,7 @@ func TestSupplierApplicationMessagesAreIsolatedRecords(t *testing.T) {
 	common.IsMasterNode = true
 	t.Cleanup(func() { common.IsMasterNode = wasMaster })
 	require.NoError(t, fixture.db.AutoMigrate(
-		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{},
+		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{}, &model.SupplierApplicationRead{},
 		&model.Log{}, &model.CasbinRule{}, &model.AuthzRole{},
 	))
 	require.NoError(t, authz.Init(fixture.db))
@@ -238,7 +238,7 @@ func TestSupplierApplicationListMessageCountIgnoresInternalNotes(t *testing.T) {
 	common.IsMasterNode = true
 	t.Cleanup(func() { common.IsMasterNode = wasMaster })
 	require.NoError(t, fixture.db.AutoMigrate(
-		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{},
+		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{}, &model.SupplierApplicationRead{},
 		&model.Log{}, &model.CasbinRule{}, &model.AuthzRole{},
 	))
 	require.NoError(t, authz.Init(fixture.db))
@@ -361,4 +361,161 @@ func TestSupplierApplicationListMessageCountIgnoresInternalNotes(t *testing.T) {
 	assert.Equal(t, 2, found["有对话站点"].MessageCount)
 	assert.Len(t, found["有对话站点"].Messages, 2)
 	assert.Empty(t, found["无对话站点"].Messages)
+}
+
+func TestSupplierApplicationUnreadFollowsReadCursor(t *testing.T) {
+	fixture := setupTokenKeyFixture(t, false, common.RoleAdminUser, 1)
+	common.GlobalApiRateLimitEnable = false
+	common.CriticalRateLimitEnable = false
+	wasMaster := common.IsMasterNode
+	common.IsMasterNode = true
+	t.Cleanup(func() { common.IsMasterNode = wasMaster })
+	require.NoError(t, fixture.db.AutoMigrate(
+		&model.SupplierApplication{}, &model.SupplierApplicationQuote{}, &model.SupplierApplicationMessage{}, &model.SupplierApplicationRead{},
+		&model.Log{}, &model.CasbinRule{}, &model.AuthzRole{},
+	))
+	require.NoError(t, authz.Init(fixture.db))
+	oldLogDB := model.LOG_DB
+	model.LOG_DB = fixture.db
+	t.Cleanup(func() { model.LOG_DB = oldLogDB })
+	fixture.engine = newManagementRouter(t)
+	ip := "192.0.2.83"
+	require.NoError(t, fixture.db.Model(&model.User{}).Where("id = ?", fixture.peer.user.Id).Updates(map[string]any{
+		"quota": 88000, "used_quota": 120, "aff_quota": 30,
+	}).Error)
+	require.NoError(t, fixture.db.Model(&model.User{}).Where("id = ?", fixture.owner.user.Id).Updates(map[string]any{
+		"quota": 77000, "used_quota": 15, "aff_quota": 4,
+	}).Error)
+
+	created := managementRequest(fixture.engine, http.MethodPost, "/api/supplier-applications", fixture.peer.session, ip, supplierApplicationBody(t, func(payload map[string]any) {
+		payload["site_name"] = "未读站点"
+		payload["contact"] = "wx-unread-001"
+	}))
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var createdView struct {
+		Data model.SupplierApplicationUserView `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(created.Body.Bytes(), &createdView))
+	applicationID := createdView.Data.Id
+	personalMessages := fmt.Sprintf("/api/supplier-applications/%d/messages", applicationID)
+	adminMessages := fmt.Sprintf("/api/supplier-application-admin/%d/messages", applicationID)
+	personalRead := fmt.Sprintf("/api/supplier-applications/%d/read", applicationID)
+	adminRead := fmt.Sprintf("/api/supplier-application-admin/%d/read", applicationID)
+	adminDetail := fmt.Sprintf("/api/supplier-application-admin/%d", applicationID)
+
+	own := managementRequest(fixture.engine, http.MethodPost, personalMessages, fixture.peer.session, ip, `{"type":"message","body":"申请人自己的消息"}`)
+	require.Equal(t, http.StatusOK, own.Code, own.Body.String())
+
+	type counted struct {
+		SiteName     string `json:"site_name"`
+		MessageCount int    `json:"message_count"`
+		UnreadCount  int    `json:"unread_count"`
+	}
+	readList := func(path, session string) map[string]counted {
+		t.Helper()
+		response := managementRequest(fixture.engine, http.MethodGet, path, session, ip, "")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var payload struct {
+			Data struct {
+				Items []counted `json:"items"`
+			} `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
+		items := map[string]counted{}
+		for _, item := range payload.Data.Items {
+			items[item.SiteName] = item
+		}
+		return items
+	}
+	peerItem := readList("/api/supplier-applications?page_size=20", fixture.peer.session)["未读站点"]
+	assert.Equal(t, 1, peerItem.MessageCount)
+	assert.Equal(t, 0, peerItem.UnreadCount)
+	adminItem := readList("/api/supplier-application-admin?page_size=20", fixture.owner.session)["未读站点"]
+	assert.Equal(t, 1, adminItem.MessageCount)
+	assert.Equal(t, 1, adminItem.UnreadCount)
+
+	reply := managementRequest(fixture.engine, http.MethodPost, adminMessages, fixture.owner.session, ip, `{"type":"message","body":"管理员回复"}`)
+	require.Equal(t, http.StatusOK, reply.Code, reply.Body.String())
+	peerItem = readList("/api/supplier-applications?page_size=20", fixture.peer.session)["未读站点"]
+	adminItem = readList("/api/supplier-application-admin?page_size=20", fixture.owner.session)["未读站点"]
+	assert.Equal(t, 2, peerItem.MessageCount)
+	assert.Equal(t, 1, peerItem.UnreadCount)
+	assert.Equal(t, 2, adminItem.MessageCount)
+	assert.Equal(t, 1, adminItem.UnreadCount)
+
+	personalDetail := managementRequest(fixture.engine, http.MethodGet, fmt.Sprintf("/api/supplier-applications/%d", applicationID), fixture.peer.session, ip, "")
+	require.Equal(t, http.StatusOK, personalDetail.Code, personalDetail.Body.String())
+	assert.Contains(t, personalDetail.Body.String(), `"unread_count":1`)
+	assert.NotContains(t, personalDetail.Body.String(), "admin_note")
+	adminBefore := managementRequest(fixture.engine, http.MethodGet, adminDetail, fixture.owner.session, ip, "")
+	require.Equal(t, http.StatusOK, adminBefore.Code, adminBefore.Body.String())
+	var beforeView struct {
+		Data model.SupplierApplicationAdminView `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(adminBefore.Body.Bytes(), &beforeView))
+	assert.Equal(t, 1, beforeView.Data.UnreadCount)
+	note := "内部备注不计入未读"
+	reviewed := managementRequest(fixture.engine, http.MethodPut, adminDetail, fixture.owner.session, ip, fmt.Sprintf(`{"status":"contacted","admin_note":%q,"version":%d}`, note, beforeView.Data.Version))
+	require.Equal(t, http.StatusOK, reviewed.Code, reviewed.Body.String())
+	peerItem = readList("/api/supplier-applications?page_size=20", fixture.peer.session)["未读站点"]
+	assert.Equal(t, 1, peerItem.UnreadCount)
+	assert.NotContains(t, managementRequest(fixture.engine, http.MethodGet, "/api/supplier-applications?page_size=20", fixture.peer.session, ip, "").Body.String(), note)
+
+	marked := managementRequest(fixture.engine, http.MethodPost, personalRead, fixture.peer.session, ip, "")
+	require.Equal(t, http.StatusOK, marked.Code, marked.Body.String())
+	assert.Contains(t, marked.Body.String(), `"unread_count":0`)
+	peerItem = readList("/api/supplier-applications?page_size=20", fixture.peer.session)["未读站点"]
+	adminItem = readList("/api/supplier-application-admin?page_size=20", fixture.owner.session)["未读站点"]
+	assert.Equal(t, 0, peerItem.UnreadCount)
+	assert.Equal(t, 1, adminItem.UnreadCount)
+
+	adminMarked := managementRequest(fixture.engine, http.MethodPost, adminRead, fixture.owner.session, ip, "")
+	require.Equal(t, http.StatusOK, adminMarked.Code, adminMarked.Body.String())
+	assert.Contains(t, adminMarked.Body.String(), `"unread_count":0`)
+	adminItem = readList("/api/supplier-application-admin?page_size=20", fixture.owner.session)["未读站点"]
+	assert.Equal(t, 0, adminItem.UnreadCount)
+
+	again := managementRequest(fixture.engine, http.MethodPost, personalMessages, fixture.peer.session, ip, `{"type":"message","body":"申请人又发了一条"}`)
+	require.Equal(t, http.StatusOK, again.Code, again.Body.String())
+	peerItem = readList("/api/supplier-applications?page_size=20", fixture.peer.session)["未读站点"]
+	adminItem = readList("/api/supplier-application-admin?page_size=20", fixture.owner.session)["未读站点"]
+	assert.Equal(t, 0, peerItem.UnreadCount)
+	assert.Equal(t, 1, adminItem.UnreadCount)
+	assert.Equal(t, 3, adminItem.MessageCount)
+
+	adminAfter := managementRequest(fixture.engine, http.MethodGet, adminDetail, fixture.owner.session, ip, "")
+	var afterView struct {
+		Data model.SupplierApplicationAdminView `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(adminAfter.Body.Bytes(), &afterView))
+	assert.Equal(t, beforeView.Data.Version+1, afterView.Data.Version)
+	assert.Equal(t, note, afterView.Data.AdminNote)
+	assert.Equal(t, 1, afterView.Data.UnreadCount)
+
+	foreign := managementRequest(fixture.engine, http.MethodPost, "/api/supplier-applications", fixture.owner.session, ip, supplierApplicationBody(t, func(payload map[string]any) {
+		payload["site_name"] = "别人的申请"
+		payload["contact"] = "wx-foreign-001"
+	}))
+	require.Equal(t, http.StatusOK, foreign.Code, foreign.Body.String())
+	var foreignView struct {
+		Data model.SupplierApplicationUserView `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(foreign.Body.Bytes(), &foreignView))
+	denied := managementRequest(fixture.engine, http.MethodPost, fmt.Sprintf("/api/supplier-applications/%d/read", foreignView.Data.Id), fixture.peer.session, ip, "")
+	assert.Equal(t, http.StatusNotFound, denied.Code)
+
+	require.NoError(t, authz.SetUserPermissions(fixture.owner.user.Id, authz.PermissionsMap{authz.ResourceSupplierApplications: {"read": true, "write": false}}))
+	assert.Equal(t, http.StatusOK, managementRequest(fixture.engine, http.MethodPost, adminRead, fixture.owner.session, ip, "").Code)
+	assert.Equal(t, http.StatusForbidden, managementRequest(fixture.engine, http.MethodPost, adminMessages, fixture.owner.session, ip, `{"type":"message","body":"只读不能发"}`).Code)
+
+	var peer model.User
+	var owner model.User
+	require.NoError(t, fixture.db.First(&peer, fixture.peer.user.Id).Error)
+	require.NoError(t, fixture.db.First(&owner, fixture.owner.user.Id).Error)
+	assert.Equal(t, int64(88000), peer.Quota)
+	assert.Equal(t, int64(120), peer.UsedQuota)
+	assert.Equal(t, int64(30), peer.AffQuota)
+	assert.Equal(t, int64(77000), owner.Quota)
+	assert.Equal(t, int64(15), owner.UsedQuota)
+	assert.Equal(t, int64(4), owner.AffQuota)
 }

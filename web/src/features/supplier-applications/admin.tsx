@@ -72,7 +72,7 @@ import {
   getAdminSupplierApplications,
   reviewSupplierApplication,
 } from './api'
-import { SupplierConversation } from './conversation'
+import { SupplierConversationDialog } from './conversation'
 import { getSupplierErrorKey } from './errors'
 import { getSupplierLabels } from './labels'
 import { SupplierMessageCount } from './message-count'
@@ -271,9 +271,35 @@ function SupplierApplicationSheet(props: {
     queryFn: ({ signal }) => getAdminSupplierApplication(props.id, signal),
   })
   const application = query.data
+  const conversationOpen = useRef(false)
+
+  function setUnread(unreadCount: number) {
+    queryClient.setQueryData<SupplierApplicationAdmin>(
+      ['supplier-applications', user?.id, 'admin', 'detail', props.id],
+      (current) => (current ? { ...current, unread_count: unreadCount } : current)
+    )
+    queryClient.setQueriesData<SupplierApplicationList<SupplierApplicationAdmin>>(
+      { queryKey: ['supplier-applications', user?.id, 'admin', 'list'] },
+      (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === props.id ? { ...item, unread_count: unreadCount } : item
+          ),
+        }
+      }
+    )
+  }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && props.onClose()}>
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open && conversationOpen.current) return
+        if (!open) props.onClose()
+      }}
+    >
       <SheetContent className='w-full overflow-hidden sm:max-w-2xl'>
         <SheetHeader className='shrink-0'>
           <SheetTitle className='pr-8 [overflow-wrap:anywhere]'>
@@ -323,9 +349,8 @@ function SupplierApplicationSheet(props: {
                 data-supplier-detail-facts
                 className='space-y-6'
                 style={{
-                  flex: '0 1 auto',
+                  flex: '1 1 auto',
                   minHeight: 0,
-                  maxHeight: '45%',
                   overflowY: 'auto',
                 }}
               >
@@ -394,21 +419,18 @@ function SupplierApplicationSheet(props: {
                   <SupplierQuoteList quotes={application.groups} />
                 </section>
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flex: '1 1 auto',
-                  minWidth: 0,
-                  minHeight: 0,
-                  overflow: 'hidden',
-                }}
-              >
-                <SupplierConversation
+              <div style={{ flexShrink: 0 }}>
+                <SupplierConversationDialog
                   applicationId={application.id}
+                  siteName={application.site_name}
                   messages={application.messages}
                   canSend={props.canWrite}
                   mode='admin'
-                  dock='fill'
+                  unreadCount={application.unread_count}
+                  onOpenChange={(next) => {
+                    conversationOpen.current = next
+                  }}
+                  onRead={setUnread}
                   onSent={() => {
                     queryClient.setQueriesData<
                       SupplierApplicationList<SupplierApplicationAdmin>
@@ -643,7 +665,7 @@ export function SupplierApplicationManagement(props: {
                                 #{application.id} {application.site_name}
                               </button>
                               <SupplierMessageCount
-                                count={application.message_count}
+                                count={application.unread_count}
                               />
                             </div>
                           </TableCell>

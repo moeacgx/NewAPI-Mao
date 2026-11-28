@@ -22,6 +22,7 @@ import {
   Button,
   Empty,
   Input,
+  Modal,
   Select,
   Tag,
   TextArea,
@@ -132,9 +133,8 @@ export const supplierDetailColumnStyle = {
 };
 
 export const supplierDetailFactsStyle = {
-  flex: '0 1 auto',
+  flex: '1 1 auto',
   minHeight: 0,
-  maxHeight: '45%',
   overflowY: 'auto',
 };
 
@@ -438,3 +438,120 @@ const SupplierConversation = ({
 };
 
 export default SupplierConversation;
+
+// 第一次打开后保留 DOM，关闭弹窗不清空输入。详情关闭时父组件卸载，草稿可以丢掉。
+export function SupplierConversationDialog({
+  applicationId,
+  siteName,
+  messages,
+  canSend,
+  mode,
+  unreadCount = 0,
+  onOpenChange,
+  onSent,
+  onRead,
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const narrow = useSupplierSheetWidth('960px') === '100%';
+  const unread = Number(unreadCount) || 0;
+  const onReadRef = React.useRef(onRead);
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  onReadRef.current = onRead;
+  onOpenChangeRef.current = onOpenChange;
+
+  function changeOpen(next) {
+    setOpen(next);
+    onOpenChangeRef.current?.(next);
+  }
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    const path =
+      mode === 'admin'
+        ? `/api/supplier-application-admin/${applicationId}/read`
+        : `/api/supplier-applications/${applicationId}/read`;
+    API.post(path, {})
+      .then((response) => {
+        const value = response?.data?.data?.unread_count;
+        if (!cancelled && typeof value === 'number') onReadRef.current?.(value);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, applicationId, mode]);
+
+  return (
+    <>
+      <Button
+        aria-label={
+          unread > 0
+            ? `${t('Conversation')}, ${t('{{count}} unread', { count: unread })}`
+            : t('Conversation')
+        }
+        onClick={() => {
+          setMounted(true);
+          changeOpen(true);
+        }}
+      >
+        {t('Conversation')}
+        {unread > 0 ? ` ${unread}` : ''}
+      </Button>
+      {mounted && (
+        <Modal
+          title={t('Conversation with {{site}}', { site: siteName })}
+          visible={open}
+          keepDOM
+          footer={null}
+          fullScreen={narrow}
+          width={narrow ? '100%' : 960}
+          zIndex={1200}
+          onCancel={() => changeOpen(false)}
+          bodyStyle={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+            height: narrow ? '100%' : 'min(48rem, 100dvh)',
+          }}
+        >
+          <div
+            data-supplier-conversation-dialog
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: narrow ? '100%' : '56rem',
+              maxWidth: '100vw',
+              height: '48rem',
+              maxHeight: '100dvh',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              data-supplier-conversation-slot
+              style={{
+                display: 'flex',
+                flex: '1 1 auto',
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <SupplierConversation
+                applicationId={applicationId}
+                messages={messages}
+                canSend={canSend}
+                mode={mode}
+                dock='fill'
+                onSent={onSent}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}

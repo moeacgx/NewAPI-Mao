@@ -7911,6 +7911,8 @@
     "Quota cannot exceed {{max}}": "Quota cannot exceed {{max}}",
     "Period quota must be greater than 0": "Period quota must be greater than 0",
     "Conversation": "Conversation",
+  "Conversation with {{site}}": "Conversation with {{site}}",
+  "{{count}} unread": "{{count}} unread",
     "Plain message": "Plain message",
     "Negotiation": "Negotiation",
     "Offer": "Offer",

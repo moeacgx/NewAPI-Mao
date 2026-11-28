@@ -219,7 +219,7 @@ func loadSupplierMessageViews(applicationIDs []int) (map[int][]SupplierApplicati
 	return grouped, nil
 }
 
-func attachUserSupplierMessages(views []SupplierApplicationUserView) error {
+func attachUserSupplierMessages(views []SupplierApplicationUserView, userID int) error {
 	ids := make([]int, len(views))
 	for index := range views {
 		ids[index] = views[index].Id
@@ -228,14 +228,20 @@ func attachUserSupplierMessages(views []SupplierApplicationUserView) error {
 	if err != nil {
 		return err
 	}
+	cursors, err := loadSupplierReadCursors(userID, ids)
+	if err != nil {
+		return err
+	}
 	for index := range views {
-		views[index].Messages = grouped[views[index].Id]
-		views[index].MessageCount = len(views[index].Messages)
+		messages := grouped[views[index].Id]
+		views[index].Messages = messages
+		views[index].MessageCount = len(messages)
+		views[index].UnreadCount = supplierUnreadCount(messages, cursors[views[index].Id], userID)
 	}
 	return nil
 }
 
-func attachAdminSupplierMessages(views []SupplierApplicationAdminView) error {
+func attachAdminSupplierMessages(views []SupplierApplicationAdminView, userID int) error {
 	ids := make([]int, len(views))
 	for index := range views {
 		ids[index] = views[index].Id
@@ -244,9 +250,15 @@ func attachAdminSupplierMessages(views []SupplierApplicationAdminView) error {
 	if err != nil {
 		return err
 	}
+	cursors, err := loadSupplierReadCursors(userID, ids)
+	if err != nil {
+		return err
+	}
 	for index := range views {
-		views[index].Messages = grouped[views[index].Id]
-		views[index].MessageCount = len(views[index].Messages)
+		messages := grouped[views[index].Id]
+		views[index].Messages = messages
+		views[index].MessageCount = len(messages)
+		views[index].UnreadCount = supplierUnreadCount(messages, cursors[views[index].Id], userID)
 	}
 	return nil
 }
@@ -292,4 +304,117 @@ func CreateSupplierApplicationMessage(applicationID, authorID int, admin bool, i
 	}
 	view := supplierMessageView(row, author.Username)
 	return &SupplierApplicationMessageResult{View: &view, ApplicantID: application.UserId}, nil
+}
+
+// SupplierApplicationRead 记录某个用户在某条申请上已经看过的最后一条对话。
+// 只在打开对话弹窗时推进，打开详情不会写入。内部备注不在这张表里。
+type SupplierApplicationRead struct {
+	Id                int   `json:"id" gorm:"primaryKey"`
+	UserId            int   `json:"user_id" gorm:"not null;uniqueIndex:idx_supplier_app_read,priority:1"`
+	ApplicationId     int   `json:"application_id" gorm:"not null;uniqueIndex:idx_supplier_app_read,priority:2"`
+	LastReadMessageId int   `json:"last_read_message_id" gorm:"not null"`
+	UpdatedAt         int64 `json:"updated_at" gorm:"not null"`
+}
+
+// SupplierApplicationReadResult 只返回推进后的未读数，不带消息正文。
+type SupplierApplicationReadResult struct {
+	UnreadCount int `json:"unread_count"`
+}
+
+func supplierUnreadCount(messages []SupplierApplicationMessageView, cursor, userID int) int {
+	count := 0
+	for _, message := range messages {
+		if message.AuthorId != userID && message.Id > cursor {
+			count++
+		}
+	}
+	return count
+}
+
+func loadSupplierReadCursors(userID int, applicationIDs []int) (map[int]int, error) {
+	cursors := make(map[int]int, len(applicationIDs))
+	if userID <= 0 || len(applicationIDs) == 0 {
+		return cursors, nil
+	}
+	var rows []SupplierApplicationRead
+	if err := DB.Where("user_id = ? AND application_id IN ?", userID, applicationIDs).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		cursors[row.ApplicationId] = row.LastReadMessageId
+	}
+	return cursors, nil
+}
+
+func supplierReadConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate")
+}
+
+// MarkSupplierApplicationRead 把该用户的已读位置推进到此刻最后一条对话。
+// 不修改申请、余额、兑换码、渠道、分组或计费。自己的消息本来就不计未读。
+func MarkSupplierApplicationRead(applicationID, userID int, admin bool) (*SupplierApplicationReadResult, error) {
+	if applicationID <= 0 || userID <= 0 {
+		return nil, ErrSupplierApplicationInvalid
+	}
+	var writeErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		writeErr = DB.Transaction(func(tx *gorm.DB) error {
+			var application SupplierApplication
+			query := lockForUpdate(tx.Model(&SupplierApplication{}))
+			if !admin {
+				query = query.Where("user_id = ?", userID)
+			}
+			if err := query.First(&application, applicationID).Error; err != nil {
+				return err
+			}
+			var latest struct {
+				Value int `gorm:"column:value"`
+			}
+			if err := tx.Model(&SupplierApplicationMessage{}).
+				Where("application_id = ?", application.Id).
+				Select("COALESCE(MAX(id), 0) AS value").
+				Scan(&latest).Error; err != nil {
+				return err
+			}
+			var existing SupplierApplicationRead
+			err := tx.Where("user_id = ? AND application_id = ?", userID, application.Id).First(&existing).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return tx.Create(&SupplierApplicationRead{
+					UserId: userID, ApplicationId: application.Id,
+					LastReadMessageId: latest.Value, UpdatedAt: nowUnix(),
+				}).Error
+			}
+			if err != nil {
+				return err
+			}
+			if existing.LastReadMessageId >= latest.Value {
+				return nil
+			}
+			update := tx.Model(&SupplierApplicationRead{}).
+				Where("id = ? AND last_read_message_id < ?", existing.Id, latest.Value).
+				Updates(map[string]any{"last_read_message_id": latest.Value, "updated_at": nowUnix()})
+			return update.Error
+		})
+		if writeErr == nil || !supplierReadConflict(writeErr) {
+			break
+		}
+	}
+	if writeErr != nil {
+		return nil, writeErr
+	}
+	grouped, err := loadSupplierMessageViews([]int{applicationID})
+	if err != nil {
+		return nil, err
+	}
+	cursors, err := loadSupplierReadCursors(userID, []int{applicationID})
+	if err != nil {
+		return nil, err
+	}
+	return &SupplierApplicationReadResult{
+		UnreadCount: supplierUnreadCount(grouped[applicationID], cursors[applicationID], userID),
+	}, nil
 }

@@ -7911,6 +7911,8 @@
     "Quota cannot exceed {{max}}": "クォータは {{max}} を超えられません",
     "Period quota must be greater than 0": "期間クォータは 0 より大きくする必要があります",
     "Conversation": "会話",
+  "Conversation with {{site}}": "{{site}} との会話",
+  "{{count}} unread": "未読 {{count}} 件",
     "Plain message": "通常メッセージ",
     "Negotiation": "交渉",
     "Offer": "優待",
