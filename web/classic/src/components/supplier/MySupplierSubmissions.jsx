@@ -32,7 +32,8 @@ import {
 import { IconEyeOpened } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, timestamp2string } from '../../helpers';
-import SupplierConversation, {
+import {
+  SupplierConversationDialog,
   supplierDetailColumnStyle,
   supplierDetailFactsStyle,
   supplierSheetBodyStyle,
@@ -85,6 +86,7 @@ const MySupplierSubmissions = () => {
   });
   const [selectedApp, setSelectedApp] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [conversationOpen, setConversationOpen] = useState(false);
   const sheetWidth = useSupplierSheetWidth(600);
 
   const loadApplications = async (page = 1) => {
@@ -136,7 +138,7 @@ const MySupplierSubmissions = () => {
       render: (text, record) => (
         <span className='inline-flex items-center gap-2'>
           <Text strong>{text}</Text>
-          <SupplierMessageCount count={record.message_count} />
+          <SupplierMessageCount count={record.unread_count} />
         </span>
       ),
     },
@@ -202,6 +204,7 @@ const MySupplierSubmissions = () => {
         }
         visible={detailVisible}
         onCancel={() => setDetailVisible(false)}
+        closeOnEsc={!conversationOpen}
         width={sheetWidth}
         bodyStyle={supplierSheetBodyStyle}
       >
@@ -318,12 +321,23 @@ const MySupplierSubmissions = () => {
               </Card>
             </div>
 
-            <SupplierConversation
+            <div style={{ flexShrink: 0 }}>
+            <SupplierConversationDialog
               applicationId={selectedApp.id}
+              siteName={selectedApp.site_name}
               messages={selectedApp.messages}
               canSend
               mode='personal'
-              dock='fill'
+              unreadCount={selectedApp.unread_count}
+              onOpenChange={setConversationOpen}
+              onRead={(unread) => {
+                const apply = (application) =>
+                  !application || application.id !== selectedApp.id
+                    ? application
+                    : { ...application, unread_count: unread };
+                setSelectedApp((current) => apply(current));
+                setApplications((current) => current.map((item) => apply(item)));
+              }}
               onSent={(message) => {
                 const append = (application) => {
                   if (!application || application.id !== selectedApp.id)
@@ -344,6 +358,7 @@ const MySupplierSubmissions = () => {
                 );
               }}
             />
+            </div>
           </div>
         )}
       </SideSheet>

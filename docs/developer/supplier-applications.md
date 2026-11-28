@@ -13,7 +13,8 @@
 - `SupplierApplication`（表 `supplier_applications`）：一次不可修改的提交。字段：`user_id`、`site_name`、`site_url`、`contact_type`、`contact`、`remark`、`status`、`admin_note`、`handled_by`、`handled_at`、`version`、`fingerprint`（不对外输出）、`created_at`、`updated_at`。
 - `SupplierApplicationQuote`（表 `supplier_application_quotes`）：每个分组一行，`application_id`、`sort_order`、`group_name`、`platform`、`ratio`、`models`（JSON 文本数组，`TEXT` 兼容三种数据库）、`description`。创建申请与全部报价在同一事务内提交。
 - `SupplierApplicationMessage`（表 `supplier_application_messages`）：申请下只追加、不可修改的对话。字段：`application_id`、`author_id`、`author_role`（`applicant`/`admin`）、`message_type`、`body`、`group_name`、`ratio`、`quantity`、`unit`、`quota_status`、`created_at`。
-- 三个模型同时注册在 `migrateDB` 与 `migrateDBFast`，仅用 GORM 方法和显式转义的 `LIKE`，SQLite/MySQL/PostgreSQL 通用；没有新增外部依赖，也未触及现有表。
+- `SupplierApplicationRead`（表 `supplier_application_reads`）：当前登录用户在某条申请上的已读位置。`(user_id, application_id)` 唯一。字段：`last_read_message_id`、`updated_at`。只在打开对话弹窗时推进，打开详情不写。游标只向前，不回退。
+- 四个模型同时注册在 `migrateDB` 与 `migrateDBFast`，仅用 GORM 方法和显式转义的 `LIKE`，SQLite/MySQL/PostgreSQL 通用；没有新增外部依赖，也未触及现有表。已读写入对申请行使用 `lockForUpdate`（SQLite 跳过 `FOR UPDATE`），唯一冲突重试一次。
 - 权限资源 `supplier_applications`（`service/authz/resources_supplier_applications.go`）：`read`、`write`，内置 admin 默认拥有，超级管理员始终拥有，可在现有“管理员权限”编辑器中单独撤销。
 - 用户接口只读取会话用户自己的申请；管理接口要求 AdminAuth 加对应权限。管理范围只由路由构造，不能由请求参数或用户角色自动切换（管理员自己的申请同样走个人接口）。
 
@@ -27,17 +28,19 @@
 - `POST /api/supplier-applications`：提交申请，写入按用户限流（`UserCriticalRateLimit("supplier-application-write")`）。请求体限 64 KiB，尾随第二段 JSON 返回 400，超限 413。
 - `GET /api/supplier-applications/:id`：本人申请详情；他人或不存在均返回 404。
 - `POST /api/supplier-applications/:id/messages`：申请人给自己的申请追加消息，限流与提交申请相同。他人申请返回 404。
-- 没有更新或删除接口：提交后不可修改，更正需重新提交，历史记录保留。
+- `POST /api/supplier-applications/:id/read`：只在打开对话弹窗时调用，限流键 `supplier-application-read`。把当前用户的已读位置推进到此刻最后一条对话，返回 `{unread_count}`。不改申请、余额或配置，也不写审计。他人申请返回 404。打开详情或列表不会调用它。
+- 没有更新或删除申请的接口：提交后不可修改，更正需重新提交，历史记录保留。
 
-个人视图字段（唯一形态）：`id,site_name,site_url,contact_type,contact,remark,status,created_at,groups[],messages[],message_count`。**不含** `admin_note`、`handled_by`、`handled_at`、`handled_by_name`、`user_id`、`version`。分组项：`id,group_name,platform,ratio,models[],description`。消息按 `created_at,id` 升序，空列表也返回数组。`message_count` 是该申请的对话条数，四种对话类型都计入，**不计入内部备注**。列表和详情都直接返回这个数字；前端用它显示标记，不得再按申请逐条请求对话。
+个人视图字段（唯一形态）：`id,site_name,site_url,contact_type,contact,remark,status,created_at,groups[],messages[],message_count,unread_count`。**不含** `admin_note`、`handled_by`、`handled_at`、`handled_by_name`、`user_id`、`version`。分组项：`id,group_name,platform,ratio,models[],description`。消息按 `created_at,id` 升序，空列表也返回数组。`message_count` 仍是该申请的对话条数，四种对话类型都计入，**不计入内部备注**。`unread_count` 是当前用户还没看过、且不是自己发送的对话条数；自己的消息和内部备注都不算。列表和详情都直接返回这两个数字；前端标记只用 `unread_count`，不得再按申请逐条请求对话。
 
 管理接口（`/api/supplier-application-admin`，AdminAuth）：
 
 - `GET /`：需要 `supplier_applications:read`。支持 `p/page_size/status/keyword/user_id`。`keyword` 不区分大小写，匹配站点名称、站点地址、联系方式和分组名称；纯数字还匹配申请 ID 与用户 ID。`%`、`_` 按字面量搜索（`ESCAPE '!'`）。
 - `GET /:id`：需要 `read`，返回完整资料。
 - `PUT /:id`：需要 `write`，请求 `{status, admin_note, version}`，返回更新后的管理视图。
+- `POST /:id/read`：需要 `read`，不需要 `write`。只读管理员可以标记已读，仍不能发送或修改处理状态。返回 `{unread_count}`，不写审计。
 - `POST /:id/messages`：需要 `write`，限流与处理申请相同。只读管理员可以查看对话，不能发送。
-- 管理视图额外字段：`user_id,username,admin_note,handled_by,handled_by_name,handled_at,version,updated_at`。`message_count` 与个人视图相同，只统计对话，不把内部备注算进去。用户名在每页内批量解析，无逐行查询。
+- 管理视图额外字段：`user_id,username,admin_note,handled_by,handled_by_name,handled_at,version,updated_at`，以及与个人视图相同的 `message_count`、`unread_count`。未读按当前管理员计算，不把内部备注算进去。用户名在每页内批量解析，无逐行查询。
 
 消息请求 `{type, body, group_name?, ratio?, quantity?, unit?, quota_status?}`。响应是单条消息：`id,author_id,author_role,author_name,type,body,group_name?,ratio?,quantity?,unit?,quota_status?,created_at`。类型只保留自己的字段；无关字段一律 400。
 
@@ -91,8 +94,8 @@
 
 - 路由：个人 `/supplier-applications`，管理 `/supplier-application-management`（`beforeLoad` 校验角色与 `supplier_applications:read`，否则 `/403`）。
 - 导航：顶部导航“供货商申请”（`HeaderNavModules.supplier_application`，默认开启，未登录时按现有“需要登录”逻辑提示）；个人侧栏 `personal.supplier_application`；管理侧栏 `admin.supplier_application_admin`（需 `read` 权限）。三个开关均出现在系统设置的导航与侧栏模块表单中，缺失的旧配置按默认开启补齐。
-- 申请页：流程说明、醒目提示“请勿在此填写 API 密钥”和“提交后无法修改”；表单含站点信息、1–20 个动态分组（数量/上限提示）、主要模型标签（回车添加、可移除，忽略输入法组合态）；“我的提交”展示时间、状态、站点与分组报价详情，空列表显示“暂无提交”。站点名称旁仅在 `message_count > 0` 时显示消息图标和数量。展开后按时间显示对话，并可发送普通消息、议价、优惠和测试额度。对话列表在详情内单独滚动，发送区固定在该详情底部，不跟在消息后面把最后一条挡住或挤扁。申请人详情没有状态编辑或内部备注。
-- 管理页：搜索、状态与用户 ID 筛选、分页表格；有对话的申请在站点名称旁显示同样的消息图标和数量，没有对话则不显示。详情抽屉最上方仍是处理块，默认只显示当前状态和「编辑」；点击编辑才展开状态下拉和内部备注。无 `write` 权限时不显示编辑，也不能发送。申请人、网站和分组报价在处理块之后、对话之前。发送区固定在抽屉底部，对话列表在它上方单独滚动，并为发送区留出高度。状态流转、权限和字段含义不变。
+- 申请页：流程说明、醒目提示“请勿在此填写 API 密钥”和“提交后无法修改”；表单含站点信息、1–20 个动态分组（数量/上限提示）、主要模型标签（回车添加、可移除，忽略输入法组合态）；“我的提交”展示时间、状态、站点与分组报价详情，空列表显示“暂无提交”。站点名称旁仅在 `unread_count > 0` 时显示未读图标和数量，不显示消息总数。展开详情只显示站点、联系方式和分组报价，不内嵌对话。详情里的「对话」按钮打开独立弹窗；有未读时按钮带上数量。弹窗标题包含站点名称，桌面宽约 56rem，窄屏不超过视口。记录、消息类型、输入和发送都在弹窗里。消息列表单独滚动，发送区固定在弹窗底部。关闭弹窗回到仍打开的详情，未发送草稿保留；关掉详情后草稿可以丢掉。打开弹窗才标记已读，只打开详情不标记。申请人详情没有状态编辑或内部备注。
+- 管理页：搜索、状态与用户 ID 筛选、分页表格；未读大于 0 的申请在站点名称旁显示同样的未读图标和数量，没有未读则不显示总数。详情抽屉最上方仍是处理块，默认只显示当前状态和「编辑」；点击编辑才展开状态下拉和内部备注。无 `write` 权限时不显示编辑，也不能发送，但可以打开对话并标记已读。申请人、网站和分组报价在处理块之后。对话不嵌在抽屉里，由底部「对话」按钮打开同一个独立弹窗。状态流转、权限和字段含义不变。
 - 对话区域使用 `min-w-0` 与 `overflow-wrap:anywhere`，窄屏不把长分组名、说明或消息横向撑出页面。
 - 长分组名、长模型名使用 `overflow-wrap:anywhere` 换行，桌面与 390px 手机宽度下无横向溢出。
 - 七语翻译已写入 `web/src/i18n/locales/*.json` 的 `translation` 命名空间；写权限说明为 “Update supplier application status and internal notes, and record conversation messages.”。
@@ -100,7 +103,7 @@
 ## 模板范围
 
 - **Default**：本变更完整覆盖（入口、表单、我的提交、管理页、导航与设置、国际化）。
-- **Classic**（`web/classic`）：个人入口 `/console/supplier-applications`，管理入口 `/console/supplier-application-management`。详情使用 Semi `SideSheet`，窄屏宽度为 `100%`，桌面分别为 600 和 700。我的提交和管理详情都显示同一时间顺序的对话；发送区同样固定在详情底部，对话列表单独滚动。只有具备 `supplier_applications:write` 的管理员看到发送表单，处理状态也默认折叠，点击「编辑」才出现状态下拉和内部备注。内部备注仍不进入对话。文案写入 Classic 现有语言文件。侧栏设置合并仍保留未知配置键；该保留行为只做了源码核对，未在 Classic 浏览器中实测。
+- **Classic**（`web/classic`）：个人入口 `/console/supplier-applications`，管理入口 `/console/supplier-application-management`。详情使用 Semi `SideSheet`，窄屏宽度为 `100%`，桌面分别为 600 和 700。对话改到 Semi `Modal`：桌面宽 960，窄屏接近全屏；第一次打开后保留 DOM，关闭弹窗不清空输入。弹窗打开时详情的 Esc 不再关掉详情。未读标记与 Default 相同。只有具备 `supplier_applications:write` 的管理员看到发送表单，处理状态也默认折叠，点击「编辑」才出现状态下拉和内部备注。内部备注仍不进入对话，也不计未读。文案写入 Classic 现有语言文件。侧栏设置合并仍保留未知配置键；该保留行为只做了源码核对，未在 Classic 浏览器中实测。
 
 ## 已知限制
 
@@ -113,8 +116,8 @@
 ## 测试
 
 - 后端（`router/supplier_application_router_test.go`，真实路由与 SQLite）：个人隔离与 404；注入的归属/状态/备注被忽略；重复与并发只保存一份；24 小时限额按用户独立；30 项非法输入（缺失、超长、控制字符、协议、内嵌密码、凭据形态、分组数、平台、倍率边界与精度、模型数/重复/长度）均 400 且不落库；边界合法值（20 组、20 模型、倍率 0.0001/1000）通过；管理员完整视图、搜索、筛选；处理记录处理人与时间、审计不含备注与联系方式；版本冲突 409；个人响应不含任何内部字段；单独撤销读/写权限；不创建渠道、不改动分组。
-- 对话（`router/supplier_application_message_test.go`）：申请人只能写自己的申请；管理员写权限才能走管理接口；四类消息保存后按时间回读；明显凭据 400；内部备注不出现在对话；优惠和测试额度不改变用户 `quota`、`used_quota`、`aff_quota`，也不改分组。`TestSupplierApplicationListMessageCountIgnoresInternalNotes` 覆盖列表 `message_count`：只有内部备注时为 0，两条对话时为 2，个人列表和详情不含 `admin_note` 等管理字段。
+- 对话（`router/supplier_application_message_test.go`）：申请人只能写自己的申请；管理员写权限才能走管理接口；四类消息保存后按时间回读；明显凭据 400；内部备注不出现在对话；优惠和测试额度不改变用户 `quota`、`used_quota`、`aff_quota`，也不改分组。`TestSupplierApplicationListMessageCountIgnoresInternalNotes` 覆盖列表 `message_count`：只有内部备注时为 0，两条对话时为 2，个人列表和详情不含 `admin_note` 等管理字段。`TestSupplierApplicationUnreadFollowsReadCursor` 覆盖未读：自己的消息不计、对方的消息计、内部备注不计、只打开详情不改变未读、打开对话的已读接口把当前用户未读清零且不影响对方、之后对方新消息重新计入、他人申请标记已读返回 404、只读管理员可以标记已读但不能发消息，余额不变。
 - 权限目录：`service/authz/authz_test.go` 的期望含新资源。
-- 前端（`web/src/features/supplier-applications/__tests__`）：原有表单、权限和只读覆盖之外，增加议价发送载荷，以及无写权限时不出现发送按钮。消息标记测试确认有数量时显示图标和数字、没有消息时不显示，并且管理详情的处理标题位于对话之前。同一套测试还确认处理状态初始折叠、点击编辑后才出现设置，以及发送区在滚动对话之外并为它留出高度。Classic 对应覆盖在 `web/classic/src/components/supplier/__tests__/message-count.compat.test.jsx`。
-- 本次调整的问题、范围和未覆盖项见[消息数量与处理块位置](../workflows/2026-11/28_supplier_application_message_count.md)和[发送区固定与处理状态折叠](../workflows/2026-11/28_supplier_application_composer_dock.md)。
+- 前端（`web/src/features/supplier-applications/__tests__`）：原有表单、权限和只读覆盖之外，增加议价发送载荷，以及无写权限时不出现发送按钮。未读标记测试确认只在 `unread_count > 0` 时显示图标和数字，消息总数即使更大也不显示。详情默认没有对话记录和发送区；打开「对话」后才能看到记录并发送。打开详情不调用已读接口，打开弹窗才调用，成功后数字消失。自己发出的消息不会变成新的未读。管理详情的处理块仍在「对话」按钮之前，处理状态初始折叠。弹窗内发送区在滚动对话之外，对话槽 `minHeight` 为 0 且 `overflow` 为 `hidden`。Classic 对应覆盖在 `web/classic/src/components/supplier/__tests__/message-count.compat.test.jsx`。
+- 本次调整的问题、范围和未覆盖项见[消息数量与处理块位置](../workflows/2026-11/28_supplier_application_message_count.md)、[发送区固定与处理状态折叠](../workflows/2026-11/28_supplier_application_composer_dock.md)和[对话弹窗与未读数](../workflows/2026-11/28_supplier_application_conversation_dialog.md)。
 - 浏览器：隔离 SQLite 的真实服务加 Chromium，桌面 1280px 与手机 390px 走完 33 项真实路径检查，见[工作记录](../workflows/2026-11/26_supplier_applications.md)。

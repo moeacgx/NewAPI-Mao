@@ -6681,6 +6681,8 @@
     "周期额度必须大于 0": "Le quota périodique doit être supérieur à 0",
     "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "Quota total qui ne se réinitialise pas avec la période. Le rendre illimité ne modifie ni le quota périodique ni le solde du compte.",
     "Conversation": "Conversation",
+  "Conversation with {{site}}": "Conversation avec {{site}}",
+  "{{count}} unread": "{{count}} non lus",
     "Plain message": "Message simple",
     "Negotiation": "Négociation",
     "Offer": "Offre",

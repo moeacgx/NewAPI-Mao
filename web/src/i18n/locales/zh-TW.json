@@ -7922,6 +7922,8 @@
     "Quota cannot exceed {{max}}": "額度不能超過 {{max}}",
     "Period quota must be greater than 0": "週期額度必須大於 0",
     "Conversation": "對話",
+  "Conversation with {{site}}": "與 {{site}} 的對話",
+  "{{count}} unread": "{{count}} 則未讀",
     "Plain message": "普通訊息",
     "Negotiation": "議價",
     "Offer": "優惠",

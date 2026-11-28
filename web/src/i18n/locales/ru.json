@@ -7922,6 +7922,8 @@
     "Quota cannot exceed {{max}}": "Квота не может превышать {{max}}",
     "Period quota must be greater than 0": "Квота за период должна быть больше 0",
     "Conversation": "Переписка",
+  "Conversation with {{site}}": "Переписка с {{site}}",
+  "{{count}} unread": "Непрочитано: {{count}}",
     "Plain message": "Обычное сообщение",
     "Negotiation": "Торг",
     "Offer": "Предложение",

@@ -6760,6 +6760,8 @@
     "周期额度必须大于 0": "周期额度必须大于 0",
     "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "不随周期重置的总额度，设为不限不会影响周期额度和账户余额",
     "Conversation": "对话",
+  "Conversation with {{site}}": "与 {{site}} 的对话",
+  "{{count}} unread": "{{count}} 条未读",
     "Plain message": "普通消息",
     "Negotiation": "议价",
     "Offer": "优惠",

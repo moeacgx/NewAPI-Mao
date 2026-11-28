@@ -7165,6 +7165,8 @@
     "周期额度必须大于 0": "Hạn mức theo chu kỳ phải lớn hơn 0",
     "不随周期重置的总额度，设为不限不会影响周期额度和账户余额": "Tổng hạn mức không đặt lại theo chu kỳ. Đặt không giới hạn không ảnh hưởng hạn mức chu kỳ và số dư tài khoản.",
     "Conversation": "Hội thoại",
+  "Conversation with {{site}}": "Hội thoại với {{site}}",
+  "{{count}} unread": "{{count}} chưa đọc",
     "Plain message": "Tin nhắn thường",
     "Negotiation": "Thương lượng",
     "Offer": "Ưu đãi",

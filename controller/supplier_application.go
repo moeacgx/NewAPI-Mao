@@ -164,7 +164,7 @@ func (api SupplierApplicationAPI) Detail(c *gin.Context) {
 		return
 	}
 	if api.Admin {
-		view, err := model.GetSupplierApplicationForAdmin(id)
+		view, err := model.GetSupplierApplicationForAdmin(id, c.GetInt("id"))
 		if err != nil {
 			writeSupplierApplicationError(c, err)
 			return
@@ -238,4 +238,21 @@ func (api SupplierApplicationAPI) CreateMessage(c *gin.Context) {
 		recordUserSecurityAudit(c, c.GetInt("id"), "supplier_application.message", params)
 	}
 	common.ApiSuccess(c, result.View)
+}
+
+// MarkRead 只在打开对话弹窗时调用。它推进当前用户的已读位置，不改申请、余额或配置。
+func (api SupplierApplicationAPI) MarkRead(c *gin.Context) {
+	if !api.authorized(c) {
+		return
+	}
+	id, ok := supplierApplicationPathID(c)
+	if !ok {
+		return
+	}
+	result, err := model.MarkSupplierApplicationRead(id, c.GetInt("id"), api.Admin)
+	if err != nil {
+		writeSupplierApplicationError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
 }
